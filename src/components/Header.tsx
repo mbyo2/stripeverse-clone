@@ -1,10 +1,15 @@
 
 import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { cn } from "@/lib/utils";
+import { User, Wallet, ArrowUpRight, LineChart, LogOut } from 'lucide-react';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
+  const isLoggedIn = false; // This would be connected to your auth state
   
   useEffect(() => {
     const handleScroll = () => {
@@ -17,6 +22,27 @@ const Header = () => {
     };
   }, []);
 
+  const navItems = isLoggedIn 
+    ? [
+        { name: 'Dashboard', path: '/dashboard', icon: <LineChart className="w-4 h-4 mr-2" /> },
+        { name: 'Send Money', path: '/send-money', icon: <ArrowUpRight className="w-4 h-4 mr-2" /> },
+        { name: 'Wallet', path: '/wallet', icon: <Wallet className="w-4 h-4 mr-2" /> },
+        { name: 'Transactions', path: '/transactions', icon: <LineChart className="w-4 h-4 mr-2" /> }
+      ]
+    : isHomePage
+      ? [
+          { name: 'Features', path: '#features', icon: null },
+          { name: 'Products', path: '#products', icon: null },
+          { name: 'Reviews', path: '#reviews', icon: null },
+          { name: 'Contact', path: '#contact', icon: null }
+        ]
+      : [
+          { name: 'Features', path: '/#features', icon: null },
+          { name: 'Products', path: '/#products', icon: null },
+          { name: 'Reviews', path: '/#reviews', icon: null },
+          { name: 'Contact', path: '/#contact', icon: null }
+        ];
+
   return (
     <header 
       className={cn(
@@ -25,24 +51,38 @@ const Header = () => {
       )}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
-        <a href="#" className="text-2xl font-bold transition-opacity duration-300 hover:opacity-80">
-          Essence
-        </a>
+        <Link to="/" className="text-2xl font-bold transition-opacity duration-300 hover:opacity-80">
+          ZamPay
+        </Link>
         
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-8">
-          {['Products', 'Features', 'Reviews', 'Contact'].map((item) => (
-            <a 
-              key={item} 
-              href={`#${item.toLowerCase()}`}
-              className="text-sm font-medium text-foreground/80 transition-colors duration-300 hover:text-foreground"
+          {navItems.map((item) => (
+            <Link 
+              key={item.name} 
+              to={item.path}
+              className="text-sm font-medium text-foreground/80 transition-colors duration-300 hover:text-foreground flex items-center"
             >
-              {item}
-            </a>
+              {item.icon}
+              {item.name}
+            </Link>
           ))}
-          <button className="button-primary text-sm">
-            Explore
-          </button>
+          
+          {isLoggedIn ? (
+            <button className="button-primary text-sm flex items-center">
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </button>
+          ) : (
+            <div className="flex items-center space-x-4">
+              <Link to="/login" className="text-sm font-medium text-foreground/80 transition-colors duration-300 hover:text-foreground">
+                Login
+              </Link>
+              <Link to="/register" className="button-primary text-sm">
+                Sign Up
+              </Link>
+            </div>
+          )}
         </nav>
         
         {/* Mobile Menu Toggle */}
@@ -69,22 +109,47 @@ const Header = () => {
       {/* Mobile Menu */}
       <div className={cn(
         "md:hidden absolute w-full top-full left-0 bg-white/95 backdrop-blur-lg shadow-medium transition-all duration-500 ease-apple-ease overflow-hidden",
-        isMobileMenuOpen ? "max-h-64 opacity-100" : "max-h-0 opacity-0"
+        isMobileMenuOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
       )}>
         <div className="px-4 py-4 space-y-4">
-          {['Products', 'Features', 'Reviews', 'Contact'].map((item) => (
-            <a 
-              key={item} 
-              href={`#${item.toLowerCase()}`}
-              className="block py-2 text-foreground/80 hover:text-foreground transition-colors duration-300"
+          {navItems.map((item) => (
+            <Link 
+              key={item.name} 
+              to={item.path}
+              className="block py-2 text-foreground/80 hover:text-foreground transition-colors duration-300 flex items-center"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              {item}
-            </a>
+              {item.icon}
+              {item.name}
+            </Link>
           ))}
-          <button className="button-primary w-full text-center">
-            Explore
-          </button>
+          
+          {isLoggedIn ? (
+            <button 
+              className="button-primary w-full text-center flex items-center justify-center"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </button>
+          ) : (
+            <>
+              <Link 
+                to="/login" 
+                className="block py-2 text-foreground/80 hover:text-foreground transition-colors duration-300"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Login
+              </Link>
+              <Link 
+                to="/register" 
+                className="button-primary w-full text-center"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Sign Up
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
