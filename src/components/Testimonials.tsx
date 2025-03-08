@@ -95,7 +95,7 @@ const Testimonials: React.FC = () => {
                 <p className="text-sm text-foreground/60">{testimonial.role}</p>
               </div>
             </div>
-            <blockquote className="text-foreground/80 relative pl-6 before:content-['\\"'] before:absolute before:top-0 before:left-0 before:text-4xl before:text-primary/20 before:font-serif before:leading-tight">
+            <blockquote className="text-foreground/80 relative pl-6 before:content-[\"\"] before:absolute before:top-0 before:left-0 before:text-4xl before:text-primary/20 before:font-serif before:leading-tight">
               {testimonial.quote}
             </blockquote>
           </div>
