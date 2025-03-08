@@ -16,7 +16,7 @@ const Checkout = () => {
   
   // Get amount from location state or use default
   const amount = location.state?.amount || 100;
-  const productName = location.state?.productName || "ZamPay Service";
+  const productName = location.state?.productName || "BMaGlass Pay Service";
   
   const handlePaymentSuccess = (response: { 
     paymentId: string; 

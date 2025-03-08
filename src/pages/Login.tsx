@@ -26,7 +26,7 @@ const Login = () => {
       
       toast({
         title: "Login successful",
-        description: "Welcome back to ZamPay!",
+        description: "Welcome back to BMaGlass Pay!",
       });
       
       // Redirect would happen here
@@ -39,7 +39,7 @@ const Login = () => {
       <main className="flex-1 flex items-center justify-center p-4 pt-24">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Sign in to ZamPay</CardTitle>
+            <CardTitle className="text-2xl font-bold text-center">Sign in to BMaGlass Pay</CardTitle>
             <CardDescription className="text-center">
               Enter your email and password to access your account
             </CardDescription>

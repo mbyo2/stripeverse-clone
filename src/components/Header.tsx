@@ -52,7 +52,7 @@ const Header = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <Link to="/" className="text-2xl font-bold transition-opacity duration-300 hover:opacity-80">
-          ZamPay
+          BMaGlass Pay
         </Link>
         
         {/* Desktop Navigation */}

@@ -144,7 +144,7 @@ const SendMoney = () => {
                         <SelectValue placeholder="Select payment method" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="wallet">ZamPay Wallet (K2,450.00)</SelectItem>
+                        <SelectItem value="wallet">BMaGlass Pay Wallet (K2,450.00)</SelectItem>
                         <SelectItem value="mtn">MTN Mobile Money</SelectItem>
                         <SelectItem value="airtel">Airtel Money</SelectItem>
                         <SelectItem value="zamtel">Zamtel Kwacha</SelectItem>
@@ -176,7 +176,7 @@ const SendMoney = () => {
                   </div>
                   <h3 className="text-xl font-bold mb-2">Transaction Complete!</h3>
                   <p className="mb-4">You've sent <strong>K {amount}</strong> to <strong>{recipient}</strong></p>
-                  <p className="text-sm text-muted-foreground">Transaction ID: #ZP{Math.floor(Math.random() * 1000000)}</p>
+                  <p className="text-sm text-muted-foreground">Transaction ID: #BP{Math.floor(Math.random() * 1000000)}</p>
                 </div>
               )}
             </CardContent>

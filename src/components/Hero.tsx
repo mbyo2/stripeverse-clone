@@ -56,7 +56,7 @@ const Hero = () => {
             Simple payments for<br />everyone in Zambia
           </h1>
           <p className="body-text mb-8 animate-fadeInUp animate-delay-3">
-            ZamPay makes it easy to send money, pay bills, and manage your finances in one place. 
+            BMaGlass Pay makes it easy to send money, pay bills, and manage your finances in one place. 
             Join thousands of Zambians who trust us with their everyday transactions.
           </p>
           <div className="flex flex-wrap gap-4 animate-fadeInUp animate-delay-4">
@@ -80,7 +80,7 @@ const Hero = () => {
                 </div>
               ))}
             </div>
-            <span>Join 10,000+ Zambians using ZamPay</span>
+            <span>Join 10,000+ Zambians using BMaGlass Pay</span>
           </div>
         </div>
         
@@ -90,7 +90,7 @@ const Hero = () => {
             <div className="bg-white/90 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-gray-100 w-[320px]">
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h3 className="font-bold text-lg">ZamPay Wallet</h3>
+                  <h3 className="font-bold text-lg">BMaGlass Pay Wallet</h3>
                   <p className="text-sm text-muted-foreground">Quick Transfer</p>
                 </div>
                 <Wallet className="h-10 w-10 text-primary p-2 bg-primary/10 rounded-full" />

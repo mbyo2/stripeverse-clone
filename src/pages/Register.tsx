@@ -28,7 +28,7 @@ const Register = () => {
       
       toast({
         title: "Registration successful",
-        description: "Welcome to ZamPay! Your account has been created.",
+        description: "Welcome to BMaGlass Pay! Your account has been created.",
       });
       
       // Redirect would happen here
@@ -43,7 +43,7 @@ const Register = () => {
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
             <CardDescription className="text-center">
-              Enter your details to create your ZamPay account
+              Enter your details to create your BMaGlass Pay account
             </CardDescription>
           </CardHeader>
           <CardContent>
