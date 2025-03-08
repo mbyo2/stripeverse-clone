@@ -3,13 +3,15 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import { User, Wallet, ArrowUpRight, LineChart, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const isHomePage = location.pathname === '/';
-  const isLoggedIn = false; // This would be connected to your auth state
+  const { user, signOut } = useAuth();
+  const isLoggedIn = !!user;
   
   useEffect(() => {
     const handleScroll = () => {
@@ -21,6 +23,11 @@ const Header = () => {
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    setIsMobileMenuOpen(false);
+  };
 
   const navItems = isLoggedIn 
     ? [
@@ -69,7 +76,10 @@ const Header = () => {
           ))}
           
           {isLoggedIn ? (
-            <button className="button-primary text-sm flex items-center">
+            <button 
+              className="button-primary text-sm flex items-center"
+              onClick={handleSignOut}
+            >
               <LogOut className="w-4 h-4 mr-2" />
               Logout
             </button>
@@ -127,7 +137,7 @@ const Header = () => {
           {isLoggedIn ? (
             <button 
               className="button-primary w-full text-center flex items-center justify-center"
-              onClick={() => setIsMobileMenuOpen(false)}
+              onClick={handleSignOut}
             >
               <LogOut className="w-4 h-4 mr-2" />
               Logout
