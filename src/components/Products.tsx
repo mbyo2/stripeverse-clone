@@ -1,37 +1,59 @@
 
-import { useRef, useEffect, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { useState, useRef, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency } from "@/lib/utils";
+import { CreditCard, CheckCircle2, Smartphone } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-const products = [
+// Define our product data
+const productData = [
   {
     id: 1,
-    name: "The Minimalist Collection",
-    description: "Elevate your everyday with our minimalist collection, where form meets function in perfect harmony.",
-    image: "https://images.unsplash.com/photo-1618220179428-22790b461013?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1780&q=80"
+    title: "Standard Plan",
+    description: "Perfect for small businesses and individuals",
+    price: 100,
+    features: ["Up to 100 transactions per month", "Email support", "Basic analytics"],
+    popular: false
   },
   {
     id: 2,
-    name: "Essence Studio",
-    description: "Experience sound as the artist intended with our meticulously engineered audio products.",
-    image: "https://images.unsplash.com/photo-1612095515920-96ac62cb828a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1742&q=80"
+    title: "Business Plan",
+    description: "Built for growing businesses with more needs",
+    price: 250,
+    features: ["Up to 1,000 transactions per month", "Priority support", "Advanced analytics", "Multiple payment methods"],
+    popular: true
   },
   {
     id: 3,
-    name: "Purity Series",
-    description: "Clean lines and pure materials create our most refined collection yet.",
-    image: "https://images.unsplash.com/photo-1613156684806-ede8b0af1ebe?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1743&q=80"
+    title: "Enterprise Plan",
+    description: "For large businesses with high transaction volumes",
+    price: 500,
+    features: ["Unlimited transactions", "24/7 dedicated support", "Custom reporting", "API access", "Multiple users"],
+    popular: false
   }
 ];
 
 const Products = () => {
-  const [activeProduct, setActiveProduct] = useState(0);
   const productsRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  
+  const handleSubscribe = (product: typeof productData[0]) => {
+    // Navigate to checkout with product information
+    navigate('/checkout', { 
+      state: { 
+        amount: product.price, 
+        productName: product.title 
+      } 
+    });
+  };
   
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          productsRef.current?.classList.add('animate-fadeInUp');
+          productsRef.current?.classList.add('animate-fadeIn');
           observer.unobserve(entries[0].target);
         }
       },
@@ -48,76 +70,64 @@ const Products = () => {
       }
     };
   }, []);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveProduct((prev) => (prev + 1) % products.length);
-    }, 5000);
-    
-    return () => clearInterval(interval);
-  }, []);
 
   return (
-    <section id="products" className="section bg-secondary/50">
-      <div className="text-center mb-16">
-        <span className="inline-block px-3 py-1 rounded-full bg-white text-sm font-medium text-foreground mb-4">
-          Our Products
-        </span>
-        <h2 className="heading-2 mb-4">
-          Beautifully Crafted
-        </h2>
-        <p className="body-text max-w-2xl mx-auto">
-          Each product is designed with intention and purpose, creating a cohesive experience that reflects our commitment to quality.
-        </p>
-      </div>
-      
-      <div 
-        ref={productsRef}
-        className="relative h-[600px] opacity-0"
-      >
-        <div className="absolute inset-0 flex items-center justify-center">
-          {products.map((product, index) => (
-            <div 
-              key={product.id}
-              className={cn(
-                "absolute inset-0 flex flex-col md:flex-row items-center gap-8 transition-all duration-1000 ease-apple-ease",
-                activeProduct === index 
-                  ? "opacity-100 translate-x-0 z-10" 
-                  : "opacity-0 translate-x-[100px] z-0"
-              )}
+    <section id="products" className="section">
+      <div ref={productsRef} className="opacity-0">
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <h2 className="heading-2 mb-4">
+            Choose Your Plan
+          </h2>
+          <p className="body-text mx-auto">
+            Our simple, transparent pricing plans are designed to fit businesses of all sizes in Zambia.
+            All plans come with our secure payment infrastructure.
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
+          {productData.map((product) => (
+            <Card 
+              key={product.id} 
+              className={`overflow-hidden transition-all duration-300 hover:shadow-lg ${product.popular ? 'border-primary/50 shadow-md relative' : ''}`}
             >
-              <div className="w-full md:w-1/2 md:pr-8">
-                <div className="relative overflow-hidden rounded-2xl group">
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-all duration-500 ease-apple-ease"></div>
-                  <img 
-                    src={product.image} 
-                    alt={product.name} 
-                    className="w-full h-[300px] md:h-[400px] object-cover transition-transform duration-700 ease-apple-ease group-hover:scale-105"
-                    loading="lazy"
-                  />
+              {product.popular && (
+                <Badge className="absolute top-4 right-4 bg-primary">Most Popular</Badge>
+              )}
+              <CardHeader>
+                <CardTitle>{product.title}</CardTitle>
+                <CardDescription>{product.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-6">
+                  <span className="text-3xl font-bold">{formatCurrency(product.price)}</span>
+                  <span className="text-muted-foreground"> / month</span>
                 </div>
-              </div>
-              <div className="w-full md:w-1/2 text-left">
-                <h3 className="heading-3 mb-4">{product.name}</h3>
-                <p className="body-text mb-6">{product.description}</p>
-                <button className="button-primary mb-8">
-                  Explore {product.name}
-                </button>
                 
-                <div className="flex items-center justify-start space-x-3">
-                  {products.map((_, i) => (
-                    <button 
-                      key={i}
-                      className={cn(
-                        "w-12 h-1.5 rounded-full transition-all duration-300 ease-apple-ease",
-                        activeProduct === i ? "bg-primary" : "bg-primary/30"
-                      )}
-                      onClick={() => setActiveProduct(i)}
-                    />
+                <ul className="space-y-2 mb-6">
+                  {product.features.map((feature, i) => (
+                    <li key={i} className="flex items-start">
+                      <CheckCircle2 className="h-5 w-5 text-primary mr-2 shrink-0 mt-0.5" />
+                      <span>{feature}</span>
+                    </li>
                   ))}
+                </ul>
+                
+                <div className="flex items-center space-x-2 mt-4">
+                  <CreditCard className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Card payments</span>
+                  <Smartphone className="h-4 w-4 text-muted-foreground ml-4" />
+                  <span className="text-sm text-muted-foreground">Mobile money</span>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  onClick={() => handleSubscribe(product)} 
+                  className={`w-full ${product.popular ? 'bg-primary' : ''}`}
+                >
+                  Subscribe Now
+                </Button>
+              </CardFooter>
+            </Card>
           ))}
         </div>
       </div>
