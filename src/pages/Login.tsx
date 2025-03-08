@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { Hash } from "lucide-react";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -82,6 +83,12 @@ const Login = () => {
               Don't have an account?{" "}
               <Link to="/register" className="text-primary hover:underline">
                 Sign up
+              </Link>
+            </div>
+            <div className="text-center text-xs text-muted-foreground border-t pt-4 mt-2">
+              <Link to="/ussd" className="flex items-center justify-center gap-1 hover:text-primary">
+                <Hash className="h-3 w-3" />
+                No smartphone? Access via USSD
               </Link>
             </div>
           </CardFooter>
