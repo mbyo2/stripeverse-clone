@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { formatCardNumber, formatCurrency, isMobileMoneyNumber, validateCardNumber } from "@/lib/utils";
-import { CreditCard, Smartphone, Check } from "lucide-react";
+import { CreditCard, Smartphone, Check, AlertCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type PaymentFormProps = {
   amount: number;
@@ -30,6 +31,7 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
   const [mobileNumber, setMobileNumber] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,8 +50,103 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
     setCardExpiry(value);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const processMobileMoneyPayment = async () => {
+    try {
+      setIsProcessing(true);
+      setError(null);
+      
+      // Call our Supabase Edge Function for mobile money
+      const { data, error } = await supabase.functions.invoke('mobile-money', {
+        body: {
+          phoneNumber: mobileNumber,
+          amount: amount,
+          provider: mobileProvider
+        }
+      });
+      
+      if (error) {
+        throw new Error(error.message || 'Failed to process mobile money payment');
+      }
+      
+      if (data.status === 'failed') {
+        throw new Error(data.message || 'Transaction failed');
+      }
+      
+      // Payment successful
+      setIsComplete(true);
+      
+      toast({
+        title: "Payment successful",
+        description: `Your ${mobileProvider} payment of ${formatCurrency(amount)} has been processed.`,
+      });
+      
+      // Call success callback with payment details
+      if (onSuccess) {
+        onSuccess({
+          paymentId: data.transactionId,
+          method: mobileProvider,
+          status: 'succeeded'
+        });
+      }
+      
+    } catch (err) {
+      console.error('Mobile money payment error:', err);
+      setError(err instanceof Error ? err.message : 'Payment processing failed');
+      
+      toast({
+        title: "Payment failed",
+        description: err instanceof Error ? err.message : 'Please try again or use another payment method.',
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const processCardPayment = async () => {
+    try {
+      setIsProcessing(true);
+      setError(null);
+      
+      // Simulate card payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // For demo purposes, we'll just simulate a successful payment
+      setIsComplete(true);
+      
+      // Call success callback with payment details
+      if (onSuccess) {
+        onSuccess({
+          paymentId: "card_" + Math.random().toString(36).substring(2, 15),
+          method: "card",
+          status: "succeeded"
+        });
+      }
+      
+      toast({
+        title: "Payment successful",
+        description: `Your card payment of ${formatCurrency(amount)} has been processed.`,
+      });
+      
+    } catch (err) {
+      console.error('Card payment error:', err);
+      setError(err instanceof Error ? err.message : 'Payment processing failed');
+      
+      toast({
+        title: "Payment failed",
+        description: err instanceof Error ? err.message : 'Please try again or use another payment method.',
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Reset any previous errors
+    setError(null);
     
     // Validate based on payment method
     if (paymentMethod === "card") {
@@ -70,6 +167,9 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
         });
         return;
       }
+      
+      await processCardPayment();
+      
     } else if (paymentMethod === "mobile") {
       if (!mobileProvider) {
         toast({
@@ -88,30 +188,43 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
         });
         return;
       }
+      
+      await processMobileMoneyPayment();
+    }
+  };
+
+  const formatMobileNumber = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Keep only numbers, limit to 10-12 digits
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 12) {
+      value = value.substring(0, 12);
     }
     
-    // Process payment
-    setIsProcessing(true);
+    // Format display of phone number
+    if (value.startsWith('26') && value.length > 5) {
+      // Format as +26 XX XXX XXXX
+      value = value.replace(/(\d{2})(\d{2})(\d{3})(\d{4})/, '$1 $2 $3 $4').trim();
+    } else if (value.length > 3) {
+      // Format as 0XX XXX XXXX
+      value = value.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3').trim();
+    }
     
-    // Simulate API call to payment processor
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsComplete(true);
-      
-      // Call success callback with payment details
-      if (onSuccess) {
-        onSuccess({
-          paymentId: "pay_" + Math.random().toString(36).substring(2, 15),
-          method: paymentMethod === "card" ? "card" : mobileProvider,
-          status: "succeeded"
-        });
-      }
-      
-      toast({
-        title: "Payment successful",
-        description: `Your payment of ${formatCurrency(amount)} has been processed.`,
-      });
-    }, 2000);
+    setMobileNumber(value);
+  };
+
+  const getMobileProviderHelpText = () => {
+    if (!mobileProvider) return null;
+    
+    const prefixes: Record<string, string[]> = {
+      mtn: ['076', '077', '078'],
+      airtel: ['095', '096', '097'],
+      zamtel: ['050', '051', '052'],
+    };
+    
+    const providerPrefixes = prefixes[mobileProvider.toLowerCase()];
+    if (!providerPrefixes) return null;
+    
+    return `Valid prefixes: ${providerPrefixes.join(', ')}`;
   };
 
   return (
@@ -130,6 +243,14 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
       {!isComplete ? (
         <form onSubmit={handleSubmit}>
           <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
             <Tabs defaultValue="card" onValueChange={setPaymentMethod}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="card">
@@ -205,10 +326,11 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
                     id="mobileNumber" 
                     placeholder="e.g. 097XXXXXXX" 
                     value={mobileNumber}
-                    onChange={(e) => setMobileNumber(e.target.value)}
+                    onChange={formatMobileNumber}
                   />
                   <p className="text-sm text-muted-foreground">
-                    Enter the mobile number associated with your mobile money account
+                    {mobileProvider ? getMobileProviderHelpText() : 
+                      "Enter the mobile number associated with your mobile money account"}
                   </p>
                 </div>
               </TabsContent>
