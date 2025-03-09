@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -10,24 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowRight, Wallet } from "lucide-react";
-
-// Mock virtual cards data
-const mockVirtualCards = {
-  1: {
-    id: 1,
-    name: "Shopping Card",
-    number: "**** **** **** 4444",
-    balance: 350.00,
-    provider: "Visa"
-  },
-  2: {
-    id: 2,
-    name: "Subscription Card",
-    number: "**** **** **** 4444",
-    balance: 125.50,
-    provider: "Mastercard"
-  }
-};
+import { mockVirtualCards } from "@/data/mockData";
 
 const VirtualCardFund = () => {
   const navigate = useNavigate();
@@ -35,10 +18,15 @@ const VirtualCardFund = () => {
   const { toast } = useToast();
   const [amount, setAmount] = useState<string>("50");
   const [loading, setLoading] = useState(false);
-  const [card, setCard] = useState<any>(null);
   
   // Get cardId from location state
   const cardId = location.state?.cardId;
+  
+  // Use useMemo for card data to avoid unnecessary recalculations
+  const card = useMemo(() => {
+    if (!cardId) return null;
+    return mockVirtualCards[cardId as keyof typeof mockVirtualCards] || null;
+  }, [cardId]);
   
   useEffect(() => {
     if (!cardId) {
@@ -46,11 +34,7 @@ const VirtualCardFund = () => {
       return;
     }
     
-    // In a real app, this would fetch the card details from an API
-    const cardData = mockVirtualCards[cardId as keyof typeof mockVirtualCards];
-    if (cardData) {
-      setCard(cardData);
-    } else {
+    if (!card) {
       navigate("/wallet");
       toast({
         title: "Card Not Found",
@@ -58,7 +42,7 @@ const VirtualCardFund = () => {
         variant: "destructive",
       });
     }
-  }, [cardId, navigate, toast]);
+  }, [cardId, card, navigate, toast]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -67,11 +51,15 @@ const VirtualCardFund = () => {
     }
   };
 
+  // Memoize calculated values
+  const parsedAmount = useMemo(() => parseFloat(amount) || 0, [amount]);
+  const fee = useMemo(() => Math.max(parsedAmount * 0.01, 2), [parsedAmount]);
+  const total = useMemo(() => parsedAmount + fee, [parsedAmount, fee]);
+
   const handleFundCard = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const fundAmount = parseFloat(amount);
-    if (isNaN(fundAmount) || fundAmount <= 0) {
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
       toast({
         title: "Invalid Amount",
         description: "Please enter a valid amount to fund the card.",
@@ -87,7 +75,7 @@ const VirtualCardFund = () => {
       setLoading(false);
       toast({
         title: "Card Funded Successfully",
-        description: `${formatCurrency(fundAmount)} has been added to your ${card.name}.`,
+        description: `${formatCurrency(parsedAmount)} has been added to your ${card?.name}.`,
       });
       navigate(`/virtual-card/${cardId}`);
     }, 1500);
@@ -106,6 +94,28 @@ const VirtualCardFund = () => {
       </div>
     );
   }
+
+  // Quick fund options component
+  const QuickFundOptions = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Quick Fund Options</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-2">
+          {[50, 100, 200, 500, 1000, 2000].map((value) => (
+            <Button 
+              key={value} 
+              variant="outline"
+              onClick={() => setAmount(value.toString())}
+            >
+              {formatCurrency(value)}
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
@@ -170,20 +180,20 @@ const VirtualCardFund = () => {
                 <div className="p-4 bg-secondary/10 rounded-md mt-4">
                   <div className="flex justify-between mb-2">
                     <span className="text-muted-foreground">Amount</span>
-                    <span>{formatCurrency(parseFloat(amount) || 0)}</span>
+                    <span>{formatCurrency(parsedAmount)}</span>
                   </div>
                   <div className="flex justify-between mb-2">
                     <span className="text-muted-foreground">Fee (1%)</span>
-                    <span>{formatCurrency(Math.max(parseFloat(amount) * 0.01 || 0, 2))}</span>
+                    <span>{formatCurrency(fee)}</span>
                   </div>
                   <div className="flex justify-between pt-2 border-t font-medium">
                     <span>Total</span>
-                    <span>{formatCurrency((parseFloat(amount) || 0) + Math.max((parseFloat(amount) * 0.01) || 0, 2))}</span>
+                    <span>{formatCurrency(total)}</span>
                   </div>
                 </div>
                 
                 <div className="pt-4">
-                  <Button type="submit" className="w-full" disabled={loading || !amount || parseFloat(amount) <= 0}>
+                  <Button type="submit" className="w-full" disabled={loading || !amount || parsedAmount <= 0}>
                     {loading ? "Processing..." : "Fund Card"} {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
                   </Button>
                   <Button 
@@ -200,24 +210,7 @@ const VirtualCardFund = () => {
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Fund Options</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-2">
-              {[50, 100, 200, 500, 1000, 2000].map((value) => (
-                <Button 
-                  key={value} 
-                  variant="outline"
-                  onClick={() => setAmount(value.toString())}
-                >
-                  {formatCurrency(value)}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <QuickFundOptions />
       </main>
       <Footer />
     </div>
