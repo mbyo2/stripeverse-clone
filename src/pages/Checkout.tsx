@@ -231,6 +231,8 @@ const Checkout = () => {
                     <li>Visa: 4242 4242 4242 4242</li>
                     <li>MasterCard: 5555 5555 5555 4444</li>
                     <li>AmEx: 3782 822463 10005</li>
+                    <li>Discover: 6011 0000 0000 0004</li>
+                    <li>JCB: 3566 0020 2036 0505</li>
                   </ul>
                   
                   <p className="text-sm text-blue-700 mt-2">

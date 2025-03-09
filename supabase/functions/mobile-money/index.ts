@@ -113,6 +113,10 @@ async function processCardPayment(
     cardType = "MasterCard";
   } else if (firstDigit === "3") {
     cardType = "Amex";
+  } else if (firstDigit === "6") {
+    cardType = "Discover";
+  } else if (firstDigit === "2") {
+    cardType = "Mastercard"; // Some newer Mastercard bin ranges
   }
   
   const transactionId = `CRD-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -129,6 +133,33 @@ async function processCardPayment(
     provider: cardType,
     cardLast4,
     cardType
+  };
+}
+
+// Wallet-to-wallet transfer processing
+async function processWalletTransfer(
+  senderPhone: string,
+  receiverPhone: string,
+  amount: number
+): Promise<PaymentResponse> {
+  console.log(`Processing wallet transfer of ${amount} from ${senderPhone} to ${receiverPhone}`);
+  
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  
+  // For demonstration, generate a random transaction ID
+  const transactionId = `WLT-${Math.floor(100000 + Math.random() * 900000)}`;
+  
+  // Wallet transfers should be near-instant, so high success rate
+  const isSuccess = Math.random() < 0.98;
+  
+  return {
+    transactionId,
+    status: isSuccess ? 'success' : 'failed',
+    message: isSuccess 
+      ? `Transferred K${amount.toFixed(2)} to ${receiverPhone} successfully` 
+      : 'Transfer failed. Please try again.',
+    provider: 'BMaGlass Pay'
   };
 }
 
@@ -208,6 +239,28 @@ function validateCardNumber(cardNumber: string): boolean {
   }
   
   return sum % 10 === 0;
+}
+
+function identifyCardType(cardNumber: string): string {
+  // Remove any non-numeric characters
+  const cleaned = cardNumber.replace(/\D/g, '');
+  
+  // Check for card type based on IIN ranges
+  if (/^4/.test(cleaned)) {
+    return 'Visa';
+  } else if (/^(5[1-5]|2[2-7])/.test(cleaned)) {
+    return 'MasterCard';
+  } else if (/^3[47]/.test(cleaned)) {
+    return 'American Express';
+  } else if (/^6(?:011|5)/.test(cleaned)) {
+    return 'Discover';
+  } else if (/^(?:2131|1800|35)/.test(cleaned)) {
+    return 'JCB';
+  } else if (/^3(?:0[0-5]|[68])/.test(cleaned)) {
+    return 'Diners Club';
+  } else {
+    return 'Unknown';
+  }
 }
 
 serve(async (req) => {
@@ -328,6 +381,33 @@ serve(async (req) => {
       
       // Process card payment
       const result = await processCardPayment(cardNumber, expiryDate, cvv, amount);
+      
+      return new Response(
+        JSON.stringify(result),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    else if (paymentMethod === 'wallet-transfer') {
+      const { senderPhone, receiverPhone, amount } = requestData;
+      
+      // Validate required fields
+      if (!senderPhone || !receiverPhone || !amount) {
+        return new Response(
+          JSON.stringify({ error: 'Missing required fields for wallet transfer' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Validate sender and receiver are different
+      if (senderPhone === receiverPhone) {
+        return new Response(
+          JSON.stringify({ error: 'Sender and receiver cannot be the same' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Process wallet transfer
+      const result = await processWalletTransfer(senderPhone, receiverPhone, amount);
       
       return new Response(
         JSON.stringify(result),

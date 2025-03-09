@@ -195,3 +195,68 @@ export function formatBankAccountNumber(accountNumber: string): string {
   
   return groups.join(' ');
 }
+
+export function identifyCardType(cardNumber: string): string {
+  // Remove any non-numeric characters
+  const cleaned = cardNumber.replace(/\D/g, '');
+  
+  // Check for card type based on IIN ranges
+  if (/^4/.test(cleaned)) {
+    return 'Visa';
+  } else if (/^(5[1-5]|2[2-7])/.test(cleaned)) {
+    return 'MasterCard';
+  } else if (/^3[47]/.test(cleaned)) {
+    return 'American Express';
+  } else if (/^6(?:011|5)/.test(cleaned)) {
+    return 'Discover';
+  } else if (/^(?:2131|1800|35)/.test(cleaned)) {
+    return 'JCB';
+  } else if (/^3(?:0[0-5]|[68])/.test(cleaned)) {
+    return 'Diners Club';
+  } else {
+    return 'Unknown';
+  }
+}
+
+export function validateWalletTransfer(
+  senderPhone: string, 
+  receiverPhone: string,
+  amount: number
+): { valid: boolean; message?: string } {
+  // Check if phones are valid
+  if (!senderPhone || !receiverPhone) {
+    return { valid: false, message: 'Both sender and receiver phone numbers are required' };
+  }
+  
+  // Check if phones are different
+  if (senderPhone === receiverPhone) {
+    return { valid: false, message: 'You cannot transfer to your own account' };
+  }
+  
+  // Check amount is positive and sensible
+  if (!amount || amount <= 0) {
+    return { valid: false, message: 'Transfer amount must be greater than 0' };
+  }
+  
+  // Check amount is not too large (optional system limit)
+  if (amount > 50000) {
+    return { valid: false, message: 'Transfer amount exceeds the maximum limit of K50,000' };
+  }
+  
+  return { valid: true };
+}
+
+export function formatPhoneForDisplay(phoneNumber: string): string {
+  // Remove all non-numeric characters
+  const cleaned = phoneNumber.replace(/\D/g, '');
+  
+  // Format based on Zambian phone numbers
+  if (cleaned.startsWith('260') && cleaned.length === 12) {
+    return `+${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 8)} ${cleaned.substring(8)}`;
+  } else if (cleaned.startsWith('0') && cleaned.length === 10) {
+    return `${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}`;
+  }
+  
+  // Return original if format not recognized
+  return phoneNumber;
+}
