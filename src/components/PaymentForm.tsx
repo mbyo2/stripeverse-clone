@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { formatCardNumber, formatCurrency, isMobileMoneyNumber, validateCardNumber } from "@/lib/utils";
-import { CreditCard, Smartphone, Check, AlertCircle } from "lucide-react";
+import { CreditCard, Smartphone, Check, AlertCircle, Building } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -27,8 +27,15 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
   const [cardName, setCardName] = useState("");
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvc, setCardCvc] = useState("");
+  
   const [mobileProvider, setMobileProvider] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
+  
+  const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [branchCode, setBranchCode] = useState("");
+  
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +65,7 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
       // Call our Supabase Edge Function for mobile money
       const { data, error } = await supabase.functions.invoke('mobile-money', {
         body: {
+          paymentMethod: 'mobile-money',
           phoneNumber: mobileNumber,
           amount: amount,
           provider: mobileProvider
@@ -72,7 +80,7 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
         throw new Error(data.message || 'Transaction failed');
       }
       
-      // Payment successful
+      // Payment successful or pending
       setIsComplete(true);
       
       toast({
@@ -85,7 +93,7 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
         onSuccess({
           paymentId: data.transactionId,
           method: mobileProvider,
-          status: 'succeeded'
+          status: data.status
         });
       }
       
@@ -108,25 +116,41 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
       setIsProcessing(true);
       setError(null);
       
-      // Simulate card payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Call our Supabase Edge Function for card payment
+      const { data, error } = await supabase.functions.invoke('mobile-money', {
+        body: {
+          paymentMethod: 'card',
+          cardNumber: cardNumber.replace(/\s/g, ''),
+          expiryDate: cardExpiry,
+          cvv: cardCvc,
+          amount: amount
+        }
+      });
       
-      // For demo purposes, we'll just simulate a successful payment
-      setIsComplete(true);
-      
-      // Call success callback with payment details
-      if (onSuccess) {
-        onSuccess({
-          paymentId: "card_" + Math.random().toString(36).substring(2, 15),
-          method: "card",
-          status: "succeeded"
-        });
+      if (error) {
+        throw new Error(error.message || 'Failed to process card payment');
       }
+      
+      if (data.status === 'failed') {
+        throw new Error(data.message || 'Transaction failed');
+      }
+      
+      // Payment successful
+      setIsComplete(true);
       
       toast({
         title: "Payment successful",
         description: `Your card payment of ${formatCurrency(amount)} has been processed.`,
       });
+      
+      // Call success callback with payment details
+      if (onSuccess) {
+        onSuccess({
+          paymentId: data.transactionId,
+          method: `card_${data.cardType}`,
+          status: data.status
+        });
+      }
       
     } catch (err) {
       console.error('Card payment error:', err);
@@ -134,6 +158,58 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
       
       toast({
         title: "Payment failed",
+        description: err instanceof Error ? err.message : 'Please try again or use another payment method.',
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const processBankTransfer = async () => {
+    try {
+      setIsProcessing(true);
+      setError(null);
+      
+      // Call our Supabase Edge Function for bank transfer
+      const { data, error } = await supabase.functions.invoke('mobile-money', {
+        body: {
+          paymentMethod: 'bank-transfer',
+          accountNumber: accountNumber,
+          bankName: bankName,
+          accountName: accountName,
+          branchCode: branchCode,
+          amount: amount
+        }
+      });
+      
+      if (error) {
+        throw new Error(error.message || 'Failed to process bank transfer');
+      }
+      
+      // Bank transfers are typically pending initially
+      setIsComplete(true);
+      
+      toast({
+        title: "Transfer initiated",
+        description: `Your bank transfer of ${formatCurrency(amount)} has been initiated. Reference: ${data.reference}`,
+      });
+      
+      // Call success callback with payment details
+      if (onSuccess) {
+        onSuccess({
+          paymentId: data.transactionId,
+          method: `bank_${bankName.toLowerCase()}`,
+          status: data.status
+        });
+      }
+      
+    } catch (err) {
+      console.error('Bank transfer error:', err);
+      setError(err instanceof Error ? err.message : 'Transfer initiation failed');
+      
+      toast({
+        title: "Transfer failed",
         description: err instanceof Error ? err.message : 'Please try again or use another payment method.',
         variant: "destructive",
       });
@@ -190,6 +266,36 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
       }
       
       await processMobileMoneyPayment();
+      
+    } else if (paymentMethod === "bank") {
+      if (!bankName) {
+        toast({
+          title: "Select a bank",
+          description: "Please select a bank for the transfer.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!accountNumber || accountNumber.length < 8) {
+        toast({
+          title: "Invalid account number",
+          description: "Please enter a valid account number.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!accountName) {
+        toast({
+          title: "Missing account name",
+          description: "Please enter the account holder's name.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      await processBankTransfer();
     }
   };
 
@@ -210,6 +316,18 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
     }
     
     setMobileNumber(value);
+  };
+
+  const formatAccountNumber = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Keep only numbers
+    let value = e.target.value.replace(/\D/g, '');
+    
+    // Format with spaces every 4 digits for readability
+    if (value.length > 4) {
+      value = value.match(/.{1,4}/g)?.join(' ') || value;
+    }
+    
+    setAccountNumber(value);
   };
 
   const getMobileProviderHelpText = () => {
@@ -252,12 +370,15 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
             )}
             
             <Tabs defaultValue="card" onValueChange={setPaymentMethod}>
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="card">
                   <CreditCard className="mr-2 h-4 w-4" /> Card
                 </TabsTrigger>
                 <TabsTrigger value="mobile">
                   <Smartphone className="mr-2 h-4 w-4" /> Mobile Money
+                </TabsTrigger>
+                <TabsTrigger value="bank">
+                  <Building className="mr-2 h-4 w-4" /> Bank Transfer
                 </TabsTrigger>
               </TabsList>
               
@@ -332,6 +453,54 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
                     {mobileProvider ? getMobileProviderHelpText() : 
                       "Enter the mobile number associated with your mobile money account"}
                   </p>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="bank" className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bankName">Bank</Label>
+                  <Select value={bankName} onValueChange={setBankName}>
+                    <SelectTrigger id="bankName">
+                      <SelectValue placeholder="Select bank" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="zanaco">Zambia National Commercial Bank</SelectItem>
+                      <SelectItem value="stanbic">Stanbic Bank</SelectItem>
+                      <SelectItem value="absa">ABSA Bank Zambia</SelectItem>
+                      <SelectItem value="fnb">First National Bank</SelectItem>
+                      <SelectItem value="indo-zambia">Indo-Zambia Bank</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="accountNumber">Account Number</Label>
+                  <Input 
+                    id="accountNumber" 
+                    placeholder="Enter account number" 
+                    value={accountNumber}
+                    onChange={formatAccountNumber}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="accountName">Account Holder Name</Label>
+                  <Input 
+                    id="accountName" 
+                    placeholder="Enter account holder name" 
+                    value={accountName}
+                    onChange={(e) => setAccountName(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="branchCode">Branch Code (Optional)</Label>
+                  <Input 
+                    id="branchCode" 
+                    placeholder="Enter branch code" 
+                    value={branchCode}
+                    onChange={(e) => setBranchCode(e.target.value)}
+                  />
                 </div>
               </TabsContent>
             </Tabs>

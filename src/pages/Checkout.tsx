@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import PaymentForm from "@/components/PaymentForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, CreditCard, Building, Smartphone } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -59,11 +59,13 @@ const Checkout = () => {
   const handlePaymentSuccess = (response: PaymentDetails) => {
     setPaymentDetails(response);
     setPaymentComplete(true);
-    setPaymentStatus('pending');
+    setPaymentStatus(response.status === 'pending' ? 'pending' : 'success');
     
     toast({
-      title: "Payment processing",
-      description: "We're confirming your payment. This will take just a moment.",
+      title: response.status === 'pending' ? "Payment processing" : "Payment successful",
+      description: response.status === 'pending' 
+        ? "We're confirming your payment. This will take just a moment."
+        : "Your payment has been processed successfully.",
     });
   };
   
@@ -115,6 +117,16 @@ const Checkout = () => {
     }
   };
   
+  const getPaymentMethodIcon = (method: string) => {
+    if (method.startsWith('card_')) {
+      return <CreditCard className="text-2xl" />;
+    } else if (method.startsWith('bank_')) {
+      return <Building className="text-2xl" />;
+    } else {
+      return <Smartphone className="text-2xl" />;
+    }
+  };
+  
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
@@ -159,6 +171,7 @@ const Checkout = () => {
               <CardContent className="pt-6">
                 <h3 className="font-medium text-blue-800 mb-2">Available Payment Methods</h3>
                 <div className="grid grid-cols-3 gap-2 mb-4">
+                  {/* Mobile Money Providers */}
                   <div className="border rounded-md p-2 text-center bg-white">
                     <div className="text-2xl mb-1">📱</div>
                     <div className="text-sm font-medium">MTN</div>
@@ -171,15 +184,64 @@ const Checkout = () => {
                     <div className="text-2xl mb-1">📱</div>
                     <div className="text-sm font-medium">Zamtel</div>
                   </div>
+                  
+                  {/* Banks */}
+                  <div className="border rounded-md p-2 text-center bg-white">
+                    <div className="text-2xl mb-1">🏦</div>
+                    <div className="text-sm font-medium">Zanaco</div>
+                  </div>
+                  <div className="border rounded-md p-2 text-center bg-white">
+                    <div className="text-2xl mb-1">🏦</div>
+                    <div className="text-sm font-medium">Stanbic</div>
+                  </div>
+                  <div className="border rounded-md p-2 text-center bg-white">
+                    <div className="text-2xl mb-1">🏦</div>
+                    <div className="text-sm font-medium">ABSA</div>
+                  </div>
+                  
+                  {/* Card Types */}
+                  <div className="border rounded-md p-2 text-center bg-white">
+                    <div className="text-2xl mb-1">💳</div>
+                    <div className="text-sm font-medium">Visa</div>
+                  </div>
+                  <div className="border rounded-md p-2 text-center bg-white">
+                    <div className="text-2xl mb-1">💳</div>
+                    <div className="text-sm font-medium">MasterCard</div>
+                  </div>
+                  <div className="border rounded-md p-2 text-center bg-white">
+                    <div className="text-2xl mb-1">💳</div>
+                    <div className="text-sm font-medium">AmEx</div>
+                  </div>
                 </div>
-                <p className="text-sm text-blue-700">
-                  For testing mobile payment providers, use these prefixes:
-                </p>
-                <ul className="text-xs text-blue-600 list-disc pl-5 mt-1">
-                  <li>MTN: 076, 077, 078</li>
-                  <li>Airtel: 095, 096, 097</li>
-                  <li>Zamtel: 050, 051, 052</li>
-                </ul>
+                
+                <div className="space-y-2">
+                  <p className="text-sm text-blue-700">
+                    For testing mobile payment providers, use these prefixes:
+                  </p>
+                  <ul className="text-xs text-blue-600 list-disc pl-5">
+                    <li>MTN: 076, 077, 078</li>
+                    <li>Airtel: 095, 096, 097</li>
+                    <li>Zamtel: 050, 051, 052</li>
+                  </ul>
+                  
+                  <p className="text-sm text-blue-700 mt-2">
+                    For testing card payments:
+                  </p>
+                  <ul className="text-xs text-blue-600 list-disc pl-5">
+                    <li>Visa: 4242 4242 4242 4242</li>
+                    <li>MasterCard: 5555 5555 5555 4444</li>
+                    <li>AmEx: 3782 822463 10005</li>
+                  </ul>
+                  
+                  <p className="text-sm text-blue-700 mt-2">
+                    For testing bank transfers:
+                  </p>
+                  <ul className="text-xs text-blue-600 list-disc pl-5">
+                    <li>Zanaco: 10-digit account number</li>
+                    <li>Stanbic: 11-digit account number</li>
+                    <li>ABSA: 12-digit account number</li>
+                  </ul>
+                </div>
               </CardContent>
             </Card>
           </div>

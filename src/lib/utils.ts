@@ -126,20 +126,72 @@ export function isMobileMoneyNumber(phoneNumber: string, provider?: string): boo
   }
 }
 
-export function getPaymentMethodIcon(type: string) {
-  switch (type.toLowerCase()) {
-    case 'visa':
-      return '💳';
-    case 'mastercard':
-      return '💳';
-    case 'mtn':
-      return '📱';
-    case 'airtel':
-      return '📱';
-    case 'zamtel':
-      return '📱';
+export function validateBankAccount(accountNumber: string, bankName: string): boolean {
+  // Remove spaces and non-numeric characters
+  const sanitized = accountNumber.replace(/\D/g, '');
+  
+  // Different banks have different account number formats
+  switch(bankName.toLowerCase()) {
+    case 'zanaco':
+      return sanitized.length === 10;
+    case 'stanbic':
+      return sanitized.length === 11;
+    case 'fnb':
+      return sanitized.length === 9;
+    case 'absa':
+      return sanitized.length === 12;
     default:
-      return '💰';
+      // Generic check for other banks
+      return sanitized.length >= 8 && sanitized.length <= 16;
   }
 }
 
+export function getPaymentMethodIcon(type: string) {
+  // Card types
+  if (type.toLowerCase().includes('visa')) return '💳';
+  if (type.toLowerCase().includes('mastercard')) return '💳';
+  if (type.toLowerCase().includes('amex')) return '💳';
+  
+  // Mobile money providers
+  if (type.toLowerCase().includes('mtn')) return '📱';
+  if (type.toLowerCase().includes('airtel')) return '📱';
+  if (type.toLowerCase().includes('zamtel')) return '📱';
+  
+  // Banks
+  if (type.toLowerCase().includes('zanaco')) return '🏦';
+  if (type.toLowerCase().includes('stanbic')) return '🏦';
+  if (type.toLowerCase().includes('fnb')) return '🏦';
+  if (type.toLowerCase().includes('absa')) return '🏦';
+  
+  // Default
+  return '💰';
+}
+
+export function getPaymentMethodName(method: string): string {
+  // Split by underscore if present (e.g., "card_Visa" becomes ["card", "Visa"])
+  const parts = method.split('_');
+  
+  if (parts.length > 1) {
+    // Format the payment method with proper capitalization
+    const type = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    const provider = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+    
+    return `${type} - ${provider}`;
+  }
+  
+  // If no underscore, just capitalize the first letter
+  return method.charAt(0).toUpperCase() + method.slice(1);
+}
+
+export function formatBankAccountNumber(accountNumber: string): string {
+  // Remove spaces and non-numeric characters
+  const sanitized = accountNumber.replace(/\D/g, '');
+  
+  // Format in groups of 4 for readability
+  const groups = [];
+  for (let i = 0; i < sanitized.length; i += 4) {
+    groups.push(sanitized.slice(i, i + 4));
+  }
+  
+  return groups.join(' ');
+}
