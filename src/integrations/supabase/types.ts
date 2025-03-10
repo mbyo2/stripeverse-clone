@@ -9,6 +9,54 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      kyc_verifications: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          date_of_birth: string | null
+          first_name: string | null
+          id: number
+          id_number: string | null
+          id_type: string | null
+          last_name: string | null
+          level: string
+          selfie_url: string | null
+          updated_at: string | null
+          user_id: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          first_name?: string | null
+          id?: number
+          id_number?: string | null
+          id_type?: string | null
+          last_name?: string | null
+          level?: string
+          selfie_url?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          first_name?: string | null
+          id?: number
+          id_number?: string | null
+          id_type?: string | null
+          last_name?: string | null
+          level?: string
+          selfie_url?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -33,6 +81,60 @@ export type Database = {
           last_name?: string | null
           phone?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string
+          direction: string
+          id: number
+          metadata: Json | null
+          payment_method: string
+          provider: string | null
+          recipient_account: string | null
+          recipient_bank: string | null
+          recipient_name: string | null
+          reference: string | null
+          status: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency?: string
+          direction: string
+          id?: number
+          metadata?: Json | null
+          payment_method: string
+          provider?: string | null
+          recipient_account?: string | null
+          recipient_bank?: string | null
+          recipient_name?: string | null
+          reference?: string | null
+          status: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string
+          direction?: string
+          id?: number
+          metadata?: Json | null
+          payment_method?: string
+          provider?: string | null
+          recipient_account?: string | null
+          recipient_bank?: string | null
+          recipient_name?: string | null
+          reference?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
