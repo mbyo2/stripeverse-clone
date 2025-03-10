@@ -32,6 +32,12 @@ interface CardPaymentResponse extends PaymentResponse {
   cardType: string;
 }
 
+// USSD Response
+interface UssdResponse extends PaymentResponse {
+  referenceCode: string;
+  ussdCode: string;
+}
+
 // Simulated mobile money transaction processing
 async function processMobileMoneyPayment(
   phoneNumber: string,
@@ -163,6 +169,31 @@ async function processWalletTransfer(
   };
 }
 
+// Process USSD payment
+async function processUssdPayment(
+  ussdCode: string,
+  referenceCode: string,
+  amount: number,
+  provider: string
+): Promise<UssdResponse> {
+  console.log(`Processing USSD payment: ${ussdCode}, ref: ${referenceCode}, amount: ${amount}, provider: ${provider}`);
+  
+  // In a real implementation, this would register the payment in the system
+  // and wait for the user to complete the USSD flow
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  const transactionId = `USD-${Math.floor(100000 + Math.random() * 900000)}`;
+  
+  return {
+    transactionId,
+    status: 'pending', // USSD payments are always pending initially
+    message: `USSD payment of K${amount.toFixed(2)} initiated. Follow the instructions on your phone.`,
+    provider,
+    referenceCode,
+    ussdCode
+  };
+}
+
 // Validate mobile number based on Zambian mobile network patterns
 function validateMobileNumber(number: string, provider: string): boolean {
   const sanitized = number.replace(/\D/g, '');
@@ -187,6 +218,8 @@ function validateMobileNumber(number: string, provider: string): boolean {
       return ['97', '96', '95'].includes(prefix);
     case 'zamtel':
       return ['50', '51', '52'].includes(prefix);
+    case 'orange':
+      return ['70', '71', '72'].includes(prefix);
     default:
       return false;
   }
@@ -206,6 +239,12 @@ function validateBankAccount(accountNumber: string, bankName: string): boolean {
     case 'fnb':
       return sanitized.length === 9;
     case 'absa':
+      return sanitized.length === 12;
+    case 'atlas-mara':
+      return sanitized.length === 10;
+    case 'indo-zambia':
+      return sanitized.length === 9;
+    case 'invest-trust':
       return sanitized.length === 12;
     default:
       // Generic check for other banks
@@ -293,7 +332,7 @@ serve(async (req) => {
       }
       
       // Validate provider
-      if (!['mtn', 'airtel', 'zamtel'].includes(provider.toLowerCase())) {
+      if (!['mtn', 'airtel', 'zamtel', 'orange', 'mpesa'].includes(provider.toLowerCase())) {
         return new Response(
           JSON.stringify({ error: 'Invalid mobile money provider' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -408,6 +447,33 @@ serve(async (req) => {
       
       // Process wallet transfer
       const result = await processWalletTransfer(senderPhone, receiverPhone, amount);
+      
+      return new Response(
+        JSON.stringify(result),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    else if (paymentMethod === 'ussd') {
+      const { ussdCode, referenceCode, provider, amount } = requestData;
+      
+      // Validate required fields
+      if (!ussdCode || !referenceCode || !provider || !amount) {
+        return new Response(
+          JSON.stringify({ error: 'Missing required fields for USSD payment' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Validate provider
+      if (!['mtn', 'airtel', 'zamtel'].includes(provider.toLowerCase())) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid USSD provider' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Process USSD payment
+      const result = await processUssdPayment(ussdCode, referenceCode, amount, provider);
       
       return new Response(
         JSON.stringify(result),
