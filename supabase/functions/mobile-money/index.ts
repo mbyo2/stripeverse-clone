@@ -1,5 +1,9 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,138 +42,330 @@ interface UssdResponse extends PaymentResponse {
   ussdCode: string;
 }
 
-// Simulated mobile money transaction processing
+// KYC verification types
+enum KycVerificationLevel {
+  NONE = 'none',
+  BASIC = 'basic',
+  FULL = 'full'
+}
+
+// Transaction record
+interface TransactionRecord {
+  id?: number;
+  user_id?: string;
+  amount: number;
+  currency: string;
+  payment_method: string;
+  direction: 'incoming' | 'outgoing';
+  recipient_name?: string;
+  recipient_account?: string;
+  recipient_bank?: string;
+  status: 'pending' | 'completed' | 'failed';
+  reference?: string;
+  provider?: string;
+  metadata?: any;
+}
+
+// Function to record transaction in the database
+async function recordTransaction(transaction: TransactionRecord): Promise<void> {
+  try {
+    // Add timestamp
+    const transactionWithTimestamp = {
+      ...transaction,
+      created_at: new Date().toISOString(),
+    };
+
+    // Insert into transactions table
+    const { error } = await supabase
+      .from('transactions')
+      .insert(transactionWithTimestamp);
+
+    if (error) {
+      console.error("Error recording transaction:", error);
+      throw error;
+    }
+
+    console.log("Transaction recorded successfully:", transactionWithTimestamp.reference);
+  } catch (err) {
+    console.error("Failed to record transaction:", err);
+    // Don't throw here, so payment can still proceed even if recording fails
+  }
+}
+
+// MTN Mobile Money integration
+async function processMtnMobileMoney(phoneNumber: string, amount: number): Promise<MobileMoneyResponse> {
+  console.log(`Processing MTN payment of ${amount} to ${phoneNumber}`);
+  
+  // In a real implementation, this would make API calls to MTN's API
+  // Documentation: https://momodeveloper.mtn.com/
+  
+  try {
+    // This would normally include MTN API auth tokens, transaction payload, etc.
+    // Mock API call
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Generate transaction reference
+    const transactionId = `MTN-${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    // In production, this would process the response from MTN API
+    const isSuccess = Math.random() < 0.9;
+    
+    // Record the transaction in our database
+    await recordTransaction({
+      amount: amount,
+      currency: 'ZMW',
+      payment_method: 'mobile_money',
+      direction: 'incoming',
+      recipient_name: 'MTN Mobile Money',
+      recipient_account: phoneNumber,
+      status: isSuccess ? 'completed' : 'failed',
+      reference: transactionId,
+      provider: 'mtn',
+      metadata: {
+        phoneNumber,
+        provider: 'mtn'
+      }
+    });
+    
+    return {
+      transactionId,
+      status: isSuccess ? 'success' : 'failed',
+      message: isSuccess 
+        ? `Payment of K${amount.toFixed(2)} successful` 
+        : 'Transaction failed. Please try again.',
+      provider: 'mtn',
+      phoneNumber
+    };
+  } catch (error) {
+    console.error("MTN Mobile Money error:", error);
+    throw new Error("Failed to process MTN Mobile Money payment");
+  }
+}
+
+// Airtel Money integration
+async function processAirtelMoney(phoneNumber: string, amount: number): Promise<MobileMoneyResponse> {
+  console.log(`Processing Airtel Money payment of ${amount} to ${phoneNumber}`);
+  
+  // In a real implementation, this would make API calls to Airtel's API
+  // Documentation: https://developers.airtel.africa/
+  
+  try {
+    // This would normally include Airtel API auth tokens, transaction payload, etc.
+    // Mock API call
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Generate transaction reference
+    const transactionId = `AIRT-${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    // In production, this would process the response from Airtel API
+    const isSuccess = Math.random() < 0.9;
+    
+    // Record the transaction
+    await recordTransaction({
+      amount: amount,
+      currency: 'ZMW',
+      payment_method: 'mobile_money',
+      direction: 'incoming',
+      recipient_name: 'Airtel Money',
+      recipient_account: phoneNumber,
+      status: isSuccess ? 'completed' : 'failed',
+      reference: transactionId,
+      provider: 'airtel',
+      metadata: {
+        phoneNumber,
+        provider: 'airtel'
+      }
+    });
+    
+    return {
+      transactionId,
+      status: isSuccess ? 'success' : 'failed',
+      message: isSuccess 
+        ? `Payment of K${amount.toFixed(2)} successful` 
+        : 'Transaction failed. Please try again.',
+      provider: 'airtel',
+      phoneNumber
+    };
+  } catch (error) {
+    console.error("Airtel Money error:", error);
+    throw new Error("Failed to process Airtel Money payment");
+  }
+}
+
+// Zamtel Money integration
+async function processZamtelMoney(phoneNumber: string, amount: number): Promise<MobileMoneyResponse> {
+  console.log(`Processing Zamtel Money payment of ${amount} to ${phoneNumber}`);
+  
+  try {
+    // Mock API call
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const transactionId = `ZTL-${Math.floor(100000 + Math.random() * 900000)}`;
+    const isSuccess = Math.random() < 0.85;
+    
+    // Record the transaction
+    await recordTransaction({
+      amount: amount,
+      currency: 'ZMW',
+      payment_method: 'mobile_money',
+      direction: 'incoming',
+      recipient_name: 'Zamtel Money',
+      recipient_account: phoneNumber,
+      status: isSuccess ? 'completed' : 'failed',
+      reference: transactionId,
+      provider: 'zamtel',
+      metadata: {
+        phoneNumber,
+        provider: 'zamtel'
+      }
+    });
+    
+    return {
+      transactionId,
+      status: isSuccess ? 'success' : 'failed',
+      message: isSuccess 
+        ? `Payment of K${amount.toFixed(2)} successful` 
+        : 'Transaction failed. Please try again.',
+      provider: 'zamtel',
+      phoneNumber
+    };
+  } catch (error) {
+    console.error("Zamtel Money error:", error);
+    throw new Error("Failed to process Zamtel Money payment");
+  }
+}
+
+// Processes mobile money payment based on provider
 async function processMobileMoneyPayment(
   phoneNumber: string,
   amount: number,
   provider: string
 ): Promise<MobileMoneyResponse> {
-  // In a real implementation, this would make API calls to the respective mobile money providers
-  console.log(`Processing ${provider} payment of ${amount} to ${phoneNumber}`);
-  
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // For demonstration purposes, generate a random transaction ID
-  const transactionId = `${provider.substring(0, 3).toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
-  
-  // Simulate success (90% of the time) or failure
-  const isSuccess = Math.random() < 0.9;
-  
-  return {
-    transactionId,
-    status: isSuccess ? 'success' : 'failed',
-    message: isSuccess 
-      ? `Payment of K${amount.toFixed(2)} successful` 
-      : 'Transaction failed. Please try again.',
-    provider,
-    phoneNumber
-  };
+  // Route to the correct provider implementation
+  switch(provider.toLowerCase()) {
+    case 'mtn':
+      return processMtnMobileMoney(phoneNumber, amount);
+    case 'airtel':
+      return processAirtelMoney(phoneNumber, amount);
+    case 'zamtel':
+      return processZamtelMoney(phoneNumber, amount);
+    default:
+      throw new Error(`Unsupported mobile money provider: ${provider}`);
+  }
 }
 
-// Simulated bank transfer processing
+// Simulate Zanaco bank integration
+async function processZanacoTransfer(
+  accountNumber: string,
+  accountName: string,
+  amount: number
+): Promise<BankTransferResponse> {
+  console.log(`Processing Zanaco transfer of ${amount} to ${accountNumber}`);
+  
+  try {
+    // Mock API call delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const reference = `ZNC-${Math.floor(100000 + Math.random() * 900000)}`;
+    const transactionId = `BNK-${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    // Record the transaction
+    await recordTransaction({
+      amount: amount,
+      currency: 'ZMW',
+      payment_method: 'bank_transfer',
+      direction: 'outgoing',
+      recipient_name: accountName,
+      recipient_account: accountNumber,
+      recipient_bank: 'Zanaco',
+      status: 'pending',
+      reference: reference,
+      provider: 'zanaco',
+      metadata: {
+        accountNumber,
+        bankName: 'Zanaco',
+        reference
+      }
+    });
+    
+    return {
+      transactionId,
+      status: 'pending',
+      message: `Bank transfer of K${amount.toFixed(2)} initiated. Reference: ${reference}`,
+      provider: 'Zanaco',
+      accountNumber,
+      bankName: 'Zanaco',
+      reference
+    };
+  } catch (error) {
+    console.error("Zanaco transfer error:", error);
+    throw new Error("Failed to process Zanaco transfer");
+  }
+}
+
+// Simulated bank transfer processing with different banks
 async function processBankTransfer(
   accountNumber: string,
   bankName: string,
+  accountName: string,
   amount: number
 ): Promise<BankTransferResponse> {
-  console.log(`Processing bank transfer of ${amount} to ${accountNumber} at ${bankName}`);
-  
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // Generate a reference number for the transfer
-  const reference = `BNK-${Math.floor(100000 + Math.random() * 900000)}`;
-  const transactionId = `BNK-${Math.floor(100000 + Math.random() * 900000)}`;
-  
-  // Bank transfers are typically pending until confirmed
-  return {
-    transactionId,
-    status: 'pending',
-    message: `Bank transfer of K${amount.toFixed(2)} initiated. Reference: ${reference}`,
-    provider: bankName,
-    accountNumber,
-    bankName,
-    reference
-  };
-}
-
-// Simulated card payment processing
-async function processCardPayment(
-  cardNumber: string,
-  expiryDate: string,
-  cvv: string,
-  amount: number
-): Promise<CardPaymentResponse> {
-  console.log(`Processing card payment of ${amount}`);
-  
-  // Simulate API call delay and process
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // Get last 4 digits for reference
-  const cardLast4 = cardNumber.slice(-4);
-  
-  // Determine card type based on first digit
-  const firstDigit = cardNumber.charAt(0);
-  let cardType = "Unknown";
-  
-  if (firstDigit === "4") {
-    cardType = "Visa";
-  } else if (firstDigit === "5") {
-    cardType = "MasterCard";
-  } else if (firstDigit === "3") {
-    cardType = "Amex";
-  } else if (firstDigit === "6") {
-    cardType = "Discover";
-  } else if (firstDigit === "2") {
-    cardType = "Mastercard"; // Some newer Mastercard bin ranges
+  // Route to specific bank implementations
+  switch(bankName.toLowerCase()) {
+    case 'zanaco':
+      return processZanacoTransfer(accountNumber, accountName, amount);
+    case 'stanbic':
+    case 'absa':
+    case 'fnb':
+    case 'indo-zambia':
+      // Generic implementation for other banks
+      console.log(`Processing ${bankName} transfer of ${amount} to ${accountNumber}`);
+      
+      try {
+        // Mock API call delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const reference = `BNK-${Math.floor(100000 + Math.random() * 900000)}`;
+        const transactionId = `BNK-${Math.floor(100000 + Math.random() * 900000)}`;
+        
+        // Record the transaction
+        await recordTransaction({
+          amount: amount,
+          currency: 'ZMW',
+          payment_method: 'bank_transfer',
+          direction: 'outgoing',
+          recipient_name: accountName,
+          recipient_account: accountNumber,
+          recipient_bank: bankName,
+          status: 'pending',
+          reference: reference,
+          provider: bankName.toLowerCase(),
+          metadata: {
+            accountNumber,
+            bankName,
+            reference
+          }
+        });
+        
+        return {
+          transactionId,
+          status: 'pending',
+          message: `Bank transfer of K${amount.toFixed(2)} initiated. Reference: ${reference}`,
+          provider: bankName,
+          accountNumber,
+          bankName,
+          reference
+        };
+      } catch (error) {
+        console.error(`${bankName} transfer error:`, error);
+        throw new Error(`Failed to process ${bankName} transfer`);
+      }
+    default:
+      throw new Error(`Unsupported bank: ${bankName}`);
   }
-  
-  const transactionId = `CRD-${Math.floor(100000 + Math.random() * 900000)}`;
-  
-  // Simulate success (95% of the time) or failure
-  const isSuccess = Math.random() < 0.95;
-  
-  return {
-    transactionId,
-    status: isSuccess ? 'success' : 'failed',
-    message: isSuccess 
-      ? `Card payment of K${amount.toFixed(2)} successful` 
-      : 'Card payment failed. Please check your details and try again.',
-    provider: cardType,
-    cardLast4,
-    cardType
-  };
 }
 
-// Wallet-to-wallet transfer processing
-async function processWalletTransfer(
-  senderPhone: string,
-  receiverPhone: string,
-  amount: number
-): Promise<PaymentResponse> {
-  console.log(`Processing wallet transfer of ${amount} from ${senderPhone} to ${receiverPhone}`);
-  
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
-  // For demonstration, generate a random transaction ID
-  const transactionId = `WLT-${Math.floor(100000 + Math.random() * 900000)}`;
-  
-  // Wallet transfers should be near-instant, so high success rate
-  const isSuccess = Math.random() < 0.98;
-  
-  return {
-    transactionId,
-    status: isSuccess ? 'success' : 'failed',
-    message: isSuccess 
-      ? `Transferred K${amount.toFixed(2)} to ${receiverPhone} successfully` 
-      : 'Transfer failed. Please try again.',
-    provider: 'BMaGlass Pay'
-  };
-}
-
-// Process USSD payment
+// Process USSD payment with richer integration
 async function processUssdPayment(
   ussdCode: string,
   referenceCode: string,
@@ -178,20 +374,178 @@ async function processUssdPayment(
 ): Promise<UssdResponse> {
   console.log(`Processing USSD payment: ${ussdCode}, ref: ${referenceCode}, amount: ${amount}, provider: ${provider}`);
   
-  // In a real implementation, this would register the payment in the system
-  // and wait for the user to complete the USSD flow
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  try {
+    // In a real implementation, this would register the payment in the system
+    // and create a USSD session that the user would interact with
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const transactionId = `USD-${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    // Record the transaction as pending
+    await recordTransaction({
+      amount: amount,
+      currency: 'ZMW',
+      payment_method: 'ussd',
+      direction: 'incoming',
+      status: 'pending',
+      reference: referenceCode,
+      provider: provider.toLowerCase(),
+      metadata: {
+        ussdCode,
+        referenceCode,
+        provider
+      }
+    });
+    
+    // Generate provider-specific USSD code with embedded reference
+    let fullUssdCode = "";
+    switch(provider.toLowerCase()) {
+      case 'mtn':
+        fullUssdCode = `*305*${referenceCode}#`;
+        break;
+      case 'airtel':
+        fullUssdCode = `*778*${referenceCode}#`;
+        break;
+      case 'zamtel':
+        fullUssdCode = `*422*${referenceCode}#`;
+        break;
+      default:
+        fullUssdCode = ussdCode;
+    }
+    
+    return {
+      transactionId,
+      status: 'pending',
+      message: `USSD payment of K${amount.toFixed(2)} initiated. Dial ${fullUssdCode} on your phone to complete payment.`,
+      provider,
+      referenceCode,
+      ussdCode: fullUssdCode
+    };
+  } catch (error) {
+    console.error("USSD payment error:", error);
+    throw new Error("Failed to process USSD payment");
+  }
+}
+
+// Basic KYC verification
+async function verifyKyc(userId: string, data: any): Promise<{level: KycVerificationLevel, message: string}> {
+  console.log(`Processing KYC verification for user ${userId}`);
   
-  const transactionId = `USD-${Math.floor(100000 + Math.random() * 900000)}`;
-  
-  return {
-    transactionId,
-    status: 'pending', // USSD payments are always pending initially
-    message: `USSD payment of K${amount.toFixed(2)} initiated. Follow the instructions on your phone.`,
-    provider,
-    referenceCode,
-    ussdCode
-  };
+  try {
+    // Check if the user already has KYC verification
+    const { data: existingKyc, error: kycError } = await supabase
+      .from('kyc_verifications')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+      
+    if (kycError && kycError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      throw kycError;
+    }
+    
+    // If user already has full verification, return that
+    if (existingKyc && existingKyc.level === KycVerificationLevel.FULL) {
+      return {
+        level: KycVerificationLevel.FULL,
+        message: "Your account is already fully verified."
+      };
+    }
+    
+    // Process the KYC data
+    const { firstName, lastName, idType, idNumber, dateOfBirth, address, selfieImage } = data;
+    
+    // In a real implementation, this would validate ID numbers, check against government databases, etc.
+    // For now, we'll do basic validation
+    if (!firstName || !lastName || !idType || !idNumber || !dateOfBirth) {
+      return {
+        level: KycVerificationLevel.NONE,
+        message: "Missing required verification information."
+      };
+    }
+    
+    // Determine verification level based on provided data
+    let verificationLevel = KycVerificationLevel.BASIC;
+    
+    // If all advanced data is provided, upgrade to full verification
+    if (address && selfieImage) {
+      verificationLevel = KycVerificationLevel.FULL;
+    }
+    
+    // Save or update KYC information
+    if (existingKyc) {
+      // Update existing record
+      const { error: updateError } = await supabase
+        .from('kyc_verifications')
+        .update({
+          level: verificationLevel,
+          first_name: firstName,
+          last_name: lastName,
+          id_type: idType,
+          id_number: idNumber,
+          date_of_birth: dateOfBirth,
+          address: address || existingKyc.address,
+          selfie_url: selfieImage || existingKyc.selfie_url,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+        
+      if (updateError) throw updateError;
+    } else {
+      // Create new record
+      const { error: insertError } = await supabase
+        .from('kyc_verifications')
+        .insert({
+          user_id: userId,
+          level: verificationLevel,
+          first_name: firstName,
+          last_name: lastName,
+          id_type: idType,
+          id_number: idNumber,
+          date_of_birth: dateOfBirth,
+          address: address || null,
+          selfie_url: selfieImage || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+        
+      if (insertError) throw insertError;
+    }
+    
+    return {
+      level: verificationLevel,
+      message: verificationLevel === KycVerificationLevel.FULL 
+        ? "Your account has been fully verified."
+        : "Basic verification completed. Upload additional documents for full verification."
+    };
+  } catch (error) {
+    console.error("KYC verification error:", error);
+    throw new Error("Failed to process KYC verification");
+  }
+}
+
+// Check KYC verification level
+async function checkKycLevel(userId: string): Promise<KycVerificationLevel> {
+  try {
+    if (!userId) return KycVerificationLevel.NONE;
+    
+    const { data, error } = await supabase
+      .from('kyc_verifications')
+      .select('level')
+      .eq('user_id', userId)
+      .single();
+      
+    if (error) {
+      if (error.code === 'PGRST116') { // No rows returned
+        return KycVerificationLevel.NONE;
+      }
+      throw error;
+    }
+    
+    return data?.level as KycVerificationLevel || KycVerificationLevel.NONE;
+  } catch (error) {
+    console.error("Error checking KYC level:", error);
+    return KycVerificationLevel.NONE;
+  }
 }
 
 // Validate mobile number based on Zambian mobile network patterns
@@ -347,7 +701,7 @@ serve(async (req) => {
         );
       }
       
-      // Process the mobile money payment
+      // Process the mobile money payment with enhanced implementation
       const result = await processMobileMoneyPayment(phoneNumber, amount, provider);
       
       return new Response(
@@ -374,11 +728,75 @@ serve(async (req) => {
         );
       }
       
-      // Process bank transfer
-      const result = await processBankTransfer(accountNumber, bankName, amount);
+      // Process bank transfer with our enhanced implementation
+      const result = await processBankTransfer(accountNumber, bankName, 
+        requestData.accountName || 'Not Provided', amount);
       
       return new Response(
         JSON.stringify(result),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    else if (paymentMethod === 'ussd') {
+      const { ussdCode, referenceCode, amount, provider } = requestData;
+      
+      // Validate required fields
+      if (!ussdCode || !referenceCode || !provider || !amount) {
+        return new Response(
+          JSON.stringify({ error: 'Missing required fields for USSD payment' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Validate provider
+      if (!['mtn', 'airtel', 'zamtel'].includes(provider.toLowerCase())) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid USSD provider' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Process USSD payment with enhanced implementation
+      const result = await processUssdPayment(ussdCode, referenceCode, amount, provider);
+      
+      return new Response(
+        JSON.stringify(result),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    else if (paymentMethod === 'kyc-verification') {
+      const { userId, data } = requestData;
+      
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: 'User ID is required for KYC verification' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Process KYC verification
+      const result = await verifyKyc(userId, data);
+      
+      return new Response(
+        JSON.stringify(result),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    else if (paymentMethod === 'check-kyc') {
+      const { userId } = requestData;
+      
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: 'User ID is required for KYC check' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Check KYC level
+      const kycLevel = await checkKycLevel(userId);
+      
+      return new Response(
+        JSON.stringify({ level: kycLevel }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -447,33 +865,6 @@ serve(async (req) => {
       
       // Process wallet transfer
       const result = await processWalletTransfer(senderPhone, receiverPhone, amount);
-      
-      return new Response(
-        JSON.stringify(result),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    else if (paymentMethod === 'ussd') {
-      const { ussdCode, referenceCode, provider, amount } = requestData;
-      
-      // Validate required fields
-      if (!ussdCode || !referenceCode || !provider || !amount) {
-        return new Response(
-          JSON.stringify({ error: 'Missing required fields for USSD payment' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      // Validate provider
-      if (!['mtn', 'airtel', 'zamtel'].includes(provider.toLowerCase())) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid USSD provider' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      // Process USSD payment
-      const result = await processUssdPayment(ussdCode, referenceCode, amount, provider);
       
       return new Response(
         JSON.stringify(result),

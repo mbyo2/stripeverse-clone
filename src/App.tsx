@@ -12,6 +12,7 @@ import Checkout from "@/pages/Checkout";
 import VirtualCardNew from "@/pages/VirtualCardNew";
 import VirtualCardDetails from "@/pages/VirtualCardDetails";
 import VirtualCardFund from "@/pages/VirtualCardFund";
+import KycPage from "@/pages/KycPage";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -60,6 +61,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Checkout />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kyc"
+            element={
+              <ProtectedRoute>
+                <KycPage />
               </ProtectedRoute>
             }
           />
