@@ -6,9 +6,10 @@ import Footer from "@/components/Footer";
 import PaymentForm from "@/components/PaymentForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { CheckCircle2, Clock, AlertCircle, CreditCard, Building, Smartphone } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import PaymentMethodList from "@/components/wallet/PaymentMethodList";
+import { paymentMethods } from "@/data/mockData";
 
 interface PaymentDetails {
   paymentId: string;
@@ -20,6 +21,9 @@ const Checkout = () => {
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed' | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<any>(null);
+  const [useExistingMethod, setUseExistingMethod] = useState(false);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -50,7 +54,7 @@ const Checkout = () => {
             } 
           });
         }, 3000);
-      }, 3000);
+      }, 2000); // Faster processing time
       
       return () => clearTimeout(timer);
     }
@@ -71,6 +75,14 @@ const Checkout = () => {
   
   const handleCancel = () => {
     navigate(-1);
+  };
+  
+  const handlePaymentMethodSelect = (method: any) => {
+    setSelectedPaymentMethod(method);
+  };
+  
+  const handleTogglePaymentOption = () => {
+    setUseExistingMethod(!useExistingMethod);
   };
   
   const getStatusBadge = () => {
@@ -117,16 +129,6 @@ const Checkout = () => {
     }
   };
   
-  const getPaymentMethodIcon = (method: string) => {
-    if (method.startsWith('card_')) {
-      return <CreditCard className="text-2xl" />;
-    } else if (method.startsWith('bank_')) {
-      return <Building className="text-2xl" />;
-    } else {
-      return <Smartphone className="text-2xl" />;
-    }
-  };
-  
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
@@ -167,93 +169,95 @@ const Checkout = () => {
               </Card>
             )}
             
-            <Card className="bg-blue-50 border-blue-100">
-              <CardContent className="pt-6">
-                <h3 className="font-medium text-blue-800 mb-2">Available Payment Methods</h3>
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  {/* Mobile Money Providers */}
-                  <div className="border rounded-md p-2 text-center bg-white">
-                    <div className="text-2xl mb-1">📱</div>
-                    <div className="text-sm font-medium">MTN</div>
-                  </div>
-                  <div className="border rounded-md p-2 text-center bg-white">
-                    <div className="text-2xl mb-1">📱</div>
-                    <div className="text-sm font-medium">Airtel</div>
-                  </div>
-                  <div className="border rounded-md p-2 text-center bg-white">
-                    <div className="text-2xl mb-1">📱</div>
-                    <div className="text-sm font-medium">Zamtel</div>
-                  </div>
-                  
-                  {/* Banks */}
-                  <div className="border rounded-md p-2 text-center bg-white">
-                    <div className="text-2xl mb-1">🏦</div>
-                    <div className="text-sm font-medium">Zanaco</div>
-                  </div>
-                  <div className="border rounded-md p-2 text-center bg-white">
-                    <div className="text-2xl mb-1">🏦</div>
-                    <div className="text-sm font-medium">Stanbic</div>
-                  </div>
-                  <div className="border rounded-md p-2 text-center bg-white">
-                    <div className="text-2xl mb-1">🏦</div>
-                    <div className="text-sm font-medium">ABSA</div>
+            {!paymentComplete && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>Your Payment Methods</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-4">
+                    <Button 
+                      variant={useExistingMethod ? "default" : "outline"} 
+                      className="mr-2"
+                      onClick={handleTogglePaymentOption}
+                    >
+                      Use Saved Method
+                    </Button>
+                    <Button 
+                      variant={!useExistingMethod ? "default" : "outline"}
+                      onClick={handleTogglePaymentOption}
+                    >
+                      New Payment
+                    </Button>
                   </div>
                   
-                  {/* Card Types */}
-                  <div className="border rounded-md p-2 text-center bg-white">
-                    <div className="text-2xl mb-1">💳</div>
-                    <div className="text-sm font-medium">Visa</div>
-                  </div>
-                  <div className="border rounded-md p-2 text-center bg-white">
-                    <div className="text-2xl mb-1">💳</div>
-                    <div className="text-sm font-medium">MasterCard</div>
-                  </div>
-                  <div className="border rounded-md p-2 text-center bg-white">
-                    <div className="text-2xl mb-1">💳</div>
-                    <div className="text-sm font-medium">AmEx</div>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <p className="text-sm text-blue-700">
-                    For testing mobile payment providers, use these prefixes:
-                  </p>
-                  <ul className="text-xs text-blue-600 list-disc pl-5">
-                    <li>MTN: 076, 077, 078</li>
-                    <li>Airtel: 095, 096, 097</li>
-                    <li>Zamtel: 050, 051, 052</li>
-                  </ul>
-                  
-                  <p className="text-sm text-blue-700 mt-2">
-                    For testing card payments:
-                  </p>
-                  <ul className="text-xs text-blue-600 list-disc pl-5">
-                    <li>Visa: 4242 4242 4242 4242</li>
-                    <li>MasterCard: 5555 5555 5555 4444</li>
-                    <li>AmEx: 3782 822463 10005</li>
-                    <li>Discover: 6011 0000 0000 0004</li>
-                    <li>JCB: 3566 0020 2036 0505</li>
-                  </ul>
-                  
-                  <p className="text-sm text-blue-700 mt-2">
-                    For testing bank transfers:
-                  </p>
-                  <ul className="text-xs text-blue-600 list-disc pl-5">
-                    <li>Zanaco: 10-digit account number</li>
-                    <li>Stanbic: 11-digit account number</li>
-                    <li>ABSA: 12-digit account number</li>
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
+                  {useExistingMethod && (
+                    <PaymentMethodList 
+                      paymentMethods={paymentMethods} 
+                      selectable={true}
+                      onSelect={handlePaymentMethodSelect}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
           
           <div>
-            <PaymentForm 
-              amount={amount + 5} 
-              onSuccess={handlePaymentSuccess} 
-              onCancel={handleCancel}
-            />
+            {(!useExistingMethod || !selectedPaymentMethod) ? (
+              <PaymentForm 
+                amount={amount + 5} 
+                onSuccess={handlePaymentSuccess} 
+                onCancel={handleCancel}
+              />
+            ) : (
+              <Card className="w-full max-w-md mx-auto">
+                <CardHeader>
+                  <CardTitle>Pay with Saved Method</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-6">
+                    <h3 className="font-medium mb-2">Selected Payment Method</h3>
+                    <div className="p-4 border rounded-lg">
+                      <p className="font-medium">{selectedPaymentMethod.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedPaymentMethod.type === "card" ? (
+                          <>Card Number: {selectedPaymentMethod.number} • Expires: {selectedPaymentMethod.expiry}</>
+                        ) : (
+                          <>Account Number: {selectedPaymentMethod.number} • Branch: {selectedPaymentMethod.branch}</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center pb-4 border-b">
+                      <span className="font-medium">Total Amount</span>
+                      <span className="font-bold">{formatCurrency(amount + 5)}</span>
+                    </div>
+                    
+                    <Button 
+                      className="w-full" 
+                      onClick={() => {
+                        handlePaymentSuccess({
+                          paymentId: `PM-${Math.floor(100000 + Math.random() * 900000)}`,
+                          method: selectedPaymentMethod.type === "card" ? 
+                            `card_${selectedPaymentMethod.name.split(" ")[0].toLowerCase()}` : 
+                            `bank_${selectedPaymentMethod.name.split(" ")[0].toLowerCase()}`,
+                          status: "success"
+                        });
+                      }}
+                    >
+                      Pay {formatCurrency(amount + 5)}
+                    </Button>
+                    
+                    <Button variant="outline" className="w-full" onClick={handleCancel}>
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </main>

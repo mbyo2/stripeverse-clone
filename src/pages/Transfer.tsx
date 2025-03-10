@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TransferForm from "@/components/TransferForm";
@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPhoneForDisplay } from "@/lib/utils";
+import { mockUsers } from "@/data/mockData";
 
 const Transfer = () => {
   const [transferComplete, setTransferComplete] = useState(false);
@@ -19,11 +20,8 @@ const Transfer = () => {
   
   const navigate = useNavigate();
   
-  // In a real app, you would get this from your auth context
-  const currentUser = {
-    phone: "0971234567",
-    walletBalance: 2450.00
-  };
+  // Use mock data for the current user
+  const currentUser = mockUsers.current;
   
   const handleTransferSuccess = (details: {
     transferId: string;

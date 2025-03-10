@@ -1,17 +1,14 @@
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
-import Index from "@/pages/Index";
+import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
-import Dashboard from "@/pages/Dashboard";
-import Checkout from "@/pages/Checkout";
 import NotFound from "@/pages/NotFound";
 import Wallet from "@/pages/Wallet";
 import Transfer from "@/pages/Transfer";
 import Transactions from "@/pages/Transactions";
-import SendMoney from "@/pages/SendMoney";
-import UssdAccess from "@/pages/UssdAccess";
+import Checkout from "@/pages/Checkout";
 import VirtualCardNew from "@/pages/VirtualCardNew";
 import VirtualCardDetails from "@/pages/VirtualCardDetails";
 import VirtualCardFund from "@/pages/VirtualCardFund";
@@ -20,10 +17,10 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
+    <AuthProvider>
+      <Router>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route
@@ -67,22 +64,6 @@ function App() {
             }
           />
           <Route
-            path="/send-money"
-            element={
-              <ProtectedRoute>
-                <SendMoney />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/ussd-access"
-            element={
-              <ProtectedRoute>
-                <UssdAccess />
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/virtual-card/new"
             element={
               <ProtectedRoute>
@@ -99,7 +80,7 @@ function App() {
             }
           />
           <Route
-            path="/virtual-card/fund"
+            path="/virtual-card/fund/:id"
             element={
               <ProtectedRoute>
                 <VirtualCardFund />
@@ -109,8 +90,8 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
         <Toaster />
-      </AuthProvider>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
 
