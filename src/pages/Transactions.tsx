@@ -7,61 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ArrowDownLeft, ArrowUpRight, Download, Search } from "lucide-react";
-
-// Generate mock transactions
-const generateTransactions = (count: number) => {
-  const types = ["sent", "received"];
-  const names = ["John Mulenga", "Mary Phiri", "MTN Mobile", "Airtel Money", "Zanaco Bank", "Shoprite", "ZESCO", "Water Utility"];
-  const transactions = [];
-  
-  const today = new Date();
-  
-  for (let i = 0; i < count; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - Math.floor(Math.random() * 30));
-    
-    transactions.push({
-      id: i + 1,
-      type: types[Math.floor(Math.random() * types.length)],
-      name: names[Math.floor(Math.random() * names.length)],
-      amount: (Math.random() * 500 + 10).toFixed(2),
-      date: date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-      time: `${Math.floor(Math.random() * 12) + 1}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')} ${Math.random() > 0.5 ? 'AM' : 'PM'}`,
-      status: Math.random() > 0.9 ? "pending" : "completed",
-      category: ["Bills", "Shopping", "Transfer", "Food", "Transport"][Math.floor(Math.random() * 5)]
-    });
-  }
-  
-  // Sort by date (newest first)
-  return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-};
-
-const mockTransactions = generateTransactions(20);
+import TransactionHistory from "@/components/wallet/TransactionHistory";
 
 const Transactions = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
-  
-  const filteredTransactions = mockTransactions.filter(transaction => {
-    const matchesSearch = transaction.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         transaction.amount.includes(searchTerm);
-    
-    const matchesFilter = filterType === "all" || 
-                         (filterType === "incoming" && transaction.type === "received") ||
-                         (filterType === "outgoing" && transaction.type === "sent");
-    
-    return matchesSearch && matchesFilter;
-  });
-  
-  // Group transactions by date
-  const groupedTransactions: Record<string, typeof mockTransactions> = {};
-  
-  filteredTransactions.forEach(transaction => {
-    if (!groupedTransactions[transaction.date]) {
-      groupedTransactions[transaction.date] = [];
-    }
-    groupedTransactions[transaction.date].push(transaction);
-  });
 
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
@@ -97,58 +47,8 @@ const Transactions = () => {
           </Select>
         </div>
         
-        {/* Transactions List */}
-        {Object.keys(groupedTransactions).length > 0 ? (
-          Object.entries(groupedTransactions).map(([date, transactions]) => (
-            <div key={date} className="mb-6">
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">{date}</h3>
-              <Card>
-                <CardContent className="p-0">
-                  {transactions.map((transaction, index) => (
-                    <div 
-                      key={transaction.id} 
-                      className={`flex items-center justify-between p-4 ${
-                        index !== transactions.length - 1 ? "border-b" : ""
-                      }`}
-                    >
-                      <div className="flex items-center">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          transaction.type === "sent" ? "bg-red-100" : "bg-green-100"
-                        }`}>
-                          {transaction.type === "sent" ? (
-                            <ArrowUpRight className="h-5 w-5 text-red-600" />
-                          ) : (
-                            <ArrowDownLeft className="h-5 w-5 text-green-600" />
-                          )}
-                        </div>
-                        <div className="ml-4">
-                          <div className="font-medium">{transaction.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {transaction.time} • {transaction.category}
-                            {transaction.status === "pending" && (
-                              <span className="ml-2 text-yellow-600 font-medium">Pending</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className={`font-medium ${
-                        transaction.type === "sent" ? "text-red-600" : "text-green-600"
-                      }`}>
-                        {transaction.type === "sent" ? "-" : "+"}K {transaction.amount}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-          ))
-        ) : (
-          <Card className="text-center py-12">
-            <CardContent>
-              <p className="text-muted-foreground">No transactions found matching your criteria.</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* Transaction History Component */}
+        <TransactionHistory />
       </main>
       <Footer />
     </div>

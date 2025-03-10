@@ -1,20 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDownLeft, ArrowUpRight, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
-
-// Interface for transaction data
-interface Transaction {
-  id: number;
-  type: 'outgoing' | 'incoming';
-  recipient: string;
-  date: string;
-  amount: number;
-  status: 'completed' | 'pending' | 'failed';
-  created_at?: string;
-}
+import { Transaction } from "@/types/transaction";
 
 const TransactionHistory = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -36,15 +27,23 @@ const TransactionHistory = () => {
         if (error) throw error;
         
         if (dbTransactions && dbTransactions.length > 0) {
-          // Map the database transactions to our interface
+          // Map the database transactions to our Transaction interface
           const formattedTransactions = dbTransactions.map(tx => ({
-            id: tx.id,
-            type: tx.direction as 'outgoing' | 'incoming',
-            recipient: tx.recipient_name || tx.recipient_account || 'Unknown',
-            date: tx.created_at ? formatDistanceToNow(new Date(tx.created_at), { addSuffix: true }) : 'Unknown date',
+            id: tx.id.toString(),
+            user_id: tx.user_id || '',
             amount: tx.amount,
+            currency: tx.currency,
+            payment_method: tx.payment_method,
+            direction: tx.direction as 'incoming' | 'outgoing',
+            recipient_name: tx.recipient_name || 'Unknown',
+            recipient_account: tx.recipient_account || '',
+            recipient_bank: tx.recipient_bank || '',
             status: tx.status as 'completed' | 'pending' | 'failed',
-            created_at: tx.created_at
+            reference: tx.reference || '',
+            provider: tx.provider || '',
+            metadata: tx.metadata,
+            created_at: tx.created_at || new Date().toISOString(),
+            updated_at: tx.updated_at || new Date().toISOString()
           }));
           
           setTransactions(formattedTransactions);
@@ -84,12 +83,67 @@ const TransactionHistory = () => {
   }, []);
 
   // Mock transactions for fallback when API fails or no data exists
-  const mockTransactions = [
-    { id: 1, type: 'outgoing', recipient: 'John Banda', date: 'Oct 15, 2023', amount: 250.75, status: 'completed' },
-    { id: 2, type: 'incoming', recipient: 'Mary Phiri', date: 'Oct 14, 2023', amount: 320.50, status: 'completed' },
-    { id: 3, type: 'outgoing', recipient: 'Zamtel', date: 'Oct 13, 2023', amount: 100.00, status: 'completed' },
-    { id: 4, type: 'incoming', recipient: 'MTN Mobile', date: 'Oct 12, 2023', amount: 500.25, status: 'completed' },
-    { id: 5, type: 'outgoing', recipient: 'Airtel Money', date: 'Oct 11, 2023', amount: 150.00, status: 'pending' },
+  const mockTransactions: Transaction[] = [
+    { 
+      id: '1', 
+      user_id: '',
+      amount: 250.75, 
+      currency: 'ZMW',
+      payment_method: 'mobile_money',
+      direction: 'outgoing', 
+      recipient_name: 'John Banda', 
+      status: 'completed',
+      created_at: new Date('2023-10-15').toISOString(),
+      updated_at: new Date('2023-10-15').toISOString()
+    },
+    { 
+      id: '2', 
+      user_id: '',
+      amount: 320.50, 
+      currency: 'ZMW',
+      payment_method: 'mobile_money',
+      direction: 'incoming', 
+      recipient_name: 'Mary Phiri', 
+      status: 'completed',
+      created_at: new Date('2023-10-14').toISOString(),
+      updated_at: new Date('2023-10-14').toISOString()
+    },
+    { 
+      id: '3', 
+      user_id: '',
+      amount: 100.00, 
+      currency: 'ZMW',
+      payment_method: 'ussd',
+      direction: 'outgoing', 
+      recipient_name: 'Zamtel', 
+      status: 'completed',
+      created_at: new Date('2023-10-13').toISOString(),
+      updated_at: new Date('2023-10-13').toISOString()
+    },
+    { 
+      id: '4', 
+      user_id: '',
+      amount: 500.25, 
+      currency: 'ZMW',
+      payment_method: 'mobile_money',
+      direction: 'incoming', 
+      recipient_name: 'MTN Mobile', 
+      status: 'completed',
+      created_at: new Date('2023-10-12').toISOString(),
+      updated_at: new Date('2023-10-12').toISOString()
+    },
+    { 
+      id: '5', 
+      user_id: '',
+      amount: 150.00, 
+      currency: 'ZMW',
+      payment_method: 'mobile_money',
+      direction: 'outgoing', 
+      recipient_name: 'Airtel Money', 
+      status: 'pending',
+      created_at: new Date('2023-10-11').toISOString(),
+      updated_at: new Date('2023-10-11').toISOString()
+    },
   ];
 
   if (loading) {
@@ -140,11 +194,11 @@ const TransactionHistory = () => {
               <div key={transaction.id} className="flex items-center justify-between py-2 border-b last:border-0">
                 <div className="flex items-center">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    transaction.type === 'outgoing' ? "bg-red-100" : "bg-green-100"
+                    transaction.direction === 'outgoing' ? "bg-red-100" : "bg-green-100"
                   }`}>
                     {transaction.status === 'pending' ? (
                       <Clock className="h-5 w-5 text-amber-600" />
-                    ) : transaction.type === 'outgoing' ? (
+                    ) : transaction.direction === 'outgoing' ? (
                       <ArrowUpRight className="h-5 w-5 text-red-600" />
                     ) : (
                       <ArrowDownLeft className="h-5 w-5 text-green-600" />
@@ -152,11 +206,11 @@ const TransactionHistory = () => {
                   </div>
                   <div className="ml-4">
                     <div className="font-medium">
-                      {transaction.type === 'outgoing' ? "Sent to" : "Received from"} {" "}
-                      {transaction.recipient}
+                      {transaction.direction === 'outgoing' ? "Sent to" : "Received from"} {" "}
+                      {transaction.recipient_name}
                     </div>
                     <div className="text-sm text-muted-foreground flex items-center">
-                      {transaction.date}
+                      {transaction.created_at ? formatDistanceToNow(new Date(transaction.created_at), { addSuffix: true }) : 'Unknown date'}
                       {transaction.status === 'pending' && (
                         <span className="ml-2 text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
                           Pending
@@ -173,11 +227,11 @@ const TransactionHistory = () => {
                 <div className={`font-medium ${
                   transaction.status === 'pending' 
                     ? "text-amber-600" 
-                    : transaction.type === 'outgoing' 
+                    : transaction.direction === 'outgoing' 
                       ? "text-red-600" 
                       : "text-green-600"
                 }`}>
-                  {transaction.type === 'outgoing' ? "-" : "+"}K {transaction.amount.toFixed(2)}
+                  {transaction.direction === 'outgoing' ? "-" : "+"}K {transaction.amount.toFixed(2)}
                 </div>
               </div>
             ))
