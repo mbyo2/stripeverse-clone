@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PaymentForm from "@/components/PaymentForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
