@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDownLeft, ArrowUpRight, Clock } from "lucide-react";
@@ -34,7 +33,6 @@ const TransactionHistory = ({
       try {
         setLoading(true);
         
-        // First try to get real transactions from the database
         const { data: dbTransactions, error } = await supabase
           .from('transactions')
           .select('*')
@@ -44,9 +42,8 @@ const TransactionHistory = ({
         if (error) throw error;
         
         if (dbTransactions && dbTransactions.length > 0) {
-          // Map the database transactions to our Transaction interface
           const formattedTransactions = dbTransactions.map(tx => ({
-            id: tx.id.toString(),
+            id: tx.id,
             user_id: tx.user_id || '',
             amount: tx.amount,
             currency: tx.currency,
@@ -65,15 +62,12 @@ const TransactionHistory = ({
           
           setTransactions(formattedTransactions);
           
-          // Notify parent component about loaded transactions
           if (onTransactionsLoaded) {
             onTransactionsLoaded(formattedTransactions);
           }
         } else {
-          // Fallback to mock data if no real transactions exist
           setTransactions(mockTransactions);
           
-          // Notify parent component about loaded transactions
           if (onTransactionsLoaded) {
             onTransactionsLoaded(mockTransactions);
           }
@@ -81,10 +75,8 @@ const TransactionHistory = ({
       } catch (err) {
         console.error("Error fetching transactions:", err);
         setError("Failed to load transactions");
-        // Fallback to mock data on error
         setTransactions(mockTransactions);
         
-        // Notify parent component about loaded transactions
         if (onTransactionsLoaded) {
           onTransactionsLoaded(mockTransactions);
         }
@@ -95,7 +87,6 @@ const TransactionHistory = ({
 
     fetchTransactions();
     
-    // Set up real-time subscription for new transactions
     const channel = supabase
       .channel('public:transactions')
       .on('postgres_changes', { 
@@ -104,7 +95,6 @@ const TransactionHistory = ({
         table: 'transactions' 
       }, (payload) => {
         console.log('Transaction change received:', payload);
-        // Refresh transactions when new ones come in
         fetchTransactions();
       })
       .subscribe();
@@ -114,10 +104,9 @@ const TransactionHistory = ({
     };
   }, [limit, onTransactionsLoaded]);
 
-  // Mock transactions for fallback when API fails or no data exists
   const mockTransactions: Transaction[] = [
     { 
-      id: '1', 
+      id: 1, 
       user_id: '',
       amount: 250.75, 
       currency: 'ZMW',
@@ -129,7 +118,7 @@ const TransactionHistory = ({
       updated_at: new Date('2023-10-15').toISOString()
     },
     { 
-      id: '2', 
+      id: 2, 
       user_id: '',
       amount: 320.50, 
       currency: 'ZMW',
@@ -141,7 +130,7 @@ const TransactionHistory = ({
       updated_at: new Date('2023-10-14').toISOString()
     },
     { 
-      id: '3', 
+      id: 3, 
       user_id: '',
       amount: 100.00, 
       currency: 'ZMW',
@@ -153,7 +142,7 @@ const TransactionHistory = ({
       updated_at: new Date('2023-10-13').toISOString()
     },
     { 
-      id: '4', 
+      id: 4, 
       user_id: '',
       amount: 500.25, 
       currency: 'ZMW',
@@ -165,7 +154,7 @@ const TransactionHistory = ({
       updated_at: new Date('2023-10-12').toISOString()
     },
     { 
-      id: '5', 
+      id: 5, 
       user_id: '',
       amount: 150.00, 
       currency: 'ZMW',
@@ -212,7 +201,6 @@ const TransactionHistory = ({
     );
   }
 
-  // Determine which transactions to display
   const displayTransactions = filteredTransactions || transactions;
 
   return (
