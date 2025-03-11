@@ -49,6 +49,13 @@ enum KycVerificationLevel {
   FULL = 'full'
 }
 
+// KYC verification status
+enum KycVerificationStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected'
+}
+
 // Transaction record
 interface TransactionRecord {
   id?: number;
@@ -427,7 +434,7 @@ async function processUssdPayment(
   }
 }
 
-// Basic KYC verification
+// Enhanced KYC verification
 async function verifyKyc(userId: string, data: any): Promise<{level: KycVerificationLevel, message: string}> {
   console.log(`Processing KYC verification for user ${userId}`);
   
@@ -444,7 +451,7 @@ async function verifyKyc(userId: string, data: any): Promise<{level: KycVerifica
     }
     
     // If user already has full verification, return that
-    if (existingKyc && existingKyc.level === KycVerificationLevel.FULL) {
+    if (existingKyc && existingKyc.level === KycVerificationLevel.FULL && existingKyc.verified_at) {
       return {
         level: KycVerificationLevel.FULL,
         message: "Your account is already fully verified."
@@ -471,6 +478,10 @@ async function verifyKyc(userId: string, data: any): Promise<{level: KycVerifica
       verificationLevel = KycVerificationLevel.FULL;
     }
     
+    // In a real implementation, verification wouldn't be automatic.
+    // It would require admin approval, which we'll simulate for demo purposes.
+    // For now, let's assume that verification is pending
+    
     // Save or update KYC information
     if (existingKyc) {
       // Update existing record
@@ -485,7 +496,11 @@ async function verifyKyc(userId: string, data: any): Promise<{level: KycVerifica
           date_of_birth: dateOfBirth,
           address: address || existingKyc.address,
           selfie_url: selfieImage || existingKyc.selfie_url,
-          updated_at: new Date().toISOString()
+          // We're not setting verified_at here because this would be done
+          // by an admin in a real implementation
+          updated_at: new Date().toISOString(),
+          // Clear any previous rejection reasons
+          metadata: {}
         })
         .eq('user_id', userId);
         
@@ -511,11 +526,13 @@ async function verifyKyc(userId: string, data: any): Promise<{level: KycVerifica
       if (insertError) throw insertError;
     }
     
+    const verificationMessage = (verificationLevel === KycVerificationLevel.FULL) 
+      ? "Your full verification has been submitted for review." 
+      : "Basic verification completed. Full verification is pending review.";
+    
     return {
       level: verificationLevel,
-      message: verificationLevel === KycVerificationLevel.FULL 
-        ? "Your account has been fully verified."
-        : "Basic verification completed. Upload additional documents for full verification."
+      message: verificationMessage
     };
   } catch (error) {
     console.error("KYC verification error:", error);
@@ -523,22 +540,30 @@ async function verifyKyc(userId: string, data: any): Promise<{level: KycVerifica
   }
 }
 
-// Check KYC verification level
+// Enhanced function to check KYC verification level
 async function checkKycLevel(userId: string): Promise<KycVerificationLevel> {
   try {
     if (!userId) return KycVerificationLevel.NONE;
     
     const { data, error } = await supabase
       .from('kyc_verifications')
-      .select('level')
+      .select('level, verified_at')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
       
     if (error) {
       if (error.code === 'PGRST116') { // No rows returned
         return KycVerificationLevel.NONE;
       }
       throw error;
+    }
+    
+    // If verification hasn't been approved yet, return the base level
+    // In a real app, this would depend on your business rules
+    if (!data?.verified_at) {
+      if (data?.level === KycVerificationLevel.FULL) {
+        return KycVerificationLevel.BASIC; // Downgrade to BASIC until approved
+      }
     }
     
     return data?.level as KycVerificationLevel || KycVerificationLevel.NONE;
@@ -774,7 +799,7 @@ serve(async (req) => {
         );
       }
       
-      // Process KYC verification
+      // Process KYC verification with our enhanced implementation
       const result = await verifyKyc(userId, data);
       
       return new Response(
@@ -792,7 +817,7 @@ serve(async (req) => {
         );
       }
       
-      // Check KYC level
+      // Check KYC level with our enhanced implementation
       const kycLevel = await checkKycLevel(userId);
       
       return new Response(
@@ -879,7 +904,7 @@ serve(async (req) => {
     }
     
   } catch (error) {
-    console.error('Error processing payment:', error);
+    console.error('Error processing request:', error);
     
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
