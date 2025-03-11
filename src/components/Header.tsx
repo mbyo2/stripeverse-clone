@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from "@/lib/utils";
@@ -32,7 +31,7 @@ const Header = () => {
   const navItems = isLoggedIn 
     ? [
         { name: 'Dashboard', path: '/dashboard', icon: <LineChart className="w-4 h-4 mr-2" /> },
-        { name: 'Send Money', path: '/send-money', icon: <ArrowUpRight className="w-4 h-4 mr-2" /> },
+        { name: 'Send Money', path: '/transfer', icon: <ArrowUpRight className="w-4 h-4 mr-2" /> },
         { name: 'Wallet', path: '/wallet', icon: <Wallet className="w-4 h-4 mr-2" /> },
         { name: 'Transactions', path: '/transactions', icon: <LineChart className="w-4 h-4 mr-2" /> }
       ]

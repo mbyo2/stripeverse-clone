@@ -7,7 +7,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { Transaction } from "@/types/transaction";
 
-const TransactionHistory = () => {
+interface TransactionHistoryProps {
+  filteredTransactions?: Transaction[];
+  onTransactionsLoaded?: (transactions: Transaction[]) => void;
+  limit?: number;
+}
+
+const TransactionHistory = ({ 
+  filteredTransactions, 
+  onTransactionsLoaded,
+  limit = 10 
+}: TransactionHistoryProps) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +32,7 @@ const TransactionHistory = () => {
           .from('transactions')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(10);
+          .limit(limit);
         
         if (error) throw error;
         
@@ -47,15 +57,30 @@ const TransactionHistory = () => {
           }));
           
           setTransactions(formattedTransactions);
+          
+          // Notify parent component about loaded transactions
+          if (onTransactionsLoaded) {
+            onTransactionsLoaded(formattedTransactions);
+          }
         } else {
           // Fallback to mock data if no real transactions exist
           setTransactions(mockTransactions);
+          
+          // Notify parent component about loaded transactions
+          if (onTransactionsLoaded) {
+            onTransactionsLoaded(mockTransactions);
+          }
         }
       } catch (err) {
         console.error("Error fetching transactions:", err);
         setError("Failed to load transactions");
         // Fallback to mock data on error
         setTransactions(mockTransactions);
+        
+        // Notify parent component about loaded transactions
+        if (onTransactionsLoaded) {
+          onTransactionsLoaded(mockTransactions);
+        }
       } finally {
         setLoading(false);
       }
@@ -80,7 +105,7 @@ const TransactionHistory = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [limit, onTransactionsLoaded]);
 
   // Mock transactions for fallback when API fails or no data exists
   const mockTransactions: Transaction[] = [
@@ -180,6 +205,9 @@ const TransactionHistory = () => {
     );
   }
 
+  // Determine which transactions to display
+  const displayTransactions = filteredTransactions || transactions;
+
   return (
     <Card>
       <CardHeader className="pb-0">
@@ -187,10 +215,10 @@ const TransactionHistory = () => {
       </CardHeader>
       <CardContent className="p-4">
         <div className="space-y-4">
-          {transactions.length === 0 ? (
-            <p className="text-center text-muted-foreground py-6">No transactions yet</p>
+          {displayTransactions.length === 0 ? (
+            <p className="text-center text-muted-foreground py-6">No transactions match your filters</p>
           ) : (
-            transactions.map((transaction) => (
+            displayTransactions.map((transaction) => (
               <div key={transaction.id} className="flex items-center justify-between py-2 border-b last:border-0">
                 <div className="flex items-center">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
