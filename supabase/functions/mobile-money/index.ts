@@ -520,7 +520,8 @@ async function verifyKyc(userId: string, data: any): Promise<{level: KycVerifica
           address: address || null,
           selfie_url: selfieImage || null,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          metadata: {}
         });
         
       if (insertError) throw insertError;

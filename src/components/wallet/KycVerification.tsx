@@ -22,6 +22,24 @@ interface KycFormState {
   selfieImage?: File | null;
 }
 
+// Interface for KYC verification data from database
+interface KycVerificationData {
+  id: number;
+  user_id: string;
+  level: string;
+  first_name: string | null;
+  last_name: string | null;
+  id_type: string | null;
+  id_number: string | null;
+  date_of_birth: string | null;
+  address: string | null;
+  selfie_url: string | null;
+  created_at: string;
+  updated_at: string;
+  verified_at: string | null;
+  metadata?: { rejection_reason?: string } | null;
+}
+
 const KycVerification = () => {
   const [kycLevel, setKycLevel] = useState<KycLevel>(KycLevel.NONE);
   const [kycStatus, setKycStatus] = useState<KycStatus>(KycStatus.NOT_STARTED);
@@ -93,8 +111,9 @@ const KycVerification = () => {
           }
           
           // Set rejection reason if it exists
-          if (kycData.metadata && kycData.metadata.rejection_reason) {
-            setRejectionReason(kycData.metadata.rejection_reason);
+          const kycDataWithMetadata = kycData as KycVerificationData;
+          if (kycDataWithMetadata.metadata && kycDataWithMetadata.metadata.rejection_reason) {
+            setRejectionReason(kycDataWithMetadata.metadata.rejection_reason);
             setKycStatus(KycStatus.REJECTED);
           }
         }
@@ -172,6 +191,21 @@ const KycVerification = () => {
       // Upload selfie image if provided
       let selfieUrl = null;
       if (formData.selfieImage) {
+        // Check if the kyc-documents bucket exists, if not create it
+        const { data: buckets } = await supabase.storage.listBuckets();
+        const kycBucketExists = buckets?.some(bucket => bucket.name === 'kyc-documents');
+        
+        if (!kycBucketExists) {
+          const { error: bucketError } = await supabase.storage.createBucket('kyc-documents', {
+            public: false
+          });
+          
+          if (bucketError) {
+            console.error("Error creating KYC documents bucket:", bucketError);
+            throw bucketError;
+          }
+        }
+      
         const fileName = `kyc/${userData.user.id}/selfie_${Date.now()}.jpg`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('kyc-documents')
