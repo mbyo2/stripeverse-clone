@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDownLeft, ArrowUpRight, Clock } from "lucide-react";
@@ -43,7 +44,7 @@ const TransactionHistory = ({
         
         if (dbTransactions && dbTransactions.length > 0) {
           const formattedTransactions = dbTransactions.map(tx => ({
-            id: tx.id,
+            id: typeof tx.id === 'string' ? parseInt(tx.id, 10) : tx.id,
             user_id: tx.user_id || '',
             amount: tx.amount,
             currency: tx.currency,
