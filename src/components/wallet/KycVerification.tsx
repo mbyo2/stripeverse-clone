@@ -110,9 +110,13 @@ const KycVerification = () => {
           }
           
           // Set rejection reason if it exists
-          if (kycData.metadata && kycData.metadata.rejection_reason) {
-            setRejectionReason(kycData.metadata.rejection_reason);
-            setKycStatus(KycStatus.REJECTED);
+          if (kycData.metadata) {
+            // Type casting the metadata to our KycMetadata type
+            const metadata = kycData.metadata as KycMetadata;
+            if (metadata.rejection_reason) {
+              setRejectionReason(metadata.rejection_reason);
+              setKycStatus(KycStatus.REJECTED);
+            }
           }
         }
         
