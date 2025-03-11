@@ -16,3 +16,41 @@ export type KycMetadata = {
   rejection_reason?: string;
   [key: string]: any;
 };
+
+// Helper type for virtual card data
+export interface VirtualCard {
+  id: string;
+  user_id: string;
+  name: string;
+  number: string;
+  masked_number: string;
+  cvv: string;
+  expiry: string;
+  balance: number;
+  status: 'active' | 'frozen' | 'cancelled';
+  provider: string;
+  card_type: string;
+  created_at: string;
+  updated_at: string;
+  currency: string;
+  limits?: {
+    daily?: number;
+    monthly?: number;
+    transaction?: number;
+  };
+  settings?: {
+    online_transactions: boolean;
+    international_transactions: boolean;
+  };
+}
+
+// Helper type for transaction filters
+export interface TransactionFilter {
+  startDate?: Date;
+  endDate?: Date;
+  type?: string;
+  status?: string;
+  minAmount?: number;
+  maxAmount?: number;
+  paymentMethod?: string;
+}

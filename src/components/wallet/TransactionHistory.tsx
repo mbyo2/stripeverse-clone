@@ -6,18 +6,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { Transaction } from "@/types/transaction";
+import TransactionManager from "./TransactionManager";
 
 interface TransactionHistoryProps {
   filteredTransactions?: Transaction[];
   onTransactionsLoaded?: (transactions: Transaction[]) => void;
   limit?: number;
+  showAdvanced?: boolean;
 }
 
 const TransactionHistory = ({ 
   filteredTransactions, 
   onTransactionsLoaded,
-  limit = 10 
+  limit = 10,
+  showAdvanced = false
 }: TransactionHistoryProps) => {
+  if (showAdvanced) {
+    return <TransactionManager limit={limit} />;
+  }
+  
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -7,17 +7,14 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { PlusCircle, ArrowDownLeft, ArrowUpRight, ArrowRight } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import VirtualCardList from "@/components/wallet/VirtualCardList";
+import VirtualCardManager from "@/components/wallet/VirtualCardManager";
 import PaymentMethodList from "@/components/wallet/PaymentMethodList";
 import TransactionHistory from "@/components/wallet/TransactionHistory";
-import { paymentMethods, mockVirtualCards, getWalletBalance } from "@/data/mockData";
+import { paymentMethods, getWalletBalance } from "@/data/mockData";
 
 const Wallet = () => {
   const navigate = useNavigate();
   const walletBalance = getWalletBalance();
-  
-  // Convert our object to array for the list component
-  const virtualCardsArray = Object.values(mockVirtualCards);
   
   const handleSendMoney = () => {
     navigate("/transfer");
@@ -27,10 +24,6 @@ const Wallet = () => {
     navigate("/checkout", { state: { productName: "Wallet Top-up", amount: 100 } });
   };
 
-  const handleCreateVirtualCard = () => {
-    navigate("/virtual-card/new");
-  };
-  
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
@@ -77,15 +70,9 @@ const Wallet = () => {
         <div className="mb-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold">Virtual Cards</h2>
-            <Button onClick={handleCreateVirtualCard}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Create Card
-            </Button>
           </div>
           
-          <VirtualCardList 
-            virtualCards={virtualCardsArray} 
-            onCreateCard={handleCreateVirtualCard} 
-          />
+          <VirtualCardManager maxCards={5} />
         </div>
         
         {/* Tabs for Payment Methods and Transaction History */}
@@ -100,7 +87,7 @@ const Wallet = () => {
           </TabsContent>
           
           <TabsContent value="transaction-history" className="mt-6">
-            <TransactionHistory />
+            <TransactionHistory limit={5} />
           </TabsContent>
         </Tabs>
       </main>
