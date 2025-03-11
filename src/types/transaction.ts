@@ -1,6 +1,6 @@
 
 export interface Transaction {
-  id: string;
+  id: number;
   user_id: string;
   amount: number;
   currency: string;
@@ -15,4 +15,14 @@ export interface Transaction {
   metadata?: any;
   created_at: string;
   updated_at: string;
+}
+
+export interface TransactionFilter {
+  startDate?: Date;
+  endDate?: Date;
+  type?: string;
+  status?: string;
+  minAmount?: number;
+  maxAmount?: number;
+  paymentMethod?: string;
 }

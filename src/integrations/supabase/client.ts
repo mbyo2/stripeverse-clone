@@ -44,13 +44,4 @@ export interface VirtualCard {
   };
 }
 
-// Helper type for transaction filters
-export interface TransactionFilter {
-  startDate?: Date;
-  endDate?: Date;
-  type?: string;
-  status?: string;
-  minAmount?: number;
-  maxAmount?: number;
-  paymentMethod?: string;
-}
+// Helper type for transaction filters moved to src/types/transaction.ts
