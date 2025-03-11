@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { Shield, CheckCircle2, AlertCircle, Upload, Clock } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, KycMetadata } from "@/integrations/supabase/client";
 import KycVerificationStatus, { KycLevel, KycStatus } from "./KycVerificationStatus";
 
 // Interface for form state
@@ -37,7 +36,7 @@ interface KycVerificationData {
   created_at: string;
   updated_at: string;
   verified_at: string | null;
-  metadata?: { rejection_reason?: string } | null;
+  metadata?: KycMetadata | null;
 }
 
 const KycVerification = () => {
@@ -111,9 +110,8 @@ const KycVerification = () => {
           }
           
           // Set rejection reason if it exists
-          const kycDataWithMetadata = kycData as KycVerificationData;
-          if (kycDataWithMetadata.metadata && kycDataWithMetadata.metadata.rejection_reason) {
-            setRejectionReason(kycDataWithMetadata.metadata.rejection_reason);
+          if (kycData.metadata && kycData.metadata.rejection_reason) {
+            setRejectionReason(kycData.metadata.rejection_reason);
             setKycStatus(KycStatus.REJECTED);
           }
         }

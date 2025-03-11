@@ -20,6 +20,7 @@ export type Database = {
           id_type: string | null
           last_name: string | null
           level: string
+          metadata: Json | null
           selfie_url: string | null
           updated_at: string | null
           user_id: string | null
@@ -35,6 +36,7 @@ export type Database = {
           id_type?: string | null
           last_name?: string | null
           level?: string
+          metadata?: Json | null
           selfie_url?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -50,6 +52,7 @@ export type Database = {
           id_type?: string | null
           last_name?: string | null
           level?: string
+          metadata?: Json | null
           selfie_url?: string | null
           updated_at?: string | null
           user_id?: string | null
