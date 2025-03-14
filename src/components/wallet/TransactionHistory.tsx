@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowDownLeft, ArrowUpRight, Clock } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Clock, XIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
@@ -43,8 +43,8 @@ const TransactionHistory = ({
         if (error) throw error;
         
         if (dbTransactions && dbTransactions.length > 0) {
-          const formattedTransactions = dbTransactions.map(tx => ({
-            id: typeof tx.id === 'string' ? parseInt(tx.id, 10) : tx.id,
+          const formattedTransactions: Transaction[] = dbTransactions.map(tx => ({
+            id: typeof tx.id === 'string' ? parseInt(tx.id, 10) : tx.id as number,
             user_id: tx.user_id || '',
             amount: tx.amount,
             currency: tx.currency,
@@ -222,6 +222,8 @@ const TransactionHistory = ({
                   }`}>
                     {transaction.status === 'pending' ? (
                       <Clock className="h-5 w-5 text-amber-600" />
+                    ) : transaction.status === 'failed' ? (
+                      <XIcon className="h-5 w-5 text-red-600" />
                     ) : transaction.direction === 'outgoing' ? (
                       <ArrowUpRight className="h-5 w-5 text-red-600" />
                     ) : (
