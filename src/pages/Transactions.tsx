@@ -10,7 +10,6 @@ import { Suspense } from "react";
 
 const Transactions = () => {
   const [activeTab, setActiveTab] = useState("all");
-  const [isLoading, setIsLoading] = useState(false);
   
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
@@ -32,7 +31,10 @@ const Transactions = () => {
           
           <TabsContent value="all" className="mt-6">
             <Suspense fallback={<LoadingCard />}>
-              <EnhancedTransactionManager showFilters={true} showExport={true} />
+              <EnhancedTransactionManager 
+                showFilters={true} 
+                showExport={true} 
+              />
             </Suspense>
           </TabsContent>
           

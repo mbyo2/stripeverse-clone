@@ -339,7 +339,7 @@ const EnhancedTransactionManager = ({
             </Button>
             
             {showExport && (
-              <Button variant="outline" onClick={handleExport} disabled={!filteredTransactions.length}>
+              <Button variant="outline" onClick={handleExport} disabled={filteredTransactions.length === 0}>
                 <DownloadIcon className="mr-2 h-4 w-4" /> Export
               </Button>
             )}
