@@ -11,10 +11,21 @@ import VirtualCardManager from "@/components/wallet/VirtualCardManager";
 import PaymentMethodList from "@/components/wallet/PaymentMethodList";
 import TransactionHistory from "@/components/wallet/TransactionHistory";
 import { paymentMethods, getWalletBalance } from "@/data/mockData";
+import { useEffect, useState } from "react";
 
 const Wallet = () => {
   const navigate = useNavigate();
   const walletBalance = getWalletBalance();
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    // Short timeout to ensure components have time to initialize
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
   
   const handleSendMoney = () => {
     navigate("/transfer");
@@ -23,6 +34,18 @@ const Wallet = () => {
   const handleAddMoney = () => {
     navigate("/checkout", { state: { productName: "Wallet Top-up", amount: 100 } });
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
@@ -66,13 +89,15 @@ const Wallet = () => {
           </CardContent>
         </Card>
         
-        {/* Virtual Cards Section */}
+        {/* Virtual Cards Section - Wrapped in error boundary */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold">Virtual Cards</h2>
           </div>
           
-          <VirtualCardManager maxCards={5} />
+          <ErrorBoundary fallback={<VirtualCardFallback />}>
+            <VirtualCardManager maxCards={5} />
+          </ErrorBoundary>
         </div>
         
         {/* Tabs for Payment Methods and Transaction History */}
@@ -87,12 +112,55 @@ const Wallet = () => {
           </TabsContent>
           
           <TabsContent value="transaction-history" className="mt-6">
-            <TransactionHistory limit={5} />
+            <ErrorBoundary fallback={<TransactionHistoryFallback />}>
+              <TransactionHistory limit={5} />
+            </ErrorBoundary>
           </TabsContent>
         </Tabs>
       </main>
       <Footer />
     </div>
+  );
+};
+
+// Simple error boundary component
+const ErrorBoundary = ({ children, fallback }: { children: React.ReactNode, fallback: React.ReactNode }) => {
+  const [hasError, setHasError] = useState(false);
+  
+  useEffect(() => {
+    const errorHandler = (error: ErrorEvent) => {
+      console.error("Error caught by error boundary:", error);
+      setHasError(true);
+    };
+    
+    window.addEventListener('error', errorHandler);
+    return () => window.removeEventListener('error', errorHandler);
+  }, []);
+  
+  return hasError ? <>{fallback}</> : <>{children}</>;
+};
+
+const VirtualCardFallback = () => {
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <p className="text-center text-muted-foreground">
+          Unable to load virtual cards. Please try again later.
+        </p>
+      </CardContent>
+    </Card>
+  );
+};
+
+const TransactionHistoryFallback = () => {
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <p className="text-center text-muted-foreground">
+          Unable to load transaction history. Please try again later.
+        </p>
+      </CardContent>
+    </Card>
   );
 };
 
