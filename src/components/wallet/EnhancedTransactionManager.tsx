@@ -156,7 +156,7 @@ const EnhancedTransactionManager = ({
   });
   
   // Filter transactions based on search term using memoized function
-  const filteredTransactions = measureExecutionTime(
+  const filteredTransactions: Transaction[] = measureExecutionTime(
     () => filterTransactionsBySearch(transactions, searchTerm),
     "filterTransactions"
   );
