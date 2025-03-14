@@ -1,5 +1,5 @@
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 
 export interface VirtualizationOptions {
   itemHeight: number;
@@ -129,12 +129,12 @@ export async function processInChunks<T, R>(
   const chunks = createDataChunks(items, chunkSize);
   const results: R[] = [];
   
-  return new Promise((resolve) => {
+  return new Promise<R[]>((resolve) => {
     let processed = 0;
     
     function processNextChunk(index: number) {
       if (index >= chunks.length) {
-        resolve(results.flat());
+        resolve(results);
         return;
       }
       
