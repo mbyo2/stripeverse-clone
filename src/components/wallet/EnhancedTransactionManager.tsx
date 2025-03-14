@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
@@ -28,7 +27,6 @@ import { memoize } from "@/lib/cache";
 import { trackRender, measureExecutionTime } from "@/lib/performance";
 import OptimizedTransactionList from "./OptimizedTransactionList";
 
-// Memoized function to filter transactions by search term
 const filterTransactionsBySearch = memoize(
   (transactions: Transaction[], searchTerm: string): Transaction[] => {
     if (!searchTerm.trim()) return transactions;
@@ -42,7 +40,7 @@ const filterTransactionsBySearch = memoize(
     ));
   },
   (transactions, searchTerm) => `search:${searchTerm}:${transactions.length}`,
-  60000 // Cache for 1 minute
+  60000
 );
 
 interface EnhancedTransactionManagerProps {
@@ -53,12 +51,11 @@ interface EnhancedTransactionManagerProps {
 }
 
 const EnhancedTransactionManager = ({
-  limit = 1000, // Increased default limit for large datasets
+  limit = 1000,
   showFilters = true,
   showExport = true,
   className = ""
 }: EnhancedTransactionManagerProps) => {
-  // Track component render performance
   const endRenderTracking = trackRender("EnhancedTransactionManager");
   
   const queryClient = useQueryClient();
@@ -78,7 +75,6 @@ const EnhancedTransactionManager = ({
   const [currentPage, setCurrentPage] = useState(1);
   const searchDebounceTimer = useRef<NodeJS.Timeout | null>(null);
   
-  // Debounced search handler
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     
@@ -91,14 +87,12 @@ const EnhancedTransactionManager = ({
     }, 300);
   };
   
-  // Fetch transactions with React Query
   const fetchTransactions = useCallback(async () => {
     let query = supabase
       .from('transactions')
       .select('*')
       .order('created_at', { ascending: sortOrder === 'asc' });
       
-    // Apply filters  
     if (filters.startDate && isValid(filters.startDate)) {
       query = query.gte('created_at', filters.startDate.toISOString());
     }
@@ -127,14 +121,12 @@ const EnhancedTransactionManager = ({
       query = query.eq('payment_method', filters.paymentMethod);
     }
     
-    // Apply limit and page
     query = query.range((currentPage - 1) * limit, currentPage * limit - 1);
     
     const { data, error } = await query;
     
     if (error) throw error;
     
-    // If no data is returned, return mock data for development
     if (!data || data.length === 0) {
       return generateMockTransactions(limit);
     }
@@ -151,17 +143,17 @@ const EnhancedTransactionManager = ({
   } = useQuery({
     queryKey: ['transactions', filters, limit, sortOrder, currentPage],
     queryFn: fetchTransactions,
-    staleTime: 30000, // Consider data fresh for 30 seconds
-    gcTime: 300000,   // Keep cached data for 5 minutes
+    staleTime: 30000,
+    gcTime: 300000,
   });
   
-  // Filter transactions based on search term using memoized function
-  const filteredTransactions: Transaction[] = measureExecutionTime(
+  const filteredTransactionsFunc = measureExecutionTime(
     () => filterTransactionsBySearch(transactions, searchTerm),
     "filterTransactions"
   );
   
-  // Apply filters when they change
+  const filteredTransactions: Transaction[] = filteredTransactionsFunc();
+  
   useEffect(() => {
     const newFilters: TransactionFilter = {};
     
@@ -184,7 +176,6 @@ const EnhancedTransactionManager = ({
     setFilters(newFilters);
   }, [dateRange, typeFilter, statusFilter]);
   
-  // Set up real-time subscription to transactions table
   useEffect(() => {
     const channel = supabase
       .channel('transactions_changes')
@@ -193,7 +184,6 @@ const EnhancedTransactionManager = ({
         schema: 'public', 
         table: 'transactions' 
       }, () => {
-        // Invalidate the query to trigger a refetch
         queryClient.invalidateQueries({ queryKey: ['transactions'] });
       })
       .subscribe();
@@ -213,7 +203,6 @@ const EnhancedTransactionManager = ({
       return;
     }
     
-    // Prepare CSV data
     const headers = ["Date", "Type", "Amount", "Recipient", "Status", "Reference", "Payment Method"];
     const csvRows = [headers.join(",")];
     
@@ -231,7 +220,6 @@ const EnhancedTransactionManager = ({
       csvRows.push(row.join(","));
     });
     
-    // Create and download CSV file
     const csvString = csvRows.join("\n");
     const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -260,14 +248,12 @@ const EnhancedTransactionManager = ({
     setSearchTerm("");
     setCurrentPage(1);
     
-    // Clear the search input field value
     const searchInput = document.querySelector('input[placeholder="Search transactions..."]') as HTMLInputElement;
     if (searchInput) {
       searchInput.value = "";
     }
   };
   
-  // Function to generate mock transactions for development
   const generateMockTransactions = (count: number): Transaction[] => {
     const mockTransactions: Transaction[] = [];
     const directions = ['incoming', 'outgoing'] as const;
@@ -305,14 +291,12 @@ const EnhancedTransactionManager = ({
     return mockTransactions;
   };
   
-  // Track when the component finishes rendering
   useEffect(() => {
     return endRenderTracking;
   }, [endRenderTracking]);
   
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Search and filters */}
       {showFilters && (
         <div className="space-y-4">
           <div className="flex flex-col md:flex-row gap-4">
@@ -421,7 +405,6 @@ const EnhancedTransactionManager = ({
         </div>
       )}
       
-      {/* Transaction list */}
       <Card>
         <CardHeader className="pb-0">
           <CardTitle className="text-lg flex items-center justify-between">
@@ -454,7 +437,6 @@ const EnhancedTransactionManager = ({
             <OptimizedTransactionList transactions={filteredTransactions} />
           )}
           
-          {/* Pagination controls */}
           {!isLoading && filteredTransactions.length > 0 && (
             <div className="flex justify-between items-center mt-4">
               <Button 
