@@ -13,6 +13,9 @@ import VirtualCardNew from "@/pages/VirtualCardNew";
 import VirtualCardDetails from "@/pages/VirtualCardDetails";
 import VirtualCardFund from "@/pages/VirtualCardFund";
 import KycPage from "@/pages/KycPage";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsOfService from "@/pages/TermsOfService";
+import Compliance from "@/pages/Compliance";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "@/pages/Index";
@@ -24,6 +27,9 @@ function App() {
         <Route path="/" element={<Index />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-of-service" element={<TermsOfService />} />
+        <Route path="/compliance" element={<Compliance />} />
         <Route
           path="/dashboard"
           element={

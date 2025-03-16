@@ -1,5 +1,6 @@
 
 import { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { CreditCard, Smartphone, Phone, Mail, MapPin, Shield, Globe } from 'lucide-react';
 
 const Footer = () => {
@@ -123,15 +124,15 @@ const Footer = () => {
             &copy; {currentYear} BMaGlass Pay. All rights reserved. Founded by Mabvuto Banda.
           </p>
           <div className="mt-4 md:mt-0 flex items-center space-x-6">
-            <a href="#" className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors duration-300">
+            <Link to="/privacy-policy" className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors duration-300">
               Privacy Policy
-            </a>
-            <a href="#" className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors duration-300">
+            </Link>
+            <Link to="/terms-of-service" className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors duration-300">
               Terms of Service
-            </a>
-            <a href="#" className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors duration-300">
+            </Link>
+            <Link to="/compliance" className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors duration-300">
               Compliance
-            </a>
+            </Link>
           </div>
         </div>
       </div>
