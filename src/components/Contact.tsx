@@ -1,6 +1,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { Mail, Phone, MapPin } from 'lucide-react';
 
 const Contact = () => {
   const [email, setEmail] = useState('');
@@ -60,7 +61,7 @@ const Contact = () => {
               Stay Connected
             </h2>
             <p className="body-text text-center mb-8">
-              Join our newsletter to receive updates on new products, special offers, and design insights.
+              Subscribe to receive updates on BMaGlass Pay's new features, payment solutions, and financial insights for Zambian businesses.
             </p>
             
             <form onSubmit={handleSubmit} className="max-w-md mx-auto">
@@ -85,18 +86,27 @@ const Contact = () => {
               </div>
             </form>
             
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-              <div>
-                <h4 className="text-lg font-medium mb-2">Visit Us</h4>
-                <p className="text-foreground/70">123 Design Street<br />San Francisco, CA 94107</p>
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="flex flex-col items-center md:items-start">
+                <h4 className="text-lg font-medium mb-2">Visit Our Office</h4>
+                <div className="flex items-center text-foreground/70">
+                  <MapPin className="h-5 w-5 mr-2 text-primary" />
+                  <p>Cairo Road, Lusaka<br />Zambia</p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-lg font-medium mb-2">Email Us</h4>
-                <p className="text-foreground/70">hello@essence.design<br />support@essence.design</p>
+              <div className="flex flex-col items-center md:items-start">
+                <h4 className="text-lg font-medium mb-2">Email Mr. Banda</h4>
+                <div className="flex items-center text-foreground/70">
+                  <Mail className="h-5 w-5 mr-2 text-primary" />
+                  <p>mabvuto@bmaglasspay.com<br />support@bmaglasspay.com</p>
+                </div>
               </div>
-              <div>
+              <div className="flex flex-col items-center md:items-start">
                 <h4 className="text-lg font-medium mb-2">Call Us</h4>
-                <p className="text-foreground/70">+1 (555) 123-4567<br />Mon-Fri, 9am-5pm PST</p>
+                <div className="flex items-center text-foreground/70">
+                  <Phone className="h-5 w-5 mr-2 text-primary" />
+                  <p>+260 976 123 456<br />Mon-Fri, 8:30am-5pm CAT</p>
+                </div>
               </div>
             </div>
           </div>
