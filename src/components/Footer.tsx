@@ -1,5 +1,6 @@
 
 import { useEffect, useRef } from 'react';
+import { CreditCard, Smartphone, Phone, Mail, MapPin, Shield, Globe } from 'lucide-react';
 
 const Footer = () => {
   const footerRef = useRef<HTMLDivElement>(null);
@@ -38,20 +39,36 @@ const Footer = () => {
           <div className="col-span-1 md:col-span-2">
             <div className="text-2xl font-bold mb-4">BMaGlass Pay</div>
             <p className="text-primary-foreground/80 max-w-md">
-              Founded by Mabvuto Banda in Lusaka, we're building financial technology that empowers Zambians with secure, reliable payment solutions.
+              Founded by Mabvuto Banda in Lusaka, BMaGlass Pay is Zambia's trusted payment gateway solution, serving businesses of all sizes with secure and efficient digital payment processing.
             </p>
+            
+            <div className="mt-6 flex items-center space-x-4">
+              <Shield className="h-5 w-5 text-primary-foreground/80" />
+              <span className="text-primary-foreground/80">PCI DSS Compliant</span>
+            </div>
+            <div className="mt-2 flex items-center space-x-4">
+              <Globe className="h-5 w-5 text-primary-foreground/80" />
+              <span className="text-primary-foreground/80">Bank of Zambia Approved</span>
+            </div>
           </div>
           
           <div>
-            <h4 className="text-base font-medium mb-4">Services</h4>
+            <h4 className="text-base font-medium mb-4">Payment Services</h4>
             <ul className="space-y-2">
-              {['Mobile Payments', 'Business Solutions', 'API Integration', 'Payment Links'].map((item) => (
-                <li key={item}>
+              {[
+                {name: 'Mobile Money Integration', icon: <Smartphone className="h-4 w-4 mr-2" />},
+                {name: 'Card Processing', icon: <CreditCard className="h-4 w-4 mr-2" />},
+                {name: 'Business Dashboard', icon: <Globe className="h-4 w-4 mr-2" />},
+                {name: 'Merchant API', icon: <Shield className="h-4 w-4 mr-2" />},
+                {name: 'Settlement Services', icon: <CreditCard className="h-4 w-4 mr-2" />}
+              ].map((item) => (
+                <li key={item.name}>
                   <a 
-                    href={`#${item.toLowerCase().replace(/\s+/g, '-')}`}
-                    className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300"
+                    href={`#${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                    className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300 flex items-center"
                   >
-                    {item}
+                    {item.icon}
+                    {item.name}
                   </a>
                 </li>
               ))}
@@ -60,33 +77,50 @@ const Footer = () => {
           
           <div>
             <h4 className="text-base font-medium mb-4">Contact Us</h4>
-            <ul className="space-y-2">
-              <li className="text-primary-foreground/80">
-                Lusaka, Zambia
+            <ul className="space-y-3">
+              <li className="flex items-center text-primary-foreground/80">
+                <MapPin className="h-4 w-4 mr-2" />
+                <span>Cairo Road, Lusaka, Zambia</span>
               </li>
               <li>
                 <a 
                   href="mailto:info@bmaglasspay.com"
-                  className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300"
+                  className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300 flex items-center"
                 >
+                  <Mail className="h-4 w-4 mr-2" />
                   info@bmaglasspay.com
                 </a>
               </li>
               <li>
                 <a 
-                  href="tel:+260900000000"
-                  className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300"
+                  href="tel:+260976000000"
+                  className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300 flex items-center"
                 >
-                  +260 900 000 000
+                  <Phone className="h-4 w-4 mr-2" />
+                  +260 976 000 000
                 </a>
               </li>
+              <li className="pt-3 text-primary-foreground/60 text-sm">
+                Business Hours: Mon-Fri 8:30 - 17:00
+              </li>
             </ul>
+            
+            <div className="mt-6">
+              <h5 className="text-sm font-medium mb-2">Payment Methods Supported:</h5>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">MTN Money</span>
+                <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Airtel Money</span>
+                <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Zamtel Kwacha</span>
+                <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Visa</span>
+                <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Mastercard</span>
+              </div>
+            </div>
           </div>
         </div>
         
         <div className="mt-12 pt-6 border-t border-primary-foreground/10 flex flex-col md:flex-row justify-between items-center">
           <p className="text-primary-foreground/60 text-sm">
-            &copy; {currentYear} BMaGlass Pay. Developed by Mabvuto Banda.
+            &copy; {currentYear} BMaGlass Pay. All rights reserved. Founded by Mabvuto Banda.
           </p>
           <div className="mt-4 md:mt-0 flex items-center space-x-6">
             <a href="#" className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors duration-300">
@@ -94,6 +128,9 @@ const Footer = () => {
             </a>
             <a href="#" className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors duration-300">
               Terms of Service
+            </a>
+            <a href="#" className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors duration-300">
+              Compliance
             </a>
           </div>
         </div>

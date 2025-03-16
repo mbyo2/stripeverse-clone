@@ -50,24 +50,25 @@ const Hero = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-0 items-center z-10">
         <div className="lg:pr-10 max-w-2xl">
           <span className="inline-block px-3 py-1 rounded-full bg-secondary text-sm font-medium text-secondary-foreground mb-6 animate-fadeIn animate-delay-1">
-            Fast, Secure Payments
+            Zambia's Premier Payment Gateway
           </span>
           <h1 className="heading-1 mb-6 animate-fadeInUp animate-delay-2">
-            Simple payments for<br />everyone in Zambia
+            Empowering Zambian<br />businesses with seamless payments
           </h1>
           <p className="body-text mb-8 animate-fadeInUp animate-delay-3">
-            BMaGlass Pay makes it easy to send money, pay bills, and manage your finances in one place. 
-            Join thousands of Zambians who trust us with their everyday transactions.
+            BMaGlass Pay is Lusaka's most reliable payment gateway, designed specifically for Zambian 
+            businesses. Our platform makes accepting payments, managing finances, and growing your 
+            business easier than ever.
           </p>
           <div className="flex flex-wrap gap-4 animate-fadeInUp animate-delay-4">
             <Button asChild className="bg-primary text-white">
               <Link to="/register">
-                Get Started <ArrowRight className="ml-2 h-4 w-4" />
+                Start Accepting Payments <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
             <Button variant="outline" asChild>
               <Link to="/login">
-                Login to Account
+                Business Login
               </Link>
             </Button>
           </div>
@@ -80,7 +81,7 @@ const Hero = () => {
                 </div>
               ))}
             </div>
-            <span>Join 10,000+ Zambians using BMaGlass Pay</span>
+            <span>Trusted by 1,000+ Zambian businesses</span>
           </div>
         </div>
         
@@ -90,31 +91,31 @@ const Hero = () => {
             <div className="bg-white/90 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-gray-100 w-[320px]">
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h3 className="font-bold text-lg">BMaGlass Pay Wallet</h3>
-                  <p className="text-sm text-muted-foreground">Quick Transfer</p>
+                  <h3 className="font-bold text-lg">Business Dashboard</h3>
+                  <p className="text-sm text-muted-foreground">Transaction Overview</p>
                 </div>
                 <Wallet className="h-10 w-10 text-primary p-2 bg-primary/10 rounded-full" />
               </div>
               
               <div className="mb-6">
-                <p className="text-sm text-muted-foreground mb-1">Available Balance</p>
-                <h2 className="text-3xl font-bold">K 2,450.00</h2>
+                <p className="text-sm text-muted-foreground mb-1">Today's Transactions</p>
+                <h2 className="text-3xl font-bold">K 24,560.00</h2>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-secondary/20 p-3 rounded-xl flex flex-col items-center justify-center">
                   <ArrowRight className="h-6 w-6 mb-2 text-primary" />
-                  <span className="text-sm font-medium">Send</span>
+                  <span className="text-sm font-medium">Analytics</span>
                 </div>
                 <div className="bg-secondary/20 p-3 rounded-xl flex flex-col items-center justify-center">
                   <CreditCard className="h-6 w-6 mb-2 text-primary" />
-                  <span className="text-sm font-medium">Pay</span>
+                  <span className="text-sm font-medium">Settlement</span>
                 </div>
               </div>
               
               <div className="mt-6 pt-4 border-t border-gray-100">
                 <div className="text-sm text-center text-muted-foreground">
-                  Fast • Secure • Reliable
+                  Secure • Reliable • Local
                 </div>
               </div>
             </div>
