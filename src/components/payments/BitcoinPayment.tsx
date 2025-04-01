@@ -108,9 +108,10 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
     
     const checkPaymentStatus = async () => {
       try {
+        // Fixed: Use params instead of query for invoice ID
         const { data, error } = await supabase.functions.invoke('btc-payment', {
           method: 'GET',
-          query: { invoiceId }
+          body: { invoiceId }
         });
         
         if (error) {

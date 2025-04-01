@@ -1,4 +1,8 @@
 
+# This is a free tier Supabase configuration file
+# It is used by Supabase CLI to configure your local development environment
+# Learn more about configuration here: https://supabase.com/docs/reference/cli/config
+
 project_id = "hhxwwozpvgktuqutfkhc"
 
 [api]
@@ -22,24 +26,20 @@ port = 54324
 
 [storage]
 enabled = true
-port = 54325
 
 [auth]
 enabled = true
-port = 54326
 
 [realtime]
 enabled = true
-port = 54327
 
-[edge_functions]
+[edge_runtime]
 enabled = true
-port = 54328
 
-[[edge_functions.function]]
+[[functions]]
 name = "mobile-money"
 verify_jwt = false
 
-[[edge_functions.function]]
+[[functions]]
 name = "btc-payment"
 verify_jwt = false

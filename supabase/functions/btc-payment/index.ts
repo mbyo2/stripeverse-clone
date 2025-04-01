@@ -40,9 +40,12 @@ serve(async (req) => {
   }
 
   try {
-    // Check if the request is for creating an invoice
-    if (req.method === 'POST') {
-      const { amount, currency = 'USD', orderId, buyerEmail, redirectUrl, metadata } = await req.json() as BTCPayInvoiceRequest;
+    // Parse the request body
+    const body = await req.json();
+    
+    // Check if the request is for creating an invoice (POST method)
+    if (req.method === 'POST' && !body.invoiceId) {
+      const { amount, currency = 'USD', orderId, buyerEmail, redirectUrl, metadata } = body as BTCPayInvoiceRequest;
 
       // Validate inputs
       if (!amount || amount <= 0) {
@@ -162,10 +165,9 @@ serve(async (req) => {
       );
     }
     
-    // Check if the request is for checking payment status
-    if (req.method === 'GET') {
-      const url = new URL(req.url);
-      const invoiceId = url.searchParams.get('invoiceId');
+    // Check if the request is for checking payment status (GET method or POST with invoiceId)
+    if (req.method === 'GET' || (req.method === 'POST' && body.invoiceId)) {
+      const invoiceId = body.invoiceId;
       
       if (!invoiceId) {
         return new Response(
