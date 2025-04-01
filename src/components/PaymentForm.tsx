@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,11 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCardNumber, formatCurrency, isMobileMoneyNumber, validateCardNumber } from "@/lib/utils";
-import { CreditCard, Smartphone, Check, AlertCircle, Building, Phone } from "lucide-react";
+import { CreditCard, Smartphone, Check, AlertCircle, Building, Phone, Bitcoin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import UssdPayment from "./payments/UssdPayment";
 import MobileMoneyPayment from "./payments/MobileMoneyPayment";
+import BitcoinPayment from "./payments/BitcoinPayment";
 
 type PaymentFormProps = {
   amount: number;
@@ -175,15 +175,18 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
             )}
             
             <Tabs defaultValue="card" onValueChange={setPaymentMethod}>
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="card">
                   <CreditCard className="mr-2 h-4 w-4" /> Card
                 </TabsTrigger>
                 <TabsTrigger value="mobile">
-                  <Smartphone className="mr-2 h-4 w-4" /> Mobile Money
+                  <Smartphone className="mr-2 h-4 w-4" /> Mobile
                 </TabsTrigger>
                 <TabsTrigger value="ussd">
                   <Phone className="mr-2 h-4 w-4" /> USSD
+                </TabsTrigger>
+                <TabsTrigger value="bitcoin">
+                  <Bitcoin className="mr-2 h-4 w-4" /> Crypto
                 </TabsTrigger>
                 <TabsTrigger value="bank">
                   <Building className="mr-2 h-4 w-4" /> Bank
@@ -259,6 +262,14 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
               
               <TabsContent value="ussd" className="mt-4">
                 <UssdPayment 
+                  amount={amount} 
+                  onSuccess={handlePaymentSuccess}
+                  onCancel={onCancel || (() => {})}
+                />
+              </TabsContent>
+              
+              <TabsContent value="bitcoin" className="mt-4">
+                <BitcoinPayment 
                   amount={amount} 
                   onSuccess={handlePaymentSuccess}
                   onCancel={onCancel || (() => {})}

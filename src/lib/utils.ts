@@ -1,4 +1,3 @@
-
 /**
  * Format date as human-readable text
  */
@@ -185,4 +184,63 @@ export const validateWalletTransfer = (
   }
   
   return { valid: true };
+};
+
+/**
+ * Validate a Bitcoin address
+ * Basic validation for Bitcoin addresses
+ */
+export const validateBitcoinAddress = (address: string): boolean => {
+  // Basic validation for different Bitcoin address formats
+  
+  // Legacy addresses (P2PKH) start with 1
+  const legacyRegex = /^1[a-km-zA-HJ-NP-Z1-9]{25,34}$/;
+  
+  // Segwit addresses (P2SH) start with 3
+  const segwitRegex = /^3[a-km-zA-HJ-NP-Z1-9]{25,34}$/;
+  
+  // Bech32 addresses (native Segwit) start with bc1
+  const bech32Regex = /^bc1[a-z0-9]{39,59}$/;
+  
+  return legacyRegex.test(address) || segwitRegex.test(address) || bech32Regex.test(address);
+};
+
+/**
+ * Validate a Lightning Network invoice
+ * Basic validation for Lightning Network invoices (BOLT-11 format)
+ */
+export const validateLightningInvoice = (invoice: string): boolean => {
+  // Lightning invoices start with 'lnbc' (Bitcoin mainnet)
+  // or 'lntb' (Bitcoin testnet) and are base58 encoded
+  const lightningRegex = /^ln(bc|tb)[a-zA-Z0-9]{1,}$/;
+  return lightningRegex.test(invoice);
+};
+
+/**
+ * Format a Bitcoin amount with proper units
+ */
+export const formatBitcoinAmount = (amount: number): string => {
+  if (amount >= 1) {
+    return `${amount.toFixed(8)} BTC`;
+  } else if (amount >= 0.001) {
+    return `${(amount * 1000).toFixed(5)} mBTC`;
+  } else if (amount >= 0.000001) {
+    return `${(amount * 1000000).toFixed(2)} μBTC`;
+  } else {
+    return `${(amount * 100000000).toFixed(0)} sats`;
+  }
+};
+
+/**
+ * Generate a mock BTCPay server checkout URL
+ * In a real implementation, this would call the BTCPay Server API
+ */
+export const generateBTCPayCheckoutUrl = (
+  amount: number, 
+  orderId: string, 
+  currency: string = 'USD'
+): string => {
+  // In a real implementation, this would generate a BTCPay Server checkout URL
+  // For demo purposes, we're just returning a mock URL
+  return `https://btcpay.example.com/checkout?amount=${amount}&orderId=${orderId}&currency=${currency}`;
 };
