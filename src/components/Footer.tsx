@@ -57,20 +57,21 @@ const Footer = () => {
             <h4 className="text-base font-medium mb-4">Payment Services</h4>
             <ul className="space-y-2">
               {[
-                {name: 'Mobile Money Integration', icon: <Smartphone className="h-4 w-4 mr-2" />},
-                {name: 'Card Processing', icon: <CreditCard className="h-4 w-4 mr-2" />},
-                {name: 'Business Dashboard', icon: <Globe className="h-4 w-4 mr-2" />},
-                {name: 'Merchant API', icon: <Shield className="h-4 w-4 mr-2" />},
-                {name: 'Settlement Services', icon: <CreditCard className="h-4 w-4 mr-2" />}
+                {name: 'Mobile Money Integration', icon: <Smartphone className="h-4 w-4 mr-2" />, link: '/'},
+                {name: 'Card Processing', icon: <CreditCard className="h-4 w-4 mr-2" />, link: '/'},
+                {name: 'USSD Payments', icon: <Smartphone className="h-4 w-4 mr-2" />, link: '/ussd-access'},
+                {name: 'Business Dashboard', icon: <Globe className="h-4 w-4 mr-2" />, link: '/dashboard'},
+                {name: 'Merchant API', icon: <Shield className="h-4 w-4 mr-2" />, link: '/'},
+                {name: 'Settlement Services', icon: <CreditCard className="h-4 w-4 mr-2" />, link: '/'}
               ].map((item) => (
                 <li key={item.name}>
-                  <a 
-                    href={`#${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                  <Link 
+                    to={item.link}
                     className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300 flex items-center"
                   >
                     {item.icon}
                     {item.name}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

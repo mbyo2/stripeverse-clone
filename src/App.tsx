@@ -16,6 +16,7 @@ import KycPage from "@/pages/KycPage";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsOfService from "@/pages/TermsOfService";
 import Compliance from "@/pages/Compliance";
+import UssdAccess from "@/pages/UssdAccess";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "@/pages/Index";
@@ -30,6 +31,7 @@ function App() {
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/compliance" element={<Compliance />} />
+        <Route path="/ussd-access" element={<UssdAccess />} />
         <Route
           path="/dashboard"
           element={
