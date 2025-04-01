@@ -9,6 +9,7 @@ import { formatBitcoinAmount, formatCurrency } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import QRCode from 'qrcode.react';
+import { supabase } from "@/integrations/supabase/client";
 
 interface BitcoinPaymentProps {
   amount: number;
@@ -24,28 +25,53 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
   const [paymentMethod, setPaymentMethod] = useState<"bitcoin" | "lightning">("bitcoin");
   const [timeRemaining, setTimeRemaining] = useState(900); // 15 minutes in seconds
   const [copied, setCopied] = useState(false);
+  const [invoiceId, setInvoiceId] = useState("");
+  const [checkoutUrl, setCheckoutUrl] = useState("");
   const { toast } = useToast();
   
-  // Simulate fetching payment details from BTCPay Server
+  // Fetch payment details from BTCPay Server
   useEffect(() => {
     const fetchPaymentDetails = async () => {
       setIsLoading(true);
       
       try {
-        // In a real implementation, you would call your backend which would then
-        // create an invoice via BTCPay Server API
+        // Generate a unique order ID
+        const orderId = `ORDER-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Call our BTCPay Server edge function to create an invoice
+        const { data, error } = await supabase.functions.invoke('btc-payment', {
+          body: {
+            amount: amount,
+            currency: 'USD',
+            orderId: orderId,
+            redirectUrl: window.location.origin + '/dashboard'
+          }
+        });
         
-        // Mock exchange rate: 1 BTC = $50,000 USD
-        const exchangeRate = 50000;
-        // Convert to BTC
-        const btcAmount = amount / exchangeRate;
+        if (error) {
+          throw new Error(error.message || 'Failed to generate Bitcoin payment details');
+        }
         
-        setBitcoinAmount(btcAmount);
-        setBitcoinAddress("bc1q84x0yrztvcjgp6n3k4edwv02k8wsh75d5xqmmx"); // Example address
-        setLightningInvoice("lnbc10u1p3hkhmtpp5dzywf4pqn9mf0y9ypsncn2ww2dskvkpjg3yzawsu2deh5gyafqdqqcqzzsxqyz5vqsp5hwmcps58070p0k9enz9rp8296nkur5rgwff2ne2whq0hh37nvhs9qyyssqxmxs8whfnnf7l7ftsw0dlw7tan4q4z0vxa4j3qx7s3dkhazjrx32y56wd4kxm4r08vg3hprn2uvpnxhkgxmy36wnfyv3q0j68qc5hpgpv328ak");
+        if (!data) {
+          throw new Error('No response from payment server');
+        }
+        
+        // Set the payment details
+        setBitcoinAmount(data.amount);
+        setBitcoinAddress(data.bitcoinAddress);
+        setLightningInvoice(data.lightningInvoice);
+        setInvoiceId(data.id);
+        setCheckoutUrl(data.checkoutUrl);
+        
+        // Calculate expiry time
+        const expiryTime = new Date(data.expirationTime);
+        const secondsRemaining = Math.max(0, Math.floor((expiryTime.getTime() - Date.now()) / 1000));
+        setTimeRemaining(secondsRemaining || 900); // Default to 15 minutes if not provided
+        
+        toast({
+          title: "Payment details generated",
+          description: "You can now pay with Bitcoin or Lightning.",
+        });
       } catch (error) {
         console.error("Error fetching payment details:", error);
         toast({
@@ -71,22 +97,43 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
       });
     }, 1000);
     
-    // Simulate checking for payment confirmation
-    const checkInterval = setInterval(() => {
-      // In a real app, you would poll your backend to check if the payment was received
-      
-      // Randomly succeed after some time for demo purposes
-      if (Math.random() < 0.1 && !isLoading) {
-        clearInterval(checkInterval);
-        handlePaymentConfirmed();
-      }
-    }, 5000);
-    
     return () => {
       clearInterval(timer);
-      clearInterval(checkInterval);
     };
   }, [amount, toast]);
+  
+  // Check payment status periodically
+  useEffect(() => {
+    if (!invoiceId || isLoading) return;
+    
+    const checkPaymentStatus = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('btc-payment', {
+          method: 'GET',
+          query: { invoiceId }
+        });
+        
+        if (error) {
+          console.error("Error checking payment status:", error);
+          return;
+        }
+        
+        if (data.status === "paid") {
+          handlePaymentConfirmed();
+        }
+      } catch (error) {
+        console.error("Error checking payment status:", error);
+      }
+    };
+    
+    // Check payment status every 10 seconds
+    const statusInterval = setInterval(checkPaymentStatus, 10000);
+    
+    // Initial check
+    checkPaymentStatus();
+    
+    return () => clearInterval(statusInterval);
+  }, [invoiceId, isLoading]);
   
   const handlePaymentConfirmed = () => {
     toast({
@@ -95,7 +142,7 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
     });
     
     onSuccess({
-      paymentId: `BTC-${Date.now()}`,
+      paymentId: invoiceId,
       method: paymentMethod === "bitcoin" ? "bitcoin" : "lightning",
       status: "success",
     });
@@ -124,6 +171,26 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
       <div className="flex flex-col items-center justify-center py-8">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         <p className="mt-4">Generating payment details...</p>
+      </div>
+    );
+  }
+  
+  if (timeRemaining <= 0) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertDescription>
+            This payment request has expired. Please generate a new one.
+          </AlertDescription>
+        </Alert>
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button onClick={() => window.location.reload()}>
+            Generate New Payment
+          </Button>
+        </div>
       </div>
     );
   }
@@ -229,8 +296,9 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         <Button
           variant="outline"
           onClick={() => {
-            // In a real app, this would open a direct link to the BTCPay server checkout page
-            window.open("https://btcpay.example.com/checkout", "_blank");
+            if (checkoutUrl) {
+              window.open(checkoutUrl, "_blank");
+            }
           }}
         >
           Open in BTCPay Server
