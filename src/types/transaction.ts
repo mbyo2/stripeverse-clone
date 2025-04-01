@@ -1,7 +1,7 @@
 
 export interface Transaction {
   id: number;
-  user_id: string;
+  user_id?: string;
   amount: number;
   currency: string;
   payment_method: string;
@@ -12,9 +12,9 @@ export interface Transaction {
   status: 'pending' | 'completed' | 'failed';
   reference?: string;
   provider?: string;
-  metadata?: any;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
+  metadata?: any;
 }
 
 export interface TransactionFilter {

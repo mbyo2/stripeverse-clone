@@ -17,6 +17,7 @@ import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsOfService from "@/pages/TermsOfService";
 import Compliance from "@/pages/Compliance";
 import UssdAccess from "@/pages/UssdAccess";
+import SendMoney from "@/pages/SendMoney";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "@/pages/Index";
@@ -53,6 +54,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Transfer />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/send-money"
+          element={
+            <ProtectedRoute>
+              <SendMoney />
             </ProtectedRoute>
           }
         />
