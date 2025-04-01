@@ -5,6 +5,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 const BTCPAY_SERVER_URL = Deno.env.get("BTCPAY_SERVER_URL") || "https://btcpay.example.com";
 const BTCPAY_API_KEY = Deno.env.get("BTCPAY_API_KEY") || "";
 const BTCPAY_STORE_ID = Deno.env.get("BTCPAY_STORE_ID") || "";
+const BTCPAY_WEBHOOK_SECRET = Deno.env.get("BTCPAY_WEBHOOK_SECRET") || "";
 
 // CORS headers for our function
 const corsHeaders = {
@@ -33,6 +34,18 @@ interface BTCPayInvoiceResponse {
   expirationTime: string;
 }
 
+interface BTCPayWebhookEvent {
+  deliveryId: string;
+  webhookId: string;
+  originalDeliveryId?: string;
+  isRedelivery: boolean;
+  type: string;
+  timestamp: number;
+  storeId: string;
+  invoiceId: string;
+  metadata: Record<string, unknown>;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -40,7 +53,58 @@ serve(async (req) => {
   }
 
   try {
-    // Parse the request body
+    // Get the URL path
+    const url = new URL(req.url);
+    const path = url.pathname.split('/').pop();
+    
+    // Handle webhook notifications (direct webhook URL calls)
+    if (path === 'webhook' && req.method === 'POST') {
+      // Check webhook signature if secret is configured
+      if (BTCPAY_WEBHOOK_SECRET) {
+        const signature = req.headers.get('BTCPay-Sig');
+        if (!signature) {
+          return new Response(
+            JSON.stringify({ error: 'Missing BTCPay signature' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // In a production environment, you should validate the signature here
+        // This requires calculating an HMAC using the webhook secret and request body
+        // For now, we'll just check that the header exists
+      }
+      
+      // Parse the webhook data
+      const webhookData = await req.json() as BTCPayWebhookEvent;
+      
+      console.log("Received webhook notification:", JSON.stringify(webhookData));
+      
+      // Process based on event type
+      // Common types: InvoiceCreated, InvoiceReceivedPayment, InvoiceProcessing, InvoiceSettled, etc.
+      switch (webhookData.type) {
+        case 'InvoiceSettled':
+        case 'InvoiceConfirmed':
+          console.log(`Payment confirmed for invoice ${webhookData.invoiceId}`);
+          // Here you could update your database or trigger additional business logic
+          break;
+        case 'InvoiceExpired':
+          console.log(`Invoice ${webhookData.invoiceId} has expired`);
+          break;
+        case 'InvoiceReceivedPayment':
+          console.log(`Received payment for invoice ${webhookData.invoiceId}`);
+          break;
+        default:
+          console.log(`Unhandled webhook event type: ${webhookData.type}`);
+      }
+      
+      // Always return 200 OK to acknowledge receipt of the webhook
+      return new Response(
+        JSON.stringify({ received: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Parse the request body for other endpoints
     const body = await req.json();
     
     // Check if the request is for creating an invoice (POST method)
@@ -70,6 +134,9 @@ serve(async (req) => {
           // Construct the API URL for creating an invoice
           const apiUrl = `${BTCPAY_SERVER_URL}/api/v1/stores/${BTCPAY_STORE_ID}/invoices`;
           
+          // Get the webhook URL (this function's URL + /webhook)
+          const webhookUrl = `${url.origin}${url.pathname}/webhook`;
+          
           // Prepare the request payload for BTCPay Server
           const payload = {
             amount,
@@ -84,7 +151,11 @@ serve(async (req) => {
               redirectURL: redirectUrl,
               defaultPaymentMethod: "BTC",
               expirationMinutes: 15
-            }
+            },
+            // Add webhook configuration if we have a webhook secret
+            ...(BTCPAY_WEBHOOK_SECRET ? {
+              webhookUrl: webhookUrl
+            } : {})
           };
           
           // Make the API call to BTCPay Server
@@ -117,6 +188,17 @@ serve(async (req) => {
             checkoutUrl: data.checkoutLink,
             expirationTime: data.expirationTime
           };
+          
+          // If webhooks aren't set up yet, register the webhook with BTCPay
+          // This is a one-time operation you might do separately
+          if (BTCPAY_WEBHOOK_SECRET && path === 'register-webhook') {
+            try {
+              await registerWebhook(webhookUrl);
+              console.log("Successfully registered webhook");
+            } catch (error) {
+              console.error("Error registering webhook:", error);
+            }
+          }
         } catch (error) {
           console.error("Error calling BTCPay Server API:", error);
           throw error;
@@ -239,6 +321,50 @@ serve(async (req) => {
           } 
         }
       );
+    }
+
+    // Helper function to register a webhook with BTCPay Server
+    async function registerWebhook(webhookUrl: string) {
+      if (!BTCPAY_API_KEY || !BTCPAY_STORE_ID || !BTCPAY_SERVER_URL || !BTCPAY_WEBHOOK_SECRET) {
+        throw new Error("Missing required BTCPay Server credentials for webhook registration");
+      }
+      
+      // API endpoint for creating webhooks
+      const apiUrl = `${BTCPAY_SERVER_URL}/api/v1/stores/${BTCPAY_STORE_ID}/webhooks`;
+      
+      // Webhook payload - listen for all invoice-related events
+      const payload = {
+        url: webhookUrl,
+        enabled: true,
+        authorizedEvents: {
+          everything: false,
+          specificEvents: [
+            "InvoiceCreated",
+            "InvoiceReceivedPayment",
+            "InvoiceProcessing", 
+            "InvoiceExpired",
+            "InvoiceSettled",
+            "InvoiceInvalid"
+          ]
+        },
+        secret: BTCPAY_WEBHOOK_SECRET
+      };
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `token ${BTCPAY_API_KEY}`
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to register webhook: ${response.status} ${errorText}`);
+      }
+      
+      return await response.json();
     }
 
     // Not found

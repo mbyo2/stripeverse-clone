@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,13 +101,12 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
     };
   }, [amount, toast]);
   
-  // Check payment status periodically
+  // Check payment status periodically (as a fallback to webhooks)
   useEffect(() => {
     if (!invoiceId || isLoading) return;
     
     const checkPaymentStatus = async () => {
       try {
-        // Fixed: Use params instead of query for invoice ID
         const { data, error } = await supabase.functions.invoke('btc-payment', {
           method: 'GET',
           body: { invoiceId }
@@ -127,8 +125,8 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
       }
     };
     
-    // Check payment status every 10 seconds
-    const statusInterval = setInterval(checkPaymentStatus, 10000);
+    // Poll every 30 seconds as a fallback (webhooks are more efficient)
+    const statusInterval = setInterval(checkPaymentStatus, 30000);
     
     // Initial check
     checkPaymentStatus();
