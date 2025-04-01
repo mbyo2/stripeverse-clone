@@ -1,6 +1,18 @@
+
 /**
  * Format date as human-readable text
  */
+import { type ClassValue, clsx } from "clsx";
+import { formatDistanceToNow } from 'date-fns';
+import { twMerge } from "tailwind-merge";
+
+/**
+ * Utility function for merging class names with Tailwind CSS
+ */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 export function formatDate(input: string | number | Date): string {
   const date = new Date(input);
   return date.toLocaleDateString("en-US", {
@@ -14,12 +26,10 @@ export function formatDate(input: string | number | Date): string {
  * Format date as relative time
  * e.g. "2 days ago"
  */
-import { formatDistanceToNow } from 'date-fns'
-
 export function formatTimeToNow(date: Date): string {
   return formatDistanceToNow(date, {
     addSuffix: true
-  })
+  });
 }
 
 /**
@@ -118,4 +128,61 @@ export const isMobileMoneyNumber = (number: string, provider: string): boolean =
   }
   
   return false;
+};
+
+/**
+ * Format phone number for display
+ */
+export const formatPhoneForDisplay = (phoneNumber: string): string => {
+  // Remove non-digits
+  const cleaned = phoneNumber.replace(/\D/g, '');
+  
+  // Check if it's a Zambian number
+  if (cleaned.startsWith('260') && cleaned.length >= 12) {
+    // Format as: +260 97 1234567
+    return `+${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5)}`;
+  } else if (cleaned.startsWith('0') && cleaned.length >= 10) {
+    // Format as: 097 1234567
+    return `${cleaned.substring(0, 3)} ${cleaned.substring(3)}`;
+  }
+  
+  // Return original if pattern doesn't match
+  return phoneNumber;
+};
+
+/**
+ * Validate wallet transfer
+ */
+export const validateWalletTransfer = (
+  senderPhone: string, 
+  receiverPhone: string, 
+  amount: number
+): { valid: boolean; message?: string } => {
+  // Check if sender and receiver are the same
+  if (senderPhone === receiverPhone) {
+    return { 
+      valid: false, 
+      message: "You cannot transfer money to yourself" 
+    };
+  }
+  
+  // Validate amount is positive
+  if (amount <= 0) {
+    return {
+      valid: false,
+      message: "Amount must be greater than zero"
+    };
+  }
+  
+  // In a real app, we would validate that receiver exists in our system
+  // For now, we'll just check if it looks like a valid phone number
+  const cleanReceiverPhone = receiverPhone.replace(/\D/g, '');
+  if (cleanReceiverPhone.length < 10 || cleanReceiverPhone.length > 12) {
+    return {
+      valid: false,
+      message: "Please enter a valid receiver phone number"
+    };
+  }
+  
+  return { valid: true };
 };

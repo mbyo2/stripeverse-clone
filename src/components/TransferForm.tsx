@@ -76,7 +76,7 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
       
       toast({
         title: "Transfer successful",
-        description: `You've sent ${formatCurrency(amount)} to ${formatPhoneForDisplay(receiverPhone)}`,
+        description: `You've sent ${formatCurrency(parseFloat(amount))} to ${formatPhoneForDisplay(receiverPhone)}`,
       });
       
       // Call the success callback with transfer details
@@ -180,7 +180,7 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
               
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Amount</span>
-                <span className="font-medium">{formatCurrency(amount)}</span>
+                <span className="font-medium">{formatCurrency(parseFloat(amount))}</span>
               </div>
               
               <div className="flex items-center justify-between">
@@ -190,7 +190,7 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
               
               <div className="pt-2 border-t flex items-center justify-between">
                 <span className="font-bold">Total</span>
-                <span className="font-bold">{formatCurrency(amount)}</span>
+                <span className="font-bold">{formatCurrency(parseFloat(amount))}</span>
               </div>
             </div>
             
