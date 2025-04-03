@@ -11,8 +11,9 @@ const Header = () => {
   const headerRef = useRef<HTMLElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  const auth = useAuth();
   const { toast } = useToast();
+  const user = auth?.user || null;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,12 +45,14 @@ const Header = () => {
 
   const handleLogout = async () => {
     try {
-      await logout();
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
-      });
-      navigate('/login');
+      if (auth?.signOut) {
+        await auth.signOut();
+        toast({
+          title: "Logged out",
+          description: "You have been successfully logged out.",
+        });
+        navigate('/login');
+      }
     } catch (error) {
       console.error("Logout failed:", error);
       toast({
