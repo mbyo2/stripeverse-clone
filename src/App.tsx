@@ -32,7 +32,7 @@ function App() {
   return (
     <AuthProvider>
       <div className="app">
-        <BetaBanner expiryDays={7} />
+        <BetaBanner expiryDays={7} version="0.9.0" />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />

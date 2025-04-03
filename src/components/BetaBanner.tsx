@@ -1,12 +1,14 @@
+
 import React, { useState, useEffect } from "react";
 import { X, AlertTriangle, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface BetaBannerProps {
   expiryDays?: number;
+  version?: string;
 }
 
-const BetaBanner = ({ expiryDays = 7 }: BetaBannerProps) => {
+const BetaBanner = ({ expiryDays = 7, version = "0.9.0" }: BetaBannerProps) => {
   const [isVisible, setIsVisible] = useState(true);
   
   // Check if the banner was previously dismissed and when
@@ -42,7 +44,10 @@ const BetaBanner = ({ expiryDays = 7 }: BetaBannerProps) => {
     // Store dismissal time
     localStorage.setItem(
       "betaBannerDismissed", 
-      JSON.stringify({ timestamp: new Date().toISOString() })
+      JSON.stringify({ 
+        timestamp: new Date().toISOString(),
+        version: version
+      })
     );
     setIsVisible(false);
   };
@@ -55,7 +60,7 @@ const BetaBanner = ({ expiryDays = 7 }: BetaBannerProps) => {
         <AlertTriangle className="h-4 w-4" />
         
         <p className="text-sm font-medium flex-1">
-          <span className="font-bold">BETA</span>: You're using a pre-release version. Please report any issues to our support team.
+          <span className="font-bold">BETA v{version}</span>: You're using a pre-release version. Please report any issues to our support team.
         </p>
         
         <div className="flex items-center gap-2">
