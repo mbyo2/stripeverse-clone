@@ -1,122 +1,53 @@
-
-import { Routes, Route, Navigate } from "react-router-dom";
-import { Toaster } from "@/components/ui/toaster";
-import Dashboard from "@/pages/Dashboard";
-import Login from "@/pages/Login";
-import Register from "@/pages/Register";
-import NotFound from "@/pages/NotFound";
-import Wallet from "@/pages/Wallet";
-import Transfer from "@/pages/Transfer";
-import Transactions from "@/pages/Transactions";
-import Checkout from "@/pages/Checkout";
-import VirtualCardNew from "@/pages/VirtualCardNew";
-import VirtualCardDetails from "@/pages/VirtualCardDetails";
-import VirtualCardFund from "@/pages/VirtualCardFund";
-import KycPage from "@/pages/KycPage";
-import PrivacyPolicy from "@/pages/PrivacyPolicy";
-import TermsOfService from "@/pages/TermsOfService";
-import Compliance from "@/pages/Compliance";
-import UssdAccess from "@/pages/UssdAccess";
-import SendMoney from "@/pages/SendMoney";
-import { AuthProvider } from "@/contexts/AuthContext";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import Index from "@/pages/Index";
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Home from './pages/Home';
+import About from './pages/About';
+import Contact from './pages/Contact';
+import Pricing from './pages/Pricing';
+import Blog from './pages/Blog';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import Checkout from './pages/Checkout';
+import Wallet from './pages/Wallet';
+import SendMoney from './pages/SendMoney';
+import Compliance from './pages/Compliance';
+import UssdAccess from './pages/UssdAccess';
+import NotFound from './pages/NotFound';
+import { Toaster } from "@/components/ui/toaster"
+import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentFailed from './pages/PaymentFailed';
+import PaymentServices from "@/pages/PaymentServices";
 
 function App() {
   return (
-    <AuthProvider>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-        <Route path="/terms-of-service" element={<TermsOfService />} />
-        <Route path="/compliance" element={<Compliance />} />
-        <Route path="/ussd-access" element={<UssdAccess />} />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/wallet"
-          element={
-            <ProtectedRoute>
-              <Wallet />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/transfer"
-          element={
-            <ProtectedRoute>
-              <Transfer />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/send-money"
-          element={
-            <ProtectedRoute>
-              <SendMoney />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/transactions"
-          element={
-            <ProtectedRoute>
-              <Transactions />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/checkout"
-          element={
-            <ProtectedRoute>
-              <Checkout />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/kyc"
-          element={
-            <ProtectedRoute>
-              <KycPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/virtual-card/new"
-          element={
-            <ProtectedRoute>
-              <VirtualCardNew />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/virtual-card/:id"
-          element={
-            <ProtectedRoute>
-              <VirtualCardDetails />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/virtual-card/fund/:id"
-          element={
-            <ProtectedRoute>
-              <VirtualCardFund />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+    <div className="app">
+      <Router>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/wallet" element={<Wallet />} />
+          <Route path="/transfer" element={<SendMoney />} />
+          <Route path="/compliance" element={<Compliance />} />
+          <Route path="/ussd-access" element={<UssdAccess />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/payment-failed" element={<PaymentFailed />} />
+          <Route path="*" element={<NotFound />} />
+          
+          {/* Payment Services page */}
+          <Route path="/payment-services" element={<PaymentServices />} />
+          
+        </Routes>
+      </Router>
       <Toaster />
-    </AuthProvider>
+    </div>
   );
 }
 

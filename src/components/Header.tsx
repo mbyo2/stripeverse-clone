@@ -1,165 +1,176 @@
-import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { cn } from "@/lib/utils";
-import { User, Wallet, ArrowUpRight, LineChart, LogOut } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, User, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from "@/hooks/use-toast";
 
 const Header = () => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [headerBg, setHeaderBg] = useState('bg-transparent');
+  const headerRef = useRef<HTMLElement>(null);
   const location = useLocation();
-  const isHomePage = location.pathname === '/';
-  const { user, signOut } = useAuth();
-  const isLoggedIn = !!user;
-  
+  const navigate = useNavigate();
+  const { logout, user } = useAuth();
+  const { toast } = useToast();
+
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      if (window.scrollY > 50) {
+        setHeaderBg('bg-background/90 backdrop-blur-sm');
+      } else {
+        setHeaderBg('bg-transparent');
+      }
     };
-    
+
     window.addEventListener('scroll', handleScroll);
+
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
-  const handleSignOut = async () => {
-    await signOut();
-    setIsMobileMenuOpen(false);
+  useEffect(() => {
+    setIsOpen(false); // Close the menu when the route changes
+  }, [location.pathname]);
+
+  const toggleMenu = () => {
+    setIsOpen(!isOpen);
   };
 
-  const navItems = isLoggedIn 
-    ? [
-        { name: 'Dashboard', path: '/dashboard', icon: <LineChart className="w-4 h-4 mr-2" /> },
-        { name: 'Send Money', path: '/transfer', icon: <ArrowUpRight className="w-4 h-4 mr-2" /> },
-        { name: 'Wallet', path: '/wallet', icon: <Wallet className="w-4 h-4 mr-2" /> },
-        { name: 'Transactions', path: '/transactions', icon: <LineChart className="w-4 h-4 mr-2" /> }
-      ]
-    : isHomePage
-      ? [
-          { name: 'Features', path: '#features', icon: null },
-          { name: 'Products', path: '#products', icon: null },
-          { name: 'Reviews', path: '#reviews', icon: null },
-          { name: 'Contact', path: '#contact', icon: null }
-        ]
-      : [
-          { name: 'Features', path: '/#features', icon: null },
-          { name: 'Products', path: '/#products', icon: null },
-          { name: 'Reviews', path: '/#reviews', icon: null },
-          { name: 'Contact', path: '/#contact', icon: null }
-        ];
+  const closeMenu = () => {
+    setIsOpen(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+      navigate('/login');
+    } catch (error) {
+      console.error("Logout failed:", error);
+      toast({
+        title: "Logout failed",
+        description: "There was an error logging you out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <header 
-      className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-apple-ease w-full",
-        isScrolled ? "py-3 bg-white/80 backdrop-blur-lg shadow-subtle" : "py-5 bg-transparent"
-      )}
+      ref={headerRef}
+      className={`fixed top-0 left-0 w-full z-50 ${headerBg}`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
-        <Link to="/" className="text-2xl font-bold transition-opacity duration-300 hover:opacity-80">
+      <div className="px-4 py-3 md:py-4 max-w-7xl mx-auto flex justify-between items-center">
+        <Link 
+          to="/" 
+          className="text-lg md:text-2xl font-bold text-primary"
+        >
           BMaGlass Pay
         </Link>
         
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-8">
-          {navItems.map((item) => (
-            <Link 
-              key={item.name} 
-              to={item.path}
-              className="text-sm font-medium text-foreground/80 transition-colors duration-300 hover:text-foreground flex items-center"
-            >
-              {item.icon}
-              {item.name}
-            </Link>
-          ))}
-          
-          {isLoggedIn ? (
-            <button 
-              className="button-primary text-sm flex items-center"
-              onClick={handleSignOut}
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </button>
-          ) : (
-            <div className="flex items-center space-x-4">
-              <Link to="/login" className="text-sm font-medium text-foreground/80 transition-colors duration-300 hover:text-foreground">
-                Login
-              </Link>
-              <Link to="/register" className="button-primary text-sm">
-                Sign Up
-              </Link>
-            </div>
-          )}
-        </nav>
-        
-        {/* Mobile Menu Toggle */}
         <button 
-          className="md:hidden flex flex-col items-center justify-center w-10 h-10 rounded-full bg-secondary"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          aria-label="Toggle Menu"
+          onClick={toggleMenu} 
+          className="lg:hidden text-primary focus:outline-none"
         >
-          <span className={cn(
-            "w-5 h-0.5 bg-foreground transition-all duration-300 ease-apple-ease",
-            isMobileMenuOpen && "transform rotate-45 translate-y-1"
-          )} />
-          <span className={cn(
-            "w-5 h-0.5 bg-foreground mt-1 transition-all duration-300 ease-apple-ease",
-            isMobileMenuOpen && "opacity-0"
-          )} />
-          <span className={cn(
-            "w-5 h-0.5 bg-foreground mt-1 transition-all duration-300 ease-apple-ease",
-            isMobileMenuOpen && "transform -rotate-45 -translate-y-1"
-          )} />
+          {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
-      </div>
-      
-      {/* Mobile Menu */}
-      <div className={cn(
-        "md:hidden absolute w-full top-full left-0 bg-white/95 backdrop-blur-lg shadow-medium transition-all duration-500 ease-apple-ease overflow-hidden",
-        isMobileMenuOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
-      )}>
-        <div className="px-4 py-4 space-y-4">
-          {navItems.map((item) => (
-            <Link 
-              key={item.name} 
-              to={item.path}
-              className="block py-2 text-foreground/80 hover:text-foreground transition-colors duration-300 flex items-center"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              {item.icon}
-              {item.name}
-            </Link>
-          ))}
+        
+        <div className={`${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed top-0 left-0 h-screen lg:h-auto lg:static w-full max-w-xs lg:max-w-none lg:w-auto bg-background lg:bg-transparent py-8 lg:py-0 flex flex-col lg:flex-row lg:items-center gap-4 transition-transform duration-300 ease-in-out z-20 shadow-xl lg:shadow-none overflow-y-auto`}>
+          <button 
+            onClick={closeMenu} 
+            className="absolute top-4 right-4 lg:hidden text-primary focus:outline-none"
+          >
+            <X className="h-6 w-6" />
+          </button>
           
-          {isLoggedIn ? (
-            <button 
-              className="button-primary w-full text-center flex items-center justify-center"
-              onClick={handleSignOut}
+          <nav className="space-y-4 lg:space-y-0 lg:space-x-6 lg:flex px-8 lg:px-0 mt-8 lg:mt-0">
+            <Link 
+              to="/"
+              className="block hover:text-primary transition-colors duration-300"
+              onClick={closeMenu}
             >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </button>
-          ) : (
-            <>
-              <Link 
-                to="/login" 
-                className="block py-2 text-foreground/80 hover:text-foreground transition-colors duration-300"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Login
-              </Link>
-              <Link 
-                to="/register" 
-                className="button-primary w-full text-center"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Sign Up
-              </Link>
-            </>
-          )}
+              Home
+            </Link>
+            
+            {/* Add Payment Services link */}
+            <Link 
+              to="/payment-services"
+              className="block hover:text-primary transition-colors duration-300"
+              onClick={closeMenu}
+            >
+              Payment Services
+            </Link>
+            
+            <Link 
+              to="/wallet"
+              className="block hover:text-primary transition-colors duration-300"
+              onClick={closeMenu}
+            >
+              Wallet
+            </Link>
+            <Link 
+              to="/contact"
+              className="block hover:text-primary transition-colors duration-300"
+              onClick={closeMenu}
+            >
+              Contact
+            </Link>
+            <Link 
+              to="/about"
+              className="block hover:text-primary transition-colors duration-300"
+              onClick={closeMenu}
+            >
+              About
+            </Link>
+          </nav>
+          
+          <div className="lg:ml-auto px-8 lg:px-0 flex items-center space-x-4">
+            {user ? (
+              <div className="flex items-center space-x-4">
+                <button 
+                  onClick={handleLogout} 
+                  className="flex items-center text-red-500 hover:text-red-700 transition-colors duration-300"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </button>
+                <Link 
+                  to="/profile"
+                  className="flex items-center text-primary hover:text-primary-foreground transition-colors duration-300"
+                  onClick={closeMenu}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Profile
+                </Link>
+              </div>
+            ) : (
+              <>
+                <Link 
+                  to="/login" 
+                  className="hidden md:block py-2 px-4 text-sm font-medium rounded-md hover:bg-secondary transition-colors duration-300"
+                  onClick={closeMenu}
+                >
+                  Log In
+                </Link>
+                <Link 
+                  to="/register" 
+                  className="py-2 px-4 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/80 transition-colors duration-300"
+                  onClick={closeMenu}
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
+          </div>
         </div>
+        
+        {isOpen && (
+          <div className="fixed top-0 left-0 w-full h-full bg-black/50 z-10 lg:hidden" onClick={closeMenu}></div>
+        )}
       </div>
     </header>
   );

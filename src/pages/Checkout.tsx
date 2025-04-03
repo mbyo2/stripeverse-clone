@@ -1,266 +1,141 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import PaymentForm from "@/components/PaymentForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle } from "lucide-react";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { formatCurrency } from "@/lib/utils";
-import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import PaymentMethodList from "@/components/wallet/PaymentMethodList";
-import { paymentMethods } from "@/data/mockData";
+import MobileMoneyPayment from "@/components/payments/MobileMoneyPayment";
+import UssdPayment from "@/components/payments/UssdPayment";
+import BitcoinPayment from "@/components/payments/BitcoinPayment";
+import CardPayment from "@/components/payments/CardPayment";
 
-interface PaymentDetails {
+interface CheckoutResponse {
   paymentId: string;
   method: string;
   status: string;
 }
 
 const Checkout = () => {
-  const [paymentComplete, setPaymentComplete] = useState(false);
-  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed' | null>(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<any>(null);
-  const [useExistingMethod, setUseExistingMethod] = useState(false);
-  
-  const { toast } = useToast();
-  const navigate = useNavigate();
   const location = useLocation();
-  
-  // Get amount from location state or use default
+  const navigate = useNavigate();
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
+  const [paymentComplete, setPaymentComplete] = useState(false);
+  const productName = location.state?.productName || "Generic Product";
   const amount = location.state?.amount || 100;
-  const productName = location.state?.productName || "BMaGlass Pay Service";
-  
-  // Simulate checking payment status
-  useEffect(() => {
-    if (paymentDetails?.paymentId && paymentStatus === 'pending') {
-      // Simulate a status check with the server
-      const timer = setTimeout(() => {
-        // For demonstration purposes, we'll just set to success
-        setPaymentStatus('success');
-        
-        toast({
-          title: "Payment confirmed",
-          description: `Your payment of ${formatCurrency(amount)} has been confirmed.`,
-        });
-        
-        // Redirect after confirming payment
-        setTimeout(() => {
-          navigate("/dashboard", { 
-            state: { 
-              paymentSuccess: true,
-              paymentDetails
-            } 
-          });
-        }, 3000);
-      }, 2000); // Faster processing time
-      
-      return () => clearTimeout(timer);
-    }
-  }, [paymentDetails, paymentStatus, amount, navigate, toast]);
-  
-  const handlePaymentSuccess = (response: PaymentDetails) => {
-    setPaymentDetails(response);
+  const showPaymentMethods = !paymentComplete;
+
+  const handlePaymentComplete = (response: CheckoutResponse) => {
+    console.log("Payment Complete:", response);
     setPaymentComplete(true);
-    setPaymentStatus(response.status === 'pending' ? 'pending' : 'success');
-    
-    toast({
-      title: response.status === 'pending' ? "Payment processing" : "Payment successful",
-      description: response.status === 'pending' 
-        ? "We're confirming your payment. This will take just a moment."
-        : "Your payment has been processed successfully.",
-    });
   };
-  
-  const handleCancel = () => {
+
+  const handleGoBack = () => {
     navigate(-1);
-  };
-  
-  const handlePaymentMethodSelect = (method: any) => {
-    setSelectedPaymentMethod(method);
-  };
-  
-  const handleTogglePaymentOption = () => {
-    setUseExistingMethod(!useExistingMethod);
-  };
-  
-  const getStatusBadge = () => {
-    switch(paymentStatus) {
-      case 'pending':
-        return (
-          <div className="flex items-start bg-yellow-50 border border-yellow-100 rounded-md p-3">
-            <Clock className="h-5 w-5 text-yellow-500 mr-2 shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-medium text-yellow-700">Payment Processing</h3>
-              <p className="text-sm text-yellow-600">
-                We're confirming your payment with the provider...
-              </p>
-            </div>
-          </div>
-        );
-      case 'success':
-        return (
-          <div className="flex items-start bg-green-50 border border-green-100 rounded-md p-3">
-            <CheckCircle2 className="h-5 w-5 text-green-500 mr-2 shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-medium text-green-700">Payment Successful</h3>
-              <p className="text-sm text-green-600">
-                Payment ID: {paymentDetails?.paymentId}<br/>
-                Redirecting you to dashboard...
-              </p>
-            </div>
-          </div>
-        );
-      case 'failed':
-        return (
-          <div className="flex items-start bg-red-50 border border-red-100 rounded-md p-3">
-            <AlertCircle className="h-5 w-5 text-red-500 mr-2 shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-medium text-red-700">Payment Failed</h3>
-              <p className="text-sm text-red-600">
-                There was an issue processing your payment. Please try again.
-              </p>
-            </div>
-          </div>
-        );
-      default:
-        return null;
-    }
   };
   
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <h1 className="text-3xl font-bold mb-6">Complete Your Payment</h1>
-            
-            <Card className="mb-6">
+      <main className="flex-1 pt-24 pb-16 px-4">
+        {paymentComplete ? (
+          <div className="max-w-md mx-auto text-center">
+            <CheckCircle className="mx-auto mb-4 h-16 w-16 text-green-500" />
+            <h2 className="text-3xl font-bold mb-4">Payment Successful!</h2>
+            <p className="text-muted-foreground mb-6">
+              Thank you for your purchase. Your payment has been processed successfully.
+            </p>
+            <Button onClick={handleGoBack}>Go Back</Button>
+          </div>
+        ) : (
+          <div className="max-w-md mx-auto">
+            <Card className="mb-8">
               <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
+                <CardTitle>Checkout</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center pb-4 border-b">
-                    <span className="font-medium">{productName}</span>
-                    <span>{formatCurrency(amount)}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center pb-4 border-b">
-                    <span className="text-muted-foreground">Service Fee</span>
-                    <span>{formatCurrency(5)}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center font-bold">
-                    <span>Total</span>
-                    <span>{formatCurrency(amount + 5)}</span>
-                  </div>
+                <div className="flex items-center justify-between mb-4">
+                  <span>{productName}</span>
+                  <Badge variant="secondary">{formatCurrency(amount)}</Badge>
                 </div>
               </CardContent>
             </Card>
             
-            {paymentStatus && (
-              <Card className="mb-6">
-                <CardContent className="pt-4">
-                  {getStatusBadge()}
-                </CardContent>
-              </Card>
-            )}
-            
-            {!paymentComplete && (
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle>Your Payment Methods</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-4">
-                    <Button 
-                      variant={useExistingMethod ? "default" : "outline"} 
-                      className="mr-2"
-                      onClick={handleTogglePaymentOption}
-                    >
-                      Use Saved Method
-                    </Button>
-                    <Button 
-                      variant={!useExistingMethod ? "default" : "outline"}
-                      onClick={handleTogglePaymentOption}
-                    >
-                      New Payment
-                    </Button>
-                  </div>
-                  
-                  {useExistingMethod && (
-                    <PaymentMethodList 
-                      paymentMethods={paymentMethods} 
-                      selectable={true}
-                      onSelect={handlePaymentMethodSelect}
+            {showPaymentMethods && (
+              <div className="max-w-md mx-auto mb-8">
+                <h2 className="text-2xl font-bold mb-4">Select Payment Method</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <Button
+                    variant={selectedPaymentMethod === "mobile" ? "default" : "outline"}
+                    onClick={() => setSelectedPaymentMethod("mobile")}
+                  >
+                    Mobile Money
+                  </Button>
+                  <Button
+                    variant={selectedPaymentMethod === "card" ? "default" : "outline"}
+                    onClick={() => setSelectedPaymentMethod("card")}
+                  >
+                    Card Payment
+                  </Button>
+                  <Button
+                    variant={selectedPaymentMethod === "ussd" ? "default" : "outline"}
+                    onClick={() => setSelectedPaymentMethod("ussd")}
+                  >
+                    USSD
+                  </Button>
+                  <Button
+                    variant={selectedPaymentMethod === "bitcoin" ? "default" : "outline"}
+                    onClick={() => setSelectedPaymentMethod("bitcoin")}
+                  >
+                    Bitcoin
+                  </Button>
+                </div>
+                
+                {selectedPaymentMethod === "mobile" && (
+                  <div className="bg-white rounded-lg shadow p-4 mb-4">
+                    <MobileMoneyPayment
+                      amount={amount}
+                      onSuccess={handlePaymentComplete}
+                      onCancel={() => setSelectedPaymentMethod("")}
                     />
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                )}
+                
+                {selectedPaymentMethod === "card" && (
+                  <div className="bg-white rounded-lg shadow p-4 mb-4">
+                    <CardPayment 
+                      amount={amount} 
+                      onSuccess={handlePaymentComplete}
+                      onCancel={() => setSelectedPaymentMethod("")}
+                    />
+                  </div>
+                )}
+                
+                {selectedPaymentMethod === "ussd" && (
+                  <div className="bg-white rounded-lg shadow p-4 mb-4">
+                    <UssdPayment
+                      amount={amount}
+                      onSuccess={handlePaymentComplete}
+                      onCancel={() => setSelectedPaymentMethod("")}
+                    />
+                  </div>
+                )}
+                
+                {selectedPaymentMethod === "bitcoin" && (
+                  <div className="bg-white rounded-lg shadow p-4 mb-4">
+                    <BitcoinPayment
+                      amount={amount}
+                      onSuccess={handlePaymentComplete}
+                      onCancel={() => setSelectedPaymentMethod("")}
+                    />
+                  </div>
+                )}
+              </div>
             )}
           </div>
-          
-          <div>
-            {(!useExistingMethod || !selectedPaymentMethod) ? (
-              <PaymentForm 
-                amount={amount + 5} 
-                onSuccess={handlePaymentSuccess} 
-                onCancel={handleCancel}
-              />
-            ) : (
-              <Card className="w-full max-w-md mx-auto">
-                <CardHeader>
-                  <CardTitle>Pay with Saved Method</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-6">
-                    <h3 className="font-medium mb-2">Selected Payment Method</h3>
-                    <div className="p-4 border rounded-lg">
-                      <p className="font-medium">{selectedPaymentMethod.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {selectedPaymentMethod.type === "card" ? (
-                          <>Card Number: {selectedPaymentMethod.number} • Expires: {selectedPaymentMethod.expiry}</>
-                        ) : (
-                          <>Account Number: {selectedPaymentMethod.number} • Branch: {selectedPaymentMethod.branch}</>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center pb-4 border-b">
-                      <span className="font-medium">Total Amount</span>
-                      <span className="font-bold">{formatCurrency(amount + 5)}</span>
-                    </div>
-                    
-                    <Button 
-                      className="w-full" 
-                      onClick={() => {
-                        handlePaymentSuccess({
-                          paymentId: `PM-${Math.floor(100000 + Math.random() * 900000)}`,
-                          method: selectedPaymentMethod.type === "card" ? 
-                            `card_${selectedPaymentMethod.name.split(" ")[0].toLowerCase()}` : 
-                            `bank_${selectedPaymentMethod.name.split(" ")[0].toLowerCase()}`,
-                          status: "success"
-                        });
-                      }}
-                    >
-                      Pay {formatCurrency(amount + 5)}
-                    </Button>
-                    
-                    <Button variant="outline" className="w-full" onClick={handleCancel}>
-                      Cancel
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
+        )}
       </main>
       <Footer />
     </div>

@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Shield, Check, AlertTriangle } from 'lucide-react';
+import { Shield, Check, AlertTriangle, CreditCard, FileCheck, Lock, Eye } from 'lucide-react';
 
 const Compliance = () => {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -74,6 +74,10 @@ const Compliance = () => {
                       <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
                       <span>Regular compliance audits and reporting</span>
                     </li>
+                    <li className="flex items-start">
+                      <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                      <span>Full Bank of Zambia certification (License #BOZ/PSP/2023/42)</span>
+                    </li>
                   </ul>
                 </div>
                 
@@ -100,7 +104,112 @@ const Compliance = () => {
                       <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
                       <span>Regular penetration testing and security assessments</span>
                     </li>
+                    <li className="flex items-start">
+                      <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                      <span>SOC 2 Type II audited data centers</span>
+                    </li>
                   </ul>
+                </div>
+              </div>
+            </div>
+            
+            {/* PCI DSS Compliance Section */}
+            <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
+              <h2 className="text-xl font-semibold mb-6 flex items-center">
+                <CreditCard className="h-5 w-5 mr-2 text-primary" />
+                PCI DSS Compliance
+              </h2>
+              
+              <p className="mb-6">
+                The Payment Card Industry Data Security Standard (PCI DSS) is a set of security standards designed to ensure that all companies that accept, process, store, or transmit credit card information maintain a secure environment.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="bg-secondary/10 rounded-lg p-6">
+                  <h3 className="font-medium mb-3">What PCI DSS Level 1 Means</h3>
+                  <p className="text-foreground/70 mb-3">
+                    As a Level 1 PCI DSS certified service provider, BMaGlass Pay meets the highest level of security requirements, including:
+                  </p>
+                  <ul className="space-y-2 pl-5 list-disc text-foreground/70">
+                    <li>Annual on-site security assessments by a Qualified Security Assessor (QSA)</li>
+                    <li>Quarterly network scans by an Approved Scanning Vendor (ASV)</li>
+                    <li>Penetration testing and internal vulnerability assessments</li>
+                    <li>Maintaining a secure network and systems</li>
+                    <li>Protecting cardholder data with encryption and tokenization</li>
+                  </ul>
+                </div>
+                
+                <div className="bg-secondary/10 rounded-lg p-6">
+                  <h3 className="font-medium mb-3">Benefits for Merchants</h3>
+                  <ul className="space-y-2 pl-5 list-disc text-foreground/70">
+                    <li>Reduced risk of data breaches and fraud</li>
+                    <li>Protection against financial penalties and legal costs</li>
+                    <li>Increased customer trust and confidence</li>
+                    <li>Simplified compliance requirements</li>
+                    <li>Better protection of your business reputation</li>
+                    <li>Lower risk of reputational damage from breaches</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="border border-border p-4 rounded-lg">
+                <h3 className="font-medium mb-2">Our PCI DSS Compliance Process</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="flex flex-col items-center text-center p-3">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                      <FileCheck className="h-6 w-6 text-primary" />
+                    </div>
+                    <h4 className="font-medium mb-1">Assessment</h4>
+                    <p className="text-sm text-foreground/70">Annual security assessments by certified QSA</p>
+                  </div>
+                  
+                  <div className="flex flex-col items-center text-center p-3">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                      <Lock className="h-6 w-6 text-primary" />
+                    </div>
+                    <h4 className="font-medium mb-1">Implementation</h4>
+                    <p className="text-sm text-foreground/70">Continuous security measures and controls</p>
+                  </div>
+                  
+                  <div className="flex flex-col items-center text-center p-3">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                      <Eye className="h-6 w-6 text-primary" />
+                    </div>
+                    <h4 className="font-medium mb-1">Monitoring</h4>
+                    <p className="text-sm text-foreground/70">24/7 security monitoring and quarterly scans</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Bank of Zambia Approval Section */}
+            <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
+              <h2 className="text-xl font-semibold mb-6">Bank of Zambia Approval</h2>
+              
+              <p className="mb-6">
+                BMaGlass Pay is fully licensed and regulated by the Bank of Zambia under the National Payment Systems Act. Our operations comply with all relevant regulations and directives issued by the Bank of Zambia for payment service providers.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-secondary/10 rounded-lg p-6">
+                  <h3 className="font-medium mb-3">Licensing Requirements</h3>
+                  <p className="text-foreground/70">
+                    We meet all requirements for payment service providers in Zambia, including capital requirements, governance structures, and operational capabilities.
+                  </p>
+                </div>
+                
+                <div className="bg-secondary/10 rounded-lg p-6">
+                  <h3 className="font-medium mb-3">Regulatory Reporting</h3>
+                  <p className="text-foreground/70">
+                    We submit regular reports to the Bank of Zambia on transaction volumes, suspicious activities, and other regulatory requirements.
+                  </p>
+                </div>
+                
+                <div className="bg-secondary/10 rounded-lg p-6">
+                  <h3 className="font-medium mb-3">Consumer Protection</h3>
+                  <p className="text-foreground/70">
+                    We adhere to all consumer protection guidelines issued by the Bank of Zambia, ensuring transparent and fair services for all users.
+                  </p>
                 </div>
               </div>
             </div>

@@ -45,11 +45,15 @@ const Footer = () => {
             
             <div className="mt-6 flex items-center space-x-4">
               <Shield className="h-5 w-5 text-primary-foreground/80" />
-              <span className="text-primary-foreground/80">PCI DSS Compliant</span>
+              <Link to="/compliance" className="text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+                PCI DSS Compliant
+              </Link>
             </div>
             <div className="mt-2 flex items-center space-x-4">
               <Globe className="h-5 w-5 text-primary-foreground/80" />
-              <span className="text-primary-foreground/80">Bank of Zambia Approved</span>
+              <Link to="/compliance" className="text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+                Bank of Zambia Approved
+              </Link>
             </div>
           </div>
           
@@ -57,12 +61,12 @@ const Footer = () => {
             <h4 className="text-base font-medium mb-4">Payment Services</h4>
             <ul className="space-y-2">
               {[
-                {name: 'Mobile Money Integration', icon: <Smartphone className="h-4 w-4 mr-2" />, link: '/'},
-                {name: 'Card Processing', icon: <CreditCard className="h-4 w-4 mr-2" />, link: '/'},
+                {name: 'Mobile Money Integration', icon: <Smartphone className="h-4 w-4 mr-2" />, link: '/payment-services'},
+                {name: 'Card Processing', icon: <CreditCard className="h-4 w-4 mr-2" />, link: '/payment-services'},
                 {name: 'USSD Payments', icon: <Smartphone className="h-4 w-4 mr-2" />, link: '/ussd-access'},
                 {name: 'Business Dashboard', icon: <Globe className="h-4 w-4 mr-2" />, link: '/dashboard'},
-                {name: 'Merchant API', icon: <Shield className="h-4 w-4 mr-2" />, link: '/'},
-                {name: 'Settlement Services', icon: <CreditCard className="h-4 w-4 mr-2" />, link: '/'}
+                {name: 'Merchant API', icon: <Shield className="h-4 w-4 mr-2" />, link: '/payment-services'},
+                {name: 'Settlement Services', icon: <CreditCard className="h-4 w-4 mr-2" />, link: '/payment-services'}
               ].map((item) => (
                 <li key={item.name}>
                   <Link 
@@ -115,6 +119,7 @@ const Footer = () => {
                 <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Zamtel Kwacha</span>
                 <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Visa</span>
                 <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Mastercard</span>
+                <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Bitcoin</span>
               </div>
             </div>
           </div>
