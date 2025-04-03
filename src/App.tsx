@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Home from './pages/Home';
@@ -18,10 +19,16 @@ import { Toaster } from "@/components/ui/toaster"
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailed from './pages/PaymentFailed';
 import PaymentServices from "@/pages/PaymentServices";
+import Faq from './pages/Faq';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import BusinessDashboard from './pages/BusinessDashboard';
+import BetaBanner from './components/BetaBanner';
 
 function App() {
   return (
     <div className="app">
+      <BetaBanner />
       <Router>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -39,11 +46,15 @@ function App() {
           <Route path="/ussd-access" element={<UssdAccess />} />
           <Route path="/payment-success" element={<PaymentSuccess />} />
           <Route path="/payment-failed" element={<PaymentFailed />} />
-          <Route path="*" element={<NotFound />} />
-          
-          {/* Payment Services page */}
           <Route path="/payment-services" element={<PaymentServices />} />
           
+          {/* New pages */}
+          <Route path="/faq" element={<Faq />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-of-service" element={<TermsOfService />} />
+          <Route path="/business-dashboard" element={<BusinessDashboard />} />
+          
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
       <Toaster />

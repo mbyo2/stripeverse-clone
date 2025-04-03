@@ -1,6 +1,7 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut } from 'lucide-react';
+import { Menu, X, User, LogOut, HelpCircle, Shield, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from "@/hooks/use-toast";
 
@@ -96,7 +97,6 @@ const Header = () => {
               Home
             </Link>
             
-            {/* Add Payment Services link */}
             <Link 
               to="/payment-services"
               className="block hover:text-primary transition-colors duration-300"
@@ -112,19 +112,40 @@ const Header = () => {
             >
               Wallet
             </Link>
+            
+            <Link 
+              to="/business-dashboard"
+              className="block hover:text-primary transition-colors duration-300"
+              onClick={closeMenu}
+            >
+              <Building2 className="h-4 w-4 inline-block mr-1" />
+              Business
+            </Link>
+            
+            <Link 
+              to="/faq"
+              className="block hover:text-primary transition-colors duration-300"
+              onClick={closeMenu}
+            >
+              <HelpCircle className="h-4 w-4 inline-block mr-1" />
+              FAQ
+            </Link>
+            
+            <Link 
+              to="/compliance"
+              className="block hover:text-primary transition-colors duration-300"
+              onClick={closeMenu}
+            >
+              <Shield className="h-4 w-4 inline-block mr-1" />
+              Compliance
+            </Link>
+            
             <Link 
               to="/contact"
               className="block hover:text-primary transition-colors duration-300"
               onClick={closeMenu}
             >
               Contact
-            </Link>
-            <Link 
-              to="/about"
-              className="block hover:text-primary transition-colors duration-300"
-              onClick={closeMenu}
-            >
-              About
             </Link>
           </nav>
           
