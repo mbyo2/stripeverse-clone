@@ -1,11 +1,10 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 // Constants
 const BTCPAY_SERVER_URL = Deno.env.get("BTCPAY_SERVER_URL") || "https://btcpay.example.com";
-const BTCPAY_API_KEY = Deno.env.get("BTCPAY_API_KEY") || "";
-const BTCPAY_STORE_ID = Deno.env.get("BTCPAY_STORE_ID") || "";
-const BTCPAY_WEBHOOK_SECRET = Deno.env.get("BTCPAY_WEBHOOK_SECRET") || "";
+const BTCPAY_API_KEY = Deno.env.get("BTCPAY_API_KEY") || "placeholder_api_key_replace_with_real_one";
+const BTCPAY_STORE_ID = Deno.env.get("BTCPAY_STORE_ID") || "placeholder_store_id";
+const BTCPAY_WEBHOOK_SECRET = Deno.env.get("BTCPAY_WEBHOOK_SECRET") || "placeholder_webhook_secret";
 
 // CORS headers for our function
 const corsHeaders = {
@@ -130,78 +129,75 @@ serve(async (req) => {
 
       // If BTCPay server credentials are provided, use the actual API
       if (BTCPAY_API_KEY && BTCPAY_STORE_ID && BTCPAY_SERVER_URL) {
-        try {
-          // Construct the API URL for creating an invoice
-          const apiUrl = `${BTCPAY_SERVER_URL}/api/v1/stores/${BTCPAY_STORE_ID}/invoices`;
-          
-          // Get the webhook URL (this function's URL + /webhook)
-          const webhookUrl = `${url.origin}${url.pathname}/webhook`;
-          
-          // Prepare the request payload for BTCPay Server
-          const payload = {
-            amount,
-            currency,
+        console.log("Using BTCPay Server API with placeholder or configured API key");
+        
+        // Construct the API URL for creating an invoice
+        const apiUrl = `${BTCPAY_SERVER_URL}/api/v1/stores/${BTCPAY_STORE_ID}/invoices`;
+        
+        // Get the webhook URL (this function's URL + /webhook)
+        const webhookUrl = `${url.origin}${url.pathname}/webhook`;
+        
+        // Prepare the request payload for BTCPay Server
+        const payload = {
+          amount,
+          currency,
+          orderId,
+          metadata: {
             orderId,
-            metadata: {
-              orderId,
-              buyerEmail,
-              ...metadata
-            },
-            checkout: {
-              redirectURL: redirectUrl,
-              defaultPaymentMethod: "BTC",
-              expirationMinutes: 15
-            },
-            // Add webhook configuration if we have a webhook secret
-            ...(BTCPAY_WEBHOOK_SECRET ? {
-              webhookUrl: webhookUrl
-            } : {})
-          };
-          
-          // Make the API call to BTCPay Server
-          const btcpayResponse = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `token ${BTCPAY_API_KEY}`
-            },
-            body: JSON.stringify(payload)
-          });
-          
-          if (!btcpayResponse.ok) {
-            const errorText = await btcpayResponse.text();
-            console.error("BTCPay Server API error:", errorText);
-            throw new Error(`BTCPay Server API error: ${btcpayResponse.status} ${errorText}`);
+            buyerEmail,
+            ...metadata
+          },
+          checkout: {
+            redirectURL: redirectUrl,
+            defaultPaymentMethod: "BTC",
+            expirationMinutes: 15
+          },
+          // Add webhook configuration if we have a webhook secret
+          ...(BTCPAY_WEBHOOK_SECRET ? {
+            webhookUrl: webhookUrl
+          } : {})
+        };
+        
+        // Make the API call to BTCPay Server
+        const btcpayResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `token ${BTCPAY_API_KEY}`
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!btcpayResponse.ok) {
+          const errorText = await btcpayResponse.text();
+          console.error("BTCPay Server API error:", errorText);
+          throw new Error(`BTCPay Server API error: ${btcpayResponse.status} ${errorText}`);
+        }
+        
+        const data = await btcpayResponse.json();
+        
+        // Format the response for our frontend
+        response = {
+          id: data.id,
+          status: data.status,
+          amount: data.btcPrice,
+          amountFiat: data.amount,
+          currency: data.currency,
+          bitcoinAddress: data.paymentMethods.BTC?.address || "",
+          lightningInvoice: data.paymentMethods.BTC?.lightning || "",
+          checkoutUrl: data.checkoutLink,
+          expirationTime: data.expirationTime
+        };
+        
+        // If webhooks aren't set up yet, register the webhook with BTCPay
+        // This is a one-time operation you might do separately
+        if (BTCPAY_WEBHOOK_SECRET && path === 'register-webhook') {
+          try {
+            await registerWebhook(webhookUrl);
+            console.log("Successfully registered webhook");
+          } catch (error) {
+            console.error("Error registering webhook:", error);
           }
-          
-          const data = await btcpayResponse.json();
-          
-          // Format the response for our frontend
-          response = {
-            id: data.id,
-            status: data.status,
-            amount: data.btcPrice,
-            amountFiat: data.amount,
-            currency: data.currency,
-            bitcoinAddress: data.paymentMethods.BTC?.address || "",
-            lightningInvoice: data.paymentMethods.BTC?.lightning || "",
-            checkoutUrl: data.checkoutLink,
-            expirationTime: data.expirationTime
-          };
-          
-          // If webhooks aren't set up yet, register the webhook with BTCPay
-          // This is a one-time operation you might do separately
-          if (BTCPAY_WEBHOOK_SECRET && path === 'register-webhook') {
-            try {
-              await registerWebhook(webhookUrl);
-              console.log("Successfully registered webhook");
-            } catch (error) {
-              console.error("Error registering webhook:", error);
-            }
-          }
-        } catch (error) {
-          console.error("Error calling BTCPay Server API:", error);
-          throw error;
         }
       } else {
         // Use mock implementation if no BTCPay server credentials are provided

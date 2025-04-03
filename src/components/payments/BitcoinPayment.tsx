@@ -28,16 +28,13 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
   const [checkoutUrl, setCheckoutUrl] = useState("");
   const { toast } = useToast();
   
-  // Fetch payment details from BTCPay Server
   useEffect(() => {
     const fetchPaymentDetails = async () => {
       setIsLoading(true);
       
       try {
-        // Generate a unique order ID
         const orderId = `ORDER-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         
-        // Call our BTCPay Server edge function to create an invoice
         const { data, error } = await supabase.functions.invoke('btc-payment', {
           body: {
             amount: amount,
@@ -55,17 +52,15 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
           throw new Error('No response from payment server');
         }
         
-        // Set the payment details
         setBitcoinAmount(data.amount);
         setBitcoinAddress(data.bitcoinAddress);
         setLightningInvoice(data.lightningInvoice);
         setInvoiceId(data.id);
         setCheckoutUrl(data.checkoutUrl);
         
-        // Calculate expiry time
         const expiryTime = new Date(data.expirationTime);
         const secondsRemaining = Math.max(0, Math.floor((expiryTime.getTime() - Date.now()) / 1000));
-        setTimeRemaining(secondsRemaining || 900); // Default to 15 minutes if not provided
+        setTimeRemaining(secondsRemaining || 900);
         
         toast({
           title: "Payment details generated",
@@ -85,7 +80,6 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
     
     fetchPaymentDetails();
     
-    // Start countdown timer
     const timer = setInterval(() => {
       setTimeRemaining(prev => {
         if (prev <= 1) {
@@ -101,14 +95,12 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
     };
   }, [amount, toast]);
   
-  // Check payment status periodically (as a fallback to webhooks)
   useEffect(() => {
     if (!invoiceId || isLoading) return;
     
     const checkPaymentStatus = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('btc-payment', {
-          method: 'GET',
           body: { invoiceId }
         });
         
@@ -125,10 +117,8 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
       }
     };
     
-    // Poll every 30 seconds as a fallback (webhooks are more efficient)
     const statusInterval = setInterval(checkPaymentStatus, 30000);
     
-    // Initial check
     checkPaymentStatus();
     
     return () => clearInterval(statusInterval);
