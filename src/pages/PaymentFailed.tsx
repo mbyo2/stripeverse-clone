@@ -69,3 +69,6 @@ const PaymentFailed = () => {
       <Footer />
     </div>
   );
+};
+
+export default PaymentFailed;
