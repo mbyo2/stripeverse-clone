@@ -36,10 +36,8 @@ enabled = true
 [edge_runtime]
 enabled = true
 
-[[functions]]
-name = "mobile-money"
+[functions.mobile-money]
 verify_jwt = false
 
-[[functions]]
-name = "btc-payment"
+[functions.btc-payment]
 verify_jwt = false
