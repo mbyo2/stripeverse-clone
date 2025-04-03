@@ -25,13 +25,14 @@ import TermsOfService from './pages/TermsOfService';
 import BusinessDashboard from './pages/BusinessDashboard';
 import BetaBanner from './components/BetaBanner';
 import Transactions from './pages/Transactions';
+import Feedback from './pages/Feedback';
 import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   return (
     <AuthProvider>
       <div className="app">
-        <BetaBanner />
+        <BetaBanner expiryDays={7} />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
@@ -50,6 +51,7 @@ function App() {
           <Route path="/payment-failed" element={<PaymentFailed />} />
           <Route path="/payment-services" element={<PaymentServices />} />
           <Route path="/transactions" element={<Transactions />} />
+          <Route path="/feedback" element={<Feedback />} />
           
           {/* New pages */}
           <Route path="/faq" element={<Faq />} />
