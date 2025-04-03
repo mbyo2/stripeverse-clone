@@ -24,6 +24,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import BusinessDashboard from './pages/BusinessDashboard';
 import BetaBanner from './components/BetaBanner';
+import Transactions from './pages/Transactions';
 
 function App() {
   return (
@@ -47,6 +48,7 @@ function App() {
           <Route path="/payment-success" element={<PaymentSuccess />} />
           <Route path="/payment-failed" element={<PaymentFailed />} />
           <Route path="/payment-services" element={<PaymentServices />} />
+          <Route path="/transactions" element={<Transactions />} />
           
           {/* New pages */}
           <Route path="/faq" element={<Faq />} />
