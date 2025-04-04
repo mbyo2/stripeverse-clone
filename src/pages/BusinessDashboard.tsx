@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,8 +20,19 @@ import {
   Phone
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { BusinessSettings } from "@/components/business/BusinessSettings";
 
 const BusinessDashboard = () => {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const openSettings = () => {
+    setIsSettingsOpen(true);
+  };
+
+  const closeSettings = () => {
+    setIsSettingsOpen(false);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
@@ -31,11 +42,14 @@ const BusinessDashboard = () => {
             <h1 className="text-3xl font-bold">Business Dashboard</h1>
             <p className="text-muted-foreground">Manage your payment services and view analytics</p>
           </div>
-          <Button>
+          <Button onClick={openSettings}>
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </Button>
         </div>
+        
+        {/* Settings component */}
+        <BusinessSettings isOpen={isSettingsOpen} onClose={closeSettings} />
         
         {/* Overview Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
