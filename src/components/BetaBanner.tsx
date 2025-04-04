@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from "react";
-import { X, AlertTriangle, ExternalLink } from "lucide-react";
+import { X, AlertTriangle, ExternalLink, Bell } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 interface BetaBannerProps {
   expiryDays?: number;
@@ -10,6 +11,8 @@ interface BetaBannerProps {
 
 const BetaBanner = ({ expiryDays = 7, version = "0.9.0" }: BetaBannerProps) => {
   const [isVisible, setIsVisible] = useState(true);
+  const [hasNewVersion, setHasNewVersion] = useState(false);
+  const { toast } = useToast();
   
   // Check if the banner was previously dismissed and when
   useEffect(() => {
@@ -17,7 +20,7 @@ const BetaBanner = ({ expiryDays = 7, version = "0.9.0" }: BetaBannerProps) => {
     
     if (dismissedData) {
       try {
-        const { timestamp } = JSON.parse(dismissedData);
+        const { timestamp, version: dismissedVersion } = JSON.parse(dismissedData);
         const dismissedDate = new Date(timestamp);
         const currentDate = new Date();
         
@@ -29,6 +32,16 @@ const BetaBanner = ({ expiryDays = 7, version = "0.9.0" }: BetaBannerProps) => {
         // If the banner was dismissed less than expiryDays ago, keep it hidden
         if (daysDifference < expiryDays) {
           setIsVisible(false);
+          
+          // Check if there's a new version since dismissal
+          if (dismissedVersion !== version) {
+            setHasNewVersion(true);
+            toast({
+              title: "New Beta Version Available",
+              description: `You've been updated from v${dismissedVersion} to v${version}. Check out what's new!`,
+              duration: 5000,
+            });
+          }
         } else {
           // Reset if expiry period has passed
           localStorage.removeItem("betaBannerDismissed");
@@ -38,10 +51,10 @@ const BetaBanner = ({ expiryDays = 7, version = "0.9.0" }: BetaBannerProps) => {
         localStorage.removeItem("betaBannerDismissed");
       }
     }
-  }, [expiryDays]);
+  }, [expiryDays, version, toast]);
   
   const dismissBanner = () => {
-    // Store dismissal time
+    // Store dismissal time and current version
     localStorage.setItem(
       "betaBannerDismissed", 
       JSON.stringify({ 
@@ -51,8 +64,33 @@ const BetaBanner = ({ expiryDays = 7, version = "0.9.0" }: BetaBannerProps) => {
     );
     setIsVisible(false);
   };
+
+  const showNewVersionNotification = () => {
+    toast({
+      title: "Beta Version Information",
+      description: `You're currently on v${version} of our beta. Thank you for helping us improve!`,
+      duration: 3000,
+    });
+  };
   
-  if (!isVisible) return null;
+  if (!isVisible) {
+    // Show a small version indicator in the corner if there's a new version
+    if (hasNewVersion) {
+      return (
+        <div className="fixed bottom-4 right-4 z-50">
+          <button 
+            onClick={showNewVersionNotification} 
+            className="bg-amber-500 text-black p-2 rounded-full shadow-lg hover:bg-amber-400 transition-all"
+            aria-label="New beta version available"
+            title={`New version v${version} available`}
+          >
+            <Bell className="h-5 w-5" />
+          </button>
+        </div>
+      );
+    }
+    return null;
+  }
   
   return (
     <div className="bg-amber-500 text-black py-2 px-4 text-center relative">
