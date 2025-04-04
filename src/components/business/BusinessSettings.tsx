@@ -1,5 +1,4 @@
-
-import React from "react";
+import React, { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -20,6 +19,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +27,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { Check } from "lucide-react";
+import { BusinessLogo } from "./BusinessLogo";
 
 // Define the form schema using zod
 const businessSettingsSchema = z.object({
@@ -70,22 +71,36 @@ interface BusinessSettingsProps {
 }
 
 export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const form = useForm<BusinessSettingsFormValues>({
     resolver: zodResolver(businessSettingsSchema),
     defaultValues,
   });
 
   function onSubmit(data: BusinessSettingsFormValues) {
-    // In a real app, we would save the settings to the backend
-    console.log("Settings saved:", data);
+    setIsSubmitting(true);
     
-    toast({
-      title: "Settings updated",
-      description: "Your business settings have been saved successfully.",
-    });
-    
-    onClose();
+    // Simulate API call with a timeout
+    setTimeout(() => {
+      // In a real app, we would save the settings to the backend
+      console.log("Settings saved:", data);
+      console.log("Logo file:", logoFile);
+      
+      toast({
+        title: "Settings updated",
+        description: "Your business settings have been saved successfully.",
+      });
+      
+      setIsSubmitting(false);
+      onClose();
+    }, 1000);
   }
+
+  const handleLogoChange = (file: File | null) => {
+    setLogoFile(file);
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -100,7 +115,16 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
-              <h3 className="text-md font-medium">Business Information</h3>
+              <h3 className="text-md font-medium">Business Profile</h3>
+              
+              {/* Logo Upload Section */}
+              <div className="py-4 flex justify-center">
+                <BusinessLogo
+                  initialLogo={null}
+                  onLogoChange={handleLogoChange}
+                  disabled={isSubmitting}
+                />
+              </div>
               
               <FormField
                 control={form.control}
@@ -109,7 +133,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
                   <FormItem>
                     <FormLabel>Business Name</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} disabled={isSubmitting} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -123,7 +147,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
                   <FormItem>
                     <FormLabel>Business Address</FormLabel>
                     <FormControl>
-                      <Textarea {...field} />
+                      <Textarea {...field} disabled={isSubmitting} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -138,7 +162,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
                     <FormItem>
                       <FormLabel>Contact Email</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} disabled={isSubmitting} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -152,7 +176,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
                     <FormItem>
                       <FormLabel>Contact Phone</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} disabled={isSubmitting} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -174,6 +198,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                         className="flex flex-col space-y-1"
+                        disabled={isSubmitting}
                       >
                         <FormItem className="flex items-center space-x-3 space-y-0">
                           <FormControl>
@@ -227,6 +252,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                        disabled={isSubmitting}
                       />
                     </FormControl>
                   </FormItem>
@@ -245,6 +271,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
                           onValueChange={field.onChange}
                           defaultValue={field.value}
                           className="flex flex-col space-y-1"
+                          disabled={isSubmitting}
                         >
                           <FormItem className="flex items-center space-x-3 space-y-0">
                             <FormControl>
@@ -281,11 +308,17 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
             
             <SheetFooter>
               <SheetClose asChild>
-                <Button type="button" variant="outline">Cancel</Button>
+                <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
               </SheetClose>
-              <Button type="submit">
-                <Check className="mr-2 h-4 w-4" />
-                Save Changes
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>Processing...</>
+                ) : (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
               </Button>
             </SheetFooter>
           </form>
@@ -294,6 +327,3 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
     </Sheet>
   );
 }
-
-// Add missing import 
-import { FormDescription } from "@/components/ui/form";
