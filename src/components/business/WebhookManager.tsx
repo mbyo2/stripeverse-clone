@@ -1,11 +1,13 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { ReloadIcon } from "@radix-ui/react-icons";
 
 interface WebhookConfig {
   url: string;
@@ -19,7 +21,9 @@ interface WebhookConfig {
 
 export function WebhookManager() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [selectedEvents, setSelectedEvents] = useState({
     payment_success: true,
@@ -27,6 +31,38 @@ export function WebhookManager() {
     settlement: true,
     refund: true
   });
+
+  useEffect(() => {
+    loadWebhookConfig();
+  }, []);
+
+  const loadWebhookConfig = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('webhooks')
+        .select('*')
+        .eq('business_id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setWebhookUrl(data.url);
+        setSelectedEvents(data.events);
+      }
+    } catch (error) {
+      console.error('Error loading webhook config:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load webhook settings",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!webhookUrl) {
@@ -38,12 +74,22 @@ export function WebhookManager() {
       return;
     }
 
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to save webhook settings",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       const { error } = await supabase.functions.invoke('update-webhook', {
         body: {
           url: webhookUrl,
-          events: selectedEvents
+          events: selectedEvents,
+          business_id: user.id
         }
       });
 
@@ -64,6 +110,17 @@ export function WebhookManager() {
       setIsSaving(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-4 border rounded-md">
+        <div className="flex items-center space-x-2">
+          <ReloadIcon className="h-4 w-4 animate-spin" />
+          <span>Loading webhook settings...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 border rounded-md">
