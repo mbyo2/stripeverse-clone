@@ -1,8 +1,4 @@
 
-# This is a free tier Supabase configuration file
-# It is used by Supabase CLI to configure your local development environment
-# Learn more about configuration here: https://supabase.com/docs/reference/cli/config
-
 project_id = "hhxwwozpvgktuqutfkhc"
 
 [api]
@@ -41,3 +37,9 @@ verify_jwt = false
 
 [functions.btc-payment]
 verify_jwt = false
+
+[functions.generate-api-key]
+verify_jwt = true
+
+[functions.update-webhook]
+verify_jwt = true

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -21,6 +20,9 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BusinessSettings } from "@/components/business/BusinessSettings";
+import { ApiKeyManager } from "@/components/business/ApiKeyManager";
+import { WebhookManager } from "@/components/business/WebhookManager";
+import { ApiDocs } from "@/components/business/ApiDocs";
 
 const BusinessDashboard = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -48,10 +50,8 @@ const BusinessDashboard = () => {
           </Button>
         </div>
         
-        {/* Settings component */}
         <BusinessSettings isOpen={isSettingsOpen} onClose={closeSettings} />
         
-        {/* Overview Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-2">
@@ -270,112 +270,9 @@ const BusinessDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <div className="p-4 border rounded-md">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="font-medium">API Keys</h3>
-                      <Button variant="outline" size="sm">Generate New Key</Button>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center p-3 bg-secondary/20 rounded-md">
-                        <div>
-                          <p className="font-medium">Live API Key</p>
-                          <p className="text-sm text-muted-foreground">Use for production transactions</p>
-                        </div>
-                        <div className="flex items-center">
-                          <p className="font-mono bg-secondary px-3 py-1 rounded mr-2">••••••••••••••••</p>
-                          <Button variant="ghost" size="sm">Show</Button>
-                          <Button variant="ghost" size="sm">Copy</Button>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center p-3 bg-secondary/20 rounded-md">
-                        <div>
-                          <p className="font-medium">Test API Key</p>
-                          <p className="text-sm text-muted-foreground">Use for testing integration</p>
-                        </div>
-                        <div className="flex items-center">
-                          <p className="font-mono bg-secondary px-3 py-1 rounded mr-2">••••••••••••••••</p>
-                          <Button variant="ghost" size="sm">Show</Button>
-                          <Button variant="ghost" size="sm">Copy</Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4 border rounded-md">
-                    <h3 className="font-medium mb-3">Webhook Settings</h3>
-                    <div className="space-y-4">
-                      <div className="flex flex-col">
-                        <label className="text-sm mb-1">Webhook URL</label>
-                        <div className="flex">
-                          <input type="text" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" placeholder="https://your-domain.com/webhook" />
-                          <Button className="ml-2">Save</Button>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm">Event Notifications</label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <div className="flex items-center space-x-2">
-                            <input type="checkbox" id="payment_success" className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" defaultChecked />
-                            <label htmlFor="payment_success" className="text-sm">Payment Success</label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <input type="checkbox" id="payment_failed" className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" defaultChecked />
-                            <label htmlFor="payment_failed" className="text-sm">Payment Failed</label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <input type="checkbox" id="settlement" className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" defaultChecked />
-                            <label htmlFor="settlement" className="text-sm">Settlement Complete</label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <input type="checkbox" id="refund" className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" defaultChecked />
-                            <label htmlFor="refund" className="text-sm">Refund Processed</label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4 border rounded-md">
-                    <h3 className="font-medium mb-3">Documentation & Resources</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Card>
-                        <CardContent className="p-4 flex flex-col items-center text-center">
-                          <div className="bg-primary/10 p-3 rounded-full mb-3">
-                            <Building2 className="h-6 w-6 text-primary" />
-                          </div>
-                          <h4 className="font-medium mb-2">API Documentation</h4>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Comprehensive API docs with examples
-                          </p>
-                          <Button variant="outline" size="sm" className="mt-auto">View Docs</Button>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="p-4 flex flex-col items-center text-center">
-                          <div className="bg-primary/10 p-3 rounded-full mb-3">
-                            <Users className="h-6 w-6 text-primary" />
-                          </div>
-                          <h4 className="font-medium mb-2">SDK Downloads</h4>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Client libraries for popular languages
-                          </p>
-                          <Button variant="outline" size="sm" className="mt-auto">Download</Button>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="p-4 flex flex-col items-center text-center">
-                          <div className="bg-primary/10 p-3 rounded-full mb-3">
-                            <CreditCard className="h-6 w-6 text-primary" />
-                          </div>
-                          <h4 className="font-medium mb-2">Testing Guide</h4>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Learn how to test our integration
-                          </p>
-                          <Button variant="outline" size="sm" className="mt-auto">View Guide</Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
+                  <ApiKeyManager />
+                  <WebhookManager />
+                  <ApiDocs />
                 </div>
               </CardContent>
             </Card>
