@@ -1,9 +1,10 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, User, LogOut, HelpCircle, Shield, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -62,6 +63,19 @@ const Header = () => {
       });
     }
   };
+  
+  const { data: isBusinessUser } = useQuery({
+    queryKey: ['isBusinessUser', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return false;
+      const { data } = await supabase.rpc('has_role', {
+        user_id: user.id,
+        required_role: 'business'
+      });
+      return data || false;
+    },
+    enabled: !!user,
+  });
 
   return (
     <header 
@@ -116,14 +130,16 @@ const Header = () => {
               Wallet
             </Link>
             
-            <Link 
-              to="/business-dashboard"
-              className="block hover:text-primary transition-colors duration-300"
-              onClick={closeMenu}
-            >
-              <Building2 className="h-4 w-4 inline-block mr-1" />
-              Business
-            </Link>
+            {isBusinessUser && (
+              <Link 
+                to="/business-dashboard"
+                className="block hover:text-primary transition-colors duration-300"
+                onClick={closeMenu}
+              >
+                <Building2 className="h-4 w-4 inline-block mr-1" />
+                Business
+              </Link>
+            )}
             
             <Link 
               to="/faq"

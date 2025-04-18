@@ -1,6 +1,6 @@
-
 import React from 'react';
 import { Route, Routes } from 'react-router-dom';
+import BusinessRouteGuard from './components/business/BusinessRouteGuard';
 import Home from './pages/Home';
 import About from './pages/About';
 import Contact from './pages/Contact';
@@ -54,11 +54,18 @@ function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/feedback" element={<Feedback />} />
             
-            {/* New pages */}
             <Route path="/faq" element={<Faq />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
-            <Route path="/business-dashboard" element={<BusinessDashboard />} />
+            
+            <Route 
+              path="/business-dashboard" 
+              element={
+                <BusinessRouteGuard>
+                  <BusinessDashboard />
+                </BusinessRouteGuard>
+              } 
+            />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
