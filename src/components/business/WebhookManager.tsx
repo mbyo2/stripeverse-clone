@@ -40,17 +40,17 @@ export function WebhookManager() {
     if (!user?.id) return;
 
     try {
-      const { data, error } = await supabase
+      const response = await supabase
         .from('webhooks')
-        .select('*')
+        .select('url, events')
         .eq('business_id', user.id)
         .single();
 
-      if (error) throw error;
+      if (response.error) throw response.error;
 
-      if (data) {
-        setWebhookUrl(data.url);
-        setSelectedEvents(data.events);
+      if (response.data) {
+        setWebhookUrl(response.data.url);
+        setSelectedEvents(response.data.events as WebhookConfig['events']);
       }
     } catch (error) {
       console.error('Error loading webhook config:', error);
