@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowRight, Wallet, CreditCard } from "lucide-react";
 
-const Hero = () => {
+interface HeroProps {
+  isAuthenticated: boolean;
+}
+
+const Hero = ({ isAuthenticated }: HeroProps) => {
   const heroRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -52,26 +56,52 @@ const Hero = () => {
           <span className="inline-block px-3 py-1 rounded-full bg-secondary text-sm font-medium text-secondary-foreground mb-6 animate-fadeIn animate-delay-1">
             Zambia's Premier Payment Gateway
           </span>
-          <h1 className="heading-1 mb-6 animate-fadeInUp animate-delay-2">
-            Empowering Zambian<br />businesses with seamless payments
-          </h1>
-          <p className="body-text mb-8 animate-fadeInUp animate-delay-3">
-            BMaGlass Pay is Lusaka's most reliable payment gateway, designed specifically for Zambian 
-            businesses. Our platform makes accepting payments, managing finances, and growing your 
-            business easier than ever.
-          </p>
-          <div className="flex flex-wrap gap-4 animate-fadeInUp animate-delay-4">
-            <Button asChild className="bg-primary text-white">
-              <Link to="/register">
-                Start Accepting Payments <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/login">
-                Business Login
-              </Link>
-            </Button>
-          </div>
+          {isAuthenticated ? (
+            <>
+              <h1 className="heading-1 mb-6 animate-fadeInUp animate-delay-2">
+                Welcome back to<br />BMaGlass Pay
+              </h1>
+              <p className="body-text mb-8 animate-fadeInUp animate-delay-3">
+                Continue managing your payments and transactions seamlessly. Access your dashboard
+                to view your latest activity and manage your account.
+              </p>
+              <div className="flex flex-wrap gap-4 animate-fadeInUp animate-delay-4">
+                <Button asChild className="bg-primary text-white">
+                  <Link to="/dashboard">
+                    Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/wallet">
+                    View Wallet
+                  </Link>
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h1 className="heading-1 mb-6 animate-fadeInUp animate-delay-2">
+                Empowering Zambian<br />businesses with seamless payments
+              </h1>
+              <p className="body-text mb-8 animate-fadeInUp animate-delay-3">
+                BMaGlass Pay is Lusaka's most reliable payment gateway, designed specifically for Zambian 
+                businesses. Our platform makes accepting payments, managing finances, and growing your 
+                business easier than ever.
+              </p>
+              <div className="flex flex-wrap gap-4 animate-fadeInUp animate-delay-4">
+                <Button asChild className="bg-primary text-white">
+                  <Link to="/register">
+                    Start Accepting Payments <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/login">
+                    Business Login
+                  </Link>
+                </Button>
+              </div>
+            </>
+          )}
           
           <div className="mt-10 flex items-center text-sm text-muted-foreground">
             <div className="flex -space-x-1 mr-3">

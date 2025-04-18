@@ -1,4 +1,5 @@
 
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import PaymentSolutions from "@/components/Features";
@@ -7,14 +8,16 @@ import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 
 const Index = () => {
+  const { user } = useAuth();
+
   return (
     <div className="min-h-screen overflow-x-hidden">
       <Header />
       <main>
-        <Hero />
+        <Hero isAuthenticated={!!user} />
         <PaymentSolutions />
         <Products />
-        <Contact />
+        {!user && <Contact />}
       </main>
       <Footer />
     </div>
