@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ReloadIcon } from "@radix-ui/react-icons";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface WebhookConfig {
   url: string;
@@ -24,6 +26,7 @@ export function WebhookManager() {
   const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [selectedEvents, setSelectedEvents] = useState({
     payment_success: true,
@@ -37,23 +40,44 @@ export function WebhookManager() {
   }, []);
 
   const loadWebhookConfig = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setIsLoading(false);
+      return;
+    }
 
+    setLoadError(null);
     try {
+      console.log("Fetching webhook config for user:", user.id);
       const response = await supabase
         .from('webhooks')
         .select('url, events')
         .eq('business_id', user.id)
         .single();
 
-      if (response.error) throw response.error;
+      if (response.error) {
+        // If error is 'No rows found', it just means no webhook is configured yet
+        if (response.error.code === 'PGRST116') {
+          console.log("No webhook configuration found for this user");
+          setIsLoading(false);
+          return;
+        }
+        
+        throw response.error;
+      }
 
       if (response.data) {
-        setWebhookUrl(response.data.url);
-        setSelectedEvents(response.data.events as WebhookConfig['events']);
+        console.log("Webhook config loaded:", response.data);
+        setWebhookUrl(response.data.url || "");
+        setSelectedEvents(response.data.events as WebhookConfig['events'] || {
+          payment_success: true,
+          payment_failed: true,
+          settlement: true,
+          refund: true
+        });
       }
     } catch (error) {
       console.error('Error loading webhook config:', error);
+      setLoadError("Failed to load webhook settings");
       toast({
         title: "Error",
         description: "Failed to load webhook settings",
@@ -85,7 +109,7 @@ export function WebhookManager() {
 
     setIsSaving(true);
     try {
-      const { error } = await supabase.functions.invoke('update-webhook', {
+      const { data, error } = await supabase.functions.invoke('update-webhook', {
         body: {
           url: webhookUrl,
           events: selectedEvents,
@@ -99,6 +123,8 @@ export function WebhookManager() {
         title: "Success",
         description: "Webhook settings have been saved",
       });
+      
+      console.log("Webhook update response:", data);
     } catch (error) {
       console.error('Error saving webhook:', error);
       toast({
@@ -111,6 +137,11 @@ export function WebhookManager() {
     }
   };
 
+  const handleRetry = () => {
+    setIsLoading(true);
+    loadWebhookConfig();
+  };
+
   if (isLoading) {
     return (
       <div className="p-4 border rounded-md">
@@ -118,6 +149,20 @@ export function WebhookManager() {
           <ReloadIcon className="h-4 w-4 animate-spin" />
           <span>Loading webhook settings...</span>
         </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="p-4 border rounded-md">
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <AlertDescription>{loadError}</AlertDescription>
+        </Alert>
+        <Button onClick={handleRetry} variant="outline" className="w-full">
+          Retry Loading
+        </Button>
       </div>
     );
   }

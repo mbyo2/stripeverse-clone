@@ -29,6 +29,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    console.log('Updating webhook for business ID:', business_id);
+
     // Insert or update webhook configuration
     const { data, error } = await supabaseClient
       .from('webhooks')
@@ -44,9 +46,12 @@ serve(async (req) => {
         }
       );
 
-    if (error) throw error;
+    if (error) {
+      console.error('Database error when updating webhook:', error);
+      throw error;
+    }
 
-    console.log('Webhook configuration updated:', { business_id, url, events });
+    console.log('Webhook configuration updated successfully:', { business_id, url });
     
     return new Response(
       JSON.stringify({ success: true, data }),
