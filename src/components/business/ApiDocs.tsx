@@ -3,11 +3,9 @@ import React from "react";
 import { ApiReference } from "./docs/ApiReference";
 import { SdkDocs } from "./docs/SdkDocs";
 import { TestingGuide } from "./docs/TestingGuide";
-import { Building2, Users, CreditCard } from "lucide-react";
-import {
-  Card,
-  CardContent
-} from "@/components/ui/card";
+import { WebhookDocs } from "./docs/WebhookDocs";
+import { Building2, Users, CreditCard, Webhook } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -26,6 +24,10 @@ export function ApiDocs() {
             <Users className="h-4 w-4 mr-2" />
             SDKs
           </TabsTrigger>
+          <TabsTrigger value="webhooks">
+            <Webhook className="h-4 w-4 mr-2" />
+            Webhooks
+          </TabsTrigger>
           <TabsTrigger value="testing">
             <CreditCard className="h-4 w-4 mr-2" />
             Testing
@@ -38,6 +40,10 @@ export function ApiDocs() {
 
         <TabsContent value="sdks">
           <SdkDocs />
+        </TabsContent>
+
+        <TabsContent value="webhooks">
+          <WebhookDocs />
         </TabsContent>
 
         <TabsContent value="testing">
