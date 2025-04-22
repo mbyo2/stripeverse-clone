@@ -1,6 +1,11 @@
 import React from 'react';
 import { Route, Routes } from 'react-router-dom';
 import BusinessRouteGuard from './components/business/BusinessRouteGuard';
+import ProtectedRoute from './components/ProtectedRoute';
+import { Toaster } from "@/components/ui/toaster";
+import BetaBanner from './components/BetaBanner';
+import { AuthProvider } from './contexts/AuthContext';
+
 import Home from './pages/Home';
 import About from './pages/About';
 import Contact from './pages/Contact';
@@ -15,7 +20,6 @@ import SendMoney from './pages/SendMoney';
 import Compliance from './pages/Compliance';
 import UssdAccess from './pages/UssdAccess';
 import NotFound from './pages/NotFound';
-import { Toaster } from "@/components/ui/toaster"
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailed from './pages/PaymentFailed';
 import PaymentServices from "@/pages/PaymentServices";
@@ -23,10 +27,6 @@ import Faq from './pages/Faq';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import BusinessDashboard from './pages/BusinessDashboard';
-import BetaBanner from './components/BetaBanner';
-import Transactions from './pages/Transactions';
-import Feedback from './pages/Feedback';
-import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   return (
@@ -42,21 +42,65 @@ function App() {
             <Route path="/blog" element={<Blog />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/wallet" element={<Wallet />} />
-            <Route path="/transfer" element={<SendMoney />} />
-            <Route path="/compliance" element={<Compliance />} />
-            <Route path="/ussd-access" element={<UssdAccess />} />
-            <Route path="/payment-success" element={<PaymentSuccess />} />
-            <Route path="/payment-failed" element={<PaymentFailed />} />
-            <Route path="/payment-services" element={<PaymentServices />} />
-            <Route path="/transactions" element={<Transactions />} />
-            <Route path="/feedback" element={<Feedback />} />
-            
             <Route path="/faq" element={<Faq />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
+            
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/checkout" element={
+              <ProtectedRoute>
+                <Checkout />
+              </ProtectedRoute>
+            } />
+            <Route path="/wallet" element={
+              <ProtectedRoute>
+                <Wallet />
+              </ProtectedRoute>
+            } />
+            <Route path="/transfer" element={
+              <ProtectedRoute>
+                <SendMoney />
+              </ProtectedRoute>
+            } />
+            <Route path="/compliance" element={
+              <ProtectedRoute>
+                <Compliance />
+              </ProtectedRoute>
+            } />
+            <Route path="/ussd-access" element={
+              <ProtectedRoute>
+                <UssdAccess />
+              </ProtectedRoute>
+            } />
+            <Route path="/payment-success" element={
+              <ProtectedRoute>
+                <PaymentSuccess />
+              </ProtectedRoute>
+            } />
+            <Route path="/payment-failed" element={
+              <ProtectedRoute>
+                <PaymentFailed />
+              </ProtectedRoute>
+            } />
+            <Route path="/payment-services" element={
+              <ProtectedRoute>
+                <PaymentServices />
+              </ProtectedRoute>
+            } />
+            <Route path="/transactions" element={
+              <ProtectedRoute>
+                <Transactions />
+              </ProtectedRoute>
+            } />
+            <Route path="/feedback" element={
+              <ProtectedRoute>
+                <Feedback />
+              </ProtectedRoute>
+            } />
             
             <Route 
               path="/business-dashboard" 
