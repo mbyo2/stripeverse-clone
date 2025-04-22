@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import KycVerificationStatus, { KycLevel, KycStatus } from '@/components/wallet/KycVerificationStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import BusinessCompliance from '@/components/business/BusinessCompliance';
 
 const Compliance = () => {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -60,8 +61,11 @@ const Compliance = () => {
             setKycStatus(KycStatus.PENDING);
           }
           
-          if (kycData.metadata?.rejection_reason) {
-            setKycStatus(KycStatus.REJECTED);
+          if (kycData.metadata && typeof kycData.metadata === 'object') {
+            const metadata = kycData.metadata as Record<string, unknown>;
+            if (metadata.rejection_reason) {
+              setKycStatus(KycStatus.REJECTED);
+            }
           }
         }
         
@@ -499,6 +503,10 @@ const Compliance = () => {
                 BMaGlass Pay is committed to maintaining the highest standards of compliance and security in all our operations. As a Bank of Zambia approved payment service provider, we adhere to all relevant financial regulations and industry best practices.
               </p>
             </div>
+            
+            {user && (
+              <BusinessCompliance />
+            )}
           </div>
         </div>
       </main>
