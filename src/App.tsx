@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Route, Routes } from 'react-router-dom';
 import BusinessRouteGuard from './components/business/BusinessRouteGuard';
@@ -27,6 +28,8 @@ import Faq from './pages/Faq';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import BusinessDashboard from './pages/BusinessDashboard';
+import Transactions from './pages/Transactions';
+import Feedback from './pages/Feedback';
 
 function App() {
   return (
