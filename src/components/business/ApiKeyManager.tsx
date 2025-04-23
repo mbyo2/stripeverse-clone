@@ -1,9 +1,22 @@
 
 import { useState } from "react";
-import { CopyIcon, CheckIcon, EyeIcon, EyeOffIcon } from "lucide-react";
+import { CopyIcon, EyeIcon, EyeOffIcon, RefreshIcon, TrashIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ApiKey {
   id: string;
@@ -11,6 +24,7 @@ interface ApiKey {
   lastFour: string;
   createdAt: string;
   type: 'test' | 'live';
+  revoked?: boolean;
 }
 
 export function ApiKeyManager() {
@@ -18,20 +32,20 @@ export function ApiKeyManager() {
   const [showLiveKey, setShowLiveKey] = useState(false);
   const [showTestKey, setShowTestKey] = useState(false);
   const { toast } = useToast();
-  const [liveKey, setLiveKey] = useState<ApiKey>({
+  const [liveKeys, setLiveKeys] = useState<ApiKey[]>([{
     id: "live_key",
     prefix: "bmp_live_",
     lastFour: "x4k9",
     createdAt: new Date().toISOString(),
     type: 'live'
-  });
-  const [testKey, setTestKey] = useState<ApiKey>({
+  }]);
+  const [testKeys, setTestKeys] = useState<ApiKey[]>([{
     id: "test_key",
     prefix: "bmp_test_",
     lastFour: "t3s7",
     createdAt: new Date().toISOString(),
     type: 'test'
-  });
+  }]);
 
   const generateNewKey = async (type: 'test' | 'live') => {
     setIsGenerating(true);
@@ -42,16 +56,16 @@ export function ApiKeyManager() {
       
       if (error) throw error;
       
+      if (type === 'live') {
+        setLiveKeys([...liveKeys, data]);
+      } else {
+        setTestKeys([...testKeys, data]);
+      }
+
       toast({
-        title: "API Key Generated",
+        title: "New API Key Generated",
         description: `Your new ${type} API key has been generated successfully.`,
       });
-
-      if (type === 'live') {
-        setLiveKey(data);
-      } else {
-        setTestKey(data);
-      }
     } catch (error) {
       console.error('Error generating API key:', error);
       toast({
@@ -61,6 +75,31 @@ export function ApiKeyManager() {
       });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const revokeKey = async (keyToRevoke: ApiKey) => {
+    try {
+      if (keyToRevoke.type === 'live') {
+        setLiveKeys(liveKeys.map(key => 
+          key.id === keyToRevoke.id ? { ...key, revoked: true } : key
+        ));
+      } else {
+        setTestKeys(testKeys.map(key => 
+          key.id === keyToRevoke.id ? { ...key, revoked: true } : key
+        ));
+      }
+
+      toast({
+        title: "API Key Revoked",
+        description: "The API key has been revoked successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to revoke API key. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -80,89 +119,107 @@ export function ApiKeyManager() {
     }
   };
 
+  const renderKeySection = (type: 'live' | 'test') => {
+    const keys = type === 'live' ? liveKeys : testKeys;
+    const showKey = type === 'live' ? showLiveKey : showTestKey;
+    const setShowKey = type === 'live' ? setShowLiveKey : setShowTestKey;
+
+    return (
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <h4 className="text-sm font-medium">{type === 'live' ? 'Live' : 'Test'} API Keys</h4>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => generateNewKey(type)}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <RefreshIcon className="h-4 w-4 animate-spin mr-2" />
+            ) : null}
+            Generate New Key
+          </Button>
+        </div>
+
+        {keys.map((key) => (
+          <div
+            key={key.id}
+            className="flex justify-between items-center p-3 bg-secondary/20 rounded-md"
+          >
+            <div className="flex items-center space-x-3">
+              <code className="font-mono bg-secondary px-3 py-1 rounded text-sm">
+                {showKey ? `${key.prefix}...${key.lastFour}` : '••••••••••••••••'}
+              </code>
+              <Badge variant={key.revoked ? "destructive" : "default"}>
+                {key.revoked ? "Revoked" : "Active"}
+              </Badge>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowKey(!showKey)}
+              >
+                {showKey ? (
+                  <EyeOffIcon className="h-4 w-4" />
+                ) : (
+                  <EyeIcon className="h-4 w-4" />
+                )}
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => copyToClipboard(`${key.prefix}...${key.lastFour}`, type)}
+              >
+                <CopyIcon className="h-4 w-4" />
+              </Button>
+
+              {!key.revoked && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <TrashIcon className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Revoke API Key</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. The API key will be immediately revoked and any
+                        applications using it will stop working.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => revokeKey(key)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Revoke Key
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      <div className="p-4 border rounded-md">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="font-medium">API Keys</h3>
-          <div className="space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => generateNewKey('test')}
-              disabled={isGenerating}
-            >
-              Generate Test Key
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => generateNewKey('live')}
-              disabled={isGenerating}
-            >
-              Generate Live Key
-            </Button>
-          </div>
-        </div>
-        
-        <div className="space-y-3">
-          <div className="flex justify-between items-center p-3 bg-secondary/20 rounded-md">
-            <div>
-              <p className="font-medium">Live API Key</p>
-              <p className="text-sm text-muted-foreground">Use for production transactions</p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <code className="font-mono bg-secondary px-3 py-1 rounded">
-                {showLiveKey 
-                  ? `${liveKey.prefix}...${liveKey.lastFour}`
-                  : '••••••••••••••••'}
-              </code>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setShowLiveKey(!showLiveKey)}
-              >
-                {showLiveKey ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => copyToClipboard(`${liveKey.prefix}...${liveKey.lastFour}`, 'Live')}
-              >
-                <CopyIcon className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+      <Alert>
+        <AlertDescription>
+          Keep your API keys secure! Never share them in publicly accessible places such as GitHub or client-side code.
+        </AlertDescription>
+      </Alert>
 
-          <div className="flex justify-between items-center p-3 bg-secondary/20 rounded-md">
-            <div>
-              <p className="font-medium">Test API Key</p>
-              <p className="text-sm text-muted-foreground">Use for testing integration</p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <code className="font-mono bg-secondary px-3 py-1 rounded">
-                {showTestKey 
-                  ? `${testKey.prefix}...${testKey.lastFour}`
-                  : '••••••••••••••••'}
-              </code>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setShowTestKey(!showTestKey)}
-              >
-                {showTestKey ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => copyToClipboard(`${testKey.prefix}...${testKey.lastFour}`, 'Test')}
-              >
-                <CopyIcon className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      {renderKeySection('live')}
+      {renderKeySection('test')}
     </div>
   );
 }
