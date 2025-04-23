@@ -33,7 +33,7 @@ const Footer = () => {
   return (
     <footer 
       ref={footerRef}
-      className="py-12 px-4 bg-primary text-primary-foreground opacity-0"
+      className="py-12 px-4 bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green text-white opacity-0"
     >
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">

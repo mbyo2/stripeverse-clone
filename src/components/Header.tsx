@@ -85,7 +85,7 @@ const Header = () => {
       <div className="px-4 py-3 md:py-4 max-w-7xl mx-auto flex justify-between items-center">
         <Link 
           to="/" 
-          className="text-lg md:text-2xl font-bold text-primary"
+          className="text-lg md:text-2xl font-bold bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green bg-clip-text text-transparent"
         >
           BMaGlass Pay
         </Link>
@@ -191,14 +191,14 @@ const Header = () => {
               <>
                 <Link 
                   to="/login" 
-                  className="hidden md:block py-2 px-4 text-sm font-medium rounded-md hover:bg-secondary transition-colors duration-300"
+                  className="hidden md:block py-2 px-4 text-sm font-medium rounded-md hover:bg-theme-purple/10 transition-colors duration-300"
                   onClick={closeMenu}
                 >
                   Log In
                 </Link>
                 <Link 
                   to="/register" 
-                  className="py-2 px-4 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/80 transition-colors duration-300"
+                  className="py-2 px-4 text-sm font-medium rounded-md bg-gradient-to-r from-theme-blue to-theme-purple text-white hover:opacity-90 transition-opacity duration-300"
                   onClick={closeMenu}
                 >
                   Sign Up

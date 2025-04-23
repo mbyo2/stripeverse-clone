@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -19,9 +18,6 @@ export default {
       },
     },
     extend: {
-      fontFamily: {
-        sans: ["SF Pro Display", "system-ui", "sans-serif"],
-      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -56,6 +52,24 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        "theme-blue": {
+          light: "#60A5FA",
+          DEFAULT: "#3B82F6",
+          dark: "#2563EB"
+        },
+        "theme-green": {
+          light: "#4ADE80",
+          DEFAULT: "#22C55E",
+          dark: "#16A34A"
+        },
+        "theme-purple": {
+          light: "#A78BFA",
+          DEFAULT: "#8B5CF6",
+          dark: "#7C3AED"
+        }
+      },
+      fontFamily: {
+        sans: ["SF Pro Display", "system-ui", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -119,6 +133,10 @@ export default {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "glass-gradient": "linear-gradient(to right bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.2))",
         "shimmer-gradient": "linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0) 100%)",
+        "gradient-blue": "linear-gradient(to right bottom, var(--tw-gradient-stops))",
+        "gradient-green": "linear-gradient(135deg, rgb(34, 197, 94) 0%, rgb(16, 185, 129) 100%)",
+        "gradient-purple": "linear-gradient(135deg, rgb(139, 92, 246) 0%, rgb(124, 58, 237) 100%)",
+        "hero-pattern": "linear-gradient(to right bottom, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1))"
       },
     },
   },
