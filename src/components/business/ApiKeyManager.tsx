@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { CopyIcon, EyeIcon, EyeOffIcon, RefreshCwIcon, TrashIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -135,7 +134,7 @@ export function ApiKeyManager() {
             disabled={isGenerating}
           >
             {isGenerating ? (
-              <RefreshIcon className="h-4 w-4 animate-spin mr-2" />
+              <RefreshCwIcon className="h-4 w-4 animate-spin mr-2" />
             ) : null}
             Generate New Key
           </Button>
