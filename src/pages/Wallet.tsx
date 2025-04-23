@@ -1,8 +1,10 @@
-
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { PlusCircle, ArrowDownLeft, ArrowUpRight, ArrowRight } from "lucide-react";
@@ -12,18 +14,19 @@ import PaymentMethodList from "@/components/wallet/PaymentMethodList";
 import TransactionHistory from "@/components/wallet/TransactionHistory";
 import { paymentMethods, getWalletBalance } from "@/data/mockData";
 import { useEffect, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Wallet = () => {
   const navigate = useNavigate();
   const walletBalance = getWalletBalance();
   const [isLoading, setIsLoading] = useState(true);
+  const [amount, setAmount] = useState("");
+  const isMobile = useIsMobile();
   
   useEffect(() => {
-    // Short timeout to ensure components have time to initialize
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 100);
-    
     return () => clearTimeout(timer);
   }, []);
   
@@ -32,8 +35,42 @@ const Wallet = () => {
   };
   
   const handleAddMoney = () => {
-    navigate("/checkout", { state: { productName: "Wallet Top-up", amount: 100 } });
+    const parsedAmount = parseFloat(amount);
+    if (!isNaN(parsedAmount) && parsedAmount > 0) {
+      navigate("/checkout", { 
+        state: { 
+          productName: "Wallet Top-up", 
+          amount: parsedAmount 
+        } 
+      });
+    }
   };
+
+  const AddMoneyContent = () => (
+    <div className="space-y-4 p-4">
+      <div className="space-y-2">
+        <label htmlFor="amount" className="text-sm font-medium">
+          Enter Amount
+        </label>
+        <Input
+          id="amount"
+          type="number"
+          placeholder="Enter amount to add"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="text-lg"
+          min="0"
+        />
+      </div>
+      <Button 
+        onClick={handleAddMoney} 
+        className="w-full" 
+        disabled={!amount || parseFloat(amount) <= 0}
+      >
+        Add Money
+      </Button>
+    </div>
+  );
 
   if (isLoading) {
     return (
@@ -53,23 +90,49 @@ const Wallet = () => {
       <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Wallet</h1>
-          <Button onClick={handleAddMoney}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Money
-          </Button>
+          {isMobile ? (
+            <Drawer>
+              <DrawerTrigger asChild>
+                <Button>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Money
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent>
+                <DrawerHeader>
+                  <DrawerTitle>Add Money to Wallet</DrawerTitle>
+                </DrawerHeader>
+                <AddMoneyContent />
+              </DrawerContent>
+            </Drawer>
+          ) : (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Money
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Money to Wallet</DialogTitle>
+                </DialogHeader>
+                <AddMoneyContent />
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
         
-        {/* Balance Card */}
-        <Card className="mb-8">
+        {/* Balance Card with improved styling */}
+        <Card className="mb-8 bg-gradient-to-br from-blue-500 to-blue-600 text-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Available Balance</CardTitle>
+            <CardTitle className="text-sm font-medium opacity-90">Available Balance</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold mb-4">{formatCurrency(walletBalance)}</div>
             <div className="flex space-x-4">
-              <Button onClick={handleSendMoney}>
+              <Button onClick={handleSendMoney} variant="secondary" className="flex-1">
                 <ArrowUpRight className="mr-2 h-4 w-4" /> Send
               </Button>
-              <Button variant="outline">
+              <Button variant="secondary" className="flex-1">
                 <ArrowDownLeft className="mr-2 h-4 w-4" /> Receive
               </Button>
             </div>
@@ -89,12 +152,11 @@ const Wallet = () => {
           </CardContent>
         </Card>
         
-        {/* Virtual Cards Section - Wrapped in error boundary */}
+        {/* Virtual Cards Section */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold">Virtual Cards</h2>
           </div>
-          
           <ErrorBoundary fallback={<VirtualCardFallback />}>
             <VirtualCardManager maxCards={5} />
           </ErrorBoundary>

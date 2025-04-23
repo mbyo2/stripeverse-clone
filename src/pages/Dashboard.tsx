@@ -1,10 +1,28 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { LineChart, BarChart, Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, Clock } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
+
+// Mock data for charts
+const monthlyData = [
+  { name: 'Jan', amount: 1200 },
+  { name: 'Feb', amount: 1900 },
+  { name: 'Mar', amount: 1600 },
+  { name: 'Apr', amount: 2100 },
+  { name: 'May', amount: 1800 },
+  { name: 'Jun', amount: 2400 }
+];
+
+const spendingData = [
+  { category: 'Shopping', amount: 450 },
+  { category: 'Bills', amount: 380 },
+  { category: 'Food', amount: 290 },
+  { category: 'Transport', amount: 220 },
+  { category: 'Others', amount: 180 }
+];
 
 // Mock data
 const recentTransactions = [
@@ -23,45 +41,98 @@ const Dashboard = () => {
         
         {/* Balance Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-white">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Main Balance</CardTitle>
+              <CardTitle className="text-sm font-medium opacity-90">Main Balance</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">K 2,450.00</div>
               <div className="flex mt-4">
-                <Button asChild className="mr-2 flex-1">
-                  <Link to="/send-money">
+                <Button asChild variant="secondary" className="mr-2 flex-1">
+                  <Link to="/transfer">
                     <ArrowUpRight className="mr-2 h-4 w-4" /> Send
                   </Link>
                 </Button>
-                <Button variant="outline" className="flex-1">
+                <Button variant="secondary" className="flex-1">
                   <ArrowDownLeft className="mr-2 h-4 w-4" /> Receive
                 </Button>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white">
+          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Savings</CardTitle>
+              <CardTitle className="text-sm font-medium opacity-90">Savings</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">K 5,200.00</div>
-              <div className="text-sm text-muted-foreground mt-2">
-                <span className="text-green-500 font-medium">+12.5%</span> from last month
+              <div className="text-sm opacity-90 mt-2">
+                +12.5% from last month
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-white">
+          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Spending</CardTitle>
+              <CardTitle className="text-sm font-medium opacity-90">Monthly Spending</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">K 1,820.00</div>
-              <div className="text-sm text-muted-foreground mt-2">
-                <span className="text-red-500 font-medium">+8.2%</span> from last month
+              <div className="text-sm opacity-90 mt-2">
+                +8.2% from last month
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Monthly Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthlyData}>
+                    <defs>
+                      <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Area 
+                      type="monotone" 
+                      dataKey="amount" 
+                      stroke="#3B82F6" 
+                      fillOpacity={1} 
+                      fill="url(#colorAmount)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Spending by Category</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={spendingData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="category" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="amount" fill="#8B5CF6" />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
