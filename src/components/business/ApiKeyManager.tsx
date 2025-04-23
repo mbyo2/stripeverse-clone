@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { CopyIcon, EyeIcon, EyeOffIcon, RefreshIcon, TrashIcon } from "lucide-react";
+import { CopyIcon, EyeIcon, EyeOffIcon, RefreshCwIcon, TrashIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
