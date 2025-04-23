@@ -1,9 +1,29 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import React from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, Clock } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  LineChart, 
+  Line,
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart
+} from "recharts";
+import { Button } from "@/components/ui/button";
+import { 
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  BarChart,
+  PieChart
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
 // Mock data for charts
@@ -33,66 +53,87 @@ const recentTransactions = [
 ];
 
 const Dashboard = () => {
+  const { toast } = useToast();
+
+  const handleAction = (action: string) => {
+    toast({
+      title: "Success!",
+      description: `${action} action completed successfully`,
+    });
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-secondary/10">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
-        <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+        <h1 className="text-3xl font-bold mb-6 animate-fadeIn">Welcome Back!</h1>
         
-        {/* Balance Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+        {/* Enhanced Card Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white transform hover:scale-105 transition-all duration-300">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Main Balance</CardTitle>
+              <CardTitle className="text-sm font-medium opacity-90">Total Balance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">K 2,450.00</div>
-              <div className="flex mt-4">
-                <Button asChild variant="secondary" className="mr-2 flex-1">
-                  <Link to="/transfer">
-                    <ArrowUpRight className="mr-2 h-4 w-4" /> Send
-                  </Link>
-                </Button>
-                <Button variant="secondary" className="flex-1">
-                  <ArrowDownLeft className="mr-2 h-4 w-4" /> Receive
-                </Button>
+              <div className="text-2xl font-bold">K 12,550.00</div>
+              <div className="flex items-center mt-2 text-sm">
+                <ArrowUpRight className="h-4 w-4 mr-1" />
+                <span>+15.3% from last month</span>
               </div>
             </CardContent>
           </Card>
-          
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+
+          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white transform hover:scale-105 transition-all duration-300">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Savings</CardTitle>
+              <CardTitle className="text-sm font-medium opacity-90">Monthly Savings</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">K 5,200.00</div>
-              <div className="text-sm opacity-90 mt-2">
-                +12.5% from last month
+              <div className="text-2xl font-bold">K 2,320.00</div>
+              <div className="flex items-center mt-2 text-sm">
+                <ArrowUpRight className="h-4 w-4 mr-1" />
+                <span>+8.2% from last month</span>
               </div>
             </CardContent>
           </Card>
-          
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+
+          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white transform hover:scale-105 transition-all duration-300">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Monthly Spending</CardTitle>
+              <CardTitle className="text-sm font-medium opacity-90">Total Transactions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">K 1,820.00</div>
-              <div className="text-sm opacity-90 mt-2">
-                +8.2% from last month
+              <div className="text-2xl font-bold">1,352</div>
+              <div className="flex items-center mt-2 text-sm">
+                <ArrowUpRight className="h-4 w-4 mr-1" />
+                <span>+12.5% from last month</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-blue-400 to-blue-500 text-white transform hover:scale-105 transition-all duration-300">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium opacity-90">Rewards Points</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">325</div>
+              <div className="flex items-center mt-2 text-sm">
+                <ArrowUpRight className="h-4 w-4 mr-1" />
+                <span>Earned this month</span>
               </div>
             </CardContent>
           </Card>
         </div>
-        
-        {/* Charts */}
+
+        {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card>
+          <Card className="transform hover:scale-105 transition-all duration-300">
             <CardHeader>
-              <CardTitle>Monthly Overview</CardTitle>
+              <CardTitle className="flex items-center text-blue-600">
+                <BarChart className="mr-2 h-5 w-5" />
+                Monthly Activity
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px]">
+              <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={monthlyData}>
                     <defs>
@@ -118,51 +159,65 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="transform hover:scale-105 transition-all duration-300">
             <CardHeader>
-              <CardTitle>Spending by Category</CardTitle>
+              <CardTitle className="flex items-center text-purple-600">
+                <PieChart className="mr-2 h-5 w-5" />
+                Spending Overview
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px]">
+              <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={spendingData}>
+                  <RechartsBarChart data={spendingData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="category" />
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="amount" fill="#8B5CF6" />
-                  </BarChart>
+                  </RechartsBarChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
         </div>
-        
+
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          <Button variant="outline" className="h-auto py-6 flex flex-col items-center justify-center" asChild>
-            <Link to="/send-money">
-              <ArrowUpRight className="h-6 w-6 mb-2" />
-              <span>Send Money</span>
-            </Link>
-          </Button>
-          <Button variant="outline" className="h-auto py-6 flex flex-col items-center justify-center">
-            <ArrowDownLeft className="h-6 w-6 mb-2" />
-            <span>Receive</span>
-          </Button>
-          <Button variant="outline" className="h-auto py-6 flex flex-col items-center justify-center" asChild>
-            <Link to="/wallet">
-              <WalletIcon className="h-6 w-6 mb-2" />
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <Button 
+              onClick={() => handleAction("Transfer")}
+              className="flex flex-col items-center gap-2 h-24 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+            >
+              <ArrowUpRight className="h-6 w-6" />
+              <span>Transfer</span>
+            </Button>
+            <Button 
+              onClick={() => handleAction("Deposit")}
+              className="flex flex-col items-center gap-2 h-24 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+            >
+              <ArrowDownRight className="h-6 w-6" />
+              <span>Deposit</span>
+            </Button>
+            <Button 
+              onClick={() => handleAction("Wallet")}
+              className="flex flex-col items-center gap-2 h-24 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
+            >
+              <Wallet className="h-6 w-6" />
               <span>Wallet</span>
-            </Link>
-          </Button>
-          <Button variant="outline" className="h-auto py-6 flex flex-col items-center justify-center" asChild>
-            <Link to="/transactions">
-              <Clock className="h-6 w-6 mb-2" />
+            </Button>
+            <Button 
+              onClick={() => handleAction("History")}
+              className="flex flex-col items-center gap-2 h-24 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600"
+            >
+              <BarChart className="h-6 w-6" />
               <span>History</span>
-            </Link>
-          </Button>
-        </div>
+            </Button>
+          </CardContent>
+        </Card>
         
         {/* Recent Transactions */}
         <Card className="mb-8">
