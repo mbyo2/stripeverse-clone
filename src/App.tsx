@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Route, Routes } from 'react-router-dom';
 import BusinessRouteGuard from './components/business/BusinessRouteGuard';
@@ -30,6 +29,7 @@ import TermsOfService from './pages/TermsOfService';
 import BusinessDashboard from './pages/BusinessDashboard';
 import Transactions from './pages/Transactions';
 import Feedback from './pages/Feedback';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -113,6 +113,12 @@ function App() {
                 </BusinessRouteGuard>
               } 
             />
+            
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
