@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -556,8 +555,8 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                   <Button variant="outline" size="sm" onClick={() => handleFreezeCard(card.id)}>
                     {card.status === 'active' ? 'Freeze' : 'Unfreeze'}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleViewCardDetails(card.id)}>
-                    Details
+                  <Button variant="default" size="sm" onClick={() => handleViewCardDetails(card.id)}>
+                    Details <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
               </CardContent>

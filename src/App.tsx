@@ -31,6 +31,7 @@ import BusinessDashboard from './pages/BusinessDashboard';
 import Transactions from './pages/Transactions';
 import Feedback from './pages/Feedback';
 import Profile from './pages/Profile';
+import VirtualCardDetails from './pages/VirtualCardDetails';
 
 function App() {
   return (
@@ -103,6 +104,12 @@ function App() {
             <Route path="/feedback" element={
               <ProtectedRoute>
                 <Feedback />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/virtual-card/:id" element={
+              <ProtectedRoute>
+                <VirtualCardDetails />
               </ProtectedRoute>
             } />
             
