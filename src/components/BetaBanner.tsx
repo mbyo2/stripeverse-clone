@@ -9,7 +9,7 @@ interface BetaBannerProps {
   version?: string;
 }
 
-const BetaBanner = ({ expiryDays = 7, version = "0.9.0" }: BetaBannerProps) => {
+const BetaBanner = ({ expiryDays = 7, version = "0.0.1" }: BetaBannerProps) => {
   const [isVisible, setIsVisible] = useState(true);
   const [hasNewVersion, setHasNewVersion] = useState(false);
   const { toast } = useToast();

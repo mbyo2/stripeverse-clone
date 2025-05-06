@@ -1,5 +1,6 @@
 
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,13 +56,45 @@ const recentTransactions = [
 ];
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleAction = (action: string) => {
-    toast({
-      title: "Success!",
-      description: `${action} action completed successfully`,
-    });
+    switch(action) {
+      case "Transfer":
+        toast({
+          title: "Transfer",
+          description: "Navigating to transfer page",
+        });
+        navigate("/transfer");
+        break;
+      case "Deposit":
+        toast({
+          title: "Deposit",
+          description: "Navigating to deposit funds",
+        });
+        navigate("/wallet");
+        break;
+      case "Wallet":
+        toast({
+          title: "Wallet",
+          description: "Navigating to your wallet",
+        });
+        navigate("/wallet");
+        break;
+      case "History":
+        toast({
+          title: "Transaction History",
+          description: "Viewing your transaction history",
+        });
+        navigate("/transactions");
+        break;
+      default:
+        toast({
+          title: "Action",
+          description: `${action} action completed successfully`,
+        });
+    }
   };
 
   return (

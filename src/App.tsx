@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Route, Routes } from 'react-router-dom';
 import BusinessRouteGuard from './components/business/BusinessRouteGuard';
@@ -36,7 +37,7 @@ function App() {
     <>
       <AuthProvider>
         <div className="app">
-          <BetaBanner expiryDays={7} version="0.9.0" />
+          <BetaBanner expiryDays={7} version="0.0.1" />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/about" element={<About />} />
