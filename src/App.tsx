@@ -32,6 +32,8 @@ import Transactions from './pages/Transactions';
 import Feedback from './pages/Feedback';
 import Profile from './pages/Profile';
 import VirtualCardDetails from './pages/VirtualCardDetails';
+import ResetPassword from './pages/ResetPassword';
+import UpdatePassword from './pages/UpdatePassword';
 
 function App() {
   return (
@@ -47,6 +49,8 @@ function App() {
             <Route path="/blog" element={<Blog />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
             <Route path="/faq" element={<Faq />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
