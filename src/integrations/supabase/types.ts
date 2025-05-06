@@ -62,6 +62,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string | null
           first_name: string | null
           id: string
@@ -70,6 +71,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string | null
           first_name?: string | null
           id: string
@@ -78,6 +80,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string | null
           first_name?: string | null
           id?: string
@@ -138,6 +141,30 @@ export type Database = {
           status?: string
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      two_factor_auth: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          secret: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          secret?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          secret?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

@@ -34,8 +34,13 @@ interface Profile {
   avatar_url: string | null;
 }
 
+interface TwoFactorAuth {
+  enabled: boolean;
+  secret: string | null;
+}
+
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, resendEmailConfirmation } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -66,20 +71,20 @@ const Profile = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user?.id)
         .single();
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      if (data) {
+      if (profileData) {
         setProfile({
-          first_name: data.first_name,
-          last_name: data.last_name,
-          phone: data.phone,
-          avatar_url: data.avatar_url,
+          first_name: profileData.first_name,
+          last_name: profileData.last_name,
+          phone: profileData.phone,
+          avatar_url: profileData.avatar_url,
         });
       }
       
@@ -463,22 +468,7 @@ const Profile = () => {
                     <Button 
                       variant="link" 
                       className="p-0 h-auto mt-2 text-sm"
-                      onClick={async () => {
-                        try {
-                          const { error } = await supabase.auth.resendEmailConfirmation();
-                          if (error) throw error;
-                          toast({
-                            title: 'Verification email sent',
-                            description: 'Please check your inbox for the verification link.',
-                          });
-                        } catch (error: any) {
-                          toast({
-                            title: 'Error',
-                            description: error.message,
-                            variant: 'destructive',
-                          });
-                        }
-                      }}
+                      onClick={resendEmailConfirmation}
                     >
                       Resend verification email
                     </Button>

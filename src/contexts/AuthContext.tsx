@@ -14,7 +14,7 @@ type AuthContextType = {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserPassword: (password: string) => Promise<void>;
-  resendVerificationEmail: () => Promise<void>;
+  resendEmailConfirmation: () => Promise<void>;
 };
 
 type UserData = {
@@ -180,7 +180,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const resendVerificationEmail = async () => {
+  const resendEmailConfirmation = async () => {
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.resend({
@@ -215,7 +215,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       signOut,
       resetPassword,
       updateUserPassword,
-      resendVerificationEmail
+      resendEmailConfirmation
     }}>
       {children}
     </AuthContext.Provider>
