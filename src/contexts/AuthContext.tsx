@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
@@ -23,24 +22,23 @@ type UserData = {
   phone: string;
 };
 
+// Create context with default undefined value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Create AuthProvider component
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  // Initialize state inside the component
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Initialize hooks inside component
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Setup auth state listener
   useEffect(() => {
-    // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
-
-    // Listen for auth changes
+    // First set up the auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
@@ -49,9 +47,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
+    // Then check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    // Cleanup subscription on unmount
     return () => subscription.unsubscribe();
   }, []);
 
+  // All other methods remain the same
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true);
@@ -205,6 +212,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Provide context value
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -222,6 +230,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// Custom hook to use auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

@@ -25,9 +25,11 @@ interface EmailPreferences {
   news: boolean;
 }
 
+// Create context with undefined default value
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider = ({ children }: { children: ReactNode }) => {
+  // Make sure hooks are used correctly at the top level of the component
   const { user } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState<boolean>(false);
