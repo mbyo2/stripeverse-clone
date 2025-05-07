@@ -23,6 +23,16 @@ interface TwoFactorAuthState {
   isVerifying: boolean;
 }
 
+// Update this interface to include backup_codes
+interface TwoFactorAuthData {
+  user_id: string;
+  enabled: boolean;
+  secret: string | null;
+  backup_codes: string[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const TwoFactorAuth = () => {
   const { user } = useAuth();
   const { toast } = useToast();

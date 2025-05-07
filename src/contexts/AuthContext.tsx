@@ -14,6 +14,7 @@ type AuthContextType = {
   resetPassword: (email: string) => Promise<void>;
   updateUserPassword: (password: string) => Promise<void>;
   resendEmailConfirmation: () => Promise<void>;
+  navigate: (to: string) => void;
 };
 
 type UserData = {
@@ -223,7 +224,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       signOut,
       resetPassword,
       updateUserPassword,
-      resendEmailConfirmation
+      resendEmailConfirmation,
+      navigate
     }}>
       {children}
     </AuthContext.Provider>

@@ -218,6 +218,7 @@ export type Database = {
       }
       two_factor_auth: {
         Row: {
+          backup_codes: Json | null
           created_at: string
           enabled: boolean
           secret: string | null
@@ -225,6 +226,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          backup_codes?: Json | null
           created_at?: string
           enabled?: boolean
           secret?: string | null
@@ -232,6 +234,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          backup_codes?: Json | null
           created_at?: string
           enabled?: boolean
           secret?: string | null
