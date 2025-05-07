@@ -1,6 +1,6 @@
 
 import { lazy, Suspense } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import LazyLoad from "@/components/LazyLoad";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -44,56 +44,54 @@ const UssdAccess = lazy(() => import("@/pages/UssdAccess"));
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <NotificationProvider>
-          <Suspense fallback={<LazyLoad component={() => Promise.resolve({ default: () => <div>Loading...</div> })} />}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/update-password" element={<UpdatePassword />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/pricing" element={<Pricing />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/faq" element={<Faq />} />
-              <Route path="/blog" element={<Blog />} />
-              <Route path="/services" element={<PaymentServices />} />
-              <Route path="/terms" element={<TermsOfService />} />
-              <Route path="/privacy" element={<PrivacyPolicy />} />
-              <Route path="/checkout/:id" element={<Checkout />} />
-              <Route path="/payment-success" element={<PaymentSuccess />} />
-              <Route path="/payment-failed" element={<PaymentFailed />} />
-              <Route path="/kyc" element={<KycPage />} />
+    <AuthProvider>
+      <NotificationProvider>
+        <Suspense fallback={<LazyLoad component={() => Promise.resolve({ default: () => <div>Loading...</div> })} />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/faq" element={<Faq />} />
+            <Route path="/blog" element={<Blog />} />
+            <Route path="/services" element={<PaymentServices />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/checkout/:id" element={<Checkout />} />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
+            <Route path="/payment-failed" element={<PaymentFailed />} />
+            <Route path="/kyc" element={<KycPage />} />
 
-              <Route element={<ProtectedRoute children={null} />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/wallet" element={<Wallet />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/transactions" element={<Transactions />} />
-                <Route path="/card/new" element={<VirtualCardNew />} />
-                <Route path="/card/:id" element={<VirtualCardDetails />} />
-                <Route path="/card/:id/fund" element={<VirtualCardFund />} />
-                <Route path="/send" element={<SendMoney />} />
-                <Route path="/transfer" element={<Transfer />} />
-                <Route path="/compliance" element={<Compliance />} />
-                <Route path="/feedback" element={<Feedback />} />
-                <Route path="/notifications" element={<Notifications />} />
-                <Route path="/ussd" element={<UssdAccess />} />
-              </Route>
+            <Route element={<ProtectedRoute children={null} />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/wallet" element={<Wallet />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/card/new" element={<VirtualCardNew />} />
+              <Route path="/card/:id" element={<VirtualCardDetails />} />
+              <Route path="/card/:id/fund" element={<VirtualCardFund />} />
+              <Route path="/send" element={<SendMoney />} />
+              <Route path="/transfer" element={<Transfer />} />
+              <Route path="/compliance" element={<Compliance />} />
+              <Route path="/feedback" element={<Feedback />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/ussd" element={<UssdAccess />} />
+            </Route>
 
-              <Route element={<BusinessRouteGuard children={null} />}>
-                <Route path="/business/*" element={<BusinessDashboard />} />
-              </Route>
+            <Route element={<BusinessRouteGuard children={null} />}>
+              <Route path="/business/*" element={<BusinessDashboard />} />
+            </Route>
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-          <Toaster />
-        </NotificationProvider>
-      </AuthProvider>
-    </Router>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+        <Toaster />
+      </NotificationProvider>
+    </AuthProvider>
   );
 }
 
