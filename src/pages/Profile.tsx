@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +15,8 @@ import {
   Upload, 
   Eye, 
   EyeOff,
-  Smartphone
+  Smartphone,
+  ShieldCheck
 } from 'lucide-react';
 import Header from '@/components/Header';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -40,7 +40,7 @@ interface TwoFactorAuth {
 }
 
 const Profile = () => {
-  const { user, resendEmailConfirmation } = useAuth();
+  const { user, resendEmailConfirmation, navigate } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -432,6 +432,15 @@ const Profile = () => {
                   >
                     <Key className="h-4 w-4 mr-2" />
                     Change Password
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start" 
+                    onClick={() => navigate('/two-factor-auth')}
+                  >
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                    Manage Two-Factor Authentication
                   </Button>
                   
                   <Button 

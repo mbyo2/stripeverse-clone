@@ -41,6 +41,7 @@ const KycPage = lazy(() => import("@/pages/KycPage"));
 const Feedback = lazy(() => import("@/pages/Feedback"));
 const Notifications = lazy(() => import("@/pages/Notifications"));
 const UssdAccess = lazy(() => import("@/pages/UssdAccess"));
+const TwoFactorAuth = lazy(() => import("@/pages/TwoFactorAuth"));
 
 function App() {
   return (
@@ -80,6 +81,7 @@ function App() {
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/ussd" element={<UssdAccess />} />
+              <Route path="/two-factor-auth" element={<TwoFactorAuth />} />
             </Route>
 
             <Route element={<BusinessRouteGuard children={null} />}>
