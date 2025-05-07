@@ -11,7 +11,7 @@ import { Shield, CheckCircle2, AlertCircle, Upload, Clock, FileCheck, Loader2 } 
 import { supabase, KycMetadata } from "@/integrations/supabase/client";
 import KycVerificationStatus, { KycLevel, KycStatus } from "./KycVerificationStatus";
 import { DocumentUploader } from "./DocumentUploader";
-import { Tabs, TabsContent, TabsContent as TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 
 // Interface for form state

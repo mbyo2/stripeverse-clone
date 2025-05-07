@@ -47,7 +47,7 @@ function App() {
     <Router>
       <AuthProvider>
         <NotificationProvider>
-          <Suspense fallback={<LazyLoad component="Loading..." />}>
+          <Suspense fallback={<LazyLoad component={() => Promise.resolve({ default: () => <div>Loading...</div> })} />}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
