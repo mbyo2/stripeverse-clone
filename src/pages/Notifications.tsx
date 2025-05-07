@@ -43,7 +43,7 @@ const Notifications = () => {
           
         if (error) throw error;
         
-        setNotifications(data as Notification[]);
+        setNotifications(data as unknown as Notification[]);
       } catch (error) {
         console.error("Error fetching notifications:", error);
         toast({
@@ -96,7 +96,7 @@ const Notifications = () => {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const newNotification = payload.new as Notification;
+          const newNotification = payload.new as unknown as Notification;
           setNotifications((current) => [newNotification, ...current]);
         }
       )
@@ -119,7 +119,7 @@ const Notifications = () => {
     try {
       const { error } = await supabase
         .from("notifications")
-        .update({ read: true })
+        .update({ read: true } as any)
         .eq("user_id", user?.id)
         .eq("read", false);
         
@@ -260,7 +260,7 @@ const Notifications = () => {
                               onClick={async () => {
                                 const { error } = await supabase
                                   .from("notifications")
-                                  .update({ read: true })
+                                  .update({ read: true } as any)
                                   .eq("id", notification.id);
                                   
                                 if (!error) {

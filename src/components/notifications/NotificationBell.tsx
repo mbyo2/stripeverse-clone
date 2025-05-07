@@ -36,6 +36,7 @@ const NotificationBell = () => {
     const fetchNotifications = async () => {
       setLoading(true);
       try {
+        // Cast the supabase response to the correct type with explicit typing
         const { data, error } = await supabase
           .from("notifications")
           .select("*")
@@ -45,8 +46,9 @@ const NotificationBell = () => {
 
         if (error) throw error;
         
-        setNotifications(data as Notification[]);
-        setUnreadCount(data.filter((notification: Notification) => !notification.read).length);
+        // Use type assertion to convert data to the expected Notification[]
+        setNotifications(data as unknown as Notification[]);
+        setUnreadCount((data as unknown as Notification[]).filter((notification: Notification) => !notification.read).length);
       } catch (error) {
         console.error("Error fetching notifications:", error);
       } finally {
@@ -68,7 +70,7 @@ const NotificationBell = () => {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const newNotification = payload.new as Notification;
+          const newNotification = payload.new as unknown as Notification;
           setNotifications((current) => [newNotification, ...current]);
           setUnreadCount((count) => count + 1);
         }
@@ -87,7 +89,7 @@ const NotificationBell = () => {
         // Mark single notification as read
         const { error } = await supabase
           .from("notifications")
-          .update({ read: true })
+          .update({ read: true } as any)
           .eq("id", notificationId);
 
         if (error) throw error;
@@ -102,7 +104,7 @@ const NotificationBell = () => {
         // Mark all as read
         const { error } = await supabase
           .from("notifications")
-          .update({ read: true })
+          .update({ read: true } as any)
           .eq("user_id", user?.id)
           .eq("read", false);
 

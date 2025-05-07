@@ -47,7 +47,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
           message,
           type,
           read: false
-        });
+        } as any);
       
       if (error) throw error;
       
@@ -113,7 +113,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
           email_marketing: preferences.marketing,
           email_security: preferences.security,
           email_news: preferences.news
-        });
+        } as any);
         
       if (error) throw error;
       

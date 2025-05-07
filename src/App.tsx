@@ -47,7 +47,7 @@ function App() {
     <Router>
       <AuthProvider>
         <NotificationProvider>
-          <Suspense fallback={<LazyLoad />}>
+          <Suspense fallback={<LazyLoad component="Loading..." />}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
@@ -67,7 +67,7 @@ function App() {
               <Route path="/payment-failed" element={<PaymentFailed />} />
               <Route path="/kyc" element={<KycPage />} />
 
-              <Route element={<ProtectedRoute />}>
+              <Route element={<ProtectedRoute children={null} />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/wallet" element={<Wallet />} />
                 <Route path="/profile" element={<Profile />} />
@@ -83,7 +83,7 @@ function App() {
                 <Route path="/ussd" element={<UssdAccess />} />
               </Route>
 
-              <Route element={<BusinessRouteGuard />}>
+              <Route element={<BusinessRouteGuard children={null} />}>
                 <Route path="/business/*" element={<BusinessDashboard />} />
               </Route>
 

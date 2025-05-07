@@ -12,10 +12,13 @@ export type Database = {
       kyc_verifications: {
         Row: {
           address: string | null
+          address_doc_url: string | null
           created_at: string | null
           date_of_birth: string | null
           first_name: string | null
           id: number
+          id_back_url: string | null
+          id_front_url: string | null
           id_number: string | null
           id_type: string | null
           last_name: string | null
@@ -28,10 +31,13 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          address_doc_url?: string | null
           created_at?: string | null
           date_of_birth?: string | null
           first_name?: string | null
           id?: number
+          id_back_url?: string | null
+          id_front_url?: string | null
           id_number?: string | null
           id_type?: string | null
           last_name?: string | null
@@ -44,10 +50,13 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          address_doc_url?: string | null
           created_at?: string | null
           date_of_birth?: string | null
           first_name?: string | null
           id?: number
+          id_back_url?: string | null
+          id_front_url?: string | null
           id_number?: string | null
           id_type?: string | null
           last_name?: string | null
@@ -57,6 +66,69 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           verified_at?: string | null
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_marketing: boolean
+          email_news: boolean
+          email_security: boolean
+          email_transactions: boolean
+          push_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_marketing?: boolean
+          email_news?: boolean
+          email_security?: boolean
+          email_transactions?: boolean
+          push_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_marketing?: boolean
+          email_news?: boolean
+          email_security?: boolean
+          email_transactions?: boolean
+          push_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          read: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          read?: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          read?: boolean
+          title?: string
+          type?: string
+          user_id?: string
         }
         Relationships: []
       }
