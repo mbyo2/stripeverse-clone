@@ -1,218 +1,246 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut, HelpCircle, Shield, Building2 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { useAuth } from "@/contexts/AuthContext";
+import { Menu, X } from "lucide-react";
+import BetaBanner from "./BetaBanner";
+import NotificationBell from "./notifications/NotificationBell";
 
 const Header = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [headerBg, setHeaderBg] = useState('bg-transparent');
-  const headerRef = useRef<HTMLElement>(null);
   const location = useLocation();
-  const navigate = useNavigate();
-  const auth = useAuth();
-  const { toast } = useToast();
-  const user = auth?.user || null;
+  const [isScrolled, setIsScrolled] = useState(false);
+  const { user, signOut } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 50) {
-        setHeaderBg('bg-background/90 backdrop-blur-sm');
+      if (window.scrollY > 10) {
+        setIsScrolled(true);
       } else {
-        setHeaderBg('bg-transparent');
+        setIsScrolled(false);
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
-
+    window.addEventListener("scroll", handleScroll);
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener("scroll", handleScroll);
     };
   }, []);
-
-  useEffect(() => {
-    setIsOpen(false); // Close the menu when the route changes
-  }, [location.pathname]);
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
   };
 
-  const closeMenu = () => {
-    setIsOpen(false);
+  const navItems = [
+    { title: "Home", path: "/" },
+    { title: "About", path: "/about" },
+    { title: "Services", path: "/services" },
+    { title: "Pricing", path: "/pricing" },
+    { title: "Contact", path: "/contact" },
+  ];
+
+  const userNavItems = [
+    { title: "Dashboard", path: "/dashboard" },
+    { title: "Wallet", path: "/wallet" },
+    { title: "Transactions", path: "/transactions" },
+    { title: "Send Money", path: "/send" },
+  ];
+
+  const isActive = (path: string) => {
+    return location.pathname === path;
   };
 
-  const handleLogout = async () => {
-    try {
-      if (auth?.signOut) {
-        await auth.signOut();
-        toast({
-          title: "Logged out",
-          description: "You have been successfully logged out.",
-        });
-        navigate('/login');
-      }
-    } catch (error) {
-      console.error("Logout failed:", error);
-      toast({
-        title: "Logout failed",
-        description: "There was an error logging you out. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-  
-  const { data: isBusinessUser } = useQuery({
-    queryKey: ['isBusinessUser', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return false;
-      const { data } = await supabase.rpc('has_role', {
-        user_id: user.id,
-        required_role: 'business'
-      });
-      return data || false;
-    },
-    enabled: !!user,
-  });
+  const headerClass = `fixed top-0 w-full z-40 transition-all duration-200 ${
+    isScrolled ? "bg-background shadow-md" : "bg-transparent"
+  }`;
 
   return (
-    <header 
-      ref={headerRef}
-      className={`fixed top-0 left-0 w-full z-50 ${headerBg}`}
-    >
-      <div className="px-4 py-3 md:py-4 max-w-7xl mx-auto flex justify-between items-center">
-        <Link 
-          to="/" 
-          className="text-lg md:text-2xl font-bold bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green bg-clip-text text-transparent"
-        >
-          BMaGlass Pay
-        </Link>
-        
-        <button 
-          onClick={toggleMenu} 
-          className="lg:hidden text-primary focus:outline-none"
-        >
-          {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
-        
-        <div className={`${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed top-0 left-0 h-screen lg:h-auto lg:static w-full max-w-xs lg:max-w-none lg:w-auto bg-background lg:bg-transparent py-8 lg:py-0 flex flex-col lg:flex-row lg:items-center gap-4 transition-transform duration-300 ease-in-out z-20 shadow-xl lg:shadow-none overflow-y-auto`}>
-          <button 
-            onClick={closeMenu} 
-            className="absolute top-4 right-4 lg:hidden text-primary focus:outline-none"
-          >
-            <X className="h-6 w-6" />
-          </button>
-          
-          <nav className="space-y-4 lg:space-y-0 lg:space-x-6 lg:flex px-8 lg:px-0 mt-8 lg:mt-0">
-            <Link 
-              to="/"
-              className="block hover:text-primary transition-colors duration-300"
-              onClick={closeMenu}
-            >
-              Home
-            </Link>
-            
-            <Link 
-              to="/payment-services"
-              className="block hover:text-primary transition-colors duration-300"
-              onClick={closeMenu}
-            >
-              Payment Services
-            </Link>
-            
-            <Link 
-              to="/wallet"
-              className="block hover:text-primary transition-colors duration-300"
-              onClick={closeMenu}
-            >
-              Wallet
-            </Link>
-            
-            {isBusinessUser && (
-              <Link 
-                to="/business-dashboard"
-                className="block hover:text-primary transition-colors duration-300"
-                onClick={closeMenu}
+    <>
+      <BetaBanner />
+      <header className={headerClass}>
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <Link to="/" className="text-2xl font-bold text-primary">
+            BMaGlass Pay
+          </Link>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.title}
+                to={item.path}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  isActive(item.path)
+                    ? "bg-primary/10 text-primary"
+                    : "hover:bg-muted"
+                }`}
               >
-                <Building2 className="h-4 w-4 inline-block mr-1" />
-                Business
+                {item.title}
               </Link>
-            )}
-            
-            <Link 
-              to="/faq"
-              className="block hover:text-primary transition-colors duration-300"
-              onClick={closeMenu}
-            >
-              <HelpCircle className="h-4 w-4 inline-block mr-1" />
-              FAQ
-            </Link>
-            
-            <Link 
-              to="/compliance"
-              className="block hover:text-primary transition-colors duration-300"
-              onClick={closeMenu}
-            >
-              <Shield className="h-4 w-4 inline-block mr-1" />
-              Compliance
-            </Link>
-            
-            <Link 
-              to="/contact"
-              className="block hover:text-primary transition-colors duration-300"
-              onClick={closeMenu}
-            >
-              Contact
-            </Link>
+            ))}
           </nav>
-          
-          <div className="lg:ml-auto px-8 lg:px-0 flex items-center space-x-4">
+
+          <div className="hidden md:flex items-center space-x-2">
             {user ? (
-              <div className="flex items-center space-x-4">
-                <button 
-                  onClick={handleLogout} 
-                  className="flex items-center text-red-500 hover:text-red-700 transition-colors duration-300"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </button>
-                <Link 
-                  to="/profile"
-                  className="flex items-center text-primary hover:text-primary-foreground transition-colors duration-300"
-                  onClick={closeMenu}
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  Profile
-                </Link>
-              </div>
+              <>
+                <div className="flex items-center space-x-1">
+                  {userNavItems.map((item) => (
+                    <Link
+                      key={item.title}
+                      to={item.path}
+                      className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                        isActive(item.path)
+                          ? "bg-primary/10 text-primary"
+                          : "hover:bg-muted"
+                      }`}
+                    >
+                      {item.title}
+                    </Link>
+                  ))}
+                  <NotificationBell />
+                  <div className="ml-2 border-l pl-3">
+                    <Link to="/profile">
+                      <Button variant="outline" size="sm">
+                        Profile
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => signOut()}
+                      className="ml-2"
+                    >
+                      Logout
+                    </Button>
+                  </div>
+                </div>
+              </>
             ) : (
               <>
-                <Link 
-                  to="/login" 
-                  className="hidden md:block py-2 px-4 text-sm font-medium rounded-md hover:bg-theme-purple/10 transition-colors duration-300"
-                  onClick={closeMenu}
-                >
-                  Log In
+                <Link to="/login">
+                  <Button variant="outline">Login</Button>
                 </Link>
-                <Link 
-                  to="/register" 
-                  className="py-2 px-4 text-sm font-medium rounded-md bg-gradient-to-r from-theme-blue to-theme-purple text-white hover:opacity-90 transition-opacity duration-300"
-                  onClick={closeMenu}
-                >
-                  Sign Up
+                <Link to="/register">
+                  <Button>Sign Up</Button>
                 </Link>
               </>
             )}
           </div>
+
+          {/* Mobile Navigation Trigger */}
+          <div className="md:hidden flex items-center">
+            {user && <NotificationBell />}
+            <Sheet open={isOpen} onOpenChange={setIsOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="ml-2">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle Menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+                <div className="flex flex-col h-full">
+                  <div className="flex items-center justify-between border-b pb-4">
+                    <Link to="/" className="text-2xl font-bold text-primary" onClick={() => setIsOpen(false)}>
+                      BMaGlass Pay
+                    </Link>
+                    <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+                      <X className="h-5 w-5" />
+                      <span className="sr-only">Close</span>
+                    </Button>
+                  </div>
+                  <div className="flex-1 overflow-auto py-4">
+                    <nav className="flex flex-col space-y-1">
+                      {navItems.map((item) => (
+                        <Link
+                          key={item.title}
+                          to={item.path}
+                          className={`px-4 py-3 rounded-md transition-colors ${
+                            isActive(item.path)
+                              ? "bg-primary/10 text-primary"
+                              : "hover:bg-muted"
+                          }`}
+                          onClick={() => setIsOpen(false)}
+                        >
+                          {item.title}
+                        </Link>
+                      ))}
+                      {user && (
+                        <>
+                          <div className="h-px bg-border my-3" />
+                          {userNavItems.map((item) => (
+                            <Link
+                              key={item.title}
+                              to={item.path}
+                              className={`px-4 py-3 rounded-md transition-colors ${
+                                isActive(item.path)
+                                  ? "bg-primary/10 text-primary"
+                                  : "hover:bg-muted"
+                              }`}
+                              onClick={() => setIsOpen(false)}
+                            >
+                              {item.title}
+                            </Link>
+                          ))}
+                          <Link
+                            to="/profile"
+                            className={`px-4 py-3 rounded-md transition-colors ${
+                              isActive("/profile")
+                                ? "bg-primary/10 text-primary"
+                                : "hover:bg-muted"
+                            }`}
+                            onClick={() => setIsOpen(false)}
+                          >
+                            Profile
+                          </Link>
+                          <Link
+                            to="/notifications"
+                            className={`px-4 py-3 rounded-md transition-colors ${
+                              isActive("/notifications")
+                                ? "bg-primary/10 text-primary"
+                                : "hover:bg-muted"
+                            }`}
+                            onClick={() => setIsOpen(false)}
+                          >
+                            Notifications
+                          </Link>
+                        </>
+                      )}
+                    </nav>
+                  </div>
+                  <div className="border-t pt-4">
+                    {user ? (
+                      <div className="flex flex-col space-y-2">
+                        <Button variant="outline" onClick={() => {
+                          signOut();
+                          setIsOpen(false);
+                        }}>
+                          Log Out
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col space-y-2">
+                        <Link to="/login" className="w-full" onClick={() => setIsOpen(false)}>
+                          <Button variant="outline" className="w-full">Login</Button>
+                        </Link>
+                        <Link to="/register" className="w-full" onClick={() => setIsOpen(false)}>
+                          <Button className="w-full">Sign Up</Button>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
-        
-        {isOpen && (
-          <div className="fixed top-0 left-0 w-full h-full bg-black/50 z-10 lg:hidden" onClick={closeMenu}></div>
-        )}
-      </div>
-    </header>
+      </header>
+    </>
   );
 };
 
