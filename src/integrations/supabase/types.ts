@@ -9,6 +9,45 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      beta_feedback: {
+        Row: {
+          app_version: string
+          created_at: string
+          description: string
+          device_info: Json
+          email: string | null
+          id: string
+          screenshot_included: boolean | null
+          severity: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          app_version: string
+          created_at?: string
+          description: string
+          device_info: Json
+          email?: string | null
+          id?: string
+          screenshot_included?: boolean | null
+          severity?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          app_version?: string
+          created_at?: string
+          description?: string
+          device_info?: Json
+          email?: string | null
+          id?: string
+          screenshot_included?: boolean | null
+          severity?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       kyc_verifications: {
         Row: {
           address: string | null

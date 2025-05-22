@@ -15,16 +15,19 @@ export interface FeedbackSubmission {
 export const submitFeedback = async (feedbackData: FeedbackSubmission): Promise<boolean> => {
   try {
     // Create feedback entry in Supabase
-    const { error } = await supabase.from('beta_feedback').insert([{
-      type: feedbackData.type,
-      title: feedbackData.title,
-      description: feedbackData.description,
-      email: feedbackData.email || null,
-      severity: feedbackData.severity || null,
-      app_version: feedbackData.appVersion,
-      device_info: feedbackData.deviceInfo,
-      screenshot_included: !!feedbackData.screenshot
-    }]);
+    // Using 'any' type assertion to work around TypeScript issues with newly created tables
+    const { error } = await (supabase as any)
+      .from('beta_feedback')
+      .insert([{
+        type: feedbackData.type,
+        title: feedbackData.title,
+        description: feedbackData.description,
+        email: feedbackData.email || null,
+        severity: feedbackData.severity || null,
+        app_version: feedbackData.appVersion,
+        device_info: feedbackData.deviceInfo,
+        screenshot_included: !!feedbackData.screenshot
+      }]);
 
     if (error) {
       console.error("Error submitting feedback:", error);
