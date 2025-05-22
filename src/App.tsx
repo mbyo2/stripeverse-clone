@@ -39,6 +39,7 @@ const Transfer = lazy(() => import("@/pages/Transfer"));
 const Compliance = lazy(() => import("@/pages/Compliance"));
 const KycPage = lazy(() => import("@/pages/KycPage"));
 const Feedback = lazy(() => import("@/pages/Feedback"));
+const FeedbackDashboard = lazy(() => import("@/pages/FeedbackDashboard"));
 const Notifications = lazy(() => import("@/pages/Notifications"));
 const UssdAccess = lazy(() => import("@/pages/UssdAccess"));
 const TwoFactorAuth = lazy(() => import("@/pages/TwoFactorAuth"));
@@ -79,6 +80,7 @@ function App() {
               <Route path="/transfer" element={<Transfer />} />
               <Route path="/compliance" element={<Compliance />} />
               <Route path="/feedback" element={<Feedback />} />
+              <Route path="/feedback-dashboard" element={<FeedbackDashboard />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/ussd" element={<UssdAccess />} />
               <Route path="/two-factor-auth" element={<TwoFactorAuth />} />

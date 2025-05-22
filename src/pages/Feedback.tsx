@@ -1,6 +1,5 @@
-
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -11,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, BugIcon, Lightbulb, MessageCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, BugIcon, Lightbulb, MessageCircle, Loader2, ListFilter } from "lucide-react";
 import { getDeviceInfo, submitFeedback } from "@/utils/feedbackService";
 
 type FeedbackType = "bug" | "feature" | "general";
@@ -173,9 +172,19 @@ const Feedback = () => {
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
-        <div className="flex items-center space-x-2 mb-6">
-          <div className="bg-amber-500 text-black px-2 py-1 rounded text-xs font-medium">BETA v{version}</div>
-          <h1 className="text-3xl font-bold">Beta Feedback</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-2">
+            <div className="bg-amber-500 text-black px-2 py-1 rounded text-xs font-medium">BETA v{version}</div>
+            <h1 className="text-3xl font-bold">Beta Feedback</h1>
+          </div>
+          
+          {/* Admin Dashboard Link */}
+          <Link to="/feedback-dashboard">
+            <Button variant="outline" size="sm" className="flex items-center gap-1">
+              <ListFilter className="h-4 w-4" />
+              View All Feedback
+            </Button>
+          </Link>
         </div>
         
         {!isSubmitted ? (
