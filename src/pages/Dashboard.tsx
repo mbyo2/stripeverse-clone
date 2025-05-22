@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -28,6 +27,7 @@ import {
   ArrowDownLeft
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { FeatureList, RoleBadge } from "@/components/FeatureAccess";
 
 // Mock data for charts
 const monthlyData = [
@@ -41,7 +41,7 @@ const monthlyData = [
 
 const spendingData = [
   { category: 'Shopping', amount: 450 },
-  { category: 'Bills', amount: 380 },
+  { name: 'Bills', amount: 380 },
   { category: 'Food', amount: 290 },
   { category: 'Transport', amount: 220 },
   { category: 'Others', amount: 180 }
@@ -101,8 +101,11 @@ const Dashboard = () => {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
-        <h1 className="text-3xl font-bold mb-6 animate-fadeIn">Welcome Back!</h1>
-        
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <RoleBadge />
+        </div>
+
         {/* Enhanced Card Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white transform hover:scale-105 transition-all duration-300">

@@ -1,8 +1,7 @@
 
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useRoles } from "@/contexts/RoleContext";
 
 interface BusinessRouteGuardProps {
   children: React.ReactNode;
@@ -10,20 +9,8 @@ interface BusinessRouteGuardProps {
 
 const BusinessRouteGuard = ({ children }: BusinessRouteGuardProps) => {
   const { user } = useAuth();
+  const { hasRole, isLoading } = useRoles();
   
-  const { data: hasBusinessRole, isLoading } = useQuery({
-    queryKey: ['hasBusinessRole', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return false;
-      const { data } = await supabase.rpc('has_role', {
-        user_id: user.id,
-        required_role: 'business'
-      });
-      return data || false;
-    },
-    enabled: !!user,
-  });
-
   // Show loading state while checking role
   if (isLoading) {
     return (
@@ -34,12 +21,12 @@ const BusinessRouteGuard = ({ children }: BusinessRouteGuardProps) => {
   }
 
   // Redirect to home if not a business user
-  if (!hasBusinessRole) {
+  if (!hasRole('business')) {
     return <Navigate to="/" replace />;
   }
 
   // Render children if user has business role
-  return <>{children}</>;
+  return <>{children || <Outlet />}</>;
 };
 
 export default BusinessRouteGuard;

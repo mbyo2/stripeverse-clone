@@ -6,51 +6,48 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 import { CreditCard, CheckCircle2, Smartphone, ShieldCheck, BarChart3, Globe, Code, Database } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useRoles } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Define product data specific to payment solutions
 const productData = [
   {
-    id: 1,
+    id: "basic",
     title: "SME Plan",
     description: "Perfect for small and medium businesses in Zambia",
-    price: 250,
+    price: 9.99,
     features: [
-      "Process up to K50,000 monthly", 
-      "2.5% transaction fee", 
-      "Email & phone support", 
-      "Mobile money integration",
-      "Basic reporting"
+      "Dashboard Access", 
+      "Feedback Submission", 
+      "Transaction History", 
+      "Virtual Cards"
     ],
     popular: false
   },
   {
-    id: 2,
+    id: "premium",
     title: "Business Pro",
     description: "For established businesses with higher transaction volume",
-    price: 500,
+    price: 19.99,
     features: [
-      "Process up to K500,000 monthly", 
-      "1.9% transaction fee", 
-      "Priority support", 
-      "All payment methods", 
-      "Advanced analytics",
-      "POS integration"
+      "All Basic features", 
+      "Money Transfers", 
+      "Advanced Analytics", 
+      "Priority Support"
     ],
     popular: true
   },
   {
-    id: 3,
+    id: "enterprise",
     title: "Enterprise",
     description: "Customized solutions for large corporations and institutions",
-    price: 1200,
+    price: 49.99,
     features: [
-      "Unlimited processing volume", 
-      "Custom transaction fees", 
-      "Dedicated account manager", 
-      "Complete payment ecosystem", 
-      "Custom reporting & API access",
-      "Banking system integration",
-      "White-label options"
+      "All Premium features", 
+      "Business Tools", 
+      "Custom Reporting", 
+      "Dedicated Account Manager",
+      "White-label Options"
     ],
     popular: false
   }
@@ -59,15 +56,17 @@ const productData = [
 const Products = () => {
   const productsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { subscriptionTier } = useRoles();
+  const { user } = useAuth();
   
   const handleSubscribe = (product: typeof productData[0]) => {
+    if (!user) {
+      navigate('/login', { state: { from: window.location.pathname } });
+      return;
+    }
+    
     // Navigate to checkout with product information
-    navigate('/checkout', { 
-      state: { 
-        amount: product.price, 
-        productName: product.title 
-      } 
-    });
+    navigate(`/checkout/${product.id}`);
   };
   
   useEffect(() => {
@@ -108,10 +107,17 @@ const Products = () => {
           {productData.map((product) => (
             <Card 
               key={product.id} 
-              className={`overflow-hidden transition-all duration-300 hover:shadow-lg ${product.popular ? 'border-primary/50 shadow-md relative' : ''}`}
+              className={`
+                overflow-hidden transition-all duration-300 hover:shadow-lg 
+                ${product.popular ? 'border-primary/50 shadow-md relative' : ''}
+                ${product.id === subscriptionTier ? 'ring-2 ring-primary shadow-lg' : ''}
+              `}
             >
               {product.popular && (
                 <Badge className="absolute top-4 right-4 bg-primary">Most Popular</Badge>
+              )}
+              {product.id === subscriptionTier && (
+                <Badge className="absolute top-4 left-4 bg-green-500">Current Plan</Badge>
               )}
               <CardHeader>
                 <CardTitle>{product.title}</CardTitle>
@@ -143,8 +149,10 @@ const Products = () => {
                 <Button 
                   onClick={() => handleSubscribe(product)} 
                   className={`w-full ${product.popular ? 'bg-primary' : ''}`}
+                  disabled={product.id === subscriptionTier}
+                  variant={product.id === subscriptionTier ? 'outline' : 'default'}
                 >
-                  Choose Plan
+                  {product.id === subscriptionTier ? 'Current Plan' : 'Choose Plan'}
                 </Button>
               </CardFooter>
             </Card>
