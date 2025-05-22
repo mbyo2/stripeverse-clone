@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface TwoFactorAuthState {
   isEnabled: boolean;
   secret: string | null;
-  backupCodes: string[] | null;
+  backupCodes: string[] | null;  // Make sure this is defined as string[] | null
   qrCodeUrl: string | null;
   isLoading: boolean;
   isVerifying: boolean;
@@ -75,7 +75,7 @@ const TwoFactorAuth = () => {
         ...prev,
         isEnabled: data?.enabled || false,
         secret: data?.secret || null,
-        backupCodes: data?.backup_codes || null,
+        backupCodes: data?.backup_codes as string[] | null,  // Explicitly cast to string[] | null
         isLoading: false
       }));
       
@@ -109,7 +109,7 @@ const TwoFactorAuth = () => {
         ...prev,
         secret: data.secret,
         qrCodeUrl: qrCodeUrl,
-        backupCodes: data.backupCodes,
+        backupCodes: data.backupCodes as string[],  // Explicitly cast to string[]
         isLoading: false
       }));
       
