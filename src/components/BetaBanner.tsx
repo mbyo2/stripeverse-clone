@@ -73,6 +73,11 @@ const BetaBanner = ({ expiryDays = 7, version = "0.0.1" }: BetaBannerProps) => {
     });
   };
   
+  const handleFeedbackClick = () => {
+    // Store current version in session storage for the feedback form to access
+    sessionStorage.setItem("currentBetaVersion", version);
+  };
+  
   if (!isVisible) {
     // Show a small version indicator in the corner if there's a new version
     if (hasNewVersion) {
@@ -105,6 +110,7 @@ const BetaBanner = ({ expiryDays = 7, version = "0.0.1" }: BetaBannerProps) => {
           <Link 
             to="/feedback" 
             className="text-xs underline flex items-center hover:text-amber-800"
+            onClick={handleFeedbackClick}
           >
             Submit Feedback
             <ExternalLink className="h-3 w-3 ml-1" />

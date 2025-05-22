@@ -1,5 +1,5 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, BugIcon, Lightbulb, MessageCircle } from "lucide-react";
-import { getDeviceInfo } from "@/utils/deviceDetection";
+import { CheckCircle2, BugIcon, Lightbulb, MessageCircle, Loader2 } from "lucide-react";
+import { getDeviceInfo, submitFeedback } from "@/utils/feedbackService";
 
 type FeedbackType = "bug" | "feature" | "general";
 type FeedbackSeverity = "low" | "medium" | "high" | "critical";
@@ -29,9 +29,15 @@ const Feedback = () => {
   const [email, setEmail] = useState("");
   const [severity, setSeverity] = useState<FeedbackSeverity>("medium");
   const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   
-  // Initialize with current app version from localStorage or default to 0.9.0
-  const [version] = useState(() => {
+  // Initialize with current app version from sessionStorage, localStorage or default to 0.9.0
+  const [version, setVersion] = useState<string>(() => {
+    // First check session storage (set by BetaBanner when clicking feedback link)
+    const sessionVersion = sessionStorage.getItem("currentBetaVersion");
+    if (sessionVersion) return sessionVersion;
+    
+    // Then check local storage (from banner dismissal data)
     const dismissedData = localStorage.getItem("betaBannerDismissed");
     if (dismissedData) {
       try {
@@ -44,7 +50,14 @@ const Feedback = () => {
     return "0.9.0";
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Clear session storage on component unmount
+  useEffect(() => {
+    return () => {
+      sessionStorage.removeItem("currentBetaVersion");
+    };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!title.trim() || !description.trim()) {
@@ -61,34 +74,45 @@ const Feedback = () => {
     // Get device info
     const deviceInfo = getDeviceInfo();
     
-    // In a real app, you would send this data to your backend
-    const feedbackData = {
-      type: feedbackType,
-      title,
-      description,
-      email: email || "Anonymous",
-      severity: feedbackType === "bug" ? severity : undefined,
-      screenshot: screenshot ? "Attached" : "None",
-      appVersion: version,
-      deviceInfo,
-      timestamp: new Date().toISOString(),
-    };
-    
-    console.log("Feedback data:", feedbackData);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSubmitted(true);
-      
-      toast({
-        title: "Feedback Received",
-        description: "Thank you for helping us improve the platform!",
+    try {
+      // Submit feedback data to the backend
+      const success = await submitFeedback({
+        type: feedbackType,
+        title,
+        description,
+        email: email || undefined,
+        severity: feedbackType === "bug" ? severity : undefined,
+        screenshot: screenshot || undefined,
+        appVersion: version,
+        deviceInfo,
       });
-    }, 1500);
+      
+      if (success) {
+        setIsSubmitted(true);
+        toast({
+          title: "Feedback Received",
+          description: "Thank you for helping us improve the platform!",
+        });
+      } else {
+        toast({
+          title: "Submission Error",
+          description: "There was a problem submitting your feedback. Please try again later.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error in feedback submission:", error);
+      toast({
+        title: "Submission Failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       
@@ -111,7 +135,22 @@ const Feedback = () => {
         return;
       }
       
-      setScreenshot(file);
+      setIsUploading(true);
+      
+      // Optionally compress the image before setting
+      try {
+        // Simple setting of the file
+        setScreenshot(file);
+      } catch (error) {
+        console.error("Error processing image:", error);
+        toast({
+          title: "Image Processing Failed",
+          description: "Could not process the uploaded image.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
   
@@ -250,8 +289,14 @@ const Feedback = () => {
                         type="button"
                         variant="outline"
                         onClick={triggerFileInput}
+                        disabled={isUploading}
                       >
-                        {screenshot ? "Change Screenshot" : "Upload Screenshot"}
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : screenshot ? "Change Screenshot" : "Upload Screenshot"}
                       </Button>
                       {screenshot && (
                         <p className="text-sm text-muted-foreground">
@@ -267,8 +312,17 @@ const Feedback = () => {
               <Button variant="outline" onClick={() => navigate(-1)}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? "Submitting..." : "Submit Feedback"}
+              <Button 
+                onClick={handleSubmit} 
+                disabled={isSubmitting}
+                className="min-w-[120px]"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : "Submit Feedback"}
               </Button>
             </CardFooter>
           </Card>
