@@ -1,3 +1,4 @@
+
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { PlusCircle, ArrowDownLeft, ArrowUpRight } from "lucide-react";
@@ -13,95 +13,31 @@ import { formatCurrency } from "@/lib/utils";
 import VirtualCardManager from "@/components/wallet/VirtualCardManager";
 import PaymentMethodList from "@/components/wallet/PaymentMethodList";
 import TransactionHistory from "@/components/wallet/TransactionHistory";
-import { paymentMethods, getWalletBalance } from "@/data/mockData";
-import { useEffect, useState } from "react";
+import { paymentMethods } from "@/data/mockData";
+import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
-
-// Simple error boundary component
-const ErrorBoundary = ({ children, fallback }: { children: React.ReactNode, fallback: React.ReactNode }) => {
-  const [hasError, setHasError] = useState(false);
-  
-  useEffect(() => {
-    const errorHandler = (error: ErrorEvent) => {
-      console.error("Error caught by error boundary:", error);
-      setHasError(true);
-    };
-    
-    window.addEventListener('error', errorHandler);
-    return () => window.removeEventListener('error', errorHandler);
-  }, []);
-  
-  return hasError ? <>{fallback}</> : <>{children}</>;
-};
-
-const VirtualCardFallback = () => {
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <p className="text-center text-muted-foreground">
-          Unable to load virtual cards. Please try again later.
-        </p>
-      </CardContent>
-    </Card>
-  );
-};
-
-const TransactionHistoryFallback = () => {
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <p className="text-center text-muted-foreground">
-          Unable to load transaction history. Please try again later.
-        </p>
-      </CardContent>
-    </Card>
-  );
-};
+import { useWallet } from "@/hooks/useWallet";
 
 const Wallet = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const walletBalance = getWalletBalance();
-  const [isLoading, setIsLoading] = useState(true);
+  const { wallet, isLoading, deposit, isDepositing } = useWallet();
   const [amount, setAmount] = useState("");
   const isMobile = useIsMobile();
   
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
-  
   const handleSendMoney = () => {
-    toast({
-      title: "Initiating Transfer",
-      description: "Taking you to the transfer page..."
-    });
     navigate("/transfer");
   };
   
   const handleAddMoney = () => {
     const parsedAmount = parseFloat(amount);
     if (!isNaN(parsedAmount) && parsedAmount > 0) {
-      toast({
-        title: "Processing Top-up",
-        description: `Adding ${formatCurrency(parsedAmount)} to your wallet`
-      });
-      navigate("/checkout", { 
-        state: { 
-          productName: "Wallet Top-up", 
-          amount: parsedAmount 
-        } 
-      });
+      deposit({ amount: parsedAmount, paymentMethod: 'mock' });
+      setAmount("");
     }
   };
 
   const handleReceiveMoney = () => {
-    toast({
-      title: "Receive Money",
-      description: "Your payment details have been copied to clipboard"
-    });
+    // Implementation for receiving money
   };
 
   const AddMoneyContent = () => (
@@ -123,9 +59,9 @@ const Wallet = () => {
       <Button 
         onClick={handleAddMoney} 
         className="w-full" 
-        disabled={!amount || parseFloat(amount) <= 0}
+        disabled={!amount || parseFloat(amount) <= 0 || isDepositing}
       >
-        Add Money
+        {isDepositing ? "Processing..." : "Add Money"}
       </Button>
     </div>
   );
@@ -185,7 +121,9 @@ const Wallet = () => {
             <CardTitle className="text-sm font-medium opacity-90">Available Balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold mb-4">{formatCurrency(walletBalance)}</div>
+            <div className="text-4xl font-bold mb-4">
+              {formatCurrency(wallet?.balance || 0)}
+            </div>
             <div className="flex space-x-4">
               <Button onClick={handleSendMoney} variant="secondary" className="flex-1 hover:bg-white hover:text-blue-600">
                 <ArrowUpRight className="mr-2 h-4 w-4" /> Send
@@ -199,12 +137,7 @@ const Wallet = () => {
         
         {/* Virtual Cards Section */}
         <div className="mb-8 animate-fadeIn">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold">Virtual Cards</h2>
-          </div>
-          <ErrorBoundary fallback={<VirtualCardFallback />}>
-            <VirtualCardManager maxCards={5} />
-          </ErrorBoundary>
+          <VirtualCardManager maxCards={5} />
         </div>
         
         {/* Enhanced Tabs */}
@@ -219,9 +152,7 @@ const Wallet = () => {
           </TabsContent>
           
           <TabsContent value="transaction-history" className="mt-6">
-            <ErrorBoundary fallback={<TransactionHistoryFallback />}>
-              <TransactionHistory limit={5} />
-            </ErrorBoundary>
+            <TransactionHistory limit={5} />
           </TabsContent>
         </Tabs>
       </main>
