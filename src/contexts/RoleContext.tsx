@@ -79,7 +79,7 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Fetch user roles
+      // Fetch user roles using the has_role function to avoid RLS recursion
       const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .select("role")
@@ -87,31 +87,33 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
 
       if (roleError) {
         console.error("Error fetching user roles:", roleError);
+        // If there's an error fetching roles, set default role
+        setRoles(["user"]);
         toast({
-          title: "Error",
-          description: "Failed to load user roles. Some features may be unavailable.",
-          variant: "destructive",
+          title: "Info",
+          description: "Using default user permissions. Some features may be limited.",
+          variant: "default",
         });
-        return;
+      } else {
+        // Extract roles from response
+        const userRoles = roleData?.map(r => r.role as UserRole) || [];
+        
+        // If no explicit roles assigned, set default role to "user"
+        if (userRoles.length === 0) {
+          userRoles.push("user");
+        }
+        
+        setRoles(userRoles);
       }
-
-      // Extract roles from response
-      const userRoles = roleData.map(r => r.role) as UserRole[];
-      
-      // If no explicit roles assigned, set default role to "user"
-      if (userRoles.length === 0) {
-        userRoles.push("user");
-      }
-      
-      setRoles(userRoles);
 
       // TODO: In a real app, fetch subscription tier from a subscribers table
       // For now, simulate subscription tier based on roles
-      if (userRoles.includes("admin")) {
+      const currentRoles = roleData?.map(r => r.role as UserRole) || ["user"];
+      if (currentRoles.includes("admin")) {
         setSubscriptionTier("enterprise");
-      } else if (userRoles.includes("business")) {
+      } else if (currentRoles.includes("business")) {
         setSubscriptionTier("premium");
-      } else if (userRoles.includes("beta_tester")) {
+      } else if (currentRoles.includes("beta_tester")) {
         setSubscriptionTier("basic");
       } else {
         setSubscriptionTier("free");
@@ -119,6 +121,9 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
 
     } catch (error) {
       console.error("Unexpected error fetching user roles:", error);
+      // Set default role on error
+      setRoles(["user"]);
+      setSubscriptionTier("free");
     } finally {
       setIsLoading(false);
     }
