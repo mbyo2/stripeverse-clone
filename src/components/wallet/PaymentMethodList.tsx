@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,7 +29,7 @@ const PaymentMethodList = ({ paymentMethods: initialMethods }: PaymentMethodList
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(initialMethods);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newMethodData, setNewMethodData] = useState({
-    type: 'card' as const,
+    type: 'card' as 'card' | 'mobile_money' | 'bank_account',
     name: '',
     cardNumber: '',
     expiryDate: '',

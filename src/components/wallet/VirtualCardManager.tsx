@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CreditCard, Plus, Eye, EyeOff, Settings, Freeze, Power } from "lucide-react";
+import { CreditCard, Plus, Eye, EyeOff, Settings, Snowflake, Power } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { formatCurrency } from "@/utils/walletUtils";
 
@@ -201,7 +201,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                         <Settings className="h-4 w-4" />
                       </Button>
                       <Button size="sm" variant="ghost" className="text-white hover:bg-white/20">
-                        <Freeze className="h-4 w-4" />
+                        <Snowflake className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
