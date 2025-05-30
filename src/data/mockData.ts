@@ -51,3 +51,29 @@ export const virtualCards = [
     provider: "Mastercard"
   }
 ];
+
+// Mock virtual cards data for VirtualCardFund page
+export const mockVirtualCards = {
+  "1": {
+    id: "1",
+    name: "Shopping Card",
+    number: "4532 1234 5678 9012",
+    balance: 150.00,
+    provider: "Visa"
+  },
+  "2": {
+    id: "2",
+    name: "Subscription Card", 
+    number: "5555 4444 3333 2222",
+    balance: 85.50,
+    provider: "Mastercard"
+  }
+};
+
+// Mock users data for Transfer page
+export const mockUsers = {
+  current: {
+    phone: "+260971234567",
+    walletBalance: 1250.00
+  }
+};
