@@ -8,7 +8,7 @@ export const ensureWalletExists = async (userId: string) => {
       .from('wallets' as any)
       .select('id')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (existingWallet) {
       return existingWallet;
@@ -35,4 +35,16 @@ export const ensureWalletExists = async (userId: string) => {
     console.error('Error ensuring wallet exists:', error);
     throw error;
   }
+};
+
+export const formatCurrency = (amount: number, currency: string = 'ZMW') => {
+  return new Intl.NumberFormat('en-ZM', {
+    style: 'currency',
+    currency: currency,
+    minimumFractionDigits: 2,
+  }).format(amount);
+};
+
+export const calculateTransactionFee = (amount: number, feeRate: number = 0.01, minFee: number = 2) => {
+  return Math.max(amount * feeRate, minFee);
 };

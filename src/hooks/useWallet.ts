@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { ensureWalletExists } from '@/utils/walletUtils';
 
 export interface Wallet {
   id: string;
@@ -41,42 +42,51 @@ export const useWallet = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch wallet data using raw SQL approach since types aren't updated yet
+  // Fetch wallet data with proper error handling
   const { data: wallet, isLoading: walletLoading, error: walletError } = useQuery({
     queryKey: ['wallet', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
       
-      // Use rpc or raw query approach since table types aren't in schema yet
-      const { data, error } = await supabase
-        .from('wallets' as any)
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      try {
+        // Ensure wallet exists first
+        await ensureWalletExists(user.id);
+        
+        const { data, error } = await supabase
+          .from('wallets' as any)
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error) throw error;
+        return data as Wallet;
+      } catch (error) {
+        console.error('Error fetching wallet:', error);
         throw error;
       }
-      
-      return data as Wallet | null;
     },
     enabled: !!user?.id,
   });
 
-  // Fetch virtual cards
+  // Fetch virtual cards with proper error handling
   const { data: virtualCards = [], isLoading: cardsLoading } = useQuery({
     queryKey: ['virtualCards', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
       
-      const { data, error } = await supabase
-        .from('virtual_cards' as any)
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return (data || []) as VirtualCard[];
+      try {
+        const { data, error } = await supabase
+          .from('virtual_cards' as any)
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return (data || []) as VirtualCard[];
+      } catch (error) {
+        console.error('Error fetching virtual cards:', error);
+        return [] as VirtualCard[];
+      }
     },
     enabled: !!user?.id,
   });

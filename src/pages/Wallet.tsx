@@ -8,11 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { PlusCircle, ArrowDownLeft, ArrowUpRight } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import WalletBalance from "@/components/wallet/WalletBalance";
+import QuickActions from "@/components/wallet/QuickActions";
 import VirtualCardManager from "@/components/wallet/VirtualCardManager";
 import PaymentMethodList from "@/components/wallet/PaymentMethodList";
 import TransactionHistory from "@/components/wallet/TransactionHistory";
+import { PlusCircle } from "lucide-react";
 import { paymentMethods } from "@/data/mockData";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -20,7 +21,7 @@ import { useWallet } from "@/hooks/useWallet";
 
 const Wallet = () => {
   const navigate = useNavigate();
-  const { wallet, isLoading, deposit, isDepositing } = useWallet();
+  const { isLoading, deposit, isDepositing } = useWallet();
   const [amount, setAmount] = useState("");
   const isMobile = useIsMobile();
   
@@ -37,7 +38,8 @@ const Wallet = () => {
   };
 
   const handleReceiveMoney = () => {
-    // Implementation for receiving money
+    // Implementation for receiving money - could show QR code
+    console.log("Receive money functionality coming soon");
   };
 
   const AddMoneyContent = () => (
@@ -115,25 +117,14 @@ const Wallet = () => {
           )}
         </div>
         
-        {/* Enhanced Balance Card */}
-        <Card className="mb-8 bg-gradient-to-br from-blue-500 to-blue-600 text-white transform hover:scale-105 transition-all duration-300">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium opacity-90">Available Balance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-4xl font-bold mb-4">
-              {formatCurrency(wallet?.balance || 0)}
-            </div>
-            <div className="flex space-x-4">
-              <Button onClick={handleSendMoney} variant="secondary" className="flex-1 hover:bg-white hover:text-blue-600">
-                <ArrowUpRight className="mr-2 h-4 w-4" /> Send
-              </Button>
-              <Button onClick={handleReceiveMoney} variant="secondary" className="flex-1 hover:bg-white hover:text-blue-600">
-                <ArrowDownLeft className="mr-2 h-4 w-4" /> Receive
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Wallet Balance */}
+        <WalletBalance 
+          onSendMoney={handleSendMoney}
+          onReceiveMoney={handleReceiveMoney}
+        />
+        
+        {/* Quick Actions */}
+        <QuickActions />
         
         {/* Virtual Cards Section */}
         <div className="mb-8 animate-fadeIn">
