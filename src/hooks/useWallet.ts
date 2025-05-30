@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { ensureWalletExists } from '@/utils/walletUtils';
 
 export interface Wallet {
   id: string;
@@ -49,21 +48,19 @@ export const useWallet = () => {
       if (!user?.id) throw new Error('User not authenticated');
       
       try {
-        // Use the utility function that handles wallet creation if needed
-        const walletData = await ensureWalletExists(user.id);
-        console.log('Wallet data fetched:', walletData);
-        return walletData as Wallet;
-      } catch (error) {
-        console.error('Error fetching wallet:', error);
-        // Return a default wallet structure for now
+        // For now, return mock data since wallet table doesn't exist yet
+        console.log('Fetching wallet data for user:', user.id);
         return {
           id: 'temp-wallet',
           user_id: user.id,
-          balance: 0,
+          balance: 1250.00,
           currency: 'ZMW',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         } as Wallet;
+      } catch (error) {
+        console.error('Error fetching wallet:', error);
+        throw error;
       }
     },
     enabled: !!user?.id,
@@ -77,7 +74,6 @@ export const useWallet = () => {
       
       try {
         // For now, return empty array since virtual_cards table doesn't exist yet
-        // This will be replaced when the table is created
         console.log('Fetching virtual cards for user:', user.id);
         return [] as VirtualCard[];
       } catch (error) {
