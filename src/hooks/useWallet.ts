@@ -50,16 +50,8 @@ export const useWallet = () => {
       
       try {
         // Ensure wallet exists first
-        await ensureWalletExists(user.id);
-        
-        const { data, error } = await supabase
-          .from('wallets' as any)
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (error) throw error;
-        return data as Wallet;
+        const ensuredWallet = await ensureWalletExists(user.id);
+        return ensuredWallet as Wallet;
       } catch (error) {
         console.error('Error fetching wallet:', error);
         throw error;
@@ -75,14 +67,9 @@ export const useWallet = () => {
       if (!user?.id) throw new Error('User not authenticated');
       
       try {
-        const { data, error } = await supabase
-          .from('virtual_cards' as any)
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        return (data || []) as VirtualCard[];
+        // For now, return empty array since virtual_cards table doesn't exist yet
+        // This will be replaced when the table is created
+        return [] as VirtualCard[];
       } catch (error) {
         console.error('Error fetching virtual cards:', error);
         return [] as VirtualCard[];

@@ -1,394 +1,217 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle,
-  DialogTrigger
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { 
-  CreditCard, 
-  PlusCircle, 
-  Eye, 
-  EyeOff, 
-  Copy, 
-  RefreshCw,
-  ArrowRight,
-} from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
-import { useWallet } from "@/hooks/useWallet";
-import { useToast } from "@/hooks/use-toast";
 
-// Schema for card creation form
-const createCardSchema = z.object({
-  name: z.string().min(3, "Card name must be at least 3 characters"),
-  provider: z.string().min(1, "Please select a card provider"),
-  cardType: z.string().min(1, "Please select a card type"),
-  dailyLimit: z.coerce.number().min(100).max(10000).optional(),
-  monthlyLimit: z.coerce.number().min(1000).max(100000).optional(),
-  transactionLimit: z.coerce.number().min(100).max(5000).optional(),
-  allowOnline: z.boolean().default(true),
-  allowInternational: z.boolean().default(false),
-});
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { CreditCard, Plus, Eye, EyeOff, Settings, Freeze, Power } from "lucide-react";
+import { useWallet } from "@/hooks/useWallet";
+import { formatCurrency } from "@/utils/walletUtils";
 
 interface VirtualCardManagerProps {
   maxCards?: number;
 }
 
 const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const { 
-    virtualCards, 
-    isLoading, 
-    createVirtualCard, 
-    fundVirtualCard, 
-    isCreatingCard,
-    isFundingCard 
-  } = useWallet();
-  
-  const [showCardDetails, setShowCardDetails] = useState<Record<string, boolean>>({});
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  
-  // Form setup
-  const form = useForm<z.infer<typeof createCardSchema>>({
-    resolver: zodResolver(createCardSchema),
-    defaultValues: {
-      name: "",
-      provider: "visa",
-      cardType: "virtual",
-      dailyLimit: 5000,
-      monthlyLimit: 50000,
-      transactionLimit: 2000,
-      allowOnline: true,
-      allowInternational: false,
-    },
+  const { virtualCards, createVirtualCard, isCreatingCard } = useWallet();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newCardData, setNewCardData] = useState({
+    name: '',
+    initialBalance: 100,
+    provider: 'visa',
+    cardType: 'debit'
   });
-  
-  const handleCreateCard = (values: z.infer<typeof createCardSchema>) => {
-    if (virtualCards.length >= maxCards) {
-      toast({
-        title: "Maximum Cards Reached",
-        description: `You can have a maximum of ${maxCards} virtual cards.`,
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    createVirtualCard(values);
-    setIsCreateDialogOpen(false);
-    form.reset();
-  };
-  
-  const handleViewCardDetails = (cardId: string) => {
-    navigate(`/virtual-card/${cardId}`);
-  };
-  
-  const handleToggleCardDetails = (cardId: string) => {
-    setShowCardDetails(prev => ({
-      ...prev,
-      [cardId]: !prev[cardId]
-    }));
-  };
-  
-  const handleCopyCardNumber = (cardNumber: string) => {
-    navigator.clipboard.writeText(cardNumber);
-    toast({
-      title: "Copied",
-      description: "Card number copied to clipboard.",
+  const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
+
+  const handleCreateCard = () => {
+    createVirtualCard(newCardData);
+    setShowCreateDialog(false);
+    setNewCardData({
+      name: '',
+      initialBalance: 100,
+      provider: 'visa',
+      cardType: 'debit'
     });
   };
-  
-  const handleFundCard = (cardId: string) => {
-    navigate(`/virtual-card/fund`, { state: { cardId } });
+
+  const toggleCardVisibility = (cardId: string) => {
+    const newVisible = new Set(visibleCards);
+    if (newVisible.has(cardId)) {
+      newVisible.delete(cardId);
+    } else {
+      newVisible.add(cardId);
+    }
+    setVisibleCards(newVisible);
   };
 
-  
-  if (isLoading) {
-    return (
-      <div className="grid gap-4 md:grid-cols-2">
-        {[1, 2].map(i => (
-          <Card key={i} className="border-l-4 border-l-gray-200">
-            <CardContent className="p-6 animate-pulse">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="h-5 w-32 bg-secondary rounded mb-2"></div>
-                  <div className="h-4 w-24 bg-secondary rounded"></div>
-                </div>
-                <div className="flex items-center justify-center w-10 h-10 bg-secondary rounded-full"></div>
-              </div>
-              <div className="mb-4">
-                <div className="h-4 w-20 bg-secondary rounded mb-2"></div>
-                <div className="h-6 w-24 bg-secondary rounded"></div>
-              </div>
-              <div className="flex space-x-2">
-                <div className="h-8 w-20 bg-secondary rounded"></div>
-                <div className="h-8 w-20 bg-secondary rounded"></div>
-                <div className="h-8 w-20 bg-secondary rounded"></div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
+  const maskCardNumber = (number: string) => {
+    return `**** **** **** ${number.slice(-4)}`;
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header with create button */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Your Virtual Cards</h2>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={virtualCards.length >= maxCards || isCreatingCard}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Create Card
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New Virtual Card</DialogTitle>
-              <DialogDescription>
-                Fill in the details below to create a new virtual card for online payments.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleCreateCard)} className="space-y-4 py-4">
-                
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Card Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Shopping Card" {...field} />
-                      </FormControl>
-                      <FormDescription>Give your card a memorable name</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="provider"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Card Provider</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select card provider" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="visa">Visa</SelectItem>
-                          <SelectItem value="mastercard">Mastercard</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="dailyLimit"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Daily Limit (K)</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="transactionLimit"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Transaction Limit (K)</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle className="flex items-center">
+            <CreditCard className="mr-2 h-5 w-5" />
+            Virtual Cards ({virtualCards.length}/{maxCards})
+          </CardTitle>
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button 
+                size="sm" 
+                disabled={virtualCards.length >= maxCards}
+                className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create Card
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Virtual Card</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="cardName">Card Name</Label>
+                  <Input
+                    id="cardName"
+                    placeholder="e.g., Shopping Card"
+                    value={newCardData.name}
+                    onChange={(e) => setNewCardData({ ...newCardData, name: e.target.value })}
                   />
                 </div>
-                
-                <FormField
-                  control={form.control}
-                  name="allowOnline"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Online Transactions</FormLabel>
-                        <FormDescription>
-                          Allow this card to be used for online purchases
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                
-                <DialogFooter>
-                  <Button type="submit" disabled={isCreatingCard}>
-                    {isCreatingCard ? (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Creating...
-                      </>
-                    ) : (
-                      "Create Card"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
-      
-      {/* Card list */}
-      {virtualCards.length === 0 ? (
-        <Card>
-          <CardContent className="p-6 flex flex-col items-center justify-center text-center py-12">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-              <CreditCard className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-xl font-medium mb-2">No Virtual Cards</h3>
-            <p className="text-muted-foreground mb-4 max-w-md">
-              Create a virtual card to make online payments or subscriptions safely. You can create up to {maxCards} virtual cards.
-            </p>
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Create Your First Card
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {virtualCards.map((card) => (
-            <Card key={card.id} className={`border-l-4 ${
-              card.status === 'active' 
-                ? 'border-l-green-500' 
-                : card.status === 'frozen' 
-                  ? 'border-l-amber-500' 
-                  : 'border-l-red-500'
-            }`}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
+                <div>
+                  <Label htmlFor="initialBalance">Initial Balance</Label>
+                  <Input
+                    id="initialBalance"
+                    type="number"
+                    min="0"
+                    value={newCardData.initialBalance}
+                    onChange={(e) => setNewCardData({ ...newCardData, initialBalance: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h3 className="font-medium text-lg">{card.name}</h3>
-                    <div className="font-mono text-sm text-muted-foreground">
-                      {showCardDetails[card.id] ? card.card_number : card.masked_number}
-                      <button 
-                        onClick={() => handleToggleCardDetails(card.id)}
-                        className="ml-2 text-muted-foreground hover:text-foreground transition-colors inline-flex"
+                    <Label>Provider</Label>
+                    <Select 
+                      value={newCardData.provider} 
+                      onValueChange={(value) => setNewCardData({ ...newCardData, provider: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="visa">Visa</SelectItem>
+                        <SelectItem value="mastercard">Mastercard</SelectItem>
+                        <SelectItem value="amex">American Express</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Type</Label>
+                    <Select 
+                      value={newCardData.cardType} 
+                      onValueChange={(value) => setNewCardData({ ...newCardData, cardType: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="debit">Debit</SelectItem>
+                        <SelectItem value="prepaid">Prepaid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleCreateCard} 
+                  disabled={!newCardData.name || isCreatingCard}
+                  className="w-full"
+                >
+                  {isCreatingCard ? "Creating..." : "Create Card"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {virtualCards.length === 0 ? (
+          <div className="text-center py-8">
+            <CreditCard className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Virtual Cards Yet</h3>
+            <p className="text-muted-foreground mb-4">
+              Create your first virtual card to start making secure online payments.
+            </p>
+            <Button 
+              onClick={() => setShowCreateDialog(true)}
+              className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Your First Card
+            </Button>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {virtualCards.map((card) => (
+              <div key={card.id} className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg p-4 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                <div className="relative z-10">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="font-semibold text-lg">{card.name}</h3>
+                      <p className="text-sm opacity-80 capitalize">{card.provider} {card.card_type}</p>
+                    </div>
+                    <Badge variant={card.status === 'active' ? 'default' : 'secondary'}>
+                      {card.status}
+                    </Badge>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-lg">
+                        {visibleCards.has(card.id) ? card.card_number : maskCardNumber(card.card_number)}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => toggleCardVisibility(card.id)}
+                        className="text-white hover:bg-white/20"
                       >
-                        {showCardDetails[card.id] ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                      <button 
-                        onClick={() => handleCopyCardNumber(card.card_number)}
-                        className="ml-1 text-muted-foreground hover:text-foreground transition-colors inline-flex"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </button>
+                        {visibleCards.has(card.id) ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <div className="flex justify-between mt-2 text-sm">
+                      <span>CVV: {visibleCards.has(card.id) ? card.cvv : '***'}</span>
+                      <span>Exp: {card.expiry_date}</span>
                     </div>
                   </div>
-                  <div className="flex items-center justify-center w-10 h-10 bg-primary/10 rounded-full">
-                    <CreditCard className="h-5 w-5 text-primary" />
+                  
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm opacity-80">Balance</p>
+                      <p className="text-xl font-bold">{formatCurrency(card.balance)}</p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button size="sm" variant="ghost" className="text-white hover:bg-white/20">
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-white hover:bg-white/20">
+                        <Freeze className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="mb-4">
-                  <div className="text-sm font-medium text-muted-foreground">Balance</div>
-                  <div className="text-xl font-bold">{formatCurrency(card.balance)}</div>
-                </div>
-                
-                <div className="flex justify-between text-sm mb-4">
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${
-                      card.status === 'active' ? 'bg-green-500' : 
-                      card.status === 'frozen' ? 'bg-amber-500' : 'bg-red-500'
-                    }`}></div>
-                    <span className={`font-medium ${
-                      card.status === 'active' ? 'text-green-600' : 
-                      card.status === 'frozen' ? 'text-amber-600' : 'text-red-600'
-                    }`}>
-                      {card.status.charAt(0).toUpperCase() + card.status.slice(1)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="font-medium capitalize">{card.provider}</span>
-                  </div>
-                </div>
-                
-                <div className="flex gap-2 flex-wrap">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleFundCard(card.id)}
-                    disabled={isFundingCard}
-                  >
-                    Fund
-                  </Button>
-                  <Button variant="default" size="sm" onClick={() => handleViewCardDetails(card.id)}>
-                    Details <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

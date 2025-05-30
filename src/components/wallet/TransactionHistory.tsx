@@ -1,268 +1,254 @@
 
-import { useState, useEffect } from "react";
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowDownLeft, ArrowUpRight, Clock, XIcon } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { Skeleton } from "@/components/ui/skeleton";
-import { formatDistanceToNow } from "date-fns";
-import { Transaction } from "@/types/transaction";
-import TransactionManager from "./TransactionManager";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ArrowUpRight, ArrowDownLeft, Search, Filter, CalendarIcon, Receipt } from "lucide-react";
+import { formatCurrency } from "@/utils/walletUtils";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
-interface TransactionHistoryProps {
-  filteredTransactions?: Transaction[];
-  onTransactionsLoaded?: (transactions: Transaction[]) => void;
-  limit?: number;
-  showAdvanced?: boolean;
+interface Transaction {
+  id: string;
+  amount: number;
+  currency: string;
+  direction: 'incoming' | 'outgoing';
+  status: 'pending' | 'completed' | 'failed';
+  description: string;
+  reference?: string;
+  recipient?: string;
+  payment_method: string;
+  created_at: string;
 }
 
-const TransactionHistory = ({ 
-  filteredTransactions, 
-  onTransactionsLoaded,
-  limit = 10,
-  showAdvanced = false
-}: TransactionHistoryProps) => {
-  if (showAdvanced) {
-    return <TransactionManager limit={limit} />;
-  }
-  
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+interface TransactionHistoryProps {
+  limit?: number;
+  showFilters?: boolean;
+}
 
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        setLoading(true);
-        
-        const { data: dbTransactions, error } = await supabase
-          .from('transactions')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(limit);
-        
-        if (error) throw error;
-        
-        if (dbTransactions && dbTransactions.length > 0) {
-          const formattedTransactions: Transaction[] = dbTransactions.map(tx => ({
-            id: typeof tx.id === 'string' ? parseInt(tx.id, 10) : tx.id as number,
-            user_id: tx.user_id || '',
-            amount: tx.amount,
-            currency: tx.currency,
-            payment_method: tx.payment_method,
-            direction: tx.direction as 'incoming' | 'outgoing',
-            recipient_name: tx.recipient_name || 'Unknown',
-            recipient_account: tx.recipient_account || '',
-            recipient_bank: tx.recipient_bank || '',
-            status: tx.status as 'completed' | 'pending' | 'failed',
-            reference: tx.reference || '',
-            provider: tx.provider || '',
-            metadata: tx.metadata,
-            created_at: tx.created_at || new Date().toISOString(),
-            updated_at: tx.updated_at || new Date().toISOString()
-          }));
-          
-          setTransactions(formattedTransactions);
-          
-          if (onTransactionsLoaded) {
-            onTransactionsLoaded(formattedTransactions);
-          }
-        } else {
-          setTransactions(mockTransactions);
-          
-          if (onTransactionsLoaded) {
-            onTransactionsLoaded(mockTransactions);
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching transactions:", err);
-        setError("Failed to load transactions");
-        setTransactions(mockTransactions);
-        
-        if (onTransactionsLoaded) {
-          onTransactionsLoaded(mockTransactions);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
+const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryProps) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [directionFilter, setDirectionFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState<Date>();
+  const [dateTo, setDateTo] = useState<Date>();
 
-    fetchTransactions();
-    
-    const channel = supabase
-      .channel('public:transactions')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'transactions' 
-      }, (payload) => {
-        console.log('Transaction change received:', payload);
-        fetchTransactions();
-      })
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [limit, onTransactionsLoaded]);
-
+  // Mock transaction data - this would come from your API
   const mockTransactions: Transaction[] = [
-    { 
-      id: 1, 
-      user_id: '',
-      amount: 250.75, 
+    {
+      id: '1',
+      amount: 250.00,
       currency: 'ZMW',
-      payment_method: 'mobile_money',
-      direction: 'outgoing', 
-      recipient_name: 'John Banda', 
+      direction: 'incoming',
       status: 'completed',
-      created_at: new Date('2023-10-15').toISOString(),
-      updated_at: new Date('2023-10-15').toISOString()
-    },
-    { 
-      id: 2, 
-      user_id: '',
-      amount: 320.50, 
-      currency: 'ZMW',
+      description: 'Wallet funding via Mobile Money',
       payment_method: 'mobile_money',
-      direction: 'incoming', 
-      recipient_name: 'Mary Phiri', 
-      status: 'completed',
-      created_at: new Date('2023-10-14').toISOString(),
-      updated_at: new Date('2023-10-14').toISOString()
+      created_at: '2024-01-15T10:30:00Z'
     },
-    { 
-      id: 3, 
-      user_id: '',
-      amount: 100.00, 
+    {
+      id: '2',
+      amount: 50.00,
       currency: 'ZMW',
-      payment_method: 'ussd',
-      direction: 'outgoing', 
-      recipient_name: 'Zamtel', 
+      direction: 'outgoing',
       status: 'completed',
-      created_at: new Date('2023-10-13').toISOString(),
-      updated_at: new Date('2023-10-13').toISOString()
+      description: 'Virtual card funding - Shopping Card',
+      payment_method: 'wallet',
+      created_at: '2024-01-15T09:15:00Z'
     },
-    { 
-      id: 4, 
-      user_id: '',
-      amount: 500.25, 
+    {
+      id: '3',
+      amount: 100.00,
       currency: 'ZMW',
-      payment_method: 'mobile_money',
-      direction: 'incoming', 
-      recipient_name: 'MTN Mobile', 
-      status: 'completed',
-      created_at: new Date('2023-10-12').toISOString(),
-      updated_at: new Date('2023-10-12').toISOString()
-    },
-    { 
-      id: 5, 
-      user_id: '',
-      amount: 150.00, 
-      currency: 'ZMW',
-      payment_method: 'mobile_money',
-      direction: 'outgoing', 
-      recipient_name: 'Airtel Money', 
+      direction: 'outgoing',
       status: 'pending',
-      created_at: new Date('2023-10-11').toISOString(),
-      updated_at: new Date('2023-10-11').toISOString()
+      description: 'Transfer to John Doe',
+      recipient: 'John Doe',
+      payment_method: 'wallet',
+      created_at: '2024-01-14T16:45:00Z'
     },
+    {
+      id: '4',
+      amount: 25.00,
+      currency: 'ZMW',
+      direction: 'outgoing',
+      status: 'failed',
+      description: 'Online payment - Netflix',
+      payment_method: 'virtual_card',
+      created_at: '2024-01-14T14:20:00Z'
+    }
   ];
 
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="p-4">
-          <div className="space-y-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b last:border-0">
-                <div className="flex items-center">
-                  <Skeleton className="w-10 h-10 rounded-full" />
-                  <div className="ml-4">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-24 mt-2" />
-                  </div>
-                </div>
-                <Skeleton className="h-4 w-20" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const filteredTransactions = mockTransactions
+    .filter(transaction => {
+      const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           transaction.recipient?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
+      const matchesDirection = directionFilter === 'all' || transaction.direction === directionFilter;
+      return matchesSearch && matchesStatus && matchesDirection;
+    })
+    .slice(0, limit);
 
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="p-4 text-center text-destructive">
-          <p>{error}</p>
-          <p className="text-sm text-muted-foreground mt-2">Using fallback transaction data</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'failed':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
-  const displayTransactions = filteredTransactions || transactions;
+  const getDirectionIcon = (direction: string) => {
+    return direction === 'incoming' ? (
+      <ArrowDownLeft className="h-4 w-4 text-green-600" />
+    ) : (
+      <ArrowUpRight className="h-4 w-4 text-red-600" />
+    );
+  };
+
+  const getPaymentMethodLabel = (method: string) => {
+    switch (method) {
+      case 'mobile_money':
+        return 'Mobile Money';
+      case 'bank_transfer':
+        return 'Bank Transfer';
+      case 'virtual_card':
+        return 'Virtual Card';
+      case 'wallet':
+        return 'Wallet';
+      default:
+        return method;
+    }
+  };
 
   return (
     <Card>
-      <CardHeader className="pb-0">
-        <CardTitle className="text-lg">Recent Transactions</CardTitle>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle className="flex items-center">
+            <Receipt className="mr-2 h-5 w-5" />
+            Transaction History
+          </CardTitle>
+          {showFilters && (
+            <Button variant="outline" size="sm">
+              <Filter className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+          )}
+        </div>
       </CardHeader>
-      <CardContent className="p-4">
+      <CardContent>
+        {showFilters && (
+          <div className="space-y-4 mb-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search transactions..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={directionFilter} onValueChange={setDirectionFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Direction" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="incoming">Incoming</SelectItem>
+                  <SelectItem value="outgoing">Outgoing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4">
-          {displayTransactions.length === 0 ? (
-            <p className="text-center text-muted-foreground py-6">No transactions match your filters</p>
+          {filteredTransactions.length === 0 ? (
+            <div className="text-center py-8">
+              <Receipt className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No Transactions Found</h3>
+              <p className="text-muted-foreground">
+                {searchTerm || statusFilter !== 'all' || directionFilter !== 'all'
+                  ? 'Try adjusting your filters to see more results.'
+                  : 'Your transactions will appear here once you start using your wallet.'
+                }
+              </p>
+            </div>
           ) : (
-            displayTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                <div className="flex items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    transaction.direction === 'outgoing' ? "bg-red-100" : "bg-green-100"
-                  }`}>
-                    {transaction.status === 'pending' ? (
-                      <Clock className="h-5 w-5 text-amber-600" />
-                    ) : transaction.status === 'failed' ? (
-                      <XIcon className="h-5 w-5 text-red-600" />
-                    ) : transaction.direction === 'outgoing' ? (
-                      <ArrowUpRight className="h-5 w-5 text-red-600" />
-                    ) : (
-                      <ArrowDownLeft className="h-5 w-5 text-green-600" />
-                    )}
+            filteredTransactions.map((transaction) => (
+              <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    {getDirectionIcon(transaction.direction)}
                   </div>
-                  <div className="ml-4">
-                    <div className="font-medium">
-                      {transaction.direction === 'outgoing' ? "Sent to" : "Received from"} {" "}
-                      {transaction.recipient_name}
-                    </div>
-                    <div className="text-sm text-muted-foreground flex items-center">
-                      {transaction.created_at ? formatDistanceToNow(new Date(transaction.created_at), { addSuffix: true }) : 'Unknown date'}
-                      {transaction.status === 'pending' && (
-                        <span className="ml-2 text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
-                          Pending
-                        </span>
-                      )}
-                      {transaction.status === 'failed' && (
-                        <span className="ml-2 text-xs px-2 py-0.5 bg-red-100 text-red-800 rounded-full">
-                          Failed
-                        </span>
-                      )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">
+                      {transaction.description}
+                    </p>
+                    {transaction.recipient && (
+                      <p className="text-sm text-muted-foreground">
+                        To: {transaction.recipient}
+                      </p>
+                    )}
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(transaction.created_at), 'MMM dd, yyyy HH:mm')}
+                      </span>
+                      <span className="text-xs text-muted-foreground">•</span>
+                      <span className="text-xs text-muted-foreground">
+                        {getPaymentMethodLabel(transaction.payment_method)}
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div className={`font-medium ${
-                  transaction.status === 'pending' 
-                    ? "text-amber-600" 
-                    : transaction.direction === 'outgoing' 
-                      ? "text-red-600" 
-                      : "text-green-600"
-                }`}>
-                  {transaction.direction === 'outgoing' ? "-" : "+"}K {transaction.amount.toFixed(2)}
+                <div className="flex items-center space-x-4">
+                  <div className="text-right">
+                    <p className={cn(
+                      "font-semibold",
+                      transaction.direction === 'incoming' ? 'text-green-600' : 'text-red-600'
+                    )}>
+                      {transaction.direction === 'incoming' ? '+' : '-'}
+                      {formatCurrency(transaction.amount)}
+                    </p>
+                    <Badge variant="secondary" className={getStatusColor(transaction.status)}>
+                      {transaction.status}
+                    </Badge>
+                  </div>
                 </div>
               </div>
             ))
           )}
         </div>
+
+        {limit && filteredTransactions.length >= limit && (
+          <div className="text-center mt-6">
+            <Button variant="outline">
+              View All Transactions
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
