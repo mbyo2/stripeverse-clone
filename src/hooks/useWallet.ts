@@ -41,20 +41,24 @@ export const useWallet = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch wallet data
+  // Fetch wallet data using raw SQL approach since types aren't updated yet
   const { data: wallet, isLoading: walletLoading, error: walletError } = useQuery({
     queryKey: ['wallet', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
       
+      // Use rpc or raw query approach since table types aren't in schema yet
       const { data, error } = await supabase
-        .from('wallets')
+        .from('wallets' as any)
         .select('*')
         .eq('user_id', user.id)
         .single();
       
-      if (error) throw error;
-      return data as Wallet;
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        throw error;
+      }
+      
+      return data as Wallet | null;
     },
     enabled: !!user?.id,
   });
@@ -66,13 +70,13 @@ export const useWallet = () => {
       if (!user?.id) throw new Error('User not authenticated');
       
       const { data, error } = await supabase
-        .from('virtual_cards')
+        .from('virtual_cards' as any)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as VirtualCard[];
+      return (data || []) as VirtualCard[];
     },
     enabled: !!user?.id,
   });

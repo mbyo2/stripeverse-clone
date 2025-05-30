@@ -1,0 +1,38 @@
+
+import { supabase } from '@/integrations/supabase/client';
+
+export const ensureWalletExists = async (userId: string) => {
+  try {
+    // Check if wallet exists
+    const { data: existingWallet, error: checkError } = await supabase
+      .from('wallets' as any)
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (existingWallet) {
+      return existingWallet;
+    }
+
+    // Create wallet if it doesn't exist
+    const { data: newWallet, error: createError } = await supabase
+      .from('wallets' as any)
+      .insert({
+        user_id: userId,
+        balance: 0.00,
+        currency: 'ZMW'
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('Error creating wallet:', createError);
+      throw createError;
+    }
+
+    return newWallet;
+  } catch (error) {
+    console.error('Error ensuring wallet exists:', error);
+    throw error;
+  }
+};
