@@ -1,122 +1,140 @@
-import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+
 import { Toaster } from "@/components/ui/toaster";
-import LazyLoad from "@/components/LazyLoad";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { RoleProvider } from "@/contexts/RoleContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
+import SessionTimeoutWarning from "@/components/SessionTimeoutWarning";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BusinessRouteGuard from "@/components/business/BusinessRouteGuard";
-import { NotificationProvider } from "@/contexts/NotificationContext";
-import { RoleProvider } from "@/contexts/RoleContext";
+import Index from "./pages/Index";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ResetPassword from "./pages/ResetPassword";
+import UpdatePassword from "./pages/UpdatePassword";
+import Dashboard from "./pages/Dashboard";
+import Wallet from "./pages/Wallet";
+import Transfer from "./pages/Transfer";
+import TransactionList from "./pages/TransactionList";
+import Settings from "./pages/Settings";
+import TwoFactorAuth from "./pages/TwoFactorAuth";
+import Profile from "./pages/Profile";
+import Help from "./pages/Help";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
+import Pricing from "./pages/Pricing";
+import PaymentServices from "./pages/PaymentServices";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import Faq from "./pages/Faq";
+import NotFound from "./pages/NotFound";
+import Checkout from "./pages/Checkout";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentFailed from "./pages/PaymentFailed";
+import SendMoney from "./pages/SendMoney";
+import Transactions from "./pages/Transactions";
+import BusinessDashboard from "./pages/BusinessDashboard";
+import VirtualCardNew from "./pages/VirtualCardNew";
+import VirtualCardDetails from "./pages/VirtualCardDetails";
+import VirtualCardFund from "./pages/VirtualCardFund";
+import KycPage from "./pages/KycPage";
+import Compliance from "./pages/Compliance";
+import UssdAccess from "./pages/UssdAccess";
+import SubscriptionTiers from "./pages/SubscriptionTiers";
+import Notifications from "./pages/Notifications";
+import Feedback from "./pages/Feedback";
+import FeedbackDashboard from "./pages/FeedbackDashboard";
+import Blog from "./pages/Blog";
 
-// Lazy-loaded components
-const Home = lazy(() => import("@/pages/Home"));
-const Login = lazy(() => import("@/pages/Login"));
-const Register = lazy(() => import("@/pages/Register"));
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const NotFound = lazy(() => import("@/pages/NotFound"));
-const About = lazy(() => import("@/pages/About"));
-const Pricing = lazy(() => import("@/pages/Pricing"));
-const Contact = lazy(() => import("@/pages/Contact"));
-const Faq = lazy(() => import("@/pages/Faq"));
-const Blog = lazy(() => import("@/pages/Blog"));
-const PaymentServices = lazy(() => import("@/pages/PaymentServices"));
-const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
-const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
-const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
-const UpdatePassword = lazy(() => import("@/pages/UpdatePassword"));
-const Wallet = lazy(() => import("@/pages/Wallet"));
-const Profile = lazy(() => import("@/pages/Profile"));
-const VirtualCardNew = lazy(() => import("@/pages/VirtualCardNew"));
-const VirtualCardDetails = lazy(() => import("@/pages/VirtualCardDetails"));
-const VirtualCardFund = lazy(() => import("@/pages/VirtualCardFund"));
-const Transactions = lazy(() => import("@/pages/Transactions"));
-const BusinessDashboard = lazy(() => import("@/pages/BusinessDashboard"));
-const Checkout = lazy(() => import("@/pages/Checkout"));
-const PaymentSuccess = lazy(() => import("@/pages/PaymentSuccess"));
-const PaymentFailed = lazy(() => import("@/pages/PaymentFailed"));
-const SendMoney = lazy(() => import("@/pages/SendMoney"));
-const Transfer = lazy(() => import("@/pages/Transfer"));
-const Compliance = lazy(() => import("@/pages/Compliance"));
-const KycPage = lazy(() => import("@/pages/KycPage"));
-const Feedback = lazy(() => import("@/pages/Feedback"));
-const FeedbackDashboard = lazy(() => import("@/pages/FeedbackDashboard"));
-const Notifications = lazy(() => import("@/pages/Notifications"));
-const UssdAccess = lazy(() => import("@/pages/UssdAccess"));
-const TwoFactorAuth = lazy(() => import("@/pages/TwoFactorAuth"));
-const SubscriptionTiers = lazy(() => import("@/pages/SubscriptionTiers"));
+const queryClient = new QueryClient();
 
 function App() {
   return (
-    <AuthProvider>
-      <RoleProvider>
-        <NotificationProvider>
-          <Suspense fallback={<LazyLoad component={() => Promise.resolve({ default: () => <div>Loading...</div> })} />}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/update-password" element={<UpdatePassword />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/pricing" element={<SubscriptionTiers />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/faq" element={<Faq />} />
-              <Route path="/blog" element={<Blog />} />
-              <Route path="/services" element={<PaymentServices />} />
-              <Route path="/terms" element={<TermsOfService />} />
-              <Route path="/privacy" element={<PrivacyPolicy />} />
-              <Route path="/checkout/:id" element={<Checkout />} />
-              <Route path="/payment-success" element={<PaymentSuccess />} />
-              <Route path="/payment-failed" element={<PaymentFailed />} />
-              <Route path="/kyc" element={<KycPage />} />
-
-              <Route element={<ProtectedRoute children={null} />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/wallet" element={<Wallet />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/transactions" element={<Transactions />} />
-                <Route 
-                  path="/card/new" 
-                  element={<ProtectedRoute requiredFeature="virtual_cards" children={<VirtualCardNew />} />}
-                />
-                <Route 
-                  path="/card/:id" 
-                  element={<ProtectedRoute requiredFeature="virtual_cards" children={<VirtualCardDetails />} />}
-                />
-                <Route 
-                  path="/card/:id/fund" 
-                  element={<ProtectedRoute requiredFeature="virtual_cards" children={<VirtualCardFund />} />}
-                />
-                <Route 
-                  path="/send" 
-                  element={<ProtectedRoute requiredFeature="transfers" children={<SendMoney />} />}
-                />
-                <Route 
-                  path="/transfer" 
-                  element={<ProtectedRoute requiredFeature="transfers" children={<Transfer />} />}
-                />
-                <Route path="/compliance" element={<Compliance />} />
-                <Route path="/feedback" element={<Feedback />} />
-                <Route 
-                  path="/feedback-dashboard" 
-                  element={<ProtectedRoute requiredFeature="feedback_dashboard" children={<FeedbackDashboard />} />}
-                />
-                <Route path="/notifications" element={<Notifications />} />
-                <Route path="/ussd" element={<UssdAccess />} />
-                <Route path="/two-factor-auth" element={<TwoFactorAuth />} />
-              </Route>
-
-              <Route element={<BusinessRouteGuard children={null} />}>
-                <Route path="/business/*" element={<BusinessDashboard />} />
-              </Route>
-
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-          <Toaster />
-        </NotificationProvider>
-      </RoleProvider>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <RoleProvider>
+              <NotificationProvider>
+                <SessionTimeoutWarning />
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/" element={<Index />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/payment-services" element={<PaymentServices />} />
+                  <Route path="/terms" element={<TermsOfService />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/faq" element={<Faq />} />
+                  <Route path="/blog" element={<Blog />} />
+                  <Route path="/ussd" element={<UssdAccess />} />
+                  
+                  {/* Auth routes */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/update-password" element={<UpdatePassword />} />
+                  
+                  {/* Payment routes */}
+                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/payment/success" element={<PaymentSuccess />} />
+                  <Route path="/payment/failed" element={<PaymentFailed />} />
+                  
+                  {/* Protected routes */}
+                  <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
+                  <Route path="/transfer" element={<ProtectedRoute><Transfer /></ProtectedRoute>} />
+                  <Route path="/send-money" element={<ProtectedRoute><SendMoney /></ProtectedRoute>} />
+                  <Route path="/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
+                  <Route path="/transaction-list" element={<ProtectedRoute><TransactionList /></ProtectedRoute>} />
+                  <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                  <Route path="/2fa" element={<ProtectedRoute><TwoFactorAuth /></ProtectedRoute>} />
+                  <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                  <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
+                  <Route path="/kyc" element={<ProtectedRoute><KycPage /></ProtectedRoute>} />
+                  <Route path="/compliance" element={<ProtectedRoute><Compliance /></ProtectedRoute>} />
+                  <Route path="/subscription-tiers" element={<ProtectedRoute><SubscriptionTiers /></ProtectedRoute>} />
+                  <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+                  <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
+                  
+                  {/* Virtual card routes */}
+                  <Route path="/cards/new" element={<ProtectedRoute><VirtualCardNew /></ProtectedRoute>} />
+                  <Route path="/cards/:id" element={<ProtectedRoute><VirtualCardDetails /></ProtectedRoute>} />
+                  <Route path="/cards/:id/fund" element={<ProtectedRoute><VirtualCardFund /></ProtectedRoute>} />
+                  
+                  {/* Business routes */}
+                  <Route path="/business-dashboard" element={
+                    <ProtectedRoute>
+                      <BusinessRouteGuard>
+                        <BusinessDashboard />
+                      </BusinessRouteGuard>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/feedback-dashboard" element={
+                    <ProtectedRoute>
+                      <BusinessRouteGuard>
+                        <FeedbackDashboard />
+                      </BusinessRouteGuard>
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* 404 */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </NotificationProvider>
+            </RoleProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 

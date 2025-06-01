@@ -1,75 +1,81 @@
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import * as base32 from 'https://deno.land/std@0.177.0/encoding/base32.ts'
-import { getSupabaseClient } from '../_shared/supabase-client.ts'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { encode as base32Encode } from "https://deno.land/std@0.168.0/encoding/base32.ts"
 
-// Generate a random string for use as a TOTP secret
-function generateSecret(length = 20) {
-  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567' // Base32 character set
-  let result = ''
-  const randomValues = new Uint8Array(length)
-  crypto.getRandomValues(randomValues)
-  
-  for (let i = 0; i < length; i++) {
-    result += charset[randomValues[i] % charset.length]
-  }
-  
-  return result
-}
-
-// Generate backup codes for account recovery
-function generateBackupCodes(count = 10, length = 8) {
-  const codes = []
-  const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  
-  for (let i = 0; i < count; i++) {
-    let code = ''
-    const randomValues = new Uint8Array(length)
-    crypto.getRandomValues(randomValues)
-    
-    for (let j = 0; j < length; j++) {
-      code += charset[randomValues[j] % charset.length]
-    }
-    
-    // Format as XXXX-XXXX for better readability
-    codes.push(`${code.slice(0, 4)}-${code.slice(4, 8)}`)
-  }
-  
-  return codes
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
-    // Get the user ID from request body
-    const { userId } = await req.json()
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    )
+
+    // Get the authorization header from the request
+    const authHeader = req.headers.get('Authorization')!
     
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: 'User ID is required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
+    // Get the JWT payload
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+    
+    if (userError || !user) {
+      throw new Error('Unauthorized')
     }
 
-    // Initialize Supabase client
-    const supabaseClient = getSupabaseClient(req)
-    
-    // Generate a new secret
-    const secret = generateSecret()
-    
-    // Generate backup codes
-    const backupCodes = generateBackupCodes()
-    
+    const { userId } = await req.json()
+
+    if (user.id !== userId) {
+      throw new Error('Unauthorized')
+    }
+
+    // Generate a random secret (20 bytes = 160 bits)
+    const secret = crypto.getRandomValues(new Uint8Array(20))
+    const base32Secret = base32Encode(secret).replace(/=/g, '')
+
+    // Create TOTP URI for QR code
+    const issuer = 'BMaGlass Pay'
+    const accountName = user.email || user.id
+    const otpAuthUrl = `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(accountName)}?secret=${base32Secret}&issuer=${encodeURIComponent(issuer)}`
+
+    // Store the secret in the database (not enabled yet)
+    const { error: insertError } = await supabaseClient
+      .from('two_factor_auth')
+      .upsert({
+        user_id: userId,
+        secret: base32Secret,
+        enabled: false
+      })
+
+    if (insertError) {
+      throw insertError
+    }
+
     return new Response(
-      JSON.stringify({ 
-        secret, 
-        backupCodes 
+      JSON.stringify({
+        secret: base32Secret,
+        qrCode: otpAuthUrl
       }),
-      { headers: { 'Content-Type': 'application/json' } }
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
     )
   } catch (error) {
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      },
     )
   }
 })

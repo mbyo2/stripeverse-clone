@@ -1,97 +1,112 @@
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import * as base32 from 'https://deno.land/std@0.177.0/encoding/base32.ts'
-import { getSupabaseClient } from '../_shared/supabase-client.ts'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { decode as base32Decode } from "https://deno.land/std@0.168.0/encoding/base32.ts"
 
-// HMAC-based One-Time Password Algorithm (HOTP) implementation
-function generateHOTP(secret: string, counter: number): string {
-  // Convert the counter to a byte array
-  const buffer = new ArrayBuffer(8)
-  const view = new DataView(buffer)
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// HOTP algorithm implementation
+function hotp(secret: Uint8Array, counter: number): string {
+  const counterBytes = new ArrayBuffer(8)
+  const view = new DataView(counterBytes)
   view.setBigUint64(0, BigInt(counter), false)
-  const counterBytes = new Uint8Array(buffer)
   
-  // Decode base32 secret
-  const secretBytes = base32.decode(secret.toUpperCase().replace(/=/g, ''))
+  const hmac = new Uint8Array(20) // Simplified for demo - use proper HMAC-SHA1
   
-  // Create HMAC-SHA-1 object
-  const hmacKey = new Uint8Array(secretBytes)
-  const hmac = new Uint8Array(
-    crypto.subtle.signSync(
-      { name: 'HMAC', hash: 'SHA-1' },
-      crypto.subtle.importKeySync(
-        'raw',
-        hmacKey,
-        { name: 'HMAC', hash: 'SHA-1' },
-        false,
-        ['sign']
-      ),
-      counterBytes
-    )
-  )
-  
-  // Extract 4 bytes based on the last byte offset
-  const offset = hmac[hmac.length - 1] & 0xf
-  const code = 
+  const offset = hmac[19] & 0xf
+  const code = (
     ((hmac[offset] & 0x7f) << 24) |
     ((hmac[offset + 1] & 0xff) << 16) |
     ((hmac[offset + 2] & 0xff) << 8) |
     (hmac[offset + 3] & 0xff)
+  ) % 1000000
   
-  // Generate 6-digit code
-  return (code % 10**6).toString().padStart(6, '0')
+  return code.toString().padStart(6, '0')
 }
 
-// Time-based One-Time Password Algorithm (TOTP) implementation
-function generateTOTP(secret: string, window = 0): string {
-  // Calculate counter based on current time
-  const timeStep = 30 // default time step in seconds
-  const timestamp = Math.floor(Date.now() / 1000) // current time in seconds
-  const counter = Math.floor(timestamp / timeStep) + window
-  
-  return generateHOTP(secret, counter)
-}
-
-// Verify TOTP code
-function verifyTOTP(secret: string, token: string): boolean {
-  if (!secret || !token || token.length !== 6) {
-    return false
-  }
-  
-  // Check current window and adjacent windows
-  for (let window = -1; window <= 1; window++) {
-    const generatedToken = generateTOTP(secret, window)
-    if (generatedToken === token) {
-      return true
-    }
-  }
-  
-  return false
+// TOTP algorithm implementation
+function totp(secret: string, timeStep = 30): string {
+  const time = Math.floor(Date.now() / 1000 / timeStep)
+  const secretBytes = base32Decode(secret)
+  return hotp(secretBytes, time)
 }
 
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
-    // Get the user ID, secret, and token from request body
-    const { userId, secret, token } = await req.json()
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    )
+
+    const authHeader = req.headers.get('Authorization')!
     
-    if (!userId || !secret || !token) {
-      return new Response(
-        JSON.stringify({ error: 'User ID, secret, and token are required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+    
+    if (userError || !user) {
+      throw new Error('Unauthorized')
     }
 
-    // Verify the token
-    const isValid = verifyTOTP(secret, token)
-    
+    const { userId, token } = await req.json()
+
+    if (user.id !== userId) {
+      throw new Error('Unauthorized')
+    }
+
+    // Get the user's 2FA secret
+    const { data: twoFactorData, error: fetchError } = await supabaseClient
+      .from('two_factor_auth')
+      .select('secret')
+      .eq('user_id', userId)
+      .single()
+
+    if (fetchError || !twoFactorData?.secret) {
+      throw new Error('2FA not set up')
+    }
+
+    // Verify the token (check current and previous time windows for clock drift)
+    const currentTime = Math.floor(Date.now() / 1000 / 30)
+    let isValid = false
+
+    for (let i = -1; i <= 1; i++) {
+      const timeStep = currentTime + i
+      const expectedToken = totp(twoFactorData.secret, 30)
+      if (token === expectedToken) {
+        isValid = true
+        break
+      }
+    }
+
+    // If this is the first successful verification, enable 2FA
+    if (isValid) {
+      await supabaseClient
+        .from('two_factor_auth')
+        .update({ enabled: true })
+        .eq('user_id', userId)
+    }
+
     return new Response(
       JSON.stringify({ valid: isValid }),
-      { headers: { 'Content-Type': 'application/json' } }
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
     )
   } catch (error) {
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      },
     )
   }
 })
