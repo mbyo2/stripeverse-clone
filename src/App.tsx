@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -50,15 +49,23 @@ import Feedback from "./pages/Feedback";
 import FeedbackDashboard from "./pages/FeedbackDashboard";
 import Blog from "./pages/Blog";
 
-const queryClient = new QueryClient();
+// Create a single query client instance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 1
+    }
+  }
+});
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+      <BrowserRouter>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
           <AuthProvider>
             <RoleProvider>
               <NotificationProvider>
@@ -132,8 +139,8 @@ function App() {
               </NotificationProvider>
             </RoleProvider>
           </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+        </TooltipProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 }
