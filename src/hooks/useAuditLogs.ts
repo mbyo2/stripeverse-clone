@@ -13,12 +13,31 @@ interface AuditFilters {
   limit?: number;
 }
 
+interface AuditConfig {
+  defaultLimit: number;
+  maxLimit: number;
+  retentionDays: number;
+  enabledActions: string[];
+  enabledTables: string[];
+}
+
 export const useAuditLogs = () => {
   const [filters, setFilters] = useState<AuditFilters>({});
+  const [config, setConfig] = useState<AuditConfig>({
+    defaultLimit: 100,
+    maxLimit: 1000,
+    retentionDays: 365,
+    enabledActions: ['INSERT', 'UPDATE', 'DELETE'],
+    enabledTables: ['transactions', 'wallets', 'virtual_cards', 'payment_methods']
+  });
   const queryClient = useQueryClient();
 
+  const updateConfig = (newConfig: Partial<AuditConfig>) => {
+    setConfig(prev => ({ ...prev, ...newConfig }));
+  };
+
   const { data: auditLogs, isLoading, error } = useQuery({
-    queryKey: ['audit-logs', filters],
+    queryKey: ['audit-logs', filters, config],
     queryFn: async () => {
       let query = supabase
         .from('audit_logs')
@@ -34,17 +53,18 @@ export const useAuditLogs = () => {
       if (filters.end_date) {
         query = query.lte('created_at', filters.end_date);
       }
-      if (filters.table_name) {
+      if (filters.table_name && config.enabledTables.includes(filters.table_name)) {
         query = query.eq('table_name', filters.table_name);
       }
-      if (filters.action) {
+      if (filters.action && config.enabledActions.includes(filters.action)) {
         query = query.eq('action', filters.action);
       }
       if (filters.user_id) {
         query = query.eq('user_id', filters.user_id);
       }
 
-      query = query.limit(filters.limit || 100);
+      const limit = Math.min(filters.limit || config.defaultLimit, config.maxLimit);
+      query = query.limit(limit);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -58,7 +78,8 @@ export const useAuditLogs = () => {
         body: {
           action: 'generate_report',
           filters,
-          export_format: format
+          export_format: format,
+          config
         }
       });
 
@@ -85,7 +106,8 @@ export const useAuditLogs = () => {
       const { data, error } = await supabase.functions.invoke('audit-manager', {
         body: {
           action: 'compliance_check',
-          filters
+          filters,
+          config
         }
       });
 
@@ -102,8 +124,15 @@ export const useAuditLogs = () => {
 
   const dataRetentionMutation = useMutation({
     mutationFn: async () => {
+      const retentionDate = new Date();
+      retentionDate.setDate(retentionDate.getDate() - config.retentionDays);
+      
       const { data, error } = await supabase.functions.invoke('audit-manager', {
-        body: { action: 'data_retention' }
+        body: { 
+          action: 'data_retention',
+          retention_date: retentionDate.toISOString(),
+          config
+        }
       });
 
       if (error) throw error;
@@ -112,10 +141,16 @@ export const useAuditLogs = () => {
     onSuccess: () => {
       toast({
         title: "Data Retention Enforced",
-        description: "Data retention policies have been applied successfully."
+        description: `Records older than ${config.retentionDays} days have been archived.`
       });
       queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
     }
+  });
+
+  const getAvailableFilters = () => ({
+    actions: config.enabledActions,
+    tables: config.enabledTables,
+    maxLimit: config.maxLimit
   });
 
   return {
@@ -124,11 +159,14 @@ export const useAuditLogs = () => {
     error,
     filters,
     setFilters,
+    config,
+    updateConfig,
     generateReport: generateReportMutation.mutate,
     runComplianceCheck: complianceCheckMutation.mutate,
     enforceDataRetention: dataRetentionMutation.mutate,
     isGeneratingReport: generateReportMutation.isPending,
     isRunningComplianceCheck: complianceCheckMutation.isPending,
-    isEnforcingRetention: dataRetentionMutation.isPending
+    isEnforcingRetention: dataRetentionMutation.isPending,
+    getAvailableFilters
   };
 };
