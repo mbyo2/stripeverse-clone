@@ -9,6 +9,45 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id: string
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       beta_feedback: {
         Row: {
           app_version: string
@@ -45,6 +84,86 @@ export type Database = {
           severity?: string | null
           title?: string
           type?: string
+        }
+        Relationships: []
+      }
+      compliance_checks: {
+        Row: {
+          check_type: string
+          created_at: string
+          details: Json | null
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          risk_score: number | null
+          status: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          check_type: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_score?: number | null
+          status: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          check_type?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_score?: number | null
+          status?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_checks_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["uuid_id"]
+          },
+        ]
+      }
+      exchange_rates: {
+        Row: {
+          created_at: string
+          from_currency: string
+          id: string
+          rate: number
+          source: string
+          to_currency: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          from_currency: string
+          id?: string
+          rate: number
+          source?: string
+          to_currency: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          from_currency?: string
+          id?: string
+          rate?: number
+          source?: string
+          to_currency?: string
+          valid_from?: string
+          valid_until?: string | null
         }
         Relationships: []
       }
@@ -105,6 +224,60 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           verified_at?: string | null
+        }
+        Relationships: []
+      }
+      merchant_accounts: {
+        Row: {
+          address: Json
+          api_key: string | null
+          business_name: string
+          business_type: string
+          contact_info: Json
+          created_at: string
+          id: string
+          registration_number: string | null
+          status: string
+          tax_id: string | null
+          updated_at: string
+          user_id: string
+          verification_documents: Json | null
+          webhook_secret: string | null
+          webhook_url: string | null
+        }
+        Insert: {
+          address: Json
+          api_key?: string | null
+          business_name: string
+          business_type: string
+          contact_info: Json
+          created_at?: string
+          id?: string
+          registration_number?: string | null
+          status?: string
+          tax_id?: string | null
+          updated_at?: string
+          user_id: string
+          verification_documents?: Json | null
+          webhook_secret?: string | null
+          webhook_url?: string | null
+        }
+        Update: {
+          address?: Json
+          api_key?: string | null
+          business_name?: string
+          business_type?: string
+          contact_info?: Json
+          created_at?: string
+          id?: string
+          registration_number?: string | null
+          status?: string
+          tax_id?: string | null
+          updated_at?: string
+          user_id?: string
+          verification_documents?: Json | null
+          webhook_secret?: string | null
+          webhook_url?: string | null
         }
         Relationships: []
       }
@@ -171,6 +344,48 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_methods: {
+        Row: {
+          account_name: string | null
+          account_number: string | null
+          created_at: string
+          id: string
+          is_primary: boolean | null
+          is_verified: boolean | null
+          metadata: Json | null
+          provider: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean | null
+          is_verified?: boolean | null
+          metadata?: Json | null
+          provider: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean | null
+          is_verified?: boolean | null
+          metadata?: Json | null
+          provider?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -231,9 +446,15 @@ export type Database = {
       transactions: {
         Row: {
           amount: number
+          card_id: string | null
+          category: string | null
           created_at: string | null
           currency: string
+          description: string | null
           direction: string
+          exchange_rate: number | null
+          external_reference: string | null
+          fee_amount: number | null
           id: number
           metadata: Json | null
           payment_method: string
@@ -242,15 +463,26 @@ export type Database = {
           recipient_bank: string | null
           recipient_name: string | null
           reference: string | null
+          reversal_id: string | null
           status: string
+          tags: Json | null
+          transaction_id: string | null
           updated_at: string | null
           user_id: string | null
+          uuid_id: string
+          wallet_id: string | null
         }
         Insert: {
           amount: number
+          card_id?: string | null
+          category?: string | null
           created_at?: string | null
           currency?: string
+          description?: string | null
           direction: string
+          exchange_rate?: number | null
+          external_reference?: string | null
+          fee_amount?: number | null
           id?: number
           metadata?: Json | null
           payment_method: string
@@ -259,15 +491,26 @@ export type Database = {
           recipient_bank?: string | null
           recipient_name?: string | null
           reference?: string | null
+          reversal_id?: string | null
           status: string
+          tags?: Json | null
+          transaction_id?: string | null
           updated_at?: string | null
           user_id?: string | null
+          uuid_id?: string
+          wallet_id?: string | null
         }
         Update: {
           amount?: number
+          card_id?: string | null
+          category?: string | null
           created_at?: string | null
           currency?: string
+          description?: string | null
           direction?: string
+          exchange_rate?: number | null
+          external_reference?: string | null
+          fee_amount?: number | null
           id?: number
           metadata?: Json | null
           payment_method?: string
@@ -276,11 +519,38 @@ export type Database = {
           recipient_bank?: string | null
           recipient_name?: string | null
           reference?: string | null
+          reversal_id?: string | null
           status?: string
+          tags?: Json | null
+          transaction_id?: string | null
           updated_at?: string | null
           user_id?: string | null
+          uuid_id?: string
+          wallet_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "transactions_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_reversal_id_fkey"
+            columns: ["reversal_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["uuid_id"]
+          },
+          {
+            foreignKeyName: "transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       two_factor_auth: {
         Row: {
@@ -359,6 +629,113 @@ export type Database = {
           ip_address?: unknown | null
           last_activity?: string
           session_token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      virtual_cards: {
+        Row: {
+          balance: number
+          card_number: string
+          card_type: string
+          created_at: string
+          currency: string
+          cvv: string
+          daily_limit: number | null
+          expiry_date: string
+          id: string
+          international_transactions: boolean | null
+          masked_number: string
+          monthly_limit: number | null
+          name: string
+          online_transactions: boolean | null
+          provider: string
+          status: string
+          transaction_limit: number | null
+          updated_at: string
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          balance?: number
+          card_number: string
+          card_type?: string
+          created_at?: string
+          currency?: string
+          cvv: string
+          daily_limit?: number | null
+          expiry_date: string
+          id?: string
+          international_transactions?: boolean | null
+          masked_number: string
+          monthly_limit?: number | null
+          name: string
+          online_transactions?: boolean | null
+          provider?: string
+          status?: string
+          transaction_limit?: number | null
+          updated_at?: string
+          user_id: string
+          wallet_id: string
+        }
+        Update: {
+          balance?: number
+          card_number?: string
+          card_type?: string
+          created_at?: string
+          currency?: string
+          cvv?: string
+          daily_limit?: number | null
+          expiry_date?: string
+          id?: string
+          international_transactions?: boolean | null
+          masked_number?: string
+          monthly_limit?: number | null
+          name?: string
+          online_transactions?: boolean | null
+          provider?: string
+          status?: string
+          transaction_limit?: number | null
+          updated_at?: string
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtual_cards_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallets: {
+        Row: {
+          balance: number
+          created_at: string
+          currency: string
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          status?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
