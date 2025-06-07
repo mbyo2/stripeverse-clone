@@ -1,7 +1,6 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,7 +20,6 @@ type AuthContextType = {
   checkRateLimit: (action: string) => Promise<boolean>;
   sessionTimeoutWarning: boolean;
   extendSession: () => Promise<void>;
-  navigate: (to: string) => void;
 };
 
 type UserData = {
@@ -38,7 +36,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [sessionTimeoutWarning, setSessionTimeoutWarning] = useState(false);
   
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   // Session timeout management
@@ -199,7 +196,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         description: "You've successfully signed in.",
       });
       
-      navigate("/dashboard");
+      // Navigation will be handled by components that use this context
     } catch (error: any) {
       if (error.message === '2FA_REQUIRED') {
         // Handle 2FA requirement in UI
@@ -242,7 +239,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         description: "Please check your email to confirm your account.",
       });
       
-      navigate("/login");
+      // Navigation will be handled by components that use this context
     } catch (error: any) {
       toast({
         title: "Registration failed",
@@ -275,7 +272,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         description: "You've been successfully signed out.",
       });
       
-      navigate("/login");
+      // Navigation will be handled by components that use this context
     } catch (error: any) {
       toast({
         title: "Sign out failed",
@@ -462,8 +459,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       disable2FA,
       checkRateLimit,
       sessionTimeoutWarning,
-      extendSession,
-      navigate
+      extendSession
     }}>
       {children}
     </AuthContext.Provider>
