@@ -36,6 +36,11 @@ const Header = () => {
                   Transactions
                 </Button>
               </Link>
+              <Link to="/tier-management">
+                <Button variant={isActive("/tier-management") ? "default" : "ghost"} size="sm">
+                  Tiers
+                </Button>
+              </Link>
             </nav>
           )}
         </div>

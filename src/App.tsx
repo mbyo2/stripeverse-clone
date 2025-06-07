@@ -19,6 +19,7 @@ import UserDashboard from "./pages/UserDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import BetaTesterDashboard from "./pages/BetaTesterDashboard";
 import RoleManagement from "./pages/RoleManagement";
+import TierManagement from "./pages/TierManagement";
 import Settings from "./pages/Settings";
 import Wallet from "./pages/Wallet";
 import Transactions from "./pages/Transactions";
@@ -88,6 +89,12 @@ function App() {
                   <Route path="/role-management" element={
                     <ProtectedRoute>
                       <RoleManagement />
+                    </ProtectedRoute>
+                  } />
+
+                  <Route path="/tier-management" element={
+                    <ProtectedRoute>
+                      <TierManagement />
                     </ProtectedRoute>
                   } />
 
