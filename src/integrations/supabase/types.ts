@@ -783,6 +783,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_wallet_balance: {
+        Args: { p_user_id: string; p_amount: number }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "user" | "business" | "admin" | "beta_tester"

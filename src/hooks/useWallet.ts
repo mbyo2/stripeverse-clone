@@ -48,18 +48,41 @@ export const useWallet = () => {
       if (!user?.id) throw new Error('User not authenticated');
       
       try {
-        // For now, return mock data since wallet table doesn't exist yet
-        console.log('Fetching wallet data for user:', user.id);
-        return {
-          id: 'temp-wallet',
-          user_id: user.id,
-          balance: 1250.00,
-          currency: 'ZMW',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        } as Wallet;
+        const { data, error } = await supabase
+          .from('wallets')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error fetching wallet:', error);
+          throw error;
+        }
+
+        // If no wallet exists, create one
+        if (!data) {
+          const { data: newWallet, error: createError } = await supabase
+            .from('wallets')
+            .insert({
+              user_id: user.id,
+              balance: 0.00,
+              currency: 'ZMW',
+              status: 'active'
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Error creating wallet:', createError);
+            throw createError;
+          }
+
+          return newWallet as Wallet;
+        }
+
+        return data as Wallet;
       } catch (error) {
-        console.error('Error fetching wallet:', error);
+        console.error('Error in wallet query:', error);
         throw error;
       }
     },
@@ -73,11 +96,20 @@ export const useWallet = () => {
       if (!user?.id) throw new Error('User not authenticated');
       
       try {
-        // For now, return empty array since virtual_cards table doesn't exist yet
-        console.log('Fetching virtual cards for user:', user.id);
-        return [] as VirtualCard[];
+        const { data, error } = await supabase
+          .from('virtual_cards')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching virtual cards:', error);
+          throw error;
+        }
+
+        return data as VirtualCard[];
       } catch (error) {
-        console.error('Error fetching virtual cards:', error);
+        console.error('Error in virtual cards query:', error);
         return [] as VirtualCard[];
       }
     },

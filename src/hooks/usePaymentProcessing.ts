@@ -82,10 +82,11 @@ export const usePaymentProcessing = () => {
       });
 
       if (error) {
-        throw new Error(error.message);
+        console.error('Payment processing error:', error);
+        throw new Error(error.message || 'Payment processing failed');
       }
 
-      if (data.success) {
+      if (data?.success) {
         toast({
           title: "Payment Successful",
           description: `Transaction ${data.transaction_id} completed successfully.`,
@@ -93,7 +94,7 @@ export const usePaymentProcessing = () => {
       } else {
         toast({
           title: "Payment Failed", 
-          description: data.error || "Payment processing failed.",
+          description: data?.error || "Payment processing failed.",
           variant: "destructive"
         });
       }
@@ -101,6 +102,8 @@ export const usePaymentProcessing = () => {
       return data;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Payment processing failed';
+      
+      console.error('Payment processing error:', error);
       
       toast({
         title: "Payment Error",
