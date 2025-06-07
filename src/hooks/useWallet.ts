@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { ensureWalletExists } from '@/utils/walletUtils';
 
 export interface Wallet {
   id: string;
@@ -48,45 +49,17 @@ export const useWallet = () => {
       if (!user?.id) throw new Error('User not authenticated');
       
       try {
-        const { data, error } = await supabase
-          .from('wallets')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Error fetching wallet:', error);
-          throw error;
-        }
-
-        // If no wallet exists, create one
-        if (!data) {
-          const { data: newWallet, error: createError } = await supabase
-            .from('wallets')
-            .insert({
-              user_id: user.id,
-              balance: 0.00,
-              currency: 'ZMW',
-              status: 'active'
-            })
-            .select()
-            .single();
-
-          if (createError) {
-            console.error('Error creating wallet:', createError);
-            throw createError;
-          }
-
-          return newWallet as Wallet;
-        }
-
-        return data as Wallet;
+        // Ensure wallet exists for the user
+        const walletData = await ensureWalletExists(user.id);
+        return walletData as Wallet;
       } catch (error) {
         console.error('Error in wallet query:', error);
         throw error;
       }
     },
     enabled: !!user?.id,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   // Fetch virtual cards with proper error handling
@@ -114,13 +87,16 @@ export const useWallet = () => {
       }
     },
     enabled: !!user?.id,
+    retry: 1,
   });
 
   // Create virtual card mutation
   const createVirtualCardMutation = useMutation({
     mutationFn: async (cardData: any) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      
       const { data, error } = await supabase.functions.invoke('create-virtual-card', {
-        body: cardData,
+        body: { ...cardData, user_id: user.id },
       });
       
       if (error) throw error;
@@ -134,6 +110,7 @@ export const useWallet = () => {
       });
     },
     onError: (error: any) => {
+      console.error('Create virtual card error:', error);
       toast({
         title: "Failed to Create Card",
         description: error.message || "An unknown error occurred",
@@ -145,8 +122,10 @@ export const useWallet = () => {
   // Fund virtual card mutation
   const fundVirtualCardMutation = useMutation({
     mutationFn: async ({ cardId, amount }: { cardId: string; amount: number }) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      
       const { data, error } = await supabase.functions.invoke('fund-virtual-card', {
-        body: { cardId, amount },
+        body: { cardId, amount, user_id: user.id },
       });
       
       if (error) throw error;
@@ -161,6 +140,7 @@ export const useWallet = () => {
       });
     },
     onError: (error: any) => {
+      console.error('Fund virtual card error:', error);
       toast({
         title: "Failed to Fund Card",
         description: error.message || "An unknown error occurred",
@@ -172,8 +152,10 @@ export const useWallet = () => {
   // Wallet deposit mutation
   const depositMutation = useMutation({
     mutationFn: async ({ amount, paymentMethod }: { amount: number; paymentMethod: string }) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      
       const { data, error } = await supabase.functions.invoke('wallet-deposit', {
-        body: { amount, paymentMethod },
+        body: { amount, paymentMethod, user_id: user.id },
       });
       
       if (error) throw error;
@@ -187,6 +169,7 @@ export const useWallet = () => {
       });
     },
     onError: (error: any) => {
+      console.error('Deposit error:', error);
       toast({
         title: "Failed to Process Deposit",
         description: error.message || "An unknown error occurred",

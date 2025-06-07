@@ -6,7 +6,7 @@ export const ensureWalletExists = async (userId: string) => {
     // Check if wallet exists
     const { data: existingWallet, error: checkError } = await supabase
       .from('wallets')
-      .select('id')
+      .select('*')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -71,6 +71,26 @@ export const updateWalletBalance = async (userId: string, amount: number) => {
     return true;
   } catch (error) {
     console.error('Error in updateWalletBalance:', error);
+    throw error;
+  }
+};
+
+export const getWalletByUserId = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('wallets')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching wallet:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in getWalletByUserId:', error);
     throw error;
   }
 };

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PaymentData {
   amount: number;
@@ -31,6 +32,7 @@ interface PaymentConfig {
 }
 
 export const usePaymentProcessing = () => {
+  const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [config, setConfig] = useState<PaymentConfig>({
     maxAmount: 100000,
@@ -45,6 +47,10 @@ export const usePaymentProcessing = () => {
   };
 
   const validatePayment = (paymentData: PaymentData): { valid: boolean; error?: string } => {
+    if (!user?.id) {
+      return { valid: false, error: 'User must be authenticated' };
+    }
+
     if (paymentData.amount < config.minAmount) {
       return { valid: false, error: `Minimum amount is ${config.minAmount} ${paymentData.currency}` };
     }
@@ -65,6 +71,16 @@ export const usePaymentProcessing = () => {
   };
 
   const processPayment = async (paymentData: PaymentData): Promise<PaymentResult> => {
+    if (!user?.id) {
+      const error = 'User must be authenticated to process payments';
+      toast({
+        title: "Authentication Required",
+        description: error,
+        variant: "destructive"
+      });
+      return { success: false, error };
+    }
+
     setIsProcessing(true);
     
     try {
@@ -76,6 +92,7 @@ export const usePaymentProcessing = () => {
       const { data, error } = await supabase.functions.invoke('process-payment', {
         body: {
           ...paymentData,
+          user_id: user.id,
           fee: calculateFee(paymentData.amount),
           config
         }
