@@ -25,14 +25,14 @@ const RoleManagement = () => {
   const [selectedRole, setSelectedRole] = useState<UserRole>('user');
   const [targetEmail, setTargetEmail] = useState('');
 
-  const roleIcons = {
+  const roleIcons: Record<UserRole, React.ReactNode> = {
     user: <Users className="h-5 w-5" />,
     business: <Shield className="h-5 w-5" />,
     admin: <Crown className="h-5 w-5" />,
     beta_tester: <TestTube className="h-5 w-5" />
   };
 
-  const roleDescriptions = {
+  const roleDescriptions: Record<UserRole, string> = {
     user: "Standard user with basic access to wallet and payment features",
     business: "Business user with access to merchant tools and APIs",
     admin: "Administrator with full system access and user management",

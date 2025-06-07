@@ -24,6 +24,7 @@ import Wallet from "./pages/Wallet";
 import Transactions from "./pages/Transactions";
 import VirtualCardNew from "./pages/VirtualCardNew";
 import Transfer from "./pages/Transfer";
+import Business from "./pages/Business";
 import Compliance from "./pages/Compliance";
 import FeedbackDashboard from "./pages/FeedbackDashboard";
 import Help from "./pages/Help";
@@ -35,13 +36,13 @@ const queryClient = new QueryClient();
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <RoleProvider>
-          <NotificationProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <RoleProvider>
+              <NotificationProvider>
                 <Routes>
                   {/* Public routes */}
                   <Route path="/" element={<Index />} />
@@ -73,6 +74,14 @@ function App() {
                   <Route path="/beta-dashboard" element={
                     <ProtectedRoute>
                       <BetaTesterDashboard />
+                    </ProtectedRoute>
+                  } />
+
+                  <Route path="/business" element={
+                    <ProtectedRoute>
+                      <BusinessRouteGuard>
+                        <Business />
+                      </BusinessRouteGuard>
                     </ProtectedRoute>
                   } />
                   
@@ -130,11 +139,11 @@ function App() {
                     </ProtectedRoute>
                   } />
                 </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
-          </NotificationProvider>
-        </RoleProvider>
-      </AuthProvider>
+              </NotificationProvider>
+            </RoleProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }
