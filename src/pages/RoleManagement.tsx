@@ -10,10 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRoles, UserRole } from "@/contexts/RoleContext";
+import { useRoles } from "@/contexts/RoleContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Users, Shield, Crown, TestTube } from "lucide-react";
+
+type UserRole = 'user' | 'business' | 'admin' | 'beta_tester';
 
 const RoleManagement = () => {
   const { user } = useAuth();
@@ -147,11 +149,11 @@ const RoleManagement = () => {
                   {roles.map((role) => (
                     <div key={role} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-3">
-                        {roleIcons[role]}
+                        {roleIcons[role as UserRole]}
                         <div>
                           <h3 className="font-medium capitalize">{role.replace('_', ' ')}</h3>
                           <p className="text-sm text-muted-foreground">
-                            {roleDescriptions[role]}
+                            {roleDescriptions[role as UserRole]}
                           </p>
                         </div>
                       </div>

@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,17 +22,13 @@ import RoleManagement from "./pages/RoleManagement";
 import Settings from "./pages/Settings";
 import Wallet from "./pages/Wallet";
 import Transactions from "./pages/Transactions";
-import CardNew from "./pages/CardNew";
+import VirtualCardNew from "./pages/VirtualCardNew";
 import Transfer from "./pages/Transfer";
-import Business from "./pages/Business";
 import Compliance from "./pages/Compliance";
 import FeedbackDashboard from "./pages/FeedbackDashboard";
 import Help from "./pages/Help";
 import ResetPassword from "./pages/ResetPassword";
-import USSD from "./pages/USSD";
 import Pricing from "./pages/Pricing";
-import AdminSecurity from "./pages/AdminSecurity";
-import AdminMonitoring from "./pages/AdminMonitoring";
 
 const queryClient = new QueryClient();
 
@@ -51,7 +48,6 @@ function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
-                  <Route path="/ussd" element={<USSD />} />
                   <Route path="/pricing" element={<Pricing />} />
                   
                   {/* Protected routes */}
@@ -106,21 +102,13 @@ function App() {
 
                   <Route path="/card/new" element={
                     <ProtectedRoute requiredFeature="virtual_cards">
-                      <CardNew />
+                      <VirtualCardNew />
                     </ProtectedRoute>
                   } />
 
                   <Route path="/transfer" element={
                     <ProtectedRoute requiredFeature="transfers">
                       <Transfer />
-                    </ProtectedRoute>
-                  } />
-
-                  <Route path="/business" element={
-                    <ProtectedRoute requiredFeature="business_tools">
-                      <BusinessRouteGuard>
-                        <Business />
-                      </BusinessRouteGuard>
                     </ProtectedRoute>
                   } />
 
@@ -139,18 +127,6 @@ function App() {
                   <Route path="/help" element={
                     <ProtectedRoute>
                       <Help />
-                    </ProtectedRoute>
-                  } />
-
-                  <Route path="/admin/security" element={
-                    <ProtectedRoute>
-                      <AdminSecurity />
-                    </ProtectedRoute>
-                  } />
-
-                  <Route path="/admin/monitoring" element={
-                    <ProtectedRoute>
-                      <AdminMonitoring />
                     </ProtectedRoute>
                   } />
                 </Routes>

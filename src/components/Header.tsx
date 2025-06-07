@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { RoleBadge } from "@/components/FeatureAccess";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -44,7 +43,6 @@ const Header = () => {
         <div className="flex items-center space-x-4">
           {user ? (
             <>
-              <NotificationBell />
               <RoleBadge />
               <RoleSwitcher />
               <Link to="/settings">
