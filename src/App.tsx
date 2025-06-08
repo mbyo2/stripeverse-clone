@@ -31,6 +31,13 @@ import FeedbackDashboard from "./pages/FeedbackDashboard";
 import Help from "./pages/Help";
 import ResetPassword from "./pages/ResetPassword";
 import Pricing from "./pages/Pricing";
+import Profile from "./pages/Profile";
+import Checkout from "./pages/Checkout";
+import SubscriptionTiers from "./pages/SubscriptionTiers";
+import Billing from "./pages/Billing";
+import Analytics from "./pages/Analytics";
+import API from "./pages/API";
+import Support from "./pages/Support";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +58,8 @@ function App() {
                   <Route path="/register" element={<Register />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/subscription-tiers" element={<SubscriptionTiers />} />
+                  <Route path="/checkout/*" element={<Checkout />} />
                   
                   {/* Protected routes */}
                   <Route path="/dashboard" element={
@@ -104,6 +113,12 @@ function App() {
                     </ProtectedRoute>
                   } />
 
+                  <Route path="/profile" element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  } />
+
                   <Route path="/wallet" element={
                     <ProtectedRoute>
                       <Wallet />
@@ -113,6 +128,30 @@ function App() {
                   <Route path="/transactions" element={
                     <ProtectedRoute>
                       <Transactions />
+                    </ProtectedRoute>
+                  } />
+
+                  <Route path="/billing" element={
+                    <ProtectedRoute>
+                      <Billing />
+                    </ProtectedRoute>
+                  } />
+
+                  <Route path="/analytics" element={
+                    <ProtectedRoute requiredFeature="analytics">
+                      <Analytics />
+                    </ProtectedRoute>
+                  } />
+
+                  <Route path="/api" element={
+                    <ProtectedRoute requiredFeature="business_tools">
+                      <API />
+                    </ProtectedRoute>
+                  } />
+
+                  <Route path="/support" element={
+                    <ProtectedRoute>
+                      <Support />
                     </ProtectedRoute>
                   } />
 

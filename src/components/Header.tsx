@@ -4,6 +4,14 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { RoleBadge } from "@/components/FeatureAccess";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown, CreditCard, BarChart3, Settings, HelpCircle } from "lucide-react";
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -20,27 +28,85 @@ const Header = () => {
           </Link>
           
           {user && (
-            <nav className="hidden md:flex items-center space-x-4">
+            <nav className="hidden md:flex items-center space-x-2">
               <Link to="/dashboard">
                 <Button variant={isActive("/dashboard") ? "default" : "ghost"} size="sm">
                   Dashboard
                 </Button>
               </Link>
-              <Link to="/wallet">
-                <Button variant={isActive("/wallet") ? "default" : "ghost"} size="sm">
-                  Wallet
-                </Button>
-              </Link>
-              <Link to="/transactions">
-                <Button variant={isActive("/transactions") ? "default" : "ghost"} size="sm">
-                  Transactions
-                </Button>
-              </Link>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                    Payments <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem asChild>
+                    <Link to="/wallet" className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Wallet
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/transactions">Transactions</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/transfer">Transfer Money</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/card/new">Virtual Cards</Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                    Business <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem asChild>
+                    <Link to="/analytics" className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4" />
+                      Analytics
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/api">API Management</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/billing">Billing</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/business">Business Tools</Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <Link to="/tier-management">
                 <Button variant={isActive("/tier-management") ? "default" : "ghost"} size="sm">
                   Tiers
                 </Button>
               </Link>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                    <HelpCircle className="h-4 w-4" />
+                    Help <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem asChild>
+                    <Link to="/support">Support Center</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/help">Help & FAQ</Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </nav>
           )}
         </div>
@@ -50,17 +116,37 @@ const Header = () => {
             <>
               <RoleBadge />
               <RoleSwitcher />
-              <Link to="/settings">
-                <Button variant="ghost" size="sm">
-                  Settings
-                </Button>
-              </Link>
-              <Button variant="outline" size="sm" onClick={signOut}>
-                Sign Out
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                    <Settings className="h-4 w-4" />
+                    Account <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile">Profile</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">Settings</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/role-management">Role Management</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut}>
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
             <div className="flex items-center space-x-2">
+              <Link to="/pricing">
+                <Button variant="ghost" size="sm">
+                  Pricing
+                </Button>
+              </Link>
               <Link to="/login">
                 <Button variant="ghost" size="sm">
                   Sign In
