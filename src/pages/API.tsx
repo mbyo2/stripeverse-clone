@@ -142,16 +142,16 @@ const API = () => {
                   <div>
                     <h3 className="font-medium mb-2">Quick Start</h3>
                     <div className="bg-gray-100 p-4 rounded-lg">
-                      <code className="text-sm">
-                        curl -X POST https://api.bmaglass.com/v1/payments \<br/>
-                        &nbsp;&nbsp;-H "Authorization: Bearer YOUR_API_KEY" \<br/>
-                        &nbsp;&nbsp;-H "Content-Type: application/json" \<br/>
-                        &nbsp;&nbsp;-d '{<br/>
-                        &nbsp;&nbsp;&nbsp;&nbsp;"amount": 1000,<br/>
-                        &nbsp;&nbsp;&nbsp;&nbsp;"currency": "ZMW",<br/>
-                        &nbsp;&nbsp;&nbsp;&nbsp;"payment_method": "mobile_money"<br/>
-                        &nbsp;&nbsp;}'
-                      </code>
+                      <pre className="text-sm overflow-x-auto">
+{`curl -X POST https://api.bmaglass.com/v1/payments \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "amount": 1000,
+    "currency": "ZMW",
+    "payment_method": "mobile_money"
+  }'`}
+                      </pre>
                     </div>
                   </div>
                   
