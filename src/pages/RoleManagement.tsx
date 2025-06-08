@@ -9,14 +9,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRoles } from "@/contexts/RoleContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import type { Tables } from "@/integrations/supabase/types";
 
-interface RoleRequest {
-  id: string;
-  user_id: string;
-  requested_role: string;
-  status: string;
-  created_at: string;
-}
+type RoleRequest = Tables<'role_requests'>;
 
 const RoleManagement = () => {
   const { user } = useAuth();
@@ -59,7 +54,7 @@ const RoleManagement = () => {
         .from('role_requests')
         .insert({
           user_id: user.id,
-          requested_role: roleId,
+          requested_role: roleId as any,
           status: 'pending'
         });
 
@@ -135,6 +130,37 @@ const RoleManagement = () => {
             </CardContent>
           </Card>
         </div>
+
+        {requests.length > 0 && (
+          <Card className="mt-8">
+            <CardHeader>
+              <CardTitle>My Role Requests</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {requests.map((request) => (
+                  <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h3 className="font-medium capitalize">{request.requested_role} Role</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Requested on {new Date(request.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge 
+                      variant={
+                        request.status === 'approved' ? 'default' : 
+                        request.status === 'rejected' ? 'destructive' : 
+                        'secondary'
+                      }
+                    >
+                      {request.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
       <Footer />
     </div>
