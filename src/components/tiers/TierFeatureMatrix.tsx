@@ -19,6 +19,12 @@ interface TierData {
   price: number;
   description: string;
   features: string[];
+  pricing: {
+    fixedFee: number;
+    percentage: number;
+    transactionLimit: string;
+    freeTransactions: number;
+  };
   limits: {
     transactions: string;
     cards: string;
@@ -38,11 +44,17 @@ const TierFeatureMatrix = () => {
       icon: <Star className="h-5 w-5" />,
       price: 0,
       description: 'Perfect for personal use and getting started',
-      features: ['dashboard_access', 'feedback_submission'],
+      features: ['dashboard_access', 'feedback_submission', 'transfers'],
+      pricing: {
+        fixedFee: 2.50,
+        percentage: 2.9,
+        transactionLimit: 'K 1,000',
+        freeTransactions: 5
+      },
       limits: {
-        transactions: '10 per month',
+        transactions: '5 free per month, then 2.9% + K2.50',
         cards: '1 virtual card',
-        transfers: 'Not available',
+        transfers: 'Local transfers only',
         support: 'Community support'
       },
       color: 'bg-gray-500'
@@ -53,11 +65,17 @@ const TierFeatureMatrix = () => {
       icon: <Zap className="h-5 w-5" />,
       price: 9.99,
       description: 'For individuals who need more features',
-      features: ['dashboard_access', 'feedback_submission', 'virtual_cards'],
+      features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers'],
+      pricing: {
+        fixedFee: 2.00,
+        percentage: 2.4,
+        transactionLimit: 'K 10,000',
+        freeTransactions: 20
+      },
       limits: {
-        transactions: '100 per month',
+        transactions: '20 free per month, then 2.4% + K2.00',
         cards: '3 virtual cards',
-        transfers: 'Local only',
+        transfers: 'Local & some international',
         support: 'Email support'
       },
       color: 'bg-blue-500'
@@ -69,10 +87,16 @@ const TierFeatureMatrix = () => {
       price: 19.99,
       description: 'For power users and small businesses',
       features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics'],
+      pricing: {
+        fixedFee: 1.50,
+        percentage: 1.9,
+        transactionLimit: 'K 50,000',
+        freeTransactions: 100
+      },
       limits: {
-        transactions: '1,000 per month',
+        transactions: '100 free per month, then 1.9% + K1.50',
         cards: '10 virtual cards',
-        transfers: 'Local & International',
+        transfers: 'All types + faster processing',
         support: 'Priority email & chat'
       },
       color: 'bg-purple-500'
@@ -84,10 +108,16 @@ const TierFeatureMatrix = () => {
       price: 49.99,
       description: 'For businesses that need everything',
       features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics', 'business_tools'],
+      pricing: {
+        fixedFee: 1.00,
+        percentage: 1.4,
+        transactionLimit: 'Unlimited',
+        freeTransactions: 500
+      },
       limits: {
-        transactions: 'Unlimited',
+        transactions: '500 free per month, then 1.4% + K1.00',
         cards: 'Unlimited',
-        transfers: 'All types + API access',
+        transfers: 'All types + API access + instant processing',
         support: '24/7 phone & dedicated manager'
       },
       color: 'bg-gradient-to-r from-purple-600 to-pink-600'
@@ -97,8 +127,8 @@ const TierFeatureMatrix = () => {
   const allFeatures: Feature[] = [
     { id: 'dashboard_access', name: 'Dashboard Access', description: 'Access to main dashboard', category: 'Core' },
     { id: 'feedback_submission', name: 'Feedback Submission', description: 'Submit feedback and suggestions', category: 'Core' },
+    { id: 'transfers', name: 'Money Transfers', description: 'Send money with competitive rates', category: 'Payment' },
     { id: 'virtual_cards', name: 'Virtual Cards', description: 'Create and manage virtual debit cards', category: 'Payment' },
-    { id: 'transfers', name: 'Money Transfers', description: 'Send money locally and internationally', category: 'Payment' },
     { id: 'analytics', name: 'Analytics', description: 'Transaction analytics and reports', category: 'Business' },
     { id: 'business_tools', name: 'Business Tools', description: 'Advanced tools for businesses', category: 'Business' },
     { id: 'feedback_dashboard', name: 'Feedback Management', description: 'Manage customer feedback', category: 'Admin' }
@@ -127,12 +157,19 @@ const TierFeatureMatrix = () => {
               <p className="text-sm text-muted-foreground">{tier.description}</p>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div>
-                  <h4 className="font-medium text-sm mb-2">Limits</h4>
+                  <h4 className="font-medium text-sm mb-2">Transaction Pricing</h4>
                   <div className="space-y-1 text-xs text-muted-foreground">
-                    <div>Transactions: {tier.limits.transactions}</div>
-                    <div>Virtual Cards: {tier.limits.cards}</div>
+                    <div>Free: {tier.pricing.freeTransactions} transactions/month</div>
+                    <div>Then: {tier.pricing.percentage}% + K{tier.pricing.fixedFee}</div>
+                    <div>Limit: {tier.pricing.transactionLimit} per transaction</div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm mb-2">Features & Limits</h4>
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <div>Cards: {tier.limits.cards}</div>
                     <div>Transfers: {tier.limits.transfers}</div>
                     <div>Support: {tier.limits.support}</div>
                   </div>

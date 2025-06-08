@@ -4,51 +4,99 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
-import { CreditCard, CheckCircle2, Smartphone, ShieldCheck, BarChart3, Globe, Code, Database } from "lucide-react";
+import { CreditCard, CheckCircle2, Smartphone, ShieldCheck, BarChart3, Globe, Code, Database, Star, Zap, Crown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRoles } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Define product data specific to payment solutions
+// Define product data to match the tier structure
 const productData = [
   {
-    id: "basic",
-    title: "SME Plan",
-    description: "Perfect for small and medium businesses in Zambia",
-    price: 9.99,
+    id: "free",
+    title: "Free Plan",
+    description: "Perfect for personal use and getting started",
+    price: 0,
+    icon: <Star className="h-5 w-5" />,
     features: [
       "Dashboard Access", 
       "Feedback Submission", 
-      "Transaction History", 
-      "Virtual Cards"
+      "Money Transfers",
+      "5 free transactions/month",
+      "2.9% + K2.50 per transaction after",
+      "1 virtual card",
+      "Local transfers only"
     ],
+    pricing: {
+      fixedFee: 2.50,
+      percentage: 2.9,
+      freeTransactions: 5
+    },
     popular: false
   },
   {
-    id: "premium",
-    title: "Business Pro",
-    description: "For established businesses with higher transaction volume",
-    price: 19.99,
+    id: "basic",
+    title: "Basic Plan",
+    description: "For individuals who need more features",
+    price: 9.99,
+    icon: <Zap className="h-5 w-5" />,
     features: [
-      "All Basic features", 
-      "Money Transfers", 
-      "Advanced Analytics", 
-      "Priority Support"
+      "All Free features", 
+      "Virtual Cards",
+      "20 free transactions/month",
+      "2.4% + K2.00 per transaction after",
+      "3 virtual cards",
+      "Local & some international transfers",
+      "Email support"
     ],
+    pricing: {
+      fixedFee: 2.00,
+      percentage: 2.4,
+      freeTransactions: 20
+    },
     popular: true
   },
   {
+    id: "premium",
+    title: "Premium Plan",
+    description: "For power users and small businesses",
+    price: 19.99,
+    icon: <Crown className="h-5 w-5" />,
+    features: [
+      "All Basic features", 
+      "Advanced Analytics", 
+      "100 free transactions/month",
+      "1.9% + K1.50 per transaction after",
+      "10 virtual cards",
+      "All transfer types + faster processing",
+      "Priority Support"
+    ],
+    pricing: {
+      fixedFee: 1.50,
+      percentage: 1.9,
+      freeTransactions: 100
+    },
+    popular: false
+  },
+  {
     id: "enterprise",
-    title: "Enterprise",
-    description: "Customized solutions for large corporations and institutions",
+    title: "Enterprise Plan", 
+    description: "For businesses that need everything",
     price: 49.99,
+    icon: <Crown className="h-5 w-5" />,
     features: [
       "All Premium features", 
       "Business Tools", 
-      "Custom Reporting", 
-      "Dedicated Account Manager",
-      "White-label Options"
+      "500 free transactions/month",
+      "1.4% + K1.00 per transaction after",
+      "Unlimited virtual cards",
+      "API access + instant processing",
+      "24/7 phone & dedicated manager"
     ],
+    pricing: {
+      fixedFee: 1.00,
+      percentage: 1.4,
+      freeTransactions: 500
+    },
     popular: false
   }
 ];
@@ -103,7 +151,7 @@ const Products = () => {
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
           {productData.map((product) => (
             <Card 
               key={product.id} 
@@ -120,20 +168,36 @@ const Products = () => {
                 <Badge className="absolute top-4 left-4 bg-green-500">Current Plan</Badge>
               )}
               <CardHeader>
-                <CardTitle>{product.title}</CardTitle>
+                <div className="flex items-center space-x-2 mb-2">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    {product.icon}
+                  </div>
+                  <CardTitle>{product.title}</CardTitle>
+                </div>
                 <CardDescription>{product.description}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="mb-6">
-                  <span className="text-3xl font-bold">{formatCurrency(product.price)}</span>
-                  <span className="text-muted-foreground"> / month</span>
+                  <span className="text-3xl font-bold">
+                    {product.price === 0 ? 'Free' : formatCurrency(product.price)}
+                  </span>
+                  {product.price > 0 && <span className="text-muted-foreground"> / month</span>}
+                </div>
+
+                {/* Pricing Details */}
+                <div className="mb-6 p-3 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-sm mb-2">Transaction Pricing</h4>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div>• {product.pricing.freeTransactions} free transactions/month</div>
+                    <div>• Then {product.pricing.percentage}% + K{product.pricing.fixedFee} per transaction</div>
+                  </div>
                 </div>
                 
                 <ul className="space-y-2 mb-6">
                   {product.features.map((feature, i) => (
                     <li key={i} className="flex items-start">
                       <CheckCircle2 className="h-5 w-5 text-primary mr-2 shrink-0 mt-0.5" />
-                      <span>{feature}</span>
+                      <span className="text-sm">{feature}</span>
                     </li>
                   ))}
                 </ul>
