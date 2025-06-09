@@ -89,7 +89,10 @@ export const useSubscription = () => {
       
       const limitsMap: Record<string, TierLimits> = {};
       data.forEach(limit => {
-        limitsMap[limit.tier] = limit;
+        limitsMap[limit.tier] = {
+          ...limit,
+          features: Array.isArray(limit.features) ? limit.features as string[] : []
+        };
       });
       
       return limitsMap;

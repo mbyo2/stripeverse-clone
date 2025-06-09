@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -23,6 +24,8 @@ interface RoleContextProps {
   subscriptionTier: string;
   isLoading: boolean;
   hasAccess: (feature: Feature) => boolean;
+  hasRole: (role: Role) => boolean;
+  refreshRoles: () => Promise<void>;
 }
 
 const RoleContext = createContext<RoleContextProps>({
@@ -30,6 +33,8 @@ const RoleContext = createContext<RoleContextProps>({
   subscriptionTier: "free",
   isLoading: true,
   hasAccess: () => false,
+  hasRole: () => false,
+  refreshRoles: async () => {},
 });
 
 export const useRoles = () => useContext(RoleContext);
@@ -38,7 +43,7 @@ interface RoleProviderProps {
   children: React.ReactNode;
 }
 
-export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
+export const RoleProvider = ({ children }: RoleProviderProps) => {
   const { user, isLoading: authLoading } = useAuth();
   const [roles, setRoles] = useState<Role[]>([]);
   const [subscriptionTier, setSubscriptionTier] = useState<string>("free");
@@ -78,42 +83,51 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
     
     const currentTierFeatures = tierFeatures[subscriptionTier] || tierFeatures.free;
     return currentTierFeatures.includes(feature);
-  }, [isLoading, roles, subscriptionTier]);
+  }, [isLoading, checkRoleAccess, subscriptionTier]);
 
-  useEffect(() => {
-    const getRoles = async () => {
-      setIsLoading(true);
-      if (user) {
-        try {
-          let { data: user_roles, error } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", user.id);
+  // Check if user has a specific role
+  const hasRole = useCallback((role: Role): boolean => {
+    return roles.includes(role);
+  }, [roles]);
 
-          if (error) {
-            throw error;
-          }
+  const getRoles = useCallback(async () => {
+    setIsLoading(true);
+    if (user) {
+      try {
+        let { data: user_roles, error } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id);
 
-          if (user_roles && user_roles.length > 0) {
-            const rolesArray = user_roles.map((item) => item.role) as Role[];
-            setRoles(rolesArray);
-          } else {
-            setRoles(["user"]);
-          }
-        } catch (error: any) {
-          console.error("Error fetching roles:", error.message);
-          setRoles(["user"]);
-        } finally {
-          setIsLoading(false);
+        if (error) {
+          throw error;
         }
-      } else {
-        setRoles([]);
+
+        if (user_roles && user_roles.length > 0) {
+          const rolesArray = user_roles.map((item) => item.role) as Role[];
+          setRoles(rolesArray);
+        } else {
+          setRoles(["user"]);
+        }
+      } catch (error: any) {
+        console.error("Error fetching roles:", error.message);
+        setRoles(["user"]);
+      } finally {
         setIsLoading(false);
       }
-    };
-
-    getRoles();
+    } else {
+      setRoles([]);
+      setIsLoading(false);
+    }
   }, [user]);
+
+  const refreshRoles = useCallback(async () => {
+    await getRoles();
+  }, [getRoles]);
+
+  useEffect(() => {
+    getRoles();
+  }, [getRoles]);
 
   // Enhanced subscription tier checking
   useEffect(() => {
@@ -139,6 +153,8 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
     subscriptionTier,
     isLoading: authLoading || isLoading,
     hasAccess,
+    hasRole,
+    refreshRoles,
   };
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;
