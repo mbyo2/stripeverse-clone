@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -35,6 +36,7 @@ const Pricing = () => {
         "Dashboard Access",
         "Feedback Submission", 
         "Money Transfers",
+        "Free Airtime Purchase",
         "2.9% + K2.50 per transaction",
         "K 1,000 max per transaction",
         "1 virtual card",
@@ -57,6 +59,7 @@ const Pricing = () => {
       features: [
         "All Free features",
         "Virtual Cards",
+        "Free Airtime Purchase",
         "2.4% + K2.00 per transaction",
         "K 10,000 max per transaction",
         "3 virtual cards",
@@ -78,6 +81,7 @@ const Pricing = () => {
       features: [
         "All Basic features",
         "Advanced Analytics",
+        "Free Airtime Purchase",
         "1.9% + K1.50 per transaction",
         "K 50,000 max per transaction",
         "10 virtual cards",
@@ -99,6 +103,7 @@ const Pricing = () => {
       features: [
         "All Premium features",
         "Business Tools",
+        "Free Airtime Purchase",
         "1.4% + K1.00 per transaction",
         "Unlimited transaction amount",
         "Unlimited virtual cards",
@@ -250,7 +255,7 @@ const Pricing = () => {
                 </li>
                 <li className="flex justify-between">
                   <span>Airtime Purchase</span>
-                  <span>0.5%</span>
+                  <span className="text-green-600 font-medium">Free</span>
                 </li>
               </ul>
             </div>

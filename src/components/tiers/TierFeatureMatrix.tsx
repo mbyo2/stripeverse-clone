@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ interface TierData {
     cards: string;
     transfers: string;
     support: string;
+    airtime: string;
   };
   color: string;
 }
@@ -42,7 +44,7 @@ const TierFeatureMatrix = () => {
       icon: <Star className="h-5 w-5" />,
       price: 0,
       description: 'Perfect for personal use and getting started',
-      features: ['dashboard_access', 'feedback_submission', 'transfers'],
+      features: ['dashboard_access', 'feedback_submission', 'transfers', 'airtime_purchase'],
       pricing: {
         fixedFee: 2.50,
         percentage: 2.9,
@@ -52,7 +54,8 @@ const TierFeatureMatrix = () => {
         transactions: '2.9% + K2.50 per transaction',
         cards: '1 virtual card',
         transfers: 'Local transfers only',
-        support: 'Community support'
+        support: 'Community support',
+        airtime: 'Free airtime purchase'
       },
       color: 'bg-gray-500'
     },
@@ -62,7 +65,7 @@ const TierFeatureMatrix = () => {
       icon: <Zap className="h-5 w-5" />,
       price: 9.99,
       description: 'For individuals who need more features',
-      features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers'],
+      features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'airtime_purchase'],
       pricing: {
         fixedFee: 2.00,
         percentage: 2.4,
@@ -72,7 +75,8 @@ const TierFeatureMatrix = () => {
         transactions: '2.4% + K2.00 per transaction',
         cards: '3 virtual cards',
         transfers: 'Local & some international',
-        support: 'Email support'
+        support: 'Email support',
+        airtime: 'Free airtime purchase'
       },
       color: 'bg-blue-500'
     },
@@ -82,7 +86,7 @@ const TierFeatureMatrix = () => {
       icon: <Crown className="h-5 w-5" />,
       price: 19.99,
       description: 'For power users and small businesses',
-      features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics'],
+      features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics', 'airtime_purchase'],
       pricing: {
         fixedFee: 1.50,
         percentage: 1.9,
@@ -92,7 +96,8 @@ const TierFeatureMatrix = () => {
         transactions: '1.9% + K1.50 per transaction',
         cards: '10 virtual cards',
         transfers: 'All types + faster processing',
-        support: 'Priority email & chat'
+        support: 'Priority email & chat',
+        airtime: 'Free airtime purchase'
       },
       color: 'bg-purple-500'
     },
@@ -102,7 +107,7 @@ const TierFeatureMatrix = () => {
       icon: <Crown className="h-5 w-5" />,
       price: 49.99,
       description: 'For businesses that need everything',
-      features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics', 'business_tools'],
+      features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics', 'business_tools', 'airtime_purchase'],
       pricing: {
         fixedFee: 1.00,
         percentage: 1.4,
@@ -112,7 +117,8 @@ const TierFeatureMatrix = () => {
         transactions: '1.4% + K1.00 per transaction',
         cards: 'Unlimited',
         transfers: 'All types + API access + instant processing',
-        support: '24/7 phone & dedicated manager'
+        support: '24/7 phone & dedicated manager',
+        airtime: 'Free airtime purchase'
       },
       color: 'bg-gradient-to-r from-purple-600 to-pink-600'
     }
@@ -123,6 +129,7 @@ const TierFeatureMatrix = () => {
     { id: 'feedback_submission', name: 'Feedback Submission', description: 'Submit feedback and suggestions', category: 'Core' },
     { id: 'transfers', name: 'Money Transfers', description: 'Send money with competitive rates', category: 'Payment' },
     { id: 'virtual_cards', name: 'Virtual Cards', description: 'Create and manage virtual debit cards', category: 'Payment' },
+    { id: 'airtime_purchase', name: 'Airtime Purchase', description: 'Buy airtime for free across all networks', category: 'Payment' },
     { id: 'analytics', name: 'Analytics', description: 'Transaction analytics and reports', category: 'Business' },
     { id: 'business_tools', name: 'Business Tools', description: 'Advanced tools for businesses', category: 'Business' },
     { id: 'feedback_dashboard', name: 'Feedback Management', description: 'Manage customer feedback', category: 'Admin' }
@@ -164,6 +171,7 @@ const TierFeatureMatrix = () => {
                   <div className="space-y-1 text-xs text-muted-foreground">
                     <div>Cards: {tier.limits.cards}</div>
                     <div>Transfers: {tier.limits.transfers}</div>
+                    <div>Airtime: {tier.limits.airtime}</div>
                     <div>Support: {tier.limits.support}</div>
                   </div>
                 </div>

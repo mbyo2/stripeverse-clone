@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +20,7 @@ const productData = [
       "Dashboard Access", 
       "Feedback Submission", 
       "Money Transfers",
+      "Free Airtime Purchase",
       "2.9% + K2.50 per transaction",
       "K 1,000 max per transaction",
       "1 virtual card",
@@ -42,6 +42,7 @@ const productData = [
     features: [
       "All Free features", 
       "Virtual Cards",
+      "Free Airtime Purchase",
       "2.4% + K2.00 per transaction",
       "K 10,000 max per transaction",
       "3 virtual cards",
@@ -63,6 +64,7 @@ const productData = [
     features: [
       "All Basic features", 
       "Advanced Analytics", 
+      "Free Airtime Purchase",
       "1.9% + K1.50 per transaction",
       "K 50,000 max per transaction",
       "10 virtual cards",
@@ -84,6 +86,7 @@ const productData = [
     features: [
       "All Premium features", 
       "Business Tools", 
+      "Free Airtime Purchase",
       "1.4% + K1.00 per transaction",
       "Unlimited transaction amount",
       "Unlimited virtual cards",
