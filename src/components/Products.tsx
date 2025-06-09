@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useRoles } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Define product data to match the tier structure
+// Define product data to match the updated tier structure
 const productData = [
   {
     id: "free",
@@ -21,15 +20,15 @@ const productData = [
       "Dashboard Access", 
       "Feedback Submission", 
       "Money Transfers",
-      "5 free transactions/month",
-      "2.9% + K2.50 per transaction after",
+      "2.9% + K2.50 per transaction",
       "1 virtual card",
-      "Local transfers only"
+      "Local transfers only",
+      "Community support"
     ],
     pricing: {
       fixedFee: 2.50,
       percentage: 2.9,
-      freeTransactions: 5
+      freeTransactions: 0
     },
     popular: false
   },
@@ -42,8 +41,7 @@ const productData = [
     features: [
       "All Free features", 
       "Virtual Cards",
-      "20 free transactions/month",
-      "2.4% + K2.00 per transaction after",
+      "2.4% + K2.00 per transaction",
       "3 virtual cards",
       "Local & some international transfers",
       "Email support"
@@ -51,7 +49,7 @@ const productData = [
     pricing: {
       fixedFee: 2.00,
       percentage: 2.4,
-      freeTransactions: 20
+      freeTransactions: 0
     },
     popular: true
   },
@@ -64,8 +62,7 @@ const productData = [
     features: [
       "All Basic features", 
       "Advanced Analytics", 
-      "100 free transactions/month",
-      "1.9% + K1.50 per transaction after",
+      "1.9% + K1.50 per transaction",
       "10 virtual cards",
       "All transfer types + faster processing",
       "Priority Support"
@@ -73,7 +70,7 @@ const productData = [
     pricing: {
       fixedFee: 1.50,
       percentage: 1.9,
-      freeTransactions: 100
+      freeTransactions: 0
     },
     popular: false
   },
@@ -86,8 +83,7 @@ const productData = [
     features: [
       "All Premium features", 
       "Business Tools", 
-      "500 free transactions/month",
-      "1.4% + K1.00 per transaction after",
+      "1.4% + K1.00 per transaction",
       "Unlimited virtual cards",
       "API access + instant processing",
       "24/7 phone & dedicated manager"
@@ -95,7 +91,7 @@ const productData = [
     pricing: {
       fixedFee: 1.00,
       percentage: 1.4,
-      freeTransactions: 500
+      freeTransactions: 0
     },
     popular: false
   }
@@ -187,9 +183,8 @@ const Products = () => {
                 {/* Pricing Details */}
                 <div className="mb-6 p-3 bg-gray-50 rounded-lg">
                   <h4 className="font-medium text-sm mb-2">Transaction Pricing</h4>
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <div>• {product.pricing.freeTransactions} free transactions/month</div>
-                    <div>• Then {product.pricing.percentage}% + K{product.pricing.fixedFee} per transaction</div>
+                  <div className="text-xs text-muted-foreground">
+                    <div>{product.pricing.percentage}% + K{product.pricing.fixedFee} per transaction</div>
                   </div>
                 </div>
                 

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -49,10 +48,10 @@ const TierFeatureMatrix = () => {
         fixedFee: 2.50,
         percentage: 2.9,
         transactionLimit: 'K 1,000',
-        freeTransactions: 5
+        freeTransactions: 0
       },
       limits: {
-        transactions: '5 free per month, then 2.9% + K2.50',
+        transactions: '2.9% + K2.50 per transaction',
         cards: '1 virtual card',
         transfers: 'Local transfers only',
         support: 'Community support'
@@ -70,10 +69,10 @@ const TierFeatureMatrix = () => {
         fixedFee: 2.00,
         percentage: 2.4,
         transactionLimit: 'K 10,000',
-        freeTransactions: 20
+        freeTransactions: 0
       },
       limits: {
-        transactions: '20 free per month, then 2.4% + K2.00',
+        transactions: '2.4% + K2.00 per transaction',
         cards: '3 virtual cards',
         transfers: 'Local & some international',
         support: 'Email support'
@@ -91,10 +90,10 @@ const TierFeatureMatrix = () => {
         fixedFee: 1.50,
         percentage: 1.9,
         transactionLimit: 'K 50,000',
-        freeTransactions: 100
+        freeTransactions: 0
       },
       limits: {
-        transactions: '100 free per month, then 1.9% + K1.50',
+        transactions: '1.9% + K1.50 per transaction',
         cards: '10 virtual cards',
         transfers: 'All types + faster processing',
         support: 'Priority email & chat'
@@ -112,10 +111,10 @@ const TierFeatureMatrix = () => {
         fixedFee: 1.00,
         percentage: 1.4,
         transactionLimit: 'Unlimited',
-        freeTransactions: 500
+        freeTransactions: 0
       },
       limits: {
-        transactions: '500 free per month, then 1.4% + K1.00',
+        transactions: '1.4% + K1.00 per transaction',
         cards: 'Unlimited',
         transfers: 'All types + API access + instant processing',
         support: '24/7 phone & dedicated manager'
@@ -161,9 +160,8 @@ const TierFeatureMatrix = () => {
                 <div>
                   <h4 className="font-medium text-sm mb-2">Transaction Pricing</h4>
                   <div className="space-y-1 text-xs text-muted-foreground">
-                    <div>Free: {tier.pricing.freeTransactions} transactions/month</div>
-                    <div>Then: {tier.pricing.percentage}% + K{tier.pricing.fixedFee}</div>
-                    <div>Limit: {tier.pricing.transactionLimit} per transaction</div>
+                    <div>{tier.pricing.percentage}% + K{tier.pricing.fixedFee} per transaction</div>
+                    <div>Max: {tier.pricing.transactionLimit} per transaction</div>
                   </div>
                 </div>
                 <div>
