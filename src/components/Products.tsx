@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,14 +22,14 @@ const productData = [
       "Feedback Submission", 
       "Money Transfers",
       "2.9% + K2.50 per transaction",
+      "K 1,000 max per transaction",
       "1 virtual card",
       "Local transfers only",
       "Community support"
     ],
     pricing: {
       fixedFee: 2.50,
-      percentage: 2.9,
-      freeTransactions: 0
+      percentage: 2.9
     },
     popular: false
   },
@@ -42,14 +43,14 @@ const productData = [
       "All Free features", 
       "Virtual Cards",
       "2.4% + K2.00 per transaction",
+      "K 10,000 max per transaction",
       "3 virtual cards",
       "Local & some international transfers",
       "Email support"
     ],
     pricing: {
       fixedFee: 2.00,
-      percentage: 2.4,
-      freeTransactions: 0
+      percentage: 2.4
     },
     popular: true
   },
@@ -63,14 +64,14 @@ const productData = [
       "All Basic features", 
       "Advanced Analytics", 
       "1.9% + K1.50 per transaction",
+      "K 50,000 max per transaction",
       "10 virtual cards",
       "All transfer types + faster processing",
       "Priority Support"
     ],
     pricing: {
       fixedFee: 1.50,
-      percentage: 1.9,
-      freeTransactions: 0
+      percentage: 1.9
     },
     popular: false
   },
@@ -84,14 +85,14 @@ const productData = [
       "All Premium features", 
       "Business Tools", 
       "1.4% + K1.00 per transaction",
+      "Unlimited transaction amount",
       "Unlimited virtual cards",
       "API access + instant processing",
       "24/7 phone & dedicated manager"
     ],
     pricing: {
       fixedFee: 1.00,
-      percentage: 1.4,
-      freeTransactions: 0
+      percentage: 1.4
     },
     popular: false
   }

@@ -22,7 +22,6 @@ interface TierData {
     fixedFee: number;
     percentage: number;
     transactionLimit: string;
-    freeTransactions: number;
   };
   limits: {
     transactions: string;
@@ -48,7 +47,6 @@ const TierFeatureMatrix = () => {
         fixedFee: 2.50,
         percentage: 2.9,
         transactionLimit: 'K 1,000',
-        freeTransactions: 0
       },
       limits: {
         transactions: '2.9% + K2.50 per transaction',
@@ -69,7 +67,6 @@ const TierFeatureMatrix = () => {
         fixedFee: 2.00,
         percentage: 2.4,
         transactionLimit: 'K 10,000',
-        freeTransactions: 0
       },
       limits: {
         transactions: '2.4% + K2.00 per transaction',
@@ -90,7 +87,6 @@ const TierFeatureMatrix = () => {
         fixedFee: 1.50,
         percentage: 1.9,
         transactionLimit: 'K 50,000',
-        freeTransactions: 0
       },
       limits: {
         transactions: '1.9% + K1.50 per transaction',
@@ -111,7 +107,6 @@ const TierFeatureMatrix = () => {
         fixedFee: 1.00,
         percentage: 1.4,
         transactionLimit: 'Unlimited',
-        freeTransactions: 0
       },
       limits: {
         transactions: '1.4% + K1.00 per transaction',

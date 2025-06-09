@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -37,14 +36,14 @@ const Pricing = () => {
         "Feedback Submission", 
         "Money Transfers",
         "2.9% + K2.50 per transaction",
+        "K 1,000 max per transaction",
         "1 virtual card",
         "Local transfers only",
         "Community support"
       ],
       pricing: {
         fixedFee: 2.50,
-        percentage: 2.9,
-        freeTransactions: 0
+        percentage: 2.9
       }
     },
     {
@@ -59,14 +58,14 @@ const Pricing = () => {
         "All Free features",
         "Virtual Cards",
         "2.4% + K2.00 per transaction",
+        "K 10,000 max per transaction",
         "3 virtual cards",
         "Local & some international transfers",
         "Email support"
       ],
       pricing: {
         fixedFee: 2.00,
-        percentage: 2.4,
-        freeTransactions: 0
+        percentage: 2.4
       }
     },
     {
@@ -80,14 +79,14 @@ const Pricing = () => {
         "All Basic features",
         "Advanced Analytics",
         "1.9% + K1.50 per transaction",
+        "K 50,000 max per transaction",
         "10 virtual cards",
         "All transfer types + faster processing",
         "Priority Support"
       ],
       pricing: {
         fixedFee: 1.50,
-        percentage: 1.9,
-        freeTransactions: 0
+        percentage: 1.9
       }
     },
     {
@@ -101,14 +100,14 @@ const Pricing = () => {
         "All Premium features",
         "Business Tools",
         "1.4% + K1.00 per transaction",
+        "Unlimited transaction amount",
         "Unlimited virtual cards",
         "API access + instant processing",
         "24/7 phone & dedicated manager"
       ],
       pricing: {
         fixedFee: 1.00,
-        percentage: 1.4,
-        freeTransactions: 0
+        percentage: 1.4
       }
     }
   ];
