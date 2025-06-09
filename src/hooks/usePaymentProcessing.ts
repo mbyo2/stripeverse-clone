@@ -81,6 +81,44 @@ export const usePaymentProcessing = () => {
       return { success: false, error };
     }
 
+    // Check transaction limits before processing
+    const { data: canTransact, error: limitError } = await supabase.rpc('check_usage_limit', {
+      p_user_id: user.id,
+      p_limit_type: 'transactions',
+      p_amount: 1
+    });
+    
+    if (limitError) {
+      console.error('Error checking transaction limit:', limitError);
+    } else if (!canTransact) {
+      const error = 'You have reached your monthly transaction limit. Please upgrade your plan to continue.';
+      toast({
+        title: "Transaction Limit Reached",
+        description: error,
+        variant: "destructive"
+      });
+      return { success: false, error };
+    }
+
+    // Check transaction amount limits
+    const { data: canTransactAmount, error: amountLimitError } = await supabase.rpc('check_usage_limit', {
+      p_user_id: user.id,
+      p_limit_type: 'transaction_amount',
+      p_amount: paymentData.amount
+    });
+    
+    if (amountLimitError) {
+      console.error('Error checking transaction amount limit:', amountLimitError);
+    } else if (!canTransactAmount) {
+      const error = 'This transaction would exceed your monthly transaction amount limit. Please upgrade your plan.';
+      toast({
+        title: "Transaction Amount Limit Reached",
+        description: error,
+        variant: "destructive"
+      });
+      return { success: false, error };
+    }
+
     setIsProcessing(true);
     
     try {

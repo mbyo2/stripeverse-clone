@@ -479,6 +479,177 @@ export type Database = {
         }
         Relationships: []
       }
+      subscribers: {
+        Row: {
+          auto_renewal: boolean
+          created_at: string
+          email: string
+          id: string
+          payment_method_id: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_end: string | null
+          subscription_start: string | null
+          subscription_status: string
+          subscription_tier: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_renewal?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          payment_method_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_end?: string | null
+          subscription_start?: string | null
+          subscription_status?: string
+          subscription_tier?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_renewal?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          payment_method_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_end?: string | null
+          subscription_start?: string | null
+          subscription_status?: string
+          subscription_tier?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      subscription_invoices: {
+        Row: {
+          amount: number
+          billing_period_end: string
+          billing_period_start: string
+          created_at: string
+          currency: string
+          id: string
+          invoice_url: string | null
+          status: string
+          stripe_invoice_id: string | null
+          subscription_tier: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          billing_period_end: string
+          billing_period_start: string
+          created_at?: string
+          currency?: string
+          id?: string
+          invoice_url?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          subscription_tier: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          billing_period_end?: string
+          billing_period_start?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          invoice_url?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          subscription_tier?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      subscription_usage: {
+        Row: {
+          api_calls: number
+          cards_created: number
+          created_at: string
+          id: string
+          last_reset: string
+          month_year: string
+          subscription_tier: string
+          transactions_amount: number
+          transactions_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_calls?: number
+          cards_created?: number
+          created_at?: string
+          id?: string
+          last_reset?: string
+          month_year: string
+          subscription_tier: string
+          transactions_amount?: number
+          transactions_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_calls?: number
+          cards_created?: number
+          created_at?: string
+          id?: string
+          last_reset?: string
+          month_year?: string
+          subscription_tier?: string
+          transactions_amount?: number
+          transactions_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tier_limits: {
+        Row: {
+          api_calls_per_hour: number | null
+          created_at: string
+          features: Json
+          id: string
+          monthly_transaction_amount: number | null
+          monthly_transactions: number | null
+          tier: string
+          updated_at: string
+          virtual_cards_limit: number | null
+        }
+        Insert: {
+          api_calls_per_hour?: number | null
+          created_at?: string
+          features?: Json
+          id?: string
+          monthly_transaction_amount?: number | null
+          monthly_transactions?: number | null
+          tier: string
+          updated_at?: string
+          virtual_cards_limit?: number | null
+        }
+        Update: {
+          api_calls_per_hour?: number | null
+          created_at?: string
+          features?: Json
+          id?: string
+          monthly_transaction_amount?: number | null
+          monthly_transactions?: number | null
+          tier?: string
+          updated_at?: string
+          virtual_cards_limit?: number | null
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
@@ -808,6 +979,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_usage_limit: {
+        Args: { p_user_id: string; p_limit_type: string; p_amount?: number }
+        Returns: boolean
+      }
       cleanup_expired_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -818,6 +993,15 @@ export type Database = {
           required_role: Database["public"]["Enums"]["app_role"]
         }
         Returns: boolean
+      }
+      increment_usage: {
+        Args: {
+          p_user_id: string
+          p_user_tier: string
+          p_usage_type: string
+          p_amount?: number
+        }
+        Returns: undefined
       }
       increment_wallet_balance: {
         Args: { p_user_id: string; p_amount: number }

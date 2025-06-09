@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -90,10 +89,22 @@ export const useWallet = () => {
     retry: 1,
   });
 
-  // Create virtual card mutation
+  // Create virtual card mutation with usage tracking
   const createVirtualCardMutation = useMutation({
     mutationFn: async (cardData: any) => {
       if (!user?.id) throw new Error('User not authenticated');
+      
+      // Check if user can create more cards
+      const { data: canCreate, error: limitError } = await supabase.rpc('check_usage_limit', {
+        p_user_id: user.id,
+        p_limit_type: 'virtual_cards',
+        p_amount: 1
+      });
+      
+      if (limitError) throw limitError;
+      if (!canCreate) {
+        throw new Error('You have reached your monthly virtual card creation limit. Please upgrade your plan to create more cards.');
+      }
       
       const { data, error } = await supabase.functions.invoke('create-virtual-card', {
         body: { ...cardData, user_id: user.id },
@@ -104,6 +115,7 @@ export const useWallet = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['virtualCards'] });
+      queryClient.invalidateQueries({ queryKey: ['usage'] });
       toast({
         title: "Virtual Card Created",
         description: "Your new virtual card has been created successfully.",

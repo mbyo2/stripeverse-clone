@@ -1,158 +1,145 @@
-
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+  useCallback,
+} from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "./AuthContext";
 
-export type UserRole = "user" | "business" | "admin" | "beta_tester";
-export type SubscriptionTier = "free" | "basic" | "premium" | "enterprise";
+export type Role = "admin" | "business" | "user" | "beta_tester";
+export type Feature =
+  | "dashboard_access"
+  | "feedback_submission"
+  | "virtual_cards"
+  | "transfers"
+  | "analytics"
+  | "business_tools"
+  | "feedback_dashboard";
 
-type RoleContextType = {
-  roles: UserRole[];
-  subscriptionTier: SubscriptionTier;
+interface RoleContextProps {
+  roles: Role[];
+  subscriptionTier: string;
   isLoading: boolean;
-  hasRole: (role: UserRole) => boolean;
   hasAccess: (feature: Feature) => boolean;
-  refreshRoles: () => Promise<void>;
-};
+}
 
-export type Feature = 
-  | "dashboard_access" 
-  | "feedback_submission" 
-  | "feedback_dashboard" 
-  | "virtual_cards" 
-  | "transfers" 
-  | "business_tools" 
-  | "analytics";
+const RoleContext = createContext<RoleContextProps>({
+  roles: [],
+  subscriptionTier: "free",
+  isLoading: true,
+  hasAccess: () => false,
+});
 
-// Define which features are available to which subscription tiers
-const tierFeatures: Record<SubscriptionTier, Feature[]> = {
-  free: ["dashboard_access", "feedback_submission"],
-  basic: ["dashboard_access", "feedback_submission", "virtual_cards"],
-  premium: ["dashboard_access", "feedback_submission", "virtual_cards", "transfers", "analytics"],
-  enterprise: ["dashboard_access", "feedback_submission", "virtual_cards", "transfers", "analytics", "business_tools"],
-};
+export const useRoles = () => useContext(RoleContext);
 
-// Define which features are available to which roles (overrides tier restrictions)
-const roleFeatures: Record<UserRole, Feature[]> = {
-  user: [],
-  business: ["business_tools"],
-  admin: ["feedback_dashboard", "business_tools", "analytics"],
-  beta_tester: ["feedback_dashboard", "feedback_submission"],
-};
+interface RoleProviderProps {
+  children: React.ReactNode;
+}
 
-// Create context with default undefined value
-const RoleContext = createContext<RoleContextType | undefined>(undefined);
-
-export const RoleProvider = ({ children }: { children: ReactNode }) => {
-  const [roles, setRoles] = useState<UserRole[]>([]);
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("free");
+export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading: authLoading } = useAuth();
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [subscriptionTier, setSubscriptionTier] = useState<string>("free");
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
-  const { toast } = useToast();
 
-  // Function to check if user has a specific role
-  const hasRole = (role: UserRole) => {
-    return roles.includes(role);
-  };
+  const checkRoleAccess = useCallback(
+    (feature: Feature): boolean => {
+      if (roles.includes("admin")) return true;
 
-  // Function to check if user has access to a specific feature
-  const hasAccess = (feature: Feature) => {
-    // Check if any of the user's roles grants access to the feature
-    const hasRoleAccess = roles.some(role => roleFeatures[role].includes(feature));
+      const featureRoles: { [key in Feature]?: Role[] } = {
+        feedback_dashboard: ["admin"],
+        analytics: ["business", "admin"],
+        business_tools: ["business", "admin"],
+      };
+
+      const allowedRoles = featureRoles[feature] || [];
+      return roles.some((role) => allowedRoles.includes(role));
+    },
+    [roles]
+  );
+
+  // Enhanced hasAccess function that considers subscription tier
+  const hasAccess = useCallback((feature: Feature): boolean => {
+    if (isLoading) return false;
     
-    // Check if the user's subscription tier grants access to the feature
-    const hasTierAccess = tierFeatures[subscriptionTier].includes(feature);
+    // Check role-based access first
+    const roleAccess = checkRoleAccess(feature);
+    if (roleAccess) return true;
     
-    // User has access if either their role or subscription tier grants it
-    return hasRoleAccess || hasTierAccess;
-  };
+    // Check subscription-based access
+    const tierFeatures: Record<string, Feature[]> = {
+      free: ['dashboard_access', 'feedback_submission', 'transfers'],
+      basic: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers'],
+      premium: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics'],
+      enterprise: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics', 'business_tools']
+    };
+    
+    const currentTierFeatures = tierFeatures[subscriptionTier] || tierFeatures.free;
+    return currentTierFeatures.includes(feature);
+  }, [isLoading, roles, subscriptionTier]);
 
-  // Fetch the user's roles and subscription tier
-  const refreshRoles = async () => {
-    try {
-      setIsLoading(true);
-      
-      if (!user) {
-        setRoles([]);
-        setSubscriptionTier("free");
-        return;
-      }
-
-      // Fetch user roles using the has_role function to avoid RLS recursion
-      const { data: roleData, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id);
-
-      if (roleError) {
-        console.error("Error fetching user roles:", roleError);
-        // If there's an error fetching roles, set default role
-        setRoles(["user"]);
-        toast({
-          title: "Info",
-          description: "Using default user permissions. Some features may be limited.",
-          variant: "default",
-        });
-      } else {
-        // Extract roles from response
-        const userRoles = roleData?.map(r => r.role as UserRole) || [];
-        
-        // If no explicit roles assigned, set default role to "user"
-        if (userRoles.length === 0) {
-          userRoles.push("user");
-        }
-        
-        setRoles(userRoles);
-      }
-
-      // TODO: In a real app, fetch subscription tier from a subscribers table
-      // For now, simulate subscription tier based on roles
-      const currentRoles = roleData?.map(r => r.role as UserRole) || ["user"];
-      if (currentRoles.includes("admin")) {
-        setSubscriptionTier("enterprise");
-      } else if (currentRoles.includes("business")) {
-        setSubscriptionTier("premium");
-      } else if (currentRoles.includes("beta_tester")) {
-        setSubscriptionTier("basic");
-      } else {
-        setSubscriptionTier("free");
-      }
-
-    } catch (error) {
-      console.error("Unexpected error fetching user roles:", error);
-      // Set default role on error
-      setRoles(["user"]);
-      setSubscriptionTier("free");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fetch roles when user changes
   useEffect(() => {
-    refreshRoles();
+    const getRoles = async () => {
+      setIsLoading(true);
+      if (user) {
+        try {
+          let { data: user_roles, error } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", user.id);
+
+          if (error) {
+            throw error;
+          }
+
+          if (user_roles && user_roles.length > 0) {
+            const rolesArray = user_roles.map((item) => item.role) as Role[];
+            setRoles(rolesArray);
+          } else {
+            setRoles(["user"]);
+          }
+        } catch (error: any) {
+          console.error("Error fetching roles:", error.message);
+          setRoles(["user"]);
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setRoles([]);
+        setIsLoading(false);
+      }
+    };
+
+    getRoles();
   }, [user]);
 
-  return (
-    <RoleContext.Provider value={{ 
-      roles, 
-      subscriptionTier, 
-      isLoading, 
-      hasRole, 
-      hasAccess,
-      refreshRoles
-    }}>
-      {children}
-    </RoleContext.Provider>
-  );
-};
+  // Enhanced subscription tier checking
+  useEffect(() => {
+    const checkSubscription = async () => {
+      if (user?.id) {
+        try {
+          const { data, error } = await supabase.functions.invoke('check-subscription');
+          if (data && !error) {
+            setSubscriptionTier(data.subscription_tier || 'free');
+          }
+        } catch (error) {
+          console.error('Error checking subscription:', error);
+          setSubscriptionTier('free');
+        }
+      }
+    };
 
-// Custom hook to use role context
-export const useRoles = () => {
-  const context = useContext(RoleContext);
-  if (context === undefined) {
-    throw new Error("useRoles must be used within a RoleProvider");
-  }
-  return context;
+    checkSubscription();
+  }, [user?.id]);
+
+  const value: RoleContextProps = {
+    roles,
+    subscriptionTier,
+    isLoading: authLoading || isLoading,
+    hasAccess,
+  };
+
+  return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;
 };
