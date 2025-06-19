@@ -167,6 +167,36 @@ export type Database = {
         }
         Relationships: []
       }
+      features: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          feature_id: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          feature_id: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          feature_id?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       kyc_verifications: {
         Row: {
           address: string | null
@@ -614,6 +644,35 @@ export type Database = {
         }
         Relationships: []
       }
+      tier_features: {
+        Row: {
+          created_at: string
+          feature_id: string
+          id: string
+          tier: string
+        }
+        Insert: {
+          created_at?: string
+          feature_id: string
+          id?: string
+          tier: string
+        }
+        Update: {
+          created_at?: string
+          feature_id?: string
+          id?: string
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tier_features_feature_id_fkey"
+            columns: ["feature_id"]
+            isOneToOne: false
+            referencedRelation: "features"
+            referencedColumns: ["feature_id"]
+          },
+        ]
+      }
       tier_limits: {
         Row: {
           api_calls_per_hour: number | null
@@ -987,6 +1046,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_tier_features: {
+        Args: { p_tier: string }
+        Returns: {
+          feature_id: string
+          name: string
+          description: string
+          category: string
+        }[]
+      }
       has_role: {
         Args: {
           user_id: string
@@ -1006,6 +1074,10 @@ export type Database = {
       increment_wallet_balance: {
         Args: { p_user_id: string; p_amount: number }
         Returns: undefined
+      }
+      user_has_feature_access: {
+        Args: { p_user_id: string; p_feature_id: string }
+        Returns: boolean
       }
     }
     Enums: {

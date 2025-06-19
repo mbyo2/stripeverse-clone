@@ -4,13 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, Star, Crown, Zap } from "lucide-react";
 import { useRoles } from "@/contexts/RoleContext";
-
-interface Feature {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-}
+import { useFeatures } from "@/hooks/useFeatures";
+import { useSubscription } from "@/hooks/useSubscription";
 
 interface TierData {
   id: string;
@@ -18,7 +13,6 @@ interface TierData {
   icon: React.ReactNode;
   price: number;
   description: string;
-  features: string[];
   pricing: {
     fixedFee: number;
     percentage: number;
@@ -35,7 +29,9 @@ interface TierData {
 }
 
 const TierFeatureMatrix = () => {
-  const { subscriptionTier, hasAccess } = useRoles();
+  const { subscriptionTier } = useRoles();
+  const { getTierFeatureMatrix, isLoading, error } = useFeatures();
+  const { getCurrentTierLimits } = useSubscription();
 
   const tiers: TierData[] = [
     {
@@ -44,14 +40,13 @@ const TierFeatureMatrix = () => {
       icon: <Star className="h-5 w-5" />,
       price: 0,
       description: 'Perfect for personal use and getting started',
-      features: ['dashboard_access', 'feedback_submission', 'transfers', 'airtime_purchase'],
       pricing: {
         fixedFee: 2.50,
         percentage: 2.9,
         transactionLimit: 'K 1,000',
       },
       limits: {
-        transactions: '2.9% + K2.50 per transaction',
+        transactions: '10 per month',
         cards: '1 virtual card',
         transfers: 'Local transfers only',
         support: 'Community support',
@@ -65,14 +60,13 @@ const TierFeatureMatrix = () => {
       icon: <Zap className="h-5 w-5" />,
       price: 9.99,
       description: 'For individuals who need more features',
-      features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'airtime_purchase'],
       pricing: {
         fixedFee: 2.00,
         percentage: 2.4,
         transactionLimit: 'K 10,000',
       },
       limits: {
-        transactions: '2.4% + K2.00 per transaction',
+        transactions: '100 per month',
         cards: '3 virtual cards',
         transfers: 'Local & some international',
         support: 'Email support',
@@ -86,14 +80,13 @@ const TierFeatureMatrix = () => {
       icon: <Crown className="h-5 w-5" />,
       price: 19.99,
       description: 'For power users and small businesses',
-      features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics', 'airtime_purchase'],
       pricing: {
         fixedFee: 1.50,
         percentage: 1.9,
         transactionLimit: 'K 50,000',
       },
       limits: {
-        transactions: '1.9% + K1.50 per transaction',
+        transactions: '1,000 per month',
         cards: '10 virtual cards',
         transfers: 'All types + faster processing',
         support: 'Priority email & chat',
@@ -107,14 +100,13 @@ const TierFeatureMatrix = () => {
       icon: <Crown className="h-5 w-5" />,
       price: 49.99,
       description: 'For businesses that need everything',
-      features: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics', 'business_tools', 'airtime_purchase'],
       pricing: {
         fixedFee: 1.00,
         percentage: 1.4,
         transactionLimit: 'Unlimited',
       },
       limits: {
-        transactions: '1.4% + K1.00 per transaction',
+        transactions: 'Unlimited',
         cards: 'Unlimited',
         transfers: 'All types + API access + instant processing',
         support: '24/7 phone & dedicated manager',
@@ -124,18 +116,33 @@ const TierFeatureMatrix = () => {
     }
   ];
 
-  const allFeatures: Feature[] = [
-    { id: 'dashboard_access', name: 'Dashboard Access', description: 'Access to main dashboard', category: 'Core' },
-    { id: 'feedback_submission', name: 'Feedback Submission', description: 'Submit feedback and suggestions', category: 'Core' },
-    { id: 'transfers', name: 'Money Transfers', description: 'Send money with competitive rates', category: 'Payment' },
-    { id: 'virtual_cards', name: 'Virtual Cards', description: 'Create and manage virtual debit cards', category: 'Payment' },
-    { id: 'airtime_purchase', name: 'Airtime Purchase', description: 'Buy airtime for free across all networks', category: 'Payment' },
-    { id: 'analytics', name: 'Analytics', description: 'Transaction analytics and reports', category: 'Business' },
-    { id: 'business_tools', name: 'Business Tools', description: 'Advanced tools for businesses', category: 'Business' },
-    { id: 'feedback_dashboard', name: 'Feedback Management', description: 'Manage customer feedback', category: 'Admin' }
-  ];
+  if (isLoading) {
+    return (
+      <div className="space-y-8">
+        <div className="text-center">Loading features...</div>
+      </div>
+    );
+  }
 
-  const categories = [...new Set(allFeatures.map(f => f.category))];
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <div className="text-center text-red-500">Error loading features: {error.message}</div>
+      </div>
+    );
+  }
+
+  const featureMatrix = getTierFeatureMatrix();
+  
+  if (!featureMatrix) {
+    return (
+      <div className="space-y-8">
+        <div className="text-center">No feature data available</div>
+      </div>
+    );
+  }
+
+  const { features, categories, matrix, tiers: tierIds } = featureMatrix;
 
   return (
     <div className="space-y-8">
@@ -169,6 +176,7 @@ const TierFeatureMatrix = () => {
                 <div>
                   <h4 className="font-medium text-sm mb-2">Features & Limits</h4>
                   <div className="space-y-1 text-xs text-muted-foreground">
+                    <div>Transactions: {tier.limits.transactions}</div>
                     <div>Cards: {tier.limits.cards}</div>
                     <div>Transfers: {tier.limits.transfers}</div>
                     <div>Airtime: {tier.limits.airtime}</div>
@@ -185,6 +193,9 @@ const TierFeatureMatrix = () => {
       <Card>
         <CardHeader>
           <CardTitle>Feature Comparison Matrix</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Compare features across all subscription tiers
+          </p>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -207,19 +218,19 @@ const TierFeatureMatrix = () => {
                         {category} Features
                       </td>
                     </tr>
-                    {allFeatures
+                    {features
                       .filter(feature => feature.category === category)
                       .map((feature) => (
-                        <tr key={feature.id} className="border-b">
+                        <tr key={feature.feature_id} className="border-b">
                           <td className="py-3 px-4">
                             <div>
                               <div className="font-medium">{feature.name}</div>
                               <div className="text-sm text-muted-foreground">{feature.description}</div>
                             </div>
                           </td>
-                          {tiers.map((tier) => (
-                            <td key={tier.id} className="text-center py-3 px-4">
-                              {tier.features.includes(feature.id) ? (
+                          {tierIds.map((tierId) => (
+                            <td key={tierId} className="text-center py-3 px-4">
+                              {matrix[tierId][feature.feature_id] ? (
                                 <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto" />
                               ) : (
                                 <XCircle className="h-5 w-5 text-red-400 mx-auto" />
