@@ -1046,6 +1046,33 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_monthly_transaction_data: {
+        Args: { p_user_id: string }
+        Returns: {
+          month: string
+          amount: number
+          transaction_count: number
+        }[]
+      }
+      get_recent_transactions: {
+        Args: { p_user_id: string; p_limit?: number }
+        Returns: {
+          id: number
+          direction: string
+          recipient_name: string
+          amount: number
+          currency: string
+          created_at: string
+          status: string
+        }[]
+      }
+      get_spending_by_category: {
+        Args: { p_user_id: string }
+        Returns: {
+          category: string
+          amount: number
+        }[]
+      }
       get_tier_features: {
         Args: { p_tier: string }
         Returns: {
@@ -1058,6 +1085,18 @@ export type Database = {
       get_user_tier: {
         Args: { p_user_id: string }
         Returns: string
+      }
+      get_user_transaction_stats: {
+        Args: { p_user_id: string }
+        Returns: {
+          total_transactions: number
+          monthly_amount: number
+          monthly_transactions: number
+        }[]
+      }
+      get_user_wallet_balance: {
+        Args: { p_user_id: string }
+        Returns: number
       }
       has_role: {
         Args: {

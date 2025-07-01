@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -28,36 +29,13 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { FeatureList, RoleBadge } from "@/components/FeatureAccess";
-
-// Mock data for charts
-const monthlyData = [
-  { name: 'Jan', amount: 1200 },
-  { name: 'Feb', amount: 1900 },
-  { name: 'Mar', amount: 1600 },
-  { name: 'Apr', amount: 2100 },
-  { name: 'May', amount: 1800 },
-  { name: 'Jun', amount: 2400 }
-];
-
-const spendingData = [
-  { category: 'Shopping', amount: 450 },
-  { name: 'Bills', amount: 380 },
-  { category: 'Food', amount: 290 },
-  { category: 'Transport', amount: 220 },
-  { category: 'Others', amount: 180 }
-];
-
-// Mock data
-const recentTransactions = [
-  { id: 1, type: "sent", name: "David Mulenga", amount: "K250.00", date: "Today, 2:34 PM" },
-  { id: 2, type: "received", name: "MTN Mobile", amount: "K500.00", date: "Yesterday, 11:20 AM" },
-  { id: 3, type: "sent", name: "Airtel Money", amount: "K100.00", date: "Oct 12, 9:45 AM" },
-  { id: 4, type: "received", name: "Shoprite", amount: "K350.00", date: "Oct 10, 3:30 PM" },
-];
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { formatCurrency } from "@/lib/utils";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { dashboardStats, monthlyData, spendingData, recentTransactions, isLoading } = useDashboardData();
 
   const handleAction = (action: string) => {
     switch(action) {
@@ -97,6 +75,24 @@ const Dashboard = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Calculate monthly savings (assume 20% of monthly amount)
+  const monthlySavings = (dashboardStats?.monthlyAmount || 0) * 0.2;
+  
+  // Mock rewards points (can be made dynamic later)
+  const rewardsPoints = Math.floor((dashboardStats?.totalTransactions || 0) * 0.24);
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
       <Header />
@@ -113,23 +109,23 @@ const Dashboard = () => {
               <CardTitle className="text-sm font-medium opacity-90">Total Balance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">K 12,550.00</div>
+              <div className="text-2xl font-bold">{formatCurrency(dashboardStats?.totalBalance || 0)}</div>
               <div className="flex items-center mt-2 text-sm">
                 <ArrowUpRight className="h-4 w-4 mr-1" />
-                <span>+15.3% from last month</span>
+                <span>Current balance</span>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white transform hover:scale-105 transition-all duration-300">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Monthly Savings</CardTitle>
+              <CardTitle className="text-sm font-medium opacity-90">Monthly Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">K 2,320.00</div>
+              <div className="text-2xl font-bold">{formatCurrency(monthlySavings)}</div>
               <div className="flex items-center mt-2 text-sm">
                 <ArrowUpRight className="h-4 w-4 mr-1" />
-                <span>+8.2% from last month</span>
+                <span>This month</span>
               </div>
             </CardContent>
           </Card>
@@ -139,10 +135,10 @@ const Dashboard = () => {
               <CardTitle className="text-sm font-medium opacity-90">Total Transactions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1,352</div>
+              <div className="text-2xl font-bold">{dashboardStats?.totalTransactions || 0}</div>
               <div className="flex items-center mt-2 text-sm">
                 <ArrowUpRight className="h-4 w-4 mr-1" />
-                <span>+12.5% from last month</span>
+                <span>{dashboardStats?.monthlyTransactions || 0} this month</span>
               </div>
             </CardContent>
           </Card>
@@ -152,10 +148,10 @@ const Dashboard = () => {
               <CardTitle className="text-sm font-medium opacity-90">Rewards Points</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">325</div>
+              <div className="text-2xl font-bold">{rewardsPoints}</div>
               <div className="flex items-center mt-2 text-sm">
                 <ArrowUpRight className="h-4 w-4 mr-1" />
-                <span>Earned this month</span>
+                <span>Earned from transactions</span>
               </div>
             </CardContent>
           </Card>
@@ -173,7 +169,7 @@ const Dashboard = () => {
             <CardContent>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyData}>
+                  <AreaChart data={monthlyData || []}>
                     <defs>
                       <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
@@ -181,9 +177,9 @@ const Dashboard = () => {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
+                    <XAxis dataKey="month" />
                     <YAxis />
-                    <Tooltip />
+                    <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Amount']} />
                     <Area 
                       type="monotone" 
                       dataKey="amount" 
@@ -207,11 +203,11 @@ const Dashboard = () => {
             <CardContent>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RechartsBarChart data={spendingData}>
+                  <RechartsBarChart data={spendingData || []}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="category" />
                     <YAxis />
-                    <Tooltip />
+                    <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Amount']} />
                     <Bar dataKey="amount" fill="#8B5CF6" />
                   </RechartsBarChart>
                 </ResponsiveContainer>
@@ -268,32 +264,44 @@ const Dashboard = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between py-2">
-                  <div className="flex items-center">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      transaction.type === "sent" ? "bg-red-100" : "bg-green-100"
+            {recentTransactions && recentTransactions.length > 0 ? (
+              <div className="space-y-4">
+                {recentTransactions.map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between py-2">
+                    <div className="flex items-center">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        transaction.direction === "outgoing" ? "bg-red-100" : "bg-green-100"
+                      }`}>
+                        {transaction.direction === "outgoing" ? (
+                          <ArrowUpRight className={`h-5 w-5 text-red-600`} />
+                        ) : (
+                          <ArrowDownLeft className={`h-5 w-5 text-green-600`} />
+                        )}
+                      </div>
+                      <div className="ml-4">
+                        <div className="font-medium">{transaction.recipient_name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {new Date(transaction.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`font-medium ${
+                      transaction.direction === "outgoing" ? "text-red-600" : "text-green-600"
                     }`}>
-                      {transaction.type === "sent" ? (
-                        <ArrowUpRight className={`h-5 w-5 text-red-600`} />
-                      ) : (
-                        <ArrowDownLeft className={`h-5 w-5 text-green-600`} />
-                      )}
-                    </div>
-                    <div className="ml-4">
-                      <div className="font-medium">{transaction.name}</div>
-                      <div className="text-sm text-muted-foreground">{transaction.date}</div>
+                      {transaction.direction === "outgoing" ? "-" : "+"}
+                      {formatCurrency(transaction.amount)}
                     </div>
                   </div>
-                  <div className={`font-medium ${
-                    transaction.type === "sent" ? "text-red-600" : "text-green-600"
-                  }`}>
-                    {transaction.type === "sent" ? "-" : "+"}{transaction.amount}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No recent transactions found</p>
+                <Button variant="outline" className="mt-4" onClick={() => navigate("/transfer")}>
+                  Make your first transaction
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
