@@ -17,7 +17,8 @@ export type Feature =
   | "transfers"
   | "analytics"
   | "business_tools"
-  | "feedback_dashboard";
+  | "feedback_dashboard"
+  | "airtime_purchase";
 
 interface RoleContextProps {
   roles: Role[];
@@ -66,19 +67,50 @@ export const RoleProvider = ({ children }: RoleProviderProps) => {
   );
 
   // Enhanced hasAccess function that considers subscription tier
-  const hasAccess = useCallback((feature: Feature): boolean => {
+  const hasAccess = useCallback(async (feature: Feature): Promise<boolean> => {
     if (isLoading) return false;
     
     // Check role-based access first
     const roleAccess = checkRoleAccess(feature);
     if (roleAccess) return true;
     
-    // Check subscription-based access
+    // Check subscription-based access using the database function
+    if (user?.id) {
+      try {
+        const { data, error } = await supabase.rpc('user_has_feature_access', {
+          p_user_id: user.id,
+          p_feature_id: feature
+        });
+        
+        if (error) {
+          console.error('Error checking feature access:', error);
+          return false;
+        }
+        
+        return data;
+      } catch (error) {
+        console.error('Error checking feature access:', error);
+        return false;
+      }
+    }
+    
+    return false;
+  }, [isLoading, checkRoleAccess, user?.id]);
+
+  // Synchronous version for immediate checks
+  const hasAccessSync = useCallback((feature: Feature): boolean => {
+    if (isLoading) return false;
+    
+    // Check role-based access first
+    const roleAccess = checkRoleAccess(feature);
+    if (roleAccess) return true;
+    
+    // Check subscription-based access with local tier data
     const tierFeatures: Record<string, Feature[]> = {
-      free: ['dashboard_access', 'feedback_submission', 'transfers'],
-      basic: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers'],
-      premium: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics'],
-      enterprise: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics', 'business_tools']
+      free: ['dashboard_access', 'feedback_submission', 'transfers', 'airtime_purchase'],
+      basic: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'airtime_purchase'],
+      premium: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics', 'airtime_purchase'],
+      enterprise: ['dashboard_access', 'feedback_submission', 'virtual_cards', 'transfers', 'analytics', 'business_tools', 'airtime_purchase']
     };
     
     const currentTierFeatures = tierFeatures[subscriptionTier] || tierFeatures.free;
@@ -152,7 +184,7 @@ export const RoleProvider = ({ children }: RoleProviderProps) => {
     roles,
     subscriptionTier,
     isLoading: authLoading || isLoading,
-    hasAccess,
+    hasAccess: hasAccessSync, // Use sync version for immediate UI updates
     hasRole,
     refreshRoles,
   };

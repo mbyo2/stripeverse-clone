@@ -32,8 +32,21 @@ export const useTierAccess = () => {
     queryFn: async () => {
       if (!user?.id) return [];
 
+      // Get user's current tier first
+      const { data: tierData, error: tierError } = await supabase.rpc('get_user_tier', {
+        p_user_id: user.id
+      });
+
+      if (tierError) {
+        console.error('Error getting user tier:', tierError);
+        return [];
+      }
+
+      const currentTier = tierData || 'free';
+
+      // Get features for the user's tier
       const { data, error } = await supabase.rpc('get_tier_features', {
-        p_tier: 'free' // This would be replaced with actual user tier
+        p_tier: currentTier
       });
 
       if (error) throw error;
@@ -42,9 +55,27 @@ export const useTierAccess = () => {
     enabled: !!user?.id,
   });
 
+  const { data: userSubscription, isLoading: subscriptionLoading } = useQuery({
+    queryKey: ['user-subscription', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+
+      const { data, error } = await supabase.functions.invoke('check-subscription');
+      
+      if (error) {
+        console.error('Error fetching subscription:', error);
+        return null;
+      }
+
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
   return {
     checkFeatureAccess,
     userTierFeatures,
-    isLoading,
+    userSubscription,
+    isLoading: isLoading || subscriptionLoading,
   };
 };

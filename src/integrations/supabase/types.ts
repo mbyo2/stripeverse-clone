@@ -1055,6 +1055,10 @@ export type Database = {
           category: string
         }[]
       }
+      get_user_tier: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           user_id: string
