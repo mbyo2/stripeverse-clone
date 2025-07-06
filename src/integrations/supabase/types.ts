@@ -473,6 +473,47 @@ export type Database = {
         }
         Relationships: []
       }
+      reward_transactions: {
+        Row: {
+          action_type: string
+          created_at: string
+          description: string | null
+          id: string
+          points_earned: number | null
+          points_spent: number | null
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          points_earned?: number | null
+          points_spent?: number | null
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          points_earned?: number | null
+          points_spent?: number | null
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reward_transactions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["uuid_id"]
+          },
+        ]
+      }
       role_requests: {
         Row: {
           created_at: string
@@ -709,6 +750,39 @@ export type Database = {
         }
         Relationships: []
       }
+      transaction_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
@@ -840,6 +914,39 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           secret?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_rewards: {
+        Row: {
+          created_at: string
+          id: string
+          lifetime_points: number
+          points_redeemed: number
+          tier: string
+          total_points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lifetime_points?: number
+          points_redeemed?: number
+          tier?: string
+          total_points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lifetime_points?: number
+          points_redeemed?: number
+          tier?: string
+          total_points?: number
           updated_at?: string
           user_id?: string
         }
@@ -1080,6 +1187,16 @@ export type Database = {
           name: string
           description: string
           category: string
+        }[]
+      }
+      get_user_rewards: {
+        Args: { p_user_id: string }
+        Returns: {
+          total_points: number
+          lifetime_points: number
+          tier: string
+          next_tier_threshold: number
+          points_to_next_tier: number
         }[]
       }
       get_user_tier: {

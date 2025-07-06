@@ -31,6 +31,14 @@ interface RecentTransaction {
   status: string;
 }
 
+interface UserRewards {
+  total_points: number;
+  lifetime_points: number;
+  tier: string;
+  next_tier_threshold: number;
+  points_to_next_tier: number;
+}
+
 export const useDashboardData = () => {
   const { user } = useAuth();
 
@@ -113,11 +121,34 @@ export const useDashboardData = () => {
     enabled: !!user?.id,
   });
 
+  // Fetch user rewards
+  const { data: rewards, isLoading: rewardsLoading } = useQuery({
+    queryKey: ['user-rewards', user?.id],
+    queryFn: async (): Promise<UserRewards> => {
+      if (!user?.id) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase.rpc('get_user_rewards', {
+        p_user_id: user.id
+      });
+
+      if (error) throw error;
+      return data?.[0] || {
+        total_points: 0,
+        lifetime_points: 0,
+        tier: 'bronze',
+        next_tier_threshold: 1000,
+        points_to_next_tier: 1000
+      };
+    },
+    enabled: !!user?.id,
+  });
+
   return {
     dashboardStats,
     monthlyData,
     spendingData,
     recentTransactions,
-    isLoading: statsLoading || monthlyLoading || spendingLoading || transactionsLoading,
+    rewards,
+    isLoading: statsLoading || monthlyLoading || spendingLoading || transactionsLoading || rewardsLoading,
   };
 };

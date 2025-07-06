@@ -25,17 +25,19 @@ import {
   ArrowDownRight,
   BarChart,
   PieChart,
-  ArrowDownLeft
+  ArrowDownLeft,
+  Star
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { FeatureList, RoleBadge } from "@/components/FeatureAccess";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { formatCurrency } from "@/lib/utils";
+import RewardsCard from "@/components/rewards/RewardsCard";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { dashboardStats, monthlyData, spendingData, recentTransactions, isLoading } = useDashboardData();
+  const { dashboardStats, monthlyData, spendingData, recentTransactions, rewards, isLoading } = useDashboardData();
 
   const handleAction = (action: string) => {
     switch(action) {
@@ -67,6 +69,9 @@ const Dashboard = () => {
         });
         navigate("/transactions");
         break;
+      case "Rewards":
+        navigate("/rewards");
+        break;
       default:
         toast({
           title: "Action",
@@ -89,9 +94,6 @@ const Dashboard = () => {
 
   // Calculate monthly savings (assume 20% of monthly amount)
   const monthlySavings = (dashboardStats?.monthlyAmount || 0) * 0.2;
-  
-  // Mock rewards points (can be made dynamic later)
-  const rewardsPoints = Math.floor((dashboardStats?.totalTransactions || 0) * 0.24);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
@@ -143,22 +145,22 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-400 to-blue-500 text-white transform hover:scale-105 transition-all duration-300">
+          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white transform hover:scale-105 transition-all duration-300">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium opacity-90">Rewards Points</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{rewardsPoints}</div>
+              <div className="text-2xl font-bold">{rewards?.total_points || 0}</div>
               <div className="flex items-center mt-2 text-sm">
-                <ArrowUpRight className="h-4 w-4 mr-1" />
-                <span>Earned from transactions</span>
+                <Star className="h-4 w-4 mr-1" />
+                <span className="capitalize">{rewards?.tier || 'bronze'} tier</span>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Charts and Rewards Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <Card className="transform hover:scale-105 transition-all duration-300">
             <CardHeader>
               <CardTitle className="flex items-center text-blue-600">
@@ -214,6 +216,10 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
+
+          <div>
+            <RewardsCard />
+          </div>
         </div>
 
         {/* Quick Actions */}
@@ -221,7 +227,7 @@ const Dashboard = () => {
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <CardContent className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <Button 
               onClick={() => handleAction("Transfer")}
               className="flex flex-col items-center gap-2 h-24 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
@@ -249,6 +255,13 @@ const Dashboard = () => {
             >
               <BarChart className="h-6 w-6" />
               <span>History</span>
+            </Button>
+            <Button 
+              onClick={() => handleAction("Rewards")}
+              className="flex flex-col items-center gap-2 h-24 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
+            >
+              <Star className="h-6 w-6" />
+              <span>Rewards</span>
             </Button>
           </CardContent>
         </Card>
