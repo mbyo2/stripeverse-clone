@@ -416,6 +416,63 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_tiers: {
+        Row: {
+          created_at: string
+          currency: string
+          description: string
+          display_name: string
+          features: Json
+          id: string
+          is_active: boolean
+          is_popular: boolean
+          max_transaction_amount: number | null
+          price: number
+          sort_order: number
+          tier_name: string
+          transaction_fee_fixed: number
+          transaction_fee_percentage: number
+          updated_at: string
+          virtual_cards_limit: number | null
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          description: string
+          display_name: string
+          features?: Json
+          id?: string
+          is_active?: boolean
+          is_popular?: boolean
+          max_transaction_amount?: number | null
+          price?: number
+          sort_order?: number
+          tier_name: string
+          transaction_fee_fixed?: number
+          transaction_fee_percentage?: number
+          updated_at?: string
+          virtual_cards_limit?: number | null
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          description?: string
+          display_name?: string
+          features?: Json
+          id?: string
+          is_active?: boolean
+          is_popular?: boolean
+          max_transaction_amount?: number | null
+          price?: number
+          sort_order?: number
+          tier_name?: string
+          transaction_fee_fixed?: number
+          transaction_fee_percentage?: number
+          updated_at?: string
+          virtual_cards_limit?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

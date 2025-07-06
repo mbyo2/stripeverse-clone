@@ -1,262 +1,143 @@
-import { useState, useRef, useEffect } from 'react';
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/utils";
-import { CreditCard, CheckCircle2, Smartphone, ShieldCheck, BarChart3, Globe, Code, Database, Star, Zap, Crown } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useRoles } from "@/contexts/RoleContext";
-import { useAuth } from "@/contexts/AuthContext";
-
-// Define product data to match the updated tier structure
-const productData = [
-  {
-    id: "free",
-    title: "Free Plan",
-    description: "Perfect for personal use and getting started",
-    price: 0,
-    icon: <Star className="h-5 w-5" />,
-    features: [
-      "Dashboard Access", 
-      "Feedback Submission", 
-      "Money Transfers",
-      "Free Airtime Purchase",
-      "2.9% + K2.50 per transaction",
-      "K 1,000 max per transaction",
-      "1 virtual card",
-      "Local transfers only",
-      "Community support"
-    ],
-    pricing: {
-      fixedFee: 2.50,
-      percentage: 2.9
-    },
-    popular: false
-  },
-  {
-    id: "basic",
-    title: "Basic Plan",
-    description: "For individuals who need more features",
-    price: 9.99,
-    icon: <Zap className="h-5 w-5" />,
-    features: [
-      "All Free features", 
-      "Virtual Cards",
-      "Free Airtime Purchase",
-      "2.4% + K2.00 per transaction",
-      "K 10,000 max per transaction",
-      "3 virtual cards",
-      "Local & some international transfers",
-      "Email support"
-    ],
-    pricing: {
-      fixedFee: 2.00,
-      percentage: 2.4
-    },
-    popular: true
-  },
-  {
-    id: "premium",
-    title: "Premium Plan",
-    description: "For power users and small businesses",
-    price: 19.99,
-    icon: <Crown className="h-5 w-5" />,
-    features: [
-      "All Basic features", 
-      "Advanced Analytics", 
-      "Free Airtime Purchase",
-      "1.9% + K1.50 per transaction",
-      "K 50,000 max per transaction",
-      "10 virtual cards",
-      "All transfer types + faster processing",
-      "Priority Support"
-    ],
-    pricing: {
-      fixedFee: 1.50,
-      percentage: 1.9
-    },
-    popular: false
-  },
-  {
-    id: "enterprise",
-    title: "Enterprise Plan", 
-    description: "For businesses that need everything",
-    price: 49.99,
-    icon: <Crown className="h-5 w-5" />,
-    features: [
-      "All Premium features", 
-      "Business Tools", 
-      "Free Airtime Purchase",
-      "1.4% + K1.00 per transaction",
-      "Unlimited transaction amount",
-      "Unlimited virtual cards",
-      "API access + instant processing",
-      "24/7 phone & dedicated manager"
-    ],
-    pricing: {
-      fixedFee: 1.00,
-      percentage: 1.4
-    },
-    popular: false
-  }
-];
+import { CheckCircle2, Zap, Crown, Building, Sparkles } from "lucide-react";
+import { useInView } from "react-intersection-observer";
+import { Link } from "react-router-dom";
+import { usePricing } from "@/hooks/usePricing";
 
 const Products = () => {
-  const productsRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-  const { subscriptionTier } = useRoles();
-  const { user } = useAuth();
-  
-  const handleSubscribe = (product: typeof productData[0]) => {
-    if (!user) {
-      navigate('/login', { state: { from: window.location.pathname } });
-      return;
+  const { ref, inView } = useInView({
+    threshold: 0.1
+  });
+
+  const { data: pricingTiers, isLoading } = usePricing();
+
+  const getIcon = (tierName: string) => {
+    switch (tierName) {
+      case 'free': return <Zap className="h-5 w-5" />;
+      case 'basic': return <Sparkles className="h-5 w-5" />;
+      case 'premium': return <Crown className="h-5 w-5" />;
+      case 'business': return <Building className="h-5 w-5" />;
+      default: return <Zap className="h-5 w-5" />;
     }
-    
-    // Navigate to checkout with product information
-    navigate(`/checkout/${product.id}`);
   };
-  
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          productsRef.current?.classList.add('animate-fadeIn');
-          observer.unobserve(entries[0].target);
-        }
-      },
-      { threshold: 0.1 }
+
+  if (isLoading) {
+    return (
+      <section id="pricing" className="py-20 bg-secondary/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold mb-4">Loading Pricing...</h2>
+          </div>
+        </div>
+      </section>
     );
-    
-    if (productsRef.current) {
-      observer.observe(productsRef.current);
-    }
-    
-    return () => {
-      if (productsRef.current) {
-        observer.unobserve(productsRef.current);
-      }
-    };
-  }, []);
+  }
 
   return (
-    <section id="products" className="section">
-      <div ref={productsRef} className="opacity-0">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="heading-2 mb-4">
-            Payment Solutions for Every Business
+    <section id="pricing" className="py-20 bg-secondary/10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div 
+          ref={ref}
+          className={`text-center mb-16 transition-all duration-1000 ${
+            inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          }`}
+        >
+          <Badge variant="secondary" className="mb-4 px-3 py-1">
+            Pricing Plans
+          </Badge>
+          <h2 className="text-3xl font-bold mb-4">
+            Choose the perfect plan for your business
           </h2>
-          <p className="body-text mx-auto">
-            BMaGlass Pay offers flexible and affordable payment processing plans designed specifically for the Zambian market, from small shops to large enterprises.
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            From startups to enterprises, we have a payment solution that scales with your business needs
           </p>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
-          {productData.map((product) => (
-            <Card 
-              key={product.id} 
-              className={`
-                overflow-hidden transition-all duration-300 hover:shadow-lg 
-                ${product.popular ? 'border-primary/50 shadow-md relative' : ''}
-                ${product.id === subscriptionTier ? 'ring-2 ring-primary shadow-lg' : ''}
-              `}
-            >
-              {product.popular && (
-                <Badge className="absolute top-4 right-4 bg-primary">Most Popular</Badge>
-              )}
-              {product.id === subscriptionTier && (
-                <Badge className="absolute top-4 left-4 bg-green-500">Current Plan</Badge>
-              )}
-              <CardHeader>
-                <div className="flex items-center space-x-2 mb-2">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    {product.icon}
-                  </div>
-                  <CardTitle>{product.title}</CardTitle>
-                </div>
-                <CardDescription>{product.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-6">
-                  <span className="text-3xl font-bold">
-                    {product.price === 0 ? 'Free' : formatCurrency(product.price)}
-                  </span>
-                  {product.price > 0 && <span className="text-muted-foreground"> / month</span>}
-                </div>
 
-                {/* Pricing Details */}
-                <div className="mb-6 p-3 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-sm mb-2">Transaction Pricing</h4>
-                  <div className="text-xs text-muted-foreground">
-                    <div>{product.pricing.percentage}% + K{product.pricing.fixedFee} per transaction</div>
-                  </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {pricingTiers?.map((tier, index) => (
+            <Card 
+              key={tier.id}
+              className={`relative overflow-hidden transition-all duration-700 ${
+                inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+              } ${
+                tier.is_popular 
+                  ? 'border-primary shadow-lg scale-105 z-10' 
+                  : 'hover:shadow-lg hover:scale-105'
+              }`}
+              style={{ animationDelay: `${0.1 + index * 0.1}s` }}
+            >
+              {tier.is_popular && (
+                <div className="absolute top-0 left-0 right-0 bg-primary text-primary-foreground text-center py-2 text-sm font-medium">
+                  Most Popular
                 </div>
-                
-                <ul className="space-y-2 mb-6">
-                  {product.features.map((feature, i) => (
-                    <li key={i} className="flex items-start">
+              )}
+              
+              <CardHeader className={tier.is_popular ? "pt-12" : ""}>
+                <div className="flex items-center gap-2 mb-2">
+                  {getIcon(tier.tier_name)}
+                  <CardTitle className="text-lg">{tier.display_name}</CardTitle>
+                </div>
+                <div className="text-3xl font-bold">
+                  {tier.price === 0 ? 'Free' : `$${tier.price}`}
+                  {tier.price > 0 && <span className="text-sm font-normal text-muted-foreground">/month</span>}
+                </div>
+                <p className="text-sm text-muted-foreground">{tier.description}</p>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  {tier.features.map((feature, featureIndex) => (
+                    <div key={featureIndex} className="flex items-start gap-2">
                       <CheckCircle2 className="h-5 w-5 text-primary mr-2 shrink-0 mt-0.5" />
                       <span className="text-sm">{feature}</span>
-                    </li>
+                    </div>
                   ))}
-                </ul>
-                
-                <div className="flex items-center space-x-2 mt-4">
-                  <CreditCard className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Card payments</span>
-                  <Smartphone className="h-4 w-4 text-muted-foreground ml-4" />
-                  <span className="text-sm text-muted-foreground">Mobile money</span>
                 </div>
-              </CardContent>
-              <CardFooter>
+
+                <div className="pt-4 space-y-2 text-xs text-muted-foreground">
+                  <div>Transaction Fee: {tier.transaction_fee_percentage}% + K{tier.transaction_fee_fixed}</div>
+                  {tier.max_transaction_amount && tier.max_transaction_amount > 0 && (
+                    <div>Max Transaction: K{tier.max_transaction_amount.toLocaleString()}</div>
+                  )}
+                  {tier.virtual_cards_limit && tier.virtual_cards_limit > 0 && (
+                    <div>Virtual Cards: {tier.virtual_cards_limit}</div>
+                  )}
+                </div>
+
                 <Button 
-                  onClick={() => handleSubscribe(product)} 
-                  className={`w-full ${product.popular ? 'bg-primary' : ''}`}
-                  disabled={product.id === subscriptionTier}
-                  variant={product.id === subscriptionTier ? 'outline' : 'default'}
+                  className="w-full" 
+                  variant={tier.is_popular ? "default" : "outline"}
+                  asChild
                 >
-                  {product.id === subscriptionTier ? 'Current Plan' : 'Choose Plan'}
+                  <Link to={tier.price === 0 ? "/register" : "/checkout"}>
+                    {tier.price === 0 ? 'Get Started Free' : 'Start Free Trial'}
+                  </Link>
                 </Button>
-              </CardFooter>
+              </CardContent>
             </Card>
           ))}
         </div>
-        
-        {/* Added additional business benefits section */}
-        <div className="mt-24 max-w-5xl mx-auto">
-          <h3 className="text-2xl font-bold text-center mb-12">Why Businesses Choose BMaGlass Pay</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              {
-                icon: <ShieldCheck className="h-8 w-8 text-primary" />,
-                title: "Zambian Owned",
-                description: "Built by Zambians for Zambian businesses, with full understanding of local market needs."
-              },
-              {
-                icon: <Globe className="h-8 w-8 text-primary" />,
-                title: "Local Support",
-                description: "Lusaka-based team providing personalized support in your local language."
-              },
-              {
-                icon: <Code className="h-8 w-8 text-primary" />,
-                title: "Easy Integration",
-                description: "Developer-friendly APIs and plug-ins for quick implementation into your systems."
-              },
-              {
-                icon: <Database className="h-8 w-8 text-primary" />,
-                title: "Reliable Infrastructure",
-                description: "Built on robust technology with 99.9% uptime guarantee for your business."
-              }
-            ].map((benefit, i) => (
-              <div key={i} className="text-center p-6">
-                <div className="flex justify-center mb-4">
-                  {benefit.icon}
-                </div>
-                <h4 className="font-medium text-lg mb-2">{benefit.title}</h4>
-                <p className="text-muted-foreground">{benefit.description}</p>
-              </div>
-            ))}
+
+        <div className="text-center mt-16">
+          <p className="text-muted-foreground mb-4">
+            All plans include our core features and 24/7 customer support
+          </p>
+          <div className="flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              <span>99.9% uptime SLA</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              <span>Bank-level security</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              <span>Local Zambian support</span>
+            </div>
           </div>
         </div>
       </div>
