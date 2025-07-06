@@ -9,6 +9,7 @@ export interface UserRewards {
   tier: string;
   next_tier_threshold: number;
   points_to_next_tier: number;
+  points_redeemed?: number;
 }
 
 export interface RewardTransaction {

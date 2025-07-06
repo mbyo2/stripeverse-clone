@@ -38,6 +38,7 @@ import Billing from "./pages/Billing";
 import Analytics from "./pages/Analytics";
 import API from "./pages/API";
 import Support from "./pages/Support";
+import Rewards from "./pages/Rewards";
 
 const queryClient = new QueryClient();
 
@@ -182,6 +183,12 @@ function App() {
                   <Route path="/help" element={
                     <ProtectedRoute>
                       <Help />
+                    </ProtectedRoute>
+                  } />
+
+                  <Route path="/rewards" element={
+                    <ProtectedRoute>
+                      <Rewards />
                     </ProtectedRoute>
                   } />
                 </Routes>

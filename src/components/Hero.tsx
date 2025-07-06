@@ -125,8 +125,9 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
               </div>
               
               <div className="mb-6">
-                <p className="text-sm text-muted-foreground mb-1">Today's Transactions</p>
-                <h2 className="text-3xl font-bold">K 24,560.00</h2>
+                <p className="text-sm text-muted-foreground mb-1">Today's Activity</p>
+                <h2 className="text-3xl font-bold">View Dashboard</h2>
+                <p className="text-sm text-muted-foreground">Real-time transaction monitoring</p>
               </div>
               
               <div className="grid grid-cols-2 gap-4">

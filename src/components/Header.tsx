@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, CreditCard, BarChart3, Settings, HelpCircle } from "lucide-react";
+import { ChevronDown, CreditCard, BarChart3, Settings, HelpCircle, Star } from "lucide-react";
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -84,6 +84,13 @@ const Header = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              <Link to="/rewards">
+                <Button variant={isActive("/rewards") ? "default" : "ghost"} size="sm" className="flex items-center gap-1">
+                  <Star className="h-4 w-4" />
+                  Rewards
+                </Button>
+              </Link>
 
               <Link to="/tier-management">
                 <Button variant={isActive("/tier-management") ? "default" : "ghost"} size="sm">
