@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowRight, Wallet, CreditCard } from "lucide-react";
+import { useStats } from '@/hooks/useStats';
+import { formatCurrency } from '@/utils/formatters';
 
 interface HeroProps {
   isAuthenticated: boolean;
@@ -9,6 +11,7 @@ interface HeroProps {
 
 const Hero = ({ isAuthenticated }: HeroProps) => {
   const heroRef = useRef<HTMLDivElement>(null);
+  const { stats } = useStats();
   
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -108,8 +111,23 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
                 </div>
               ))}
             </div>
-            <span>Trusted by 1,000+ Zambian businesses</span>
+            <span>
+              Trusted by {stats?.totalBusinesses || 0}+ Zambian businesses
+            </span>
           </div>
+          
+          {stats && (
+            <div className="mt-6 grid grid-cols-2 gap-4 text-center">
+              <div>
+                <p className="text-2xl font-bold text-primary">{stats.totalTransactions.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">Transactions Processed</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-primary">{formatCurrency(stats.totalVolume)}</p>
+                <p className="text-sm text-muted-foreground">Total Volume</p>
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="relative h-[500px] lg:h-[600px] flex items-center justify-center">

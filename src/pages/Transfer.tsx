@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPhoneForDisplay } from "@/lib/utils";
-import { mockUsers } from "@/data/mockData";
+import { useWallet } from "@/hooks/useWallet";
 
 const Transfer = () => {
   const [transferComplete, setTransferComplete] = useState(false);
@@ -19,9 +19,7 @@ const Transfer = () => {
   } | null>(null);
   
   const navigate = useNavigate();
-  
-  // Use mock data for the current user
-  const currentUser = mockUsers.current;
+  const { wallet } = useWallet();
   
   const handleTransferSuccess = (details: {
     transferId: string;
@@ -55,12 +53,19 @@ const Transfer = () => {
           </h1>
           
           {!transferComplete ? (
-            <TransferForm 
-              senderPhone={currentUser.phone}
-              walletBalance={currentUser.walletBalance}
-              onSuccess={handleTransferSuccess}
-              onCancel={handleCancel}
-            />
+            <>
+              <div className="mb-6 p-4 bg-muted rounded-lg">
+                <h3 className="font-medium mb-2">Available Balance</h3>
+                <p className="text-2xl font-bold text-primary">{formatCurrency(wallet?.balance || 0)}</p>
+              </div>
+              
+              <TransferForm 
+                senderPhone={"+260971234567"}
+                walletBalance={wallet?.balance || 0}
+                onSuccess={handleTransferSuccess}
+                onCancel={handleCancel}
+              />
+            </>
           ) : (
             <Card>
               <CardContent className="pt-6 pb-6">

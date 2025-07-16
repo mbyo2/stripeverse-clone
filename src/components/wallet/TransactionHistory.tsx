@@ -11,6 +11,7 @@ import { ArrowUpRight, ArrowDownLeft, Search, Filter, CalendarIcon, Receipt } fr
 import { formatCurrency } from "@/utils/walletUtils";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useTransactions } from '@/hooks/useTransactions';
 
 interface Transaction {
   id: string;
@@ -37,60 +38,16 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
 
-  // Mock transaction data - this would come from your API
-  const mockTransactions: Transaction[] = [
-    {
-      id: '1',
-      amount: 250.00,
-      currency: 'ZMW',
-      direction: 'incoming',
-      status: 'completed',
-      description: 'Wallet funding via Mobile Money',
-      payment_method: 'mobile_money',
-      created_at: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '2',
-      amount: 50.00,
-      currency: 'ZMW',
-      direction: 'outgoing',
-      status: 'completed',
-      description: 'Virtual card funding - Shopping Card',
-      payment_method: 'wallet',
-      created_at: '2024-01-15T09:15:00Z'
-    },
-    {
-      id: '3',
-      amount: 100.00,
-      currency: 'ZMW',
-      direction: 'outgoing',
-      status: 'pending',
-      description: 'Transfer to John Doe',
-      recipient: 'John Doe',
-      payment_method: 'wallet',
-      created_at: '2024-01-14T16:45:00Z'
-    },
-    {
-      id: '4',
-      amount: 25.00,
-      currency: 'ZMW',
-      direction: 'outgoing',
-      status: 'failed',
-      description: 'Online payment - Netflix',
-      payment_method: 'virtual_card',
-      created_at: '2024-01-14T14:20:00Z'
-    }
-  ];
+  const { transactions, isLoading } = useTransactions(limit);
 
-  const filteredTransactions = mockTransactions
+  const filteredTransactions = transactions
     .filter(transaction => {
-      const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           transaction.recipient?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = transaction.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           transaction.recipient_name?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
       const matchesDirection = directionFilter === 'all' || transaction.direction === directionFilter;
       return matchesSearch && matchesStatus && matchesDirection;
-    })
-    .slice(0, limit);
+    });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -185,7 +142,24 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
         )}
 
         <div className="space-y-4">
-          {filteredTransactions.length === 0 ? (
+          {isLoading ? (
+            // Loading skeleton
+            Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="flex items-center justify-between p-4 border rounded-lg animate-pulse">
+                <div className="flex items-center space-x-4">
+                  <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-300 rounded mb-2"></div>
+                    <div className="h-3 bg-gray-300 rounded w-2/3"></div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="h-4 bg-gray-300 rounded mb-2 w-20"></div>
+                  <div className="h-3 bg-gray-300 rounded w-16"></div>
+                </div>
+              </div>
+            ))
+          ) : filteredTransactions.length === 0 ? (
             <div className="text-center py-8">
               <Receipt className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No Transactions Found</h3>
@@ -198,18 +172,18 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
             </div>
           ) : (
             filteredTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+              <div key={transaction.uuid_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                 <div className="flex items-center space-x-4">
                   <div className="flex-shrink-0">
                     {getDirectionIcon(transaction.direction)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">
-                      {transaction.description}
+                      {transaction.description || 'Transaction'}
                     </p>
-                    {transaction.recipient && (
+                    {transaction.recipient_name && (
                       <p className="text-sm text-muted-foreground">
-                        To: {transaction.recipient}
+                        To: {transaction.recipient_name}
                       </p>
                     )}
                     <div className="flex items-center space-x-2 mt-1">

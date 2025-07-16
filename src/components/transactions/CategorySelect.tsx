@@ -11,7 +11,7 @@ interface CategorySelectProps {
 }
 
 const CategorySelect = ({ value, onValueChange, placeholder = "Select category" }: CategorySelectProps) => {
-  const { data: categories, isLoading } = useCategories();
+  const { categories, isLoading } = useCategories();
 
   if (isLoading) {
     return (

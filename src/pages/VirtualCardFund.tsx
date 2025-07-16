@@ -10,12 +10,13 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowRight, Wallet } from "lucide-react";
-import { mockVirtualCards } from "@/data/mockData";
+import { useWallet } from "@/hooks/useWallet";
 
 const VirtualCardFund = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { virtualCards } = useWallet();
   const [amount, setAmount] = useState<string>("50");
   const [loading, setLoading] = useState(false);
   
@@ -25,8 +26,8 @@ const VirtualCardFund = () => {
   // Use useMemo for card data to avoid unnecessary recalculations
   const card = useMemo(() => {
     if (!cardId) return null;
-    return mockVirtualCards[cardId as keyof typeof mockVirtualCards] || null;
-  }, [cardId]);
+    return virtualCards.find(card => card.id === cardId) || null;
+  }, [cardId, virtualCards]);
   
   useEffect(() => {
     if (!cardId) {
@@ -146,7 +147,7 @@ const VirtualCardFund = () => {
                     <div>
                       <h3 className="font-medium">{card.name}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {card.provider} • {card.number}
+                        {card.provider} • {card.masked_number}
                       </p>
                     </div>
                   </div>

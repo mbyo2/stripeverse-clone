@@ -14,7 +14,7 @@ import VirtualCardManager from "@/components/wallet/VirtualCardManager";
 import PaymentMethodList from "@/components/wallet/PaymentMethodList";
 import TransactionHistory from "@/components/wallet/TransactionHistory";
 import { PlusCircle } from "lucide-react";
-import { getPaymentMethods } from "@/data/mockData";
+import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/hooks/useWallet";
@@ -22,6 +22,7 @@ import { useWallet } from "@/hooks/useWallet";
 const Wallet = () => {
   const navigate = useNavigate();
   const { isLoading, deposit, isDepositing } = useWallet();
+  const { paymentMethods } = usePaymentMethods();
   const [amount, setAmount] = useState("");
   const isMobile = useIsMobile();
   
@@ -139,7 +140,7 @@ const Wallet = () => {
           </TabsList>
           
           <TabsContent value="payment-methods" className="mt-6">
-            <PaymentMethodList paymentMethods={getPaymentMethods()} />
+            <PaymentMethodList paymentMethods={paymentMethods} />
           </TabsContent>
           
           <TabsContent value="transaction-history" className="mt-6">
