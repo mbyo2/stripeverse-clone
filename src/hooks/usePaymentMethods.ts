@@ -4,9 +4,16 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export interface PaymentMethod {
   id: string;
-  user_id: string;
   type: 'card' | 'mobile_money' | 'bank_account';
-  provider: string;
+  name: string;
+  details: string;
+  status: 'active' | 'expired' | 'disabled';
+  isDefault: boolean;
+  provider?: string;
+  last4?: string;
+  expiryDate?: string;
+  // Database fields
+  user_id: string;
   account_number?: string;
   account_name?: string;
   is_verified: boolean;
@@ -14,11 +21,6 @@ export interface PaymentMethod {
   metadata?: any;
   created_at: string;
   updated_at: string;
-  // Legacy props for compatibility
-  name?: string;
-  details?: string;
-  status?: string;
-  isDefault?: boolean;
 }
 
 export const usePaymentMethods = () => {
@@ -39,7 +41,14 @@ export const usePaymentMethods = () => {
       if (error) throw error;
       return (data || []).map(pm => ({
         ...pm,
-        type: pm.type as 'card' | 'mobile_money' | 'bank_account'
+        type: pm.type as 'card' | 'mobile_money' | 'bank_account',
+        name: pm.account_name || `${pm.provider} ${pm.type}`,
+        details: pm.account_number || 'N/A',
+        status: pm.is_verified ? 'active' as const : 'disabled' as const,
+        isDefault: pm.is_primary,
+        provider: pm.provider,
+        last4: pm.account_number?.slice(-4),
+        expiryDate: pm.metadata && typeof pm.metadata === 'object' ? (pm.metadata as any).expiry_date : undefined
       }));
     },
     enabled: !!user?.id,
