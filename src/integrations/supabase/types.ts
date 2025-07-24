@@ -576,6 +576,39 @@ export type Database = {
           },
         ]
       }
+      role_audit: {
+        Row: {
+          approved: boolean | null
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_role: string | null
+          old_role: string | null
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          approved?: boolean | null
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_role?: string | null
+          old_role?: string | null
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          approved?: boolean | null
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_role?: string | null
+          old_role?: string | null
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       role_requests: {
         Row: {
           created_at: string
@@ -609,6 +642,39 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      security_events: {
+        Row: {
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          ip_address: unknown | null
+          risk_score: number | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          ip_address?: unknown | null
+          risk_score?: number | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          ip_address?: unknown | null
+          risk_score?: number | null
+          user_agent?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -981,6 +1047,30 @@ export type Database = {
         }
         Relationships: []
       }
+      used_totp_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          token: string
+          used_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          token: string
+          used_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          token?: string
+          used_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_rewards: {
         Row: {
           created_at: string
@@ -1215,6 +1305,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      cleanup_old_totp_tokens: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_monthly_transaction_data: {
         Args: { p_user_id: string }
         Returns: {
@@ -1297,8 +1391,28 @@ export type Database = {
         Args: { p_user_id: string; p_amount: number }
         Returns: undefined
       }
+      log_security_event: {
+        Args: {
+          p_user_id: string
+          p_event_type: string
+          p_event_data?: Json
+          p_ip_address?: unknown
+          p_user_agent?: string
+          p_risk_score?: number
+        }
+        Returns: undefined
+      }
       user_has_feature_access: {
         Args: { p_user_id: string; p_feature_id: string }
+        Returns: boolean
+      }
+      validate_role_change: {
+        Args: {
+          p_user_id: string
+          p_new_role: string
+          p_changed_by: string
+          p_reason?: string
+        }
         Returns: boolean
       }
     }
