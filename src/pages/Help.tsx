@@ -58,22 +58,22 @@ const Help = () => {
     {
       title: 'Reset Password',
       description: 'Change your account password',
-      action: () => console.log('Navigate to reset password')
+      action: () => {} // TODO: Navigate to reset password
     },
     {
       title: 'Update Profile',
       description: 'Modify your personal information',
-      action: () => console.log('Navigate to profile')
+      action: () => {} // TODO: Navigate to profile
     },
     {
       title: 'Transaction History',
       description: 'View all your transactions',
-      action: () => console.log('Navigate to transactions')
+      action: () => {} // TODO: Navigate to transactions
     },
     {
       title: 'KYC Verification',
       description: 'Complete identity verification',
-      action: () => console.log('Navigate to KYC')
+      action: () => {} // TODO: Navigate to KYC
     }
   ];
 

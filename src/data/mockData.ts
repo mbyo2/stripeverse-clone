@@ -1,4 +1,6 @@
 
+import { environment } from '@/config/environment';
+
 // Dynamic mock data configuration
 
 interface MockConfig {
@@ -10,11 +12,11 @@ interface MockConfig {
 }
 
 const config: MockConfig = {
-  environment: process.env.NODE_ENV as 'development' | 'staging' | 'production' || 'development',
+  environment: environment.NODE_ENV as 'development' | 'staging' | 'production',
   userCount: 1000,
   transactionCount: 5000,
   currencies: ['ZMW', 'USD', 'EUR', 'GBP'],
-  providers: ['mtn', 'airtel', 'zamtel', 'visa', 'mastercard', 'zanaco']
+  providers: [...environment.DEFAULTS.PROVIDERS]
 };
 
 // Dynamic payment methods based on configuration
@@ -134,25 +136,11 @@ export const generateMockTransactions = (count: number = 10) => {
 
 // Environment-specific configurations
 export const getEnvironmentConfig = () => ({
-  apiBaseUrl: config.environment === 'production' 
-    ? 'https://api.bmaglass.com'
-    : config.environment === 'staging'
-    ? 'https://api.staging.bmaglass.com'
-    : 'https://api.sandbox.bmaglass.com',
-  
-  webhookBaseUrl: config.environment === 'production'
-    ? 'https://webhooks.bmaglass.com'
-    : 'https://webhooks.sandbox.bmaglass.com',
-    
-  maxTransactionAmount: config.environment === 'production' ? 100000 : 10000,
-  minTransactionAmount: config.environment === 'production' ? 1 : 0.01,
-  
-  features: {
-    virtualCards: true,
-    internationalPayments: config.environment === 'production',
-    cryptoPayments: config.environment !== 'production',
-    advancedAnalytics: config.environment === 'production'
-  }
+  apiBaseUrl: environment.API_BASE_URL,
+  webhookBaseUrl: environment.WEBHOOK_BASE_URL,
+  maxTransactionAmount: environment.LIMITS.MAX_TRANSACTION_AMOUNT,
+  minTransactionAmount: environment.LIMITS.MIN_TRANSACTION_AMOUNT,
+  features: environment.FEATURES
 });
 
 // Configuration functions for dynamic behavior

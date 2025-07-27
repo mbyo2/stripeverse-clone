@@ -84,9 +84,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
     
     // Simulate API call with a timeout
     setTimeout(() => {
-      // In a real app, we would save the settings to the backend
-      console.log("Settings saved:", data);
-      console.log("Logo file:", logoFile);
+      // TODO: Implement backend API for business settings
       
       toast({
         title: "Settings updated",

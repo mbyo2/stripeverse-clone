@@ -78,8 +78,7 @@ const Business = () => {
                         }`}
                         disabled={!tool.available}
                         onClick={() => {
-                          // For now, just show a message since these pages don't exist yet
-                          console.log(`Navigate to ${tool.link}`);
+                          // TODO: Implement navigation to business tools
                         }}
                       >
                         {tool.icon}

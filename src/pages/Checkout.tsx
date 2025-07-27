@@ -28,7 +28,6 @@ const Checkout = () => {
   const showPaymentMethods = !paymentComplete;
 
   const handlePaymentComplete = (response: CheckoutResponse) => {
-    console.log("Payment Complete:", response);
     setPaymentComplete(true);
   };
 

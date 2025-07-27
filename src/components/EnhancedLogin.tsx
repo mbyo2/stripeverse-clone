@@ -55,7 +55,7 @@ const EnhancedLogin = () => {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="you@example.com" 
+                  placeholder="Enter your email" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

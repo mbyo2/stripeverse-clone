@@ -55,7 +55,7 @@ export function DocumentUploader({ userId, documentType, onUploadComplete, exist
         reader.readAsDataURL(selectedFile);
       } else {
         // Use a placeholder for PDFs
-        setPreview('/placeholder.svg');
+        setPreview('/public/placeholder.svg');
       }
     }
   };

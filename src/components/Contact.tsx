@@ -11,8 +11,7 @@ const Contact = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (email.trim() !== '') {
-      // In a real app, you'd send this to your backend
-      console.log('Subscription email:', email);
+      // TODO: Implement newsletter subscription endpoint
       setSubmitted(true);
       setEmail('');
       

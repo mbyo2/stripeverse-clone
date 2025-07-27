@@ -11,8 +11,7 @@ import { Mail, MapPin, Phone } from "lucide-react";
 const Contact = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Form submission would be handled here
-    console.log("Form submitted");
+    // TODO: Implement contact form submission endpoint
   };
 
   return (

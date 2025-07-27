@@ -33,7 +33,7 @@ const QuickActions = () => {
       icon: QrCode,
       label: "QR Pay",
       description: "Scan to pay or receive",
-      onClick: () => console.log("QR Pay coming soon"),
+      onClick: () => {}, // TODO: Implement QR Pay functionality
       color: "bg-blue-500 hover:bg-blue-600",
     },
     {

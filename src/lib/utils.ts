@@ -241,6 +241,7 @@ export const generateBTCPayCheckoutUrl = (
   currency: string = 'USD'
 ): string => {
   // In a real implementation, this would generate a BTCPay Server checkout URL
-  // For demo purposes, we're just returning a mock URL
-  return `https://btcpay.example.com/checkout?amount=${amount}&orderId=${orderId}&currency=${currency}`;
+  // This would be configured per environment
+  const btcPayUrl = import.meta.env.VITE_BTCPAY_URL || 'https://btcpay.sandbox.com';
+  return `${btcPayUrl}/checkout?amount=${amount}&orderId=${orderId}&currency=${currency}`;
 };

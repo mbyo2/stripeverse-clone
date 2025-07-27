@@ -70,8 +70,7 @@ export function BusinessBankingInfo({
     if (onSave) {
       onSave(data);
     } else {
-      // For demo purposes, show toast
-      console.log("Banking info saved:", data);
+      // TODO: Implement backend API for banking info
       
       toast({
         title: "Banking information updated",

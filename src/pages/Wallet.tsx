@@ -33,14 +33,13 @@ const Wallet = () => {
   const handleAddMoney = () => {
     const parsedAmount = parseFloat(amount);
     if (!isNaN(parsedAmount) && parsedAmount > 0) {
-      deposit({ amount: parsedAmount, paymentMethod: 'mock' });
+      deposit({ amount: parsedAmount, paymentMethod: 'mobile_money' });
       setAmount("");
     }
   };
 
   const handleReceiveMoney = () => {
-    // Implementation for receiving money - could show QR code
-    console.log("Receive money functionality coming soon");
+    // TODO: Implement receive money functionality with QR code
   };
 
   const AddMoneyContent = () => (

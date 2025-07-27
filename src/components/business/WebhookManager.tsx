@@ -47,7 +47,7 @@ export function WebhookManager() {
 
     setLoadError(null);
     try {
-      console.log("Fetching webhook config for user:", user.id);
+      
       const response = await supabase
         .from('webhooks')
         .select('url, events')
@@ -57,7 +57,7 @@ export function WebhookManager() {
       if (response.error) {
         // If error is 'No rows found', it just means no webhook is configured yet
         if (response.error.code === 'PGRST116') {
-          console.log("No webhook configuration found for this user");
+          
           setIsLoading(false);
           return;
         }
@@ -66,7 +66,7 @@ export function WebhookManager() {
       }
 
       if (response.data) {
-        console.log("Webhook config loaded:", response.data);
+        
         setWebhookUrl(response.data.url || "");
         setSelectedEvents(response.data.events as WebhookConfig['events'] || {
           payment_success: true,
@@ -124,7 +124,6 @@ export function WebhookManager() {
         description: "Webhook settings have been saved",
       });
       
-      console.log("Webhook update response:", data);
     } catch (error) {
       console.error('Error saving webhook:', error);
       toast({
