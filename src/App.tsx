@@ -157,7 +157,7 @@ function App() {
                   } />
 
                   <Route path="/card/new" element={
-                    <ProtectedRoute requiredFeature="virtual_cards">
+                    <ProtectedRoute>
                       <VirtualCardNew />
                     </ProtectedRoute>
                   } />
