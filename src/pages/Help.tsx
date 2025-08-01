@@ -58,22 +58,22 @@ const Help = () => {
     {
       title: 'Reset Password',
       description: 'Change your account password',
-      action: () => {} // TODO: Navigate to reset password
+      action: () => window.location.href = '/reset-password'
     },
     {
       title: 'Update Profile',
       description: 'Modify your personal information',
-      action: () => {} // TODO: Navigate to profile
+      action: () => window.location.href = '/profile'
     },
     {
       title: 'Transaction History',
       description: 'View all your transactions',
-      action: () => {} // TODO: Navigate to transactions
+      action: () => window.location.href = '/transactions'
     },
     {
       title: 'KYC Verification',
       description: 'Complete identity verification',
-      action: () => {} // TODO: Navigate to KYC
+      action: () => window.location.href = '/kyc'
     }
   ];
 

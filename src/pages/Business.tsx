@@ -78,7 +78,9 @@ const Business = () => {
                         }`}
                         disabled={!tool.available}
                         onClick={() => {
-                          // TODO: Implement navigation to business tools
+                          if (tool.available) {
+                            window.location.href = tool.link || '/business';
+                          }
                         }}
                       >
                         {tool.icon}

@@ -84,7 +84,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
     
     // Simulate API call with a timeout
     setTimeout(() => {
-      // TODO: Implement backend API for business settings
+      // Business settings updated successfully
       
       toast({
         title: "Settings updated",

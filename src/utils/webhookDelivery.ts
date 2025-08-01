@@ -56,7 +56,6 @@ export async function deliverWebhook(
 
     // Check if the business has subscribed to this event type
     if (!webhook.events[eventType]) {
-      console.log(`Business ${businessId} not subscribed to event ${eventType}`);
       return { success: false, message: 'Business not subscribed to this event' };
     }
 
@@ -107,7 +106,7 @@ export async function deliverWebhook(
     // Update webhook log on success
     await updateWebhookEventLog(payload.event_id, 'success');
 
-    console.log(`Webhook delivered successfully to ${webhook.url}`);
+    // Webhook delivered successfully
     return { 
       success: true, 
       status: response.status,
@@ -118,7 +117,7 @@ export async function deliverWebhook(
     
     // Handle retry logic if needed
     if (retryCount < 3) {
-      console.log(`Retrying webhook delivery (attempt ${retryCount + 1}/3)`);
+      // Retrying webhook delivery with exponential backoff
       
       // Exponential backoff: wait longer between each retry
       const backoffMs = Math.pow(2, retryCount) * 1000;
@@ -164,10 +163,7 @@ function generateWebhookSignature(payload: WebhookPayload, businessId: string): 
  */
 async function logWebhookEvent(eventLog: WebhookEventLog): Promise<void> {
   try {
-    // In a real implementation, this would insert a record into a webhook_logs table
-    console.log('Logging webhook event:', eventLog);
-    
-    // Simulated database insert
+    // TODO: Implement webhook event logging to database
     // await supabase.from('webhook_logs').insert(eventLog);
   } catch (error) {
     console.error('Error logging webhook event:', error);
@@ -183,10 +179,7 @@ async function updateWebhookEventLog(
   errorMessage?: string
 ): Promise<void> {
   try {
-    // In a real implementation, this would update a record in the webhook_logs table
-    console.log(`Updating webhook event ${eventId} status to ${status}`);
-    
-    // Simulated database update
+    // TODO: Implement webhook event status update
     // await supabase
     //   .from('webhook_logs')
     //   .update({ 

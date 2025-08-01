@@ -2,23 +2,27 @@
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Mail, Phone, MapPin } from 'lucide-react';
+import { useContactForm } from '@/hooks/useContactForm';
 
 const Contact = () => {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const contactRef = useRef<HTMLDivElement>(null);
+  const { subscribeToNewsletter, isSubmitting } = useContactForm();
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (email.trim() !== '') {
-      // TODO: Implement newsletter subscription endpoint
-      setSubmitted(true);
-      setEmail('');
-      
-      // Reset status after 3 seconds
-      setTimeout(() => {
-        setSubmitted(false);
-      }, 3000);
+      const success = await subscribeToNewsletter(email);
+      if (success) {
+        setSubmitted(true);
+        setEmail('');
+        
+        // Reset status after 3 seconds
+        setTimeout(() => {
+          setSubmitted(false);
+        }, 3000);
+      }
     }
   };
   
@@ -79,8 +83,9 @@ const Contact = () => {
                     "button-primary whitespace-nowrap transition-all duration-500 ease-apple-ease overflow-hidden",
                     submitted && "bg-green-500"
                   )}
+                  disabled={isSubmitting}
                 >
-                  {submitted ? "Thank You!" : "Subscribe"}
+                  {submitted ? "Thank You!" : isSubmitting ? "Subscribing..." : "Subscribe"}
                 </button>
               </div>
             </form>

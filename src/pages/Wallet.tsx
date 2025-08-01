@@ -18,6 +18,7 @@ import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/hooks/useWallet";
+import { useToast } from "@/hooks/use-toast";
 
 const Wallet = () => {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ const Wallet = () => {
   const { paymentMethods } = usePaymentMethods();
   const [amount, setAmount] = useState("");
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   
   const handleSendMoney = () => {
     navigate("/transfer");
@@ -39,7 +41,10 @@ const Wallet = () => {
   };
 
   const handleReceiveMoney = () => {
-    // TODO: Implement receive money functionality with QR code
+    toast({
+      title: "Receive Money",
+      description: "QR code generation feature coming soon",
+    });
   };
 
   const AddMoneyContent = () => (

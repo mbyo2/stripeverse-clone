@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
@@ -7,11 +7,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, MapPin, Phone } from "lucide-react";
+import { useContactForm } from "@/hooks/useContactForm";
 
 const Contact = () => {
-  const handleSubmit = (e: React.FormEvent) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    subject: '',
+    message: ''
+  });
+  const { submitContactForm, isSubmitting } = useContactForm();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement contact form submission endpoint
+    const success = await submitContactForm(formData);
+    if (success) {
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   return (
@@ -33,13 +50,26 @@ const Contact = () => {
                       <label htmlFor="name" className="text-sm font-medium">
                         Name
                       </label>
-                      <Input id="name" required />
+                      <Input 
+                        id="name" 
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        required 
+                      />
                     </div>
                     <div className="space-y-2">
                       <label htmlFor="email" className="text-sm font-medium">
                         Email
                       </label>
-                      <Input id="email" type="email" required />
+                      <Input 
+                        id="email" 
+                        name="email"
+                        type="email" 
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        required 
+                      />
                     </div>
                   </div>
                   
@@ -47,7 +77,13 @@ const Contact = () => {
                     <label htmlFor="subject" className="text-sm font-medium">
                       Subject
                     </label>
-                    <Input id="subject" required />
+                    <Input 
+                      id="subject" 
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleInputChange}
+                      required 
+                    />
                   </div>
                   
                   <div className="space-y-2">
@@ -56,14 +92,17 @@ const Contact = () => {
                     </label>
                     <Textarea 
                       id="message" 
+                      name="message"
                       rows={6} 
+                      value={formData.message}
+                      onChange={handleInputChange}
                       required
                       placeholder="How can we help you?"
                     />
                   </div>
                   
-                  <Button type="submit" className="w-full sm:w-auto">
-                    Send Message
+                  <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>
+                    {isSubmitting ? "Sending..." : "Send Message"}
                   </Button>
                 </form>
               </CardContent>
