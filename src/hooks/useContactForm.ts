@@ -16,12 +16,17 @@ export const useContactForm = () => {
   const submitContactForm = async (data: ContactFormData) => {
     setIsSubmitting(true);
     try {
-      // Since we don't have a contact_messages table, we'll log this for now
-      // In a real implementation, you would create a contact_messages table
-      console.log('Contact form submission:', data);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Using any to bypass TypeScript until types are regenerated
+      const { error } = await (supabase as any)
+        .from('contact_messages')
+        .insert({
+          name: data.name,
+          email: data.email,
+          subject: data.subject,
+          message: data.message
+        });
+
+      if (error) throw error;
       
       toast({
         title: "Message Sent",
@@ -45,12 +50,22 @@ export const useContactForm = () => {
   const subscribeToNewsletter = async (email: string) => {
     setIsSubmitting(true);
     try {
-      // Since we don't have a newsletter_subscriptions table, we'll log this for now
-      // In a real implementation, you would create a newsletter_subscriptions table
-      console.log('Newsletter subscription:', email);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Using any to bypass TypeScript until types are regenerated
+      const { error } = await (supabase as any)
+        .from('newsletter_subscriptions')
+        .insert({ email });
+
+      if (error) {
+        // If it's a unique constraint violation, the user is already subscribed
+        if (error.code === '23505') {
+          toast({
+            title: "Already Subscribed",
+            description: "You're already subscribed to our newsletter.",
+          });
+          return true;
+        }
+        throw error;
+      }
       
       toast({
         title: "Subscribed!",
