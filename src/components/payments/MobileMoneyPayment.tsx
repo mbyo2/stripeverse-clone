@@ -19,8 +19,6 @@ const providers = [
   { id: "mtn", name: "MTN Mobile Money", prefixes: ["076", "077", "078"] },
   { id: "airtel", name: "Airtel Money", prefixes: ["095", "096", "097"] },
   { id: "zamtel", name: "Zamtel Kwacha", prefixes: ["050", "051", "052"] },
-  { id: "orange", name: "Orange Money", prefixes: ["070", "071", "072"] },
-  { id: "mpesa", name: "M-Pesa", prefixes: ["254", "255", "256"] },
 ];
 
 const MobileMoneyPayment = ({ amount, onSuccess, onCancel }: MobileMoneyPaymentProps) => {

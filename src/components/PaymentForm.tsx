@@ -57,14 +57,14 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
       setIsProcessing(true);
       setError(null);
       
-      // Call our Supabase Edge Function for card payment
-      const { data, error } = await supabase.functions.invoke('mobile-money', {
+      // Call Edge Function: process-payment (card via local processor mock)
+      const { data, error } = await supabase.functions.invoke('process-payment', {
         body: {
+          amount,
+          currency: 'ZMW',
           paymentMethod: 'card',
-          cardNumber: cardNumber.replace(/\s/g, ''),
-          expiryDate: cardExpiry,
-          cvv: cardCvc,
-          amount: amount
+          provider: 'visa',
+          description: 'Card payment via local processor',
         }
       });
       
@@ -72,8 +72,8 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
         throw new Error(error.message || 'Failed to process card payment');
       }
       
-      if (data.status === 'failed') {
-        throw new Error(data.message || 'Transaction failed');
+      if (!data?.success) {
+        throw new Error(data?.error || 'Transaction failed');
       }
       
       // Payment successful
@@ -87,8 +87,8 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
       // Call success callback with payment details
       if (onSuccess) {
         onSuccess({
-          paymentId: data.transactionId,
-          method: `card_${data.cardType}`,
+          paymentId: data.transaction_id,
+          method: 'card_visa',
           status: data.status
         });
       }
