@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Smartphone } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -89,13 +89,16 @@ const MobileMoneyPayment = ({ amount, onSuccess, onCancel }: MobileMoneyPaymentP
     setIsProcessing(true);
     
     try {
-      // Call the Supabase Edge Function for processing mobile money
-      const { data, error } = await supabase.functions.invoke('mobile-money', {
+      // Call the Supabase Edge Function to register payment (mocked processor)
+      const digits = phoneNumber.replace(/\D/g, '');
+      const { data, error } = await supabase.functions.invoke('process-payment', {
         body: {
-          paymentMethod: 'mobile-money',
-          phoneNumber: phoneNumber.replace(/\D/g, ''),
-          amount: amount,
-          provider: provider
+          amount,
+          currency: 'ZMW',
+          paymentMethod: 'mobile',
+          provider,
+          description: 'Mobile money payment',
+          metadata: { phoneNumber: digits }
         }
       });
       
@@ -103,8 +106,8 @@ const MobileMoneyPayment = ({ amount, onSuccess, onCancel }: MobileMoneyPaymentP
         throw new Error(error.message || 'Failed to process mobile money payment');
       }
       
-      if (data.status === 'failed') {
-        throw new Error(data.message || 'Transaction failed');
+      if (!data?.success) {
+        throw new Error(data?.error || 'Transaction failed');
       }
       
       // Payment successful or pending
@@ -115,7 +118,7 @@ const MobileMoneyPayment = ({ amount, onSuccess, onCancel }: MobileMoneyPaymentP
       
       // Call success callback with payment details
       onSuccess({
-        paymentId: data.transactionId,
+        paymentId: data.transaction_id,
         method: provider,
         status: data.status
       });

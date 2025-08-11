@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { CreditCard, Check, Shield } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CardPaymentProps {
   amount: number;
@@ -102,22 +103,30 @@ const CardPayment = ({ amount, onSuccess, onCancel }: CardPaymentProps) => {
     setIsProcessing(true);
     
     try {
-      // In a real implementation, this would be a secure API call to process the payment
-      // For demo purposes, we'll simulate a successful payment after a short delay
-      setTimeout(() => {
-        const paymentId = `CARD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        
-        toast({
-          title: "Payment Successful",
-          description: `Your payment of ${formatCurrency(amount)} has been processed successfully.`,
-        });
-        
-        onSuccess({
-          paymentId,
-          method: "card",
-          status: "completed"
-        });
-      }, 2000);
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: {
+          amount,
+          currency: 'ZMW',
+          paymentMethod: 'card',
+          provider: 'visa',
+          description: 'Card payment'
+        }
+      });
+
+      if (error) throw new Error(error.message || 'Payment failed');
+      if (!data?.success) throw new Error(data?.error || 'Payment failed');
+
+      toast({
+        title: "Payment Successful",
+        description: `Your payment of ${formatCurrency(amount)} has been processed successfully.`,
+      });
+
+      onSuccess({
+        paymentId: data.transaction_id,
+        method: 'card',
+        status: data.status || 'completed'
+      });
+      setIsProcessing(false);
     } catch (error) {
       console.error("Error processing card payment:", error);
       toast({

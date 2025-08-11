@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { formatCardNumber, formatCurrency, isMobileMoneyNumber, validateCardNumber } from "@/lib/utils";
 import { CreditCard, Smartphone, Check, AlertCircle, Building, Phone, Bitcoin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";

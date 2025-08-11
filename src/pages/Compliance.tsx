@@ -5,7 +5,7 @@ import { Shield, Check, AlertTriangle, CreditCard, FileCheck, Lock, Eye, Downloa
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import KycVerificationStatus, { KycLevel, KycStatus } from '@/components/wallet/KycVerificationStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';

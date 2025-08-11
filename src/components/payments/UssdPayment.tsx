@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Copy, Smartphone } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UssdPaymentProps {
   amount: number;
@@ -74,24 +75,40 @@ const UssdPayment = ({ amount, onSuccess, onCancel }: UssdPaymentProps) => {
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!provider) {
       setError("Please select a mobile money provider");
       return;
     }
-    
-    // Simulate payment verification
-    toast({
-      title: "Payment registered",
-      description: "We'll verify your payment and update your account soon.",
-    });
-    
-    // Call success callback with payment details
-    onSuccess({
-      paymentId: `USSD-${reference}`,
-      method: `ussd_${provider}`,
-      status: "pending"
-    });
+
+    try {
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: {
+          amount,
+          currency: 'ZMW',
+          paymentMethod: 'ussd',
+          provider,
+          description: 'USSD payment',
+          metadata: { reference }
+        }
+      });
+
+      if (error) throw new Error(error.message || 'Failed to register payment');
+      if (!data?.success) throw new Error(data?.error || 'Payment failed');
+
+      toast({
+        title: 'Payment registered',
+        description: 'We\'ll verify your payment and update your account soon.',
+      });
+
+      onSuccess({
+        paymentId: data.transaction_id,
+        method: `ussd_${provider}`,
+        status: data.status || 'pending'
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to register payment');
+    }
   };
 
   const getInstructions = () => {
