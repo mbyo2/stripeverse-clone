@@ -39,6 +39,7 @@ import Analytics from "./pages/Analytics";
 import API from "./pages/API";
 import Support from "./pages/Support";
 import Rewards from "./pages/Rewards";
+import BitcoinWallet from "./pages/BitcoinWallet";
 
 const queryClient = new QueryClient();
 
@@ -123,6 +124,12 @@ function App() {
                   <Route path="/wallet" element={
                     <ProtectedRoute>
                       <Wallet />
+                    </ProtectedRoute>
+                  } />
+
+                  <Route path="/bitcoin-wallet" element={
+                    <ProtectedRoute>
+                      <BitcoinWallet />
                     </ProtectedRoute>
                   } />
 

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { getSupabaseClient } from "../_shared/supabase-client.ts"
 
 // Constants
 const BTCPAY_SERVER_URL = Deno.env.get("BTCPAY_SERVER_URL") || "https://btcpay.example.com";
@@ -56,6 +57,9 @@ serve(async (req) => {
     const url = new URL(req.url);
     const path = url.pathname.split('/').pop();
     
+    // Supabase client (service role with request auth header)
+    const supabase = getSupabaseClient(req);
+    
     // Handle webhook notifications (direct webhook URL calls)
     if (path === 'webhook' && req.method === 'POST') {
       // Check webhook signature if secret is configured
@@ -82,10 +86,53 @@ serve(async (req) => {
       // Common types: InvoiceCreated, InvoiceReceivedPayment, InvoiceProcessing, InvoiceSettled, etc.
       switch (webhookData.type) {
         case 'InvoiceSettled':
-        case 'InvoiceConfirmed':
+        case 'InvoiceConfirmed': {
           console.log(`Payment confirmed for invoice ${webhookData.invoiceId}`);
-          // Here you could update your database or trigger additional business logic
+          try {
+            // Mark invoice as paid and fetch owner + amount
+            const { data: updated, error: updErr } = await supabase
+              .from('crypto_invoices')
+              .update({ status: 'paid', paid_at: new Date().toISOString() })
+              .eq('invoice_id', webhookData.invoiceId)
+              .select('user_id, amount_sats')
+              .maybeSingle();
+
+            if (updErr) {
+              console.error('Error updating crypto_invoices:', updErr);
+            }
+
+            if (updated?.user_id && updated?.amount_sats) {
+              // Credit user's BTC wallet
+              const sats = Number(updated.amount_sats) || 0;
+              const { error: incErr } = await supabase.rpc('increment_crypto_balance', {
+                p_user_id: updated.user_id,
+                p_asset: 'BTC',
+                p_amount_sats: sats
+              });
+              if (incErr) console.error('Error incrementing crypto balance:', incErr);
+
+              // Record a transaction entry in existing transactions table
+              const amountBtc = sats / 100_000_000;
+              const { error: txErr } = await supabase.from('transactions').insert({
+                user_id: updated.user_id,
+                amount: amountBtc,
+                currency: 'BTC',
+                payment_method: 'bitcoin',
+                direction: 'incoming',
+                status: 'completed',
+                provider: 'BTCPay',
+                transaction_id: webhookData.invoiceId,
+                reference: 'btc_deposit',
+                category: 'general',
+                metadata: { type: 'deposit', network: 'bitcoin', source: 'btcpay' }
+              });
+              if (txErr) console.error('Error inserting BTC transaction:', txErr);
+            }
+          } catch (err) {
+            console.error('Error handling webhook settlement:', err);
+          }
           break;
+        }
         case 'InvoiceExpired':
           console.log(`Invoice ${webhookData.invoiceId} has expired`);
           break;
@@ -228,6 +275,29 @@ serve(async (req) => {
           checkoutUrl: checkoutUrl,
           expirationTime: new Date(Date.now() + 900000).toISOString(), // 15 minutes
         };
+      }
+
+      // Persist invoice mapping to user for crediting on webhook
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        const userId = auth?.user?.id;
+        const sats = Math.round((response.amount || 0) * 100_000_000);
+        if (userId) {
+          // Ensure wallet row exists
+          await supabase.from('crypto_wallets').upsert({ user_id: userId, asset: 'BTC' }, { onConflict: 'user_id,asset' });
+          // Store invoice record
+          await supabase.from('crypto_invoices').insert({
+            user_id: userId,
+            invoice_id: response.id,
+            status: 'pending',
+            amount_sats: sats,
+            amount_fiat: response.amountFiat,
+            fiat_currency: response.currency,
+            method: 'bitcoin'
+          });
+        }
+      } catch (persistErr) {
+        console.error('Failed to persist crypto invoice:', persistErr);
       }
 
       // Return the response

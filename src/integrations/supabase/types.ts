@@ -139,6 +139,108 @@ export type Database = {
           },
         ]
       }
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          message: string
+          name: string
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          message: string
+          name: string
+          status?: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      crypto_invoices: {
+        Row: {
+          amount_fiat: number | null
+          amount_sats: number | null
+          created_at: string
+          fiat_currency: string | null
+          id: string
+          invoice_id: string
+          method: string | null
+          paid_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount_fiat?: number | null
+          amount_sats?: number | null
+          created_at?: string
+          fiat_currency?: string | null
+          id?: string
+          invoice_id: string
+          method?: string | null
+          paid_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount_fiat?: number | null
+          amount_sats?: number | null
+          created_at?: string
+          fiat_currency?: string | null
+          id?: string
+          invoice_id?: string
+          method?: string | null
+          paid_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      crypto_wallets: {
+        Row: {
+          asset: string
+          available_sats: number
+          balance_sats: number
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset?: string
+          available_sats?: number
+          balance_sats?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset?: string
+          available_sats?: number
+          balance_sats?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       exchange_rates: {
         Row: {
           created_at: string
@@ -313,6 +415,36 @@ export type Database = {
           verification_documents?: Json | null
           webhook_secret?: string | null
           webhook_url?: string | null
+        }
+        Relationships: []
+      }
+      newsletter_subscriptions: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          status: string
+          subscribed_at: string
+          unsubscribed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          status?: string
+          subscribed_at?: string
+          unsubscribed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          status?: string
+          subscribed_at?: string
+          unsubscribed_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1377,6 +1509,10 @@ export type Database = {
           required_role: Database["public"]["Enums"]["app_role"]
         }
         Returns: boolean
+      }
+      increment_crypto_balance: {
+        Args: { p_user_id: string; p_asset: string; p_amount_sats: number }
+        Returns: undefined
       }
       increment_usage: {
         Args: {
