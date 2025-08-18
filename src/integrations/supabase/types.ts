@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -1430,7 +1430,7 @@ export type Database = {
     }
     Functions: {
       check_usage_limit: {
-        Args: { p_user_id: string; p_limit_type: string; p_amount?: number }
+        Args: { p_amount?: number; p_limit_type: string; p_user_id: string }
         Returns: boolean
       }
       cleanup_expired_sessions: {
@@ -1444,47 +1444,47 @@ export type Database = {
       get_monthly_transaction_data: {
         Args: { p_user_id: string }
         Returns: {
-          month: string
           amount: number
+          month: string
           transaction_count: number
         }[]
       }
       get_recent_transactions: {
-        Args: { p_user_id: string; p_limit?: number }
+        Args: { p_limit?: number; p_user_id: string }
         Returns: {
-          id: number
-          direction: string
-          recipient_name: string
           amount: number
-          currency: string
           created_at: string
+          currency: string
+          direction: string
+          id: number
+          recipient_name: string
           status: string
         }[]
       }
       get_spending_by_category: {
         Args: { p_user_id: string }
         Returns: {
-          category: string
           amount: number
+          category: string
         }[]
       }
       get_tier_features: {
         Args: { p_tier: string }
         Returns: {
+          category: string
+          description: string
           feature_id: string
           name: string
-          description: string
-          category: string
         }[]
       }
       get_user_rewards: {
         Args: { p_user_id: string }
         Returns: {
-          total_points: number
           lifetime_points: number
-          tier: string
           next_tier_threshold: number
           points_to_next_tier: number
+          tier: string
+          total_points: number
         }[]
       }
       get_user_tier: {
@@ -1494,9 +1494,9 @@ export type Database = {
       get_user_transaction_stats: {
         Args: { p_user_id: string }
         Returns: {
-          total_transactions: number
           monthly_amount: number
           monthly_transactions: number
+          total_transactions: number
         }[]
       }
       get_user_wallet_balance: {
@@ -1505,49 +1505,49 @@ export type Database = {
       }
       has_role: {
         Args: {
-          user_id: string
           required_role: Database["public"]["Enums"]["app_role"]
+          user_id: string
         }
         Returns: boolean
       }
       increment_crypto_balance: {
-        Args: { p_user_id: string; p_asset: string; p_amount_sats: number }
+        Args: { p_amount_sats: number; p_asset: string; p_user_id: string }
         Returns: undefined
       }
       increment_usage: {
         Args: {
+          p_amount?: number
+          p_usage_type: string
           p_user_id: string
           p_user_tier: string
-          p_usage_type: string
-          p_amount?: number
         }
         Returns: undefined
       }
       increment_wallet_balance: {
-        Args: { p_user_id: string; p_amount: number }
+        Args: { p_amount: number; p_user_id: string }
         Returns: undefined
       }
       log_security_event: {
         Args: {
-          p_user_id: string
-          p_event_type: string
           p_event_data?: Json
+          p_event_type: string
           p_ip_address?: unknown
-          p_user_agent?: string
           p_risk_score?: number
+          p_user_agent?: string
+          p_user_id: string
         }
         Returns: undefined
       }
       user_has_feature_access: {
-        Args: { p_user_id: string; p_feature_id: string }
+        Args: { p_feature_id: string; p_user_id: string }
         Returns: boolean
       }
       validate_role_change: {
         Args: {
-          p_user_id: string
-          p_new_role: string
           p_changed_by: string
+          p_new_role: string
           p_reason?: string
+          p_user_id: string
         }
         Returns: boolean
       }
