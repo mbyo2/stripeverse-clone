@@ -110,51 +110,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const checkRateLimit = async (action: string): Promise<boolean> => {
     try {
       const identifier = user?.id || 'anonymous';
+      const key = `rate_limit_${identifier}_${action}`;
+      const now = Date.now();
       
-      const { data: existing } = await supabase
-        .from('rate_limits')
-        .select('*')
-        .eq('identifier', identifier)
-        .eq('action', action)
-        .single();
-
-      if (existing) {
-        const windowStart = new Date(existing.window_start);
-        const now = new Date();
-        const hoursDiff = (now.getTime() - windowStart.getTime()) / (1000 * 60 * 60);
-
-        if (hoursDiff < 1 && existing.attempts >= 5) {
-          toast({
-            title: "Rate limit exceeded",
-            description: `Too many ${action} attempts. Please try again later.`,
-            variant: "destructive",
-          });
-          return false;
-        }
-
-        if (hoursDiff >= 1) {
-          await supabase
-            .from('rate_limits')
-            .update({ attempts: 1, window_start: now.toISOString() })
-            .eq('id', existing.id);
+      // Get stored attempts from localStorage
+      const stored = localStorage.getItem(key);
+      let attempts = 0;
+      let windowStart = now;
+      
+      if (stored) {
+        const data = JSON.parse(stored);
+        const timeDiff = now - data.windowStart;
+        
+        // Reset window if more than 15 minutes have passed
+        if (timeDiff > 15 * 60 * 1000) {
+          attempts = 1;
+          windowStart = now;
         } else {
-          await supabase
-            .from('rate_limits')
-            .update({ attempts: existing.attempts + 1 })
-            .eq('id', existing.id);
+          attempts = data.attempts + 1;
+          windowStart = data.windowStart;
         }
       } else {
-        await supabase.from('rate_limits').insert({
-          identifier,
-          action,
-          attempts: 1
-        });
+        attempts = 1;
       }
-
+      
+      // Check limits
+      const limit = action === 'login' ? 5 : 3;
+      if (attempts > limit) {
+        toast({
+          title: "Rate limit exceeded",
+          description: "Too many attempts. Please try again in 15 minutes.",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      // Store updated attempts
+      localStorage.setItem(key, JSON.stringify({
+        attempts,
+        windowStart
+      }));
+      
       return true;
     } catch (error) {
-      console.error('Rate limit check error:', error);
-      return true; // Allow on error
+      console.error('Rate limit error:', error);
+      // Allow on error to prevent blocking legitimate users
+      return true;
     }
   };
 
@@ -183,10 +184,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           throw new Error('2FA_REQUIRED');
         }
 
+        // Enhanced 2FA validation - must be done BEFORE setting auth state
         if (twoFactorData?.enabled && twoFactorCode) {
+          if (twoFactorCode.length !== 6 || !/^\d{6}$/.test(twoFactorCode)) {
+            toast({
+              title: "Invalid 2FA code format",
+              description: "2FA code must be exactly 6 digits.",
+              variant: "destructive",
+            });
+            return;
+          }
+          
           const isValid = await verify2FA(twoFactorCode);
           if (!isValid) {
-            throw new Error('Invalid 2FA code');
+            // Log security event for failed 2FA
+            await supabase.rpc('log_security_event', {
+              p_user_id: user?.id,
+              p_event_type: '2fa_verification_failed',
+              p_event_data: { email },
+              p_risk_score: 6
+            });
+            
+            toast({
+              title: "Invalid 2FA code",
+              description: "Please check your authenticator app and try again.",
+              variant: "destructive",
+            });
+            return;
           }
         }
       }

@@ -62,23 +62,57 @@ serve(async (req) => {
     
     // Handle webhook notifications (direct webhook URL calls)
     if (path === 'webhook' && req.method === 'POST') {
-      // Check webhook signature if secret is configured
+      const body = await req.text();
+      
+      // Enhanced webhook signature validation
       if (BTCPAY_WEBHOOK_SECRET) {
         const signature = req.headers.get('BTCPay-Sig');
         if (!signature) {
+          console.error('Missing BTCPay signature header');
           return new Response(
             JSON.stringify({ error: 'Missing BTCPay signature' }),
             { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         
-        // In a production environment, you should validate the signature here
-        // This requires calculating an HMAC using the webhook secret and request body
-        // For now, we'll just check that the header exists
+        // Validate webhook signature using HMAC-SHA256
+        try {
+          const expectedSig = signature.replace('sha256=', '');
+          const encoder = new TextEncoder();
+          const keyData = encoder.encode(BTCPAY_WEBHOOK_SECRET);
+          const bodyData = encoder.encode(body);
+          
+          const cryptoKey = await crypto.subtle.importKey(
+            'raw',
+            keyData,
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+          );
+          
+          const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, bodyData);
+          const computedSig = Array.from(new Uint8Array(signatureBuffer))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+            
+          if (computedSig !== expectedSig) {
+            console.error('Invalid webhook signature');
+            return new Response(
+              JSON.stringify({ error: 'Invalid webhook signature' }),
+              { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } catch (error) {
+          console.error('Error validating webhook signature:', error);
+          return new Response(
+            JSON.stringify({ error: 'Signature validation failed' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
       
-      // Parse the webhook data
-      const webhookData = await req.json() as BTCPayWebhookEvent;
+      // Parse the webhook data (body already read for signature validation)
+      const webhookData = JSON.parse(body) as BTCPayWebhookEvent;
       
       console.log("Received webhook notification:", JSON.stringify(webhookData));
       
@@ -157,17 +191,31 @@ serve(async (req) => {
     if (req.method === 'POST' && !body.invoiceId) {
       const { amount, currency = 'USD', orderId, buyerEmail, redirectUrl, metadata } = body as BTCPayInvoiceRequest;
 
-      // Validate inputs
-      if (!amount || amount <= 0) {
+      // Enhanced input validation
+      if (!amount || typeof amount !== 'number' || amount <= 0 || isNaN(amount) || amount > 1000000) {
         return new Response(
-          JSON.stringify({ error: 'Valid amount is required' }),
+          JSON.stringify({ error: 'Valid amount is required (must be positive number, max 1M)' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      if (!orderId) {
+      if (!orderId || typeof orderId !== 'string' || orderId.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(orderId)) {
         return new Response(
-          JSON.stringify({ error: 'Order ID is required' }),
+          JSON.stringify({ error: 'Valid order ID is required (alphanumeric, max 100 chars)' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (currency && (typeof currency !== 'string' || !/^[A-Z]{3}$/.test(currency))) {
+        return new Response(
+          JSON.stringify({ error: 'Currency must be valid 3-letter code' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (buyerEmail && (typeof buyerEmail !== 'string' || buyerEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyerEmail))) {
+        return new Response(
+          JSON.stringify({ error: 'Valid email address required if provided' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

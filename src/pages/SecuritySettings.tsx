@@ -2,6 +2,8 @@ import React from 'react';
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SecurityDashboard from "@/components/SecurityDashboard";
+import SecurityStatus from "@/components/SecurityStatus";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const SecuritySettings = () => {
   return (
@@ -14,7 +16,20 @@ const SecuritySettings = () => {
             Monitor your account security and manage access controls
           </p>
         </div>
-        <SecurityDashboard />
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="dashboard">Security Dashboard</TabsTrigger>
+            <TabsTrigger value="status">Security Status</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard">
+            <SecurityDashboard />
+          </TabsContent>
+
+          <TabsContent value="status">
+            <SecurityStatus />
+          </TabsContent>
+        </Tabs>
       </main>
       <Footer />
     </div>

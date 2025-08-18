@@ -51,6 +51,11 @@ export const usePaymentProcessing = () => {
       return { valid: false, error: 'User must be authenticated' };
     }
 
+    // Enhanced input validation
+    if (!paymentData.amount || typeof paymentData.amount !== 'number' || isNaN(paymentData.amount)) {
+      return { valid: false, error: 'Valid numeric amount is required' };
+    }
+
     if (paymentData.amount < config.minAmount) {
       return { valid: false, error: `Minimum amount is ${config.minAmount} ${paymentData.currency}` };
     }
@@ -58,9 +63,37 @@ export const usePaymentProcessing = () => {
     if (paymentData.amount > config.maxAmount) {
       return { valid: false, error: `Maximum amount is ${config.maxAmount} ${paymentData.currency}` };
     }
+
+    // Validate currency format
+    if (!paymentData.currency || typeof paymentData.currency !== 'string' || !/^[A-Z]{3}$/.test(paymentData.currency)) {
+      return { valid: false, error: 'Currency must be a valid 3-letter code' };
+    }
     
     if (!config.supportedCurrencies.includes(paymentData.currency)) {
       return { valid: false, error: `Currency ${paymentData.currency} is not supported` };
+    }
+
+    // Validate payment method
+    if (!paymentData.paymentMethod || typeof paymentData.paymentMethod !== 'string' || paymentData.paymentMethod.length > 50) {
+      return { valid: false, error: 'Valid payment method is required' };
+    }
+
+    // Validate provider
+    if (!paymentData.provider || typeof paymentData.provider !== 'string' || paymentData.provider.length > 50) {
+      return { valid: false, error: 'Valid provider is required' };
+    }
+
+    // Sanitize optional fields
+    if (paymentData.description && paymentData.description.length > 500) {
+      return { valid: false, error: 'Description must be less than 500 characters' };
+    }
+
+    if (paymentData.recipientAccount && paymentData.recipientAccount.length > 100) {
+      return { valid: false, error: 'Recipient account must be less than 100 characters' };
+    }
+
+    if (paymentData.recipientName && paymentData.recipientName.length > 100) {
+      return { valid: false, error: 'Recipient name must be less than 100 characters' };
     }
     
     return { valid: true };
