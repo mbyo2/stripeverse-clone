@@ -43,3 +43,12 @@ verify_jwt = true
 
 [functions.update-webhook]
 verify_jwt = true
+
+[functions.paypal-checkout]
+verify_jwt = true
+
+[functions.paypal-webhook] 
+verify_jwt = false
+
+[functions.paypal-marketplace]
+verify_jwt = true

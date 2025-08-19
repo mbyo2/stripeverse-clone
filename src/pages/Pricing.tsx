@@ -6,12 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, Star, Zap, Crown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles } from "@/contexts/RoleContext";
+import { PayPalCheckout } from "@/components/PayPalCheckout";
 
 const Pricing = () => {
   const [billingPeriod, setBillingPeriod] = useState("monthly");
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [showCheckout, setShowCheckout] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { subscriptionTier } = useRoles();
@@ -21,7 +25,26 @@ const Pricing = () => {
       navigate('/login', { state: { from: window.location.pathname } });
       return;
     }
-    navigate(`/checkout/${planId}`);
+    
+    if (planId === 'free') {
+      // Handle free plan signup
+      navigate('/dashboard');
+      return;
+    }
+    
+    setSelectedPlan(planId);
+    setShowCheckout(true);
+  };
+
+  const handleCheckoutSuccess = () => {
+    setShowCheckout(false);
+    setSelectedPlan(null);
+    navigate('/dashboard');
+  };
+
+  const handleCheckoutCancel = () => {
+    setShowCheckout(false);
+    setSelectedPlan(null);
   };
 
   const plans = [
@@ -195,7 +218,7 @@ const Pricing = () => {
                   disabled={plan.id === subscriptionTier}
                   variant={plan.id === subscriptionTier ? 'outline' : 'default'}
                 >
-                  {plan.id === subscriptionTier ? 'Current Plan' : plan.monthlyPrice === 0 ? 'Get Started Free' : 'Choose Plan'}
+                  {plan.id === subscriptionTier ? 'Current Plan' : plan.monthlyPrice === 0 ? 'Get Started Free' : 'Subscribe Now'}
                 </Button>
               </CardFooter>
             </Card>
@@ -286,6 +309,30 @@ const Pricing = () => {
         </div>
       </main>
       <Footer />
+      
+      {/* PayPal Checkout Dialog */}
+      <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Complete Your Subscription</DialogTitle>
+          </DialogHeader>
+          {selectedPlan && (
+            <PayPalCheckout
+              type="subscription"
+              planId={selectedPlan}
+              planName={plans.find(p => p.id === selectedPlan)?.name || ''}
+              amount={billingPeriod === 'monthly' 
+                ? plans.find(p => p.id === selectedPlan)?.monthlyPrice || 0
+                : plans.find(p => p.id === selectedPlan)?.yearlyPrice || 0
+              }
+              currency="USD"
+              features={plans.find(p => p.id === selectedPlan)?.features || []}
+              onSuccess={handleCheckoutSuccess}
+              onCancel={handleCheckoutCancel}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
