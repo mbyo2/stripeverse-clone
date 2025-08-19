@@ -304,6 +304,59 @@ export type Database = {
         }
         Relationships: []
       }
+      invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          due_date: string | null
+          id: string
+          invoice_number: string | null
+          paid_at: string | null
+          paypal_order_id: string | null
+          status: string
+          subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string | null
+          paid_at?: string | null
+          paypal_order_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string | null
+          paid_at?: string | null
+          paypal_order_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kyc_verifications: {
         Row: {
           address: string | null
@@ -361,6 +414,51 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           verified_at?: string | null
+        }
+        Relationships: []
+      }
+      marketplace_transactions: {
+        Row: {
+          created_at: string
+          currency: string
+          description: string | null
+          gross_amount: number
+          id: string
+          net_amount: number
+          payer_user_id: string
+          paypal_order_id: string | null
+          platform_fee: number
+          receiver_user_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          gross_amount: number
+          id?: string
+          net_amount: number
+          payer_user_id: string
+          paypal_order_id?: string | null
+          platform_fee?: number
+          receiver_user_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          payer_user_id?: string
+          paypal_order_id?: string | null
+          platform_fee?: number
+          receiver_user_id?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -945,6 +1043,48 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          paypal_plan_id: string | null
+          paypal_subscription_id: string | null
+          status: string
+          subscription_tier: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          paypal_plan_id?: string | null
+          paypal_subscription_id?: string | null
+          status?: string
+          subscription_tier?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          paypal_plan_id?: string | null
+          paypal_subscription_id?: string | null
+          status?: string
+          subscription_tier?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tier_features: {
         Row: {
           created_at: string
@@ -1440,6 +1580,10 @@ export type Database = {
       cleanup_old_totp_tokens: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      generate_invoice_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       get_monthly_transaction_data: {
         Args: { p_user_id: string }
