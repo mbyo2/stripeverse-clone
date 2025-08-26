@@ -88,8 +88,22 @@ serve(async (req) => {
 });
 
 async function verifyWebhookSignature(req: Request, body: string): Promise<boolean> {
-  // In production, implement proper PayPal webhook signature verification
-  // For now, return true for development
+  // Skip verification for sandbox testing since PayPal sandbox webhook secrets are limited
+  const isProduction = Deno.env.get("PAYPAL_ENV") === "production";
+  
+  if (!isProduction) {
+    logStep("Skipping webhook verification for sandbox testing");
+    return true;
+  }
+  
+  // For production, verify webhook signature
+  const webhookSecret = Deno.env.get("PAYPAL_WEBHOOK_SECRET");
+  if (!webhookSecret) {
+    logStep("No webhook secret configured for production");
+    return false;
+  }
+  
+  // TODO: Implement actual PayPal webhook signature verification for production
   return true;
 }
 
