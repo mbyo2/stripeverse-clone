@@ -6,6 +6,9 @@ export const environment = {
   // API endpoints
   API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://api.sandbox.bmaglass.com',
   
+  // PayPal environment configuration
+  PAYPAL_ENV: import.meta.env.VITE_PAYPAL_ENV || 'sandbox', // 'sandbox' or 'production'
+  
   // External service URLs
   BTCPAY_URL: import.meta.env.VITE_BTCPAY_URL || 'https://btcpay.sandbox.com',
   WEBHOOK_BASE_URL: import.meta.env.VITE_WEBHOOK_BASE_URL || 'https://webhooks.sandbox.bmaglass.com',
