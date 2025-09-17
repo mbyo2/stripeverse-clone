@@ -40,6 +40,8 @@ import API from "./pages/API";
 import Support from "./pages/Support";
 import Rewards from "./pages/Rewards";
 import BitcoinWallet from "./pages/BitcoinWallet";
+import PaymentProcessor from "./pages/PaymentProcessor";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -196,6 +198,12 @@ function App() {
                   <Route path="/rewards" element={
                     <ProtectedRoute>
                       <Rewards />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/payment-processor" element={
+                    <ProtectedRoute requiredFeature="business_tools">
+                      <PaymentProcessor />
                     </ProtectedRoute>
                   } />
                 </Routes>

@@ -25,6 +25,9 @@ export interface WebhookEventLog {
   attempts: number;
   created_at: string;
   last_attempt_at: string;
+  webhook_url: string;
+  attempt_count?: number;
+  max_attempts?: number;
   error_message?: string;
 }
 
@@ -77,7 +80,10 @@ export async function deliverWebhook(
       status: 'retrying',
       attempts: retryCount + 1,
       created_at: payload.timestamp,
-      last_attempt_at: new Date().toISOString()
+      last_attempt_at: new Date().toISOString(),
+      webhook_url: webhook.url,
+      attempt_count: retryCount + 1,
+      max_attempts: 3
     });
 
     // Set timeout to avoid long-running requests (5 seconds)
@@ -163,8 +169,13 @@ function generateWebhookSignature(payload: WebhookPayload, businessId: string): 
  */
 async function logWebhookEvent(eventLog: WebhookEventLog): Promise<void> {
   try {
-    // TODO: Implement webhook event logging to database
-    // await supabase.from('webhook_logs').insert(eventLog);
+    // Temporarily disable webhook logging since table doesn't exist yet
+    console.log('Webhook event would be logged:', {
+      event_id: eventLog.event_id,
+      webhook_url: eventLog.webhook_url,
+      event_type: eventLog.event_type,
+      status: eventLog.status
+    });
   } catch (error) {
     console.error('Error logging webhook event:', error);
   }
@@ -179,15 +190,12 @@ async function updateWebhookEventLog(
   errorMessage?: string
 ): Promise<void> {
   try {
-    // TODO: Implement webhook event status update
-    // await supabase
-    //   .from('webhook_logs')
-    //   .update({ 
-    //     status, 
-    //     last_attempt_at: new Date().toISOString(),
-    //     error_message: errorMessage
-    //   })
-    //   .eq('event_id', eventId);
+    // Temporarily disable webhook log updates since function doesn't exist yet
+    console.log('Webhook log update would be performed:', {
+      event_id: eventId,
+      status,
+      error_message: errorMessage
+    });
   } catch (error) {
     console.error('Error updating webhook event log:', error);
   }
