@@ -1581,6 +1581,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      decrypt_card_data: {
+        Args: { encrypted_data: Json }
+        Returns: Json
+      }
+      encrypt_card_data: {
+        Args: { card_number: string; cvv: string }
+        Returns: Json
+      }
       generate_invoice_number: {
         Args: Record<PropertyKey, never>
         Returns: string

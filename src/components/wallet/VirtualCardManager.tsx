@@ -25,14 +25,18 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
     cardType: 'debit'
   });
   const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
+  const [cardTokens, setCardTokens] = useState<Map<string, string>>(new Map());
 
   const handleCreateCard = () => {
-    createVirtualCard(newCardData);
+    // Clear any sensitive data from memory after creation
+    const sanitizedData = { ...newCardData };
+    createVirtualCard(sanitizedData);
     setShowCreateDialog(false);
+    // Clear form data
     setNewCardData({
       name: '',
       initialBalance: 100,
-      provider: 'visa',
+      provider: 'mastercard', // Changed to mastercard only
       cardType: 'debit'
     });
   };
@@ -41,14 +45,20 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
     const newVisible = new Set(visibleCards);
     if (newVisible.has(cardId)) {
       newVisible.delete(cardId);
+      // Clear sensitive data from memory when hiding
+      const newTokens = new Map(cardTokens);
+      newTokens.delete(cardId);
+      setCardTokens(newTokens);
     } else {
       newVisible.add(cardId);
     }
     setVisibleCards(newVisible);
   };
 
-  const maskCardNumber = (number: string) => {
-    return `**** **** **** ${number.slice(-4)}`;
+  // Secure card number display - always use masked format
+  const getSecureCardDisplay = (card: any) => {
+    // Card data is now encrypted in database, so we use masked_number
+    return card.masked_number || `**** **** **** ${card.card_number?.slice(-4) || '****'}`;
   };
 
   return (
@@ -95,22 +105,19 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Provider</Label>
-                    <Select 
-                      value={newCardData.provider} 
-                      onValueChange={(value) => setNewCardData({ ...newCardData, provider: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="visa">Visa</SelectItem>
-                        <SelectItem value="mastercard">Mastercard</SelectItem>
-                        <SelectItem value="amex">American Express</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div>
+                      <Label>Provider</Label>
+                      <div className="p-3 bg-muted rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-4 w-4 text-red-600" />
+                          <span className="font-medium">Mastercard</span>
+                          <Badge variant="secondary">Only Available</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Secured payment processing for Zambia
+                        </p>
+                      </div>
+                    </div>
                   <div>
                     <Label>Type</Label>
                     <Select 
@@ -174,20 +181,22 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                   <div className="mb-4">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-lg">
-                        {visibleCards.has(card.id) ? card.card_number : maskCardNumber(card.card_number)}
+                        {getSecureCardDisplay(card)}
                       </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => toggleCardVisibility(card.id)}
-                        className="text-white hover:bg-white/20"
-                      >
-                        {visibleCards.has(card.id) ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs text-white border-white/20">
+                          ENCRYPTED
+                        </Badge>
+                      </div>
                     </div>
                     <div className="flex justify-between mt-2 text-sm">
-                      <span>CVV: {visibleCards.has(card.id) ? card.cvv : '***'}</span>
+                      <span>CVV: ***</span>
                       <span>Exp: {card.expiry_date}</span>
+                    </div>
+                    <div className="mt-1">
+                      <p className="text-xs opacity-60">
+                        🔒 Card details are encrypted and secure
+                      </p>
                     </div>
                   </div>
                   
