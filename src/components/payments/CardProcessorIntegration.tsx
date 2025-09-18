@@ -9,11 +9,11 @@ import { CreditCard, Settings, Shield, Globe } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface CardProcessorConfig {
-  provider: 'mastercard' | 'adyen' | 'local';
+  provider: 'mastercard';
   apiKey: string;
   environment: 'sandbox' | 'production';
   webhookUrl: string;
-  merchantId?: string;
+  merchantId: string;
   features: string[];
 }
 
@@ -23,21 +23,17 @@ interface CardProcessorIntegrationProps {
 
 const CardProcessorIntegration: React.FC<CardProcessorIntegrationProps> = ({ onConfigSave }) => {
   const [config, setConfig] = useState<CardProcessorConfig>({
-    provider: 'local',
+    provider: 'mastercard',
     apiKey: '',
     environment: 'sandbox',
     webhookUrl: '',
     merchantId: '',
-    features: ['basic_payments']
+    features: ['basic_payments', '3ds_auth', 'tokenization', 'recurring', 'refunds']
   });
   const [isValidating, setIsValidating] = useState(false);
   const { toast } = useToast();
 
-  const providerFeatures = {
-    mastercard: ['basic_payments', '3ds_auth', 'tokenization', 'recurring', 'refunds'],
-    adyen: ['basic_payments', '3ds_auth', 'tokenization', 'recurring', 'refunds', 'fraud_detection'],
-    local: ['basic_payments', 'tokenization']
-  };
+  const mastercardFeatures = ['basic_payments', '3ds_auth', 'tokenization', 'recurring', 'refunds'];
 
   const handleValidateConfig = async () => {
     if (!config.apiKey.trim()) {
@@ -72,33 +68,12 @@ const CardProcessorIntegration: React.FC<CardProcessorIntegrationProps> = ({ onC
     }
   };
 
-  const getProviderInfo = () => {
-    switch (config.provider) {
-      case 'mastercard':
-        return {
-          name: 'Mastercard Send API',
-          description: 'Official Mastercard payment processing',
-          icon: <CreditCard className="h-5 w-5 text-red-600" />,
-          docs: 'https://developer.mastercard.com/send'
-        };
-      case 'adyen':
-        return {
-          name: 'Adyen Payment Platform',
-          description: 'Global payment processing with advanced features',
-          icon: <Globe className="h-5 w-5 text-green-600" />,
-          docs: 'https://docs.adyen.com'
-        };
-      default:
-        return {
-          name: 'Local Processor',
-          description: 'Basic card processing for development',
-          icon: <Settings className="h-5 w-5 text-gray-600" />,
-          docs: '#'
-        };
-    }
+  const providerInfo = {
+    name: 'Mastercard Send API',
+    description: 'Official Mastercard payment processing for Zambia',
+    icon: <CreditCard className="h-5 w-5 text-red-600" />,
+    docs: 'https://developer.mastercard.com/send'
   };
-
-  const providerInfo = getProviderInfo();
 
   return (
     <Card className="w-full max-w-2xl">
@@ -109,29 +84,9 @@ const CardProcessorIntegration: React.FC<CardProcessorIntegrationProps> = ({ onC
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Provider Selection */}
+        {/* Provider Info */}
         <div className="space-y-3">
           <Label>Payment Processor</Label>
-          <Select 
-            value={config.provider} 
-            onValueChange={(value: 'mastercard' | 'adyen' | 'local') => 
-              setConfig(prev => ({ 
-                ...prev, 
-                provider: value, 
-                features: providerFeatures[value] 
-              }))
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="mastercard">Mastercard Send API</SelectItem>
-              <SelectItem value="adyen">Adyen Payment Platform</SelectItem>
-              <SelectItem value="local">Local Processor (Development)</SelectItem>
-            </SelectContent>
-          </Select>
-          
           <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
             {providerInfo.icon}
             <div>
@@ -173,17 +128,15 @@ const CardProcessorIntegration: React.FC<CardProcessorIntegrationProps> = ({ onC
           </div>
         </div>
 
-        {config.provider !== 'local' && (
-          <div className="space-y-2">
-            <Label htmlFor="merchantId">Merchant ID</Label>
-            <Input
-              id="merchantId"
-              placeholder="Enter your merchant ID"
-              value={config.merchantId}
-              onChange={(e) => setConfig(prev => ({ ...prev, merchantId: e.target.value }))}
-            />
-          </div>
-        )}
+        <div className="space-y-2">
+          <Label htmlFor="merchantId">Merchant ID</Label>
+          <Input
+            id="merchantId"
+            placeholder="Enter your merchant ID"
+            value={config.merchantId}
+            onChange={(e) => setConfig(prev => ({ ...prev, merchantId: e.target.value }))}
+          />
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="webhookUrl">Webhook URL</Label>
