@@ -1569,6 +1569,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_advanced_rate_limit: {
+        Args: {
+          p_action: string
+          p_identifier: string
+          p_ip_address?: unknown
+          p_max_attempts?: number
+          p_window_minutes?: number
+        }
+        Returns: boolean
+      }
       check_usage_limit: {
         Args: { p_amount?: number; p_limit_type: string; p_user_id: string }
         Returns: boolean
@@ -1588,6 +1598,10 @@ export type Database = {
       encrypt_card_data: {
         Args: { card_number: string; cvv: string }
         Returns: Json
+      }
+      enforce_session_security: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       generate_invoice_number: {
         Args: Record<PropertyKey, never>
@@ -1679,6 +1693,27 @@ export type Database = {
         Args: { p_amount: number; p_user_id: string }
         Returns: undefined
       }
+      log_card_access_attempt: {
+        Args: {
+          p_access_type: string
+          p_card_id: string
+          p_ip_address?: unknown
+          p_user_agent?: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      log_enhanced_security_event: {
+        Args: {
+          p_event_data?: Json
+          p_event_type: string
+          p_ip_address?: unknown
+          p_risk_score?: number
+          p_user_agent?: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       log_security_event: {
         Args: {
           p_event_data?: Json
@@ -1689,6 +1724,14 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      run_security_maintenance: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      secure_encrypt_card_data: {
+        Args: { card_number: string; cvv: string }
+        Returns: Json
       }
       user_has_feature_access: {
         Args: { p_feature_id: string; p_user_id: string }

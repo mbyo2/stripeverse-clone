@@ -4,6 +4,7 @@ import Footer from "@/components/Footer";
 import SecurityDashboard from "@/components/SecurityDashboard";
 import SecurityStatus from "@/components/SecurityStatus";
 import SecurityAlert from "@/components/security/SecurityAlert";
+import { EnhancedSecuritySettings } from "@/components/security/EnhancedSecuritySettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,12 +28,17 @@ const SecuritySettings = () => {
           description="Your account has been upgraded with the latest security enhancements including encrypted card storage and role escalation protection."
         />
 
-        <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="enhanced" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="enhanced">Enhanced Security</TabsTrigger>
             <TabsTrigger value="dashboard">Security Dashboard</TabsTrigger>
             <TabsTrigger value="status">Security Status</TabsTrigger>
             <TabsTrigger value="encryption">Data Protection</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="enhanced">
+            <EnhancedSecuritySettings />
+          </TabsContent>
 
           <TabsContent value="dashboard">
             <SecurityDashboard />

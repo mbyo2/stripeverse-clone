@@ -11,18 +11,13 @@ export const useSecureCardAccess = () => {
     if (!user?.id) return;
 
     try {
-      // Log security event for card access
-      await supabase.rpc('log_security_event', {
+      // Use enhanced security logging
+      await supabase.rpc('log_card_access_attempt', {
         p_user_id: user.id,
-        p_event_type: 'secure_card_access',
-        p_event_data: {
-          card_id: cardId,
-          access_type: accessType,
-          timestamp: new Date().toISOString(),
-          user_agent: navigator.userAgent,
-          ip_address: 'client_side' // In production, get from server
-        },
-        p_risk_score: 2 // Low risk for authorized access
+        p_card_id: cardId,
+        p_access_type: accessType,
+        p_ip_address: null, // Would be set by server in production
+        p_user_agent: navigator.userAgent
       });
     } catch (error) {
       console.error('Failed to log card access:', error);
