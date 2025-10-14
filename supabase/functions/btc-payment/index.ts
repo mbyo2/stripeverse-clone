@@ -184,6 +184,17 @@ serve(async (req) => {
       );
     }
     
+    // Verify user authentication for non-webhook endpoints
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error('Authentication failed:', authError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     // Parse the request body for other endpoints
     const body = await req.json();
     

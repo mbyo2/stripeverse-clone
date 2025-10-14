@@ -109,34 +109,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const checkRateLimit = async (action: string): Promise<boolean> => {
     try {
-      const identifier = user?.id || 'anonymous';
-      const key = `rate_limit_${identifier}_${action}`;
-      const now = Date.now();
+      // Server-side rate limiting using database function
+      const identifier = user?.id || 'anonymous_' + Math.random().toString(36).substring(7);
       
-      // Get stored attempts from localStorage
-      const stored = localStorage.getItem(key);
-      let attempts = 0;
-      let windowStart = now;
+      const { data, error } = await supabase.rpc('check_advanced_rate_limit', {
+        p_identifier: identifier,
+        p_action: action,
+        p_max_attempts: action === 'login' ? 5 : 3,
+        p_window_minutes: 15,
+        p_ip_address: null // IP would be captured server-side in production
+      });
       
-      if (stored) {
-        const data = JSON.parse(stored);
-        const timeDiff = now - data.windowStart;
-        
-        // Reset window if more than 15 minutes have passed
-        if (timeDiff > 15 * 60 * 1000) {
-          attempts = 1;
-          windowStart = now;
-        } else {
-          attempts = data.attempts + 1;
-          windowStart = data.windowStart;
-        }
-      } else {
-        attempts = 1;
+      if (error) {
+        console.error('Rate limit check error:', error);
+        // Allow on error to prevent blocking legitimate users
+        return true;
       }
       
-      // Check limits
-      const limit = action === 'login' ? 5 : 3;
-      if (attempts > limit) {
+      if (!data) {
         toast({
           title: "Rate limit exceeded",
           description: "Too many attempts. Please try again in 15 minutes.",
@@ -144,12 +134,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
         return false;
       }
-      
-      // Store updated attempts
-      localStorage.setItem(key, JSON.stringify({
-        attempts,
-        windowStart
-      }));
       
       return true;
     } catch (error) {

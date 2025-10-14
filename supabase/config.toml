@@ -33,10 +33,10 @@ enabled = true
 enabled = true
 
 [functions.mobile-money]
-verify_jwt = false
+verify_jwt = true
 
 [functions.btc-payment]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-api-key]
 verify_jwt = true

@@ -1,13 +1,28 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Helper to get authenticated Supabase client
+const getSupabaseClient = (req: Request) => {
+  const authHeader = req.headers.get('Authorization');
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        Authorization: authHeader || '',
+      },
+    },
+  });
 };
 
 // Base response interface for all payment methods
@@ -693,6 +708,20 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
         { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Get authenticated Supabase client
+    const supabase = getSupabaseClient(req);
+    
+    // Verify user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error('Authentication failed:', authError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     

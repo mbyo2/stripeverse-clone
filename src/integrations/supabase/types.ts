@@ -466,6 +466,7 @@ export type Database = {
         Row: {
           address: Json
           api_key: string | null
+          api_key_masked: string | null
           business_name: string
           business_type: string
           contact_info: Json
@@ -478,11 +479,13 @@ export type Database = {
           user_id: string
           verification_documents: Json | null
           webhook_secret: string | null
+          webhook_secret_masked: string | null
           webhook_url: string | null
         }
         Insert: {
           address: Json
           api_key?: string | null
+          api_key_masked?: string | null
           business_name: string
           business_type: string
           contact_info: Json
@@ -495,11 +498,13 @@ export type Database = {
           user_id: string
           verification_documents?: Json | null
           webhook_secret?: string | null
+          webhook_secret_masked?: string | null
           webhook_url?: string | null
         }
         Update: {
           address?: Json
           api_key?: string | null
+          api_key_masked?: string | null
           business_name?: string
           business_type?: string
           contact_info?: Json
@@ -512,6 +517,7 @@ export type Database = {
           user_id?: string
           verification_documents?: Json | null
           webhook_secret?: string | null
+          webhook_secret_masked?: string | null
           webhook_url?: string | null
         }
         Relationships: []
@@ -1566,7 +1572,60 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      merchant_accounts_safe: {
+        Row: {
+          address: Json | null
+          api_key_masked: string | null
+          business_name: string | null
+          business_type: string | null
+          contact_info: Json | null
+          created_at: string | null
+          id: string | null
+          registration_number: string | null
+          status: string | null
+          tax_id: string | null
+          updated_at: string | null
+          user_id: string | null
+          verification_documents: Json | null
+          webhook_secret_masked: string | null
+          webhook_url: string | null
+        }
+        Insert: {
+          address?: Json | null
+          api_key_masked?: string | null
+          business_name?: string | null
+          business_type?: string | null
+          contact_info?: Json | null
+          created_at?: string | null
+          id?: string | null
+          registration_number?: string | null
+          status?: string | null
+          tax_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          verification_documents?: Json | null
+          webhook_secret_masked?: string | null
+          webhook_url?: string | null
+        }
+        Update: {
+          address?: Json | null
+          api_key_masked?: string | null
+          business_name?: string | null
+          business_type?: string | null
+          contact_info?: Json | null
+          created_at?: string | null
+          id?: string | null
+          registration_number?: string | null
+          status?: string | null
+          tax_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          verification_documents?: Json | null
+          webhook_secret_masked?: string | null
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       check_advanced_rate_limit: {
@@ -1599,12 +1658,20 @@ export type Database = {
         Args: { card_number: string; cvv: string }
         Returns: Json
       }
+      encrypt_merchant_secret: {
+        Args: { secret_text: string }
+        Returns: string
+      }
       enforce_session_security: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
       generate_invoice_number: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_merchant_api_key: {
+        Args: { merchant_id: string }
         Returns: string
       }
       get_monthly_transaction_data: {
@@ -1724,6 +1791,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      mask_api_key: {
+        Args: { api_key: string }
+        Returns: string
       }
       run_security_maintenance: {
         Args: Record<PropertyKey, never>
