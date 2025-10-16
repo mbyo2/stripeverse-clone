@@ -12,17 +12,25 @@ const Contact = () => {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim() !== '') {
-      const success = await subscribeToNewsletter(email);
-      if (success) {
-        setSubmitted(true);
-        setEmail('');
-        
-        // Reset status after 3 seconds
-        setTimeout(() => {
-          setSubmitted(false);
-        }, 3000);
-      }
+    
+    // Validate email using zod
+    const { newsletterSchema } = await import('@/lib/validation');
+    const result = newsletterSchema.safeParse({ email: email.trim() });
+    
+    if (!result.success) {
+      // Show validation error
+      return;
+    }
+    
+    const success = await subscribeToNewsletter(result.data.email);
+    if (success) {
+      setSubmitted(true);
+      setEmail('');
+      
+      // Reset status after 3 seconds
+      setTimeout(() => {
+        setSubmitted(false);
+      }, 3000);
     }
   };
   

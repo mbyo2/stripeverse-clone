@@ -38,6 +38,29 @@ serve(async (req) => {
     logStep("User authenticated", { userId: user.id });
 
     const requestBody = await req.json();
+    
+    // Validate input using schema
+    const schema = {
+      name: requestBody.name,
+      provider: requestBody.provider || 'mastercard',
+      cardType: requestBody.cardType || 'debit',
+      dailyLimit: requestBody.dailyLimit,
+      monthlyLimit: requestBody.monthlyLimit,
+    };
+    
+    // Basic validation
+    if (!schema.name || schema.name.length > 50 || !/^[a-zA-Z0-9\s-]+$/.test(schema.name)) {
+      throw new Error("Invalid card name");
+    }
+    
+    if (schema.provider !== 'mastercard') {
+      throw new Error("Invalid provider");
+    }
+    
+    if (!['debit', 'prepaid'].includes(schema.cardType)) {
+      throw new Error("Invalid card type");
+    }
+    
     const { name, provider, cardType, dailyLimit, monthlyLimit, transactionLimit, allowOnline, allowInternational } = requestBody;
 
     // Generate card details
@@ -109,12 +132,17 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in create-virtual-card", { message: errorMessage });
     
+    // Return generic error to user, log details server-side
+    const userError = error instanceof Error && error.message.includes("Invalid") 
+      ? error.message 
+      : "Failed to create virtual card";
+    
     return new Response(JSON.stringify({ 
       success: false, 
-      error: errorMessage 
+      error: userError
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: error instanceof Error && error.message.includes("Invalid") ? 400 : 500,
     });
   }
 });

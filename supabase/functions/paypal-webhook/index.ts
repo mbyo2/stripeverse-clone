@@ -77,9 +77,10 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in paypal-webhook", { message: errorMessage });
     
+    // Generic error response - don't leak implementation details
     return new Response(JSON.stringify({ 
       success: false, 
-      error: errorMessage 
+      error: "Webhook processing failed" 
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
@@ -88,23 +89,61 @@ serve(async (req) => {
 });
 
 async function verifyWebhookSignature(req: Request, body: string): Promise<boolean> {
-  // Skip verification for sandbox testing since PayPal sandbox webhook secrets are limited
-  const isProduction = Deno.env.get("PAYPAL_ENV") === "production";
-  
-  if (!isProduction) {
-    logStep("Skipping webhook verification for sandbox testing");
-    return true;
-  }
-  
-  // For production, verify webhook signature
   const webhookSecret = Deno.env.get("PAYPAL_WEBHOOK_SECRET");
+  
+  // Always require webhook secret
   if (!webhookSecret) {
-    logStep("No webhook secret configured for production");
+    logStep("ERROR: No webhook secret configured");
     return false;
   }
   
-  // TODO: Implement actual PayPal webhook signature verification for production
-  return true;
+  try {
+    // Get PayPal headers required for verification
+    const transmissionId = req.headers.get("PAYPAL-TRANSMISSION-ID");
+    const transmissionTime = req.headers.get("PAYPAL-TRANSMISSION-TIME");
+    const certUrl = req.headers.get("PAYPAL-CERT-URL");
+    const authAlgo = req.headers.get("PAYPAL-AUTH-ALGO");
+    const transmissionSig = req.headers.get("PAYPAL-TRANSMISSION-SIG");
+    
+    if (!transmissionId || !transmissionTime || !certUrl || !authAlgo || !transmissionSig) {
+      logStep("Missing required PayPal webhook headers");
+      return false;
+    }
+    
+    // Construct the expected signature message
+    const webhookId = Deno.env.get("PAYPAL_WEBHOOK_ID");
+    if (!webhookId) {
+      logStep("No webhook ID configured");
+      return false;
+    }
+    
+    const expectedMsg = `${transmissionId}|${transmissionTime}|${webhookId}|${crypto.createHash('sha256').update(body).digest('hex')}`;
+    
+    // Verify the signature using crypto
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(webhookSecret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+    
+    const signatureBuffer = Uint8Array.from(atob(transmissionSig), c => c.charCodeAt(0));
+    const isValid = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      signatureBuffer,
+      encoder.encode(expectedMsg)
+    );
+    
+    logStep("Webhook signature verification", { isValid });
+    return isValid;
+    
+  } catch (error) {
+    logStep("Error verifying webhook signature", { error: error.message });
+    return false;
+  }
 }
 
 async function handlePaymentCompleted(supabase: any, resource: any) {
