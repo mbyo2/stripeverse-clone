@@ -90,13 +90,17 @@ export async function deliverWebhook(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
+    // Generate secure signature
+    const signature = await generateWebhookSignature(payload, businessId);
+    
     // Send the webhook with timeout
     const response = await fetch(webhook.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-BMGlass-Signature': generateWebhookSignature(payload, businessId),
-        'X-BMGlass-Event': eventType
+        'X-BMGlass-Signature': signature,
+        'X-BMGlass-Event': eventType,
+        'X-BMGlass-Timestamp': payload.timestamp
       },
       body: JSON.stringify(payload),
       signal: controller.signal
@@ -150,18 +154,47 @@ export async function deliverWebhook(
 }
 
 /**
- * Generates a signature for webhook verification
+ * Generates a secure HMAC-SHA256 signature for webhook verification
  */
-function generateWebhookSignature(payload: WebhookPayload, businessId: string): string {
-  // In a real implementation, this would use a secret key for the business
-  // This is a simplified example
-  const data = JSON.stringify(payload);
-  const encoder = new TextEncoder();
-  const message = encoder.encode(data);
-  
-  // This is a placeholder - in production use a proper crypto library
-  // and store/retrieve the business's webhook secret securely
-  return 'sha256=' + businessId + '_' + payload.event_id;
+async function generateWebhookSignature(payload: WebhookPayload, businessId: string): Promise<string> {
+  try {
+    // Fetch business webhook secret from database
+    const { data: webhook } = await supabase
+      .from('webhooks')
+      .select('webhook_secret')
+      .eq('business_id', businessId)
+      .single();
+    
+    if (!webhook?.webhook_secret) {
+      console.warn('No webhook secret configured for business:', businessId);
+      return '';
+    }
+    
+    // Generate HMAC-SHA256 signature
+    const payloadString = JSON.stringify(payload);
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(webhook.webhook_secret);
+    const messageData = encoder.encode(payloadString);
+    
+    // Create HMAC key
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    
+    // Generate signature
+    const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+    const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+    const signatureHex = signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    return `sha256=${signatureHex}`;
+  } catch (error) {
+    console.error('Error generating webhook signature:', error);
+    return '';
+  }
 }
 
 /**

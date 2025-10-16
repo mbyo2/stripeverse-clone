@@ -98,6 +98,21 @@ export function WebhookManager() {
       return;
     }
 
+    // Validate webhook URL format
+    try {
+      const url = new URL(webhookUrl);
+      if (!['https:', 'http:'].includes(url.protocol)) {
+        throw new Error('Invalid protocol');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid HTTPS URL",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!user?.id) {
       toast({
         title: "Error",

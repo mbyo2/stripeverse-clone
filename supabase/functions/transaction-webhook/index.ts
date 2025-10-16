@@ -97,22 +97,67 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Webhook processing error:', error)
+    
+    // Return generic error message to external systems
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Webhook processing failed' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       }
     )
   }
 })
 
 async function validateWebhookSignature(req: Request, webhookData: any): Promise<boolean> {
-  // Implement signature validation based on provider requirements
-  // For now, return true (in production, implement proper validation)
-  const signature = req.headers.get('x-webhook-signature')
-  console.log('Validating webhook signature:', signature)
-  return true
+  try {
+    const signature = req.headers.get('x-webhook-signature');
+    const provider = (webhookData.provider || 'unknown').toLowerCase();
+    
+    if (!signature) {
+      console.error('Missing webhook signature');
+      return false;
+    }
+    
+    // Get provider-specific webhook secret from environment
+    const secretKey = Deno.env.get(`${provider.toUpperCase()}_WEBHOOK_SECRET`);
+    
+    if (!secretKey) {
+      console.error(`No webhook secret configured for provider: ${provider}`);
+      return false;
+    }
+    
+    // Validate signature using HMAC-SHA256
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secretKey);
+    const bodyData = encoder.encode(JSON.stringify(webhookData));
+    
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+    
+    // Extract signature from header (format: sha256=<signature>)
+    const expectedSig = signature.replace('sha256=', '');
+    const signatureBuffer = Uint8Array.from(atob(expectedSig), c => c.charCodeAt(0));
+    
+    const isValid = await crypto.subtle.verify(
+      'HMAC',
+      cryptoKey,
+      signatureBuffer,
+      bodyData
+    );
+    
+    console.log('Webhook signature validation:', { provider, isValid });
+    return isValid;
+    
+  } catch (error) {
+    console.error('Error validating webhook signature:', error);
+    return false;
+  }
 }
 
 async function processMTNWebhook(webhookData: any) {
@@ -252,7 +297,40 @@ async function notifyBusinessWebhooks(supabaseClient: any, transaction: any, upd
   }
 }
 
-function generateWebhookSignature(payload: any, businessId: string): string {
-  // Implement HMAC signature generation for webhook security
-  return `sha256=${businessId}_${Date.now()}`
+async function generateWebhookSignature(payload: any, businessId: string): Promise<string> {
+  try {
+    // Get business-specific webhook secret
+    const { data: webhook } = await supabase
+      .from('webhooks')
+      .select('webhook_secret')
+      .eq('business_id', businessId)
+      .single();
+    
+    if (!webhook?.webhook_secret) {
+      console.warn('No webhook secret found for business:', businessId);
+      return '';
+    }
+    
+    // Generate HMAC-SHA256 signature
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(webhook.webhook_secret);
+    const bodyData = encoder.encode(JSON.stringify(payload));
+    
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    
+    const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, bodyData);
+    const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+    const signatureHex = signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    return `sha256=${signatureHex}`;
+  } catch (error) {
+    console.error('Error generating webhook signature:', error);
+    return '';
+  }
 }
