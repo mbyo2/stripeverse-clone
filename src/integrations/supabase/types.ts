@@ -1513,6 +1513,59 @@ export type Database = {
           },
         ]
       }
+      wallet_reconciliations: {
+        Row: {
+          calculated_balance: number
+          created_at: string
+          difference: number
+          id: string
+          metadata: Json | null
+          notes: string | null
+          performed_by: string | null
+          reconciliation_type: string
+          recorded_balance: number
+          status: string
+          transaction_count: number
+          wallet_id: string
+        }
+        Insert: {
+          calculated_balance: number
+          created_at?: string
+          difference: number
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          performed_by?: string | null
+          reconciliation_type: string
+          recorded_balance: number
+          status?: string
+          transaction_count?: number
+          wallet_id: string
+        }
+        Update: {
+          calculated_balance?: number
+          created_at?: string
+          difference?: number
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          performed_by?: string | null
+          reconciliation_type?: string
+          recorded_balance?: number
+          status?: string
+          transaction_count?: number
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_reconciliations_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wallets: {
         Row: {
           balance: number
@@ -1631,6 +1684,14 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_wallet_balance: {
+        Args: { p_wallet_id: string }
+        Returns: {
+          calculated_balance: number
+          last_transaction_date: string
+          transaction_count: number
+        }[]
+      }
       check_advanced_rate_limit: {
         Args: {
           p_action: string
@@ -1657,6 +1718,10 @@ export type Database = {
         Returns: string
       }
       enforce_session_security: { Args: never; Returns: undefined }
+      fix_wallet_balance: {
+        Args: { p_notes?: string; p_performed_by?: string; p_wallet_id: string }
+        Returns: boolean
+      }
       generate_invoice_number: { Args: never; Returns: string }
       get_merchant_api_key: { Args: { merchant_id: string }; Returns: string }
       get_monthly_transaction_data: {
@@ -1772,6 +1837,25 @@ export type Database = {
         Returns: undefined
       }
       mask_api_key: { Args: { api_key: string }; Returns: string }
+      reconcile_all_wallets: {
+        Args: never
+        Returns: {
+          difference: number
+          has_discrepancy: boolean
+          reconciliation_id: string
+          user_id: string
+          wallet_id: string
+        }[]
+      }
+      reconcile_wallet: {
+        Args: {
+          p_notes?: string
+          p_performed_by?: string
+          p_reconciliation_type?: string
+          p_wallet_id: string
+        }
+        Returns: string
+      }
       run_security_maintenance: { Args: never; Returns: undefined }
       secure_encrypt_card_data: {
         Args: { card_number: string; cvv: string }
