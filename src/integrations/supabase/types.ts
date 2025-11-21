@@ -1551,6 +1551,7 @@ export type Database = {
           id: string
           updated_at: string | null
           url: string
+          webhook_secret: string
         }
         Insert: {
           business_id: string
@@ -1559,6 +1560,7 @@ export type Database = {
           id?: string
           updated_at?: string | null
           url: string
+          webhook_secret?: string
         }
         Update: {
           business_id?: string
@@ -1567,6 +1569,7 @@ export type Database = {
           id?: string
           updated_at?: string | null
           url?: string
+          webhook_secret?: string
         }
         Relationships: []
       }
