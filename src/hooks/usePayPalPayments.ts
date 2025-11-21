@@ -38,20 +38,31 @@ export const usePayPalPayments = () => {
     setIsProcessing(true);
 
     try {
-      // Validate payment data
+      // Enhanced validation
       if (!paymentData.amount || paymentData.amount <= 0) {
         throw new Error('Invalid payment amount');
+      }
+
+      if (paymentData.amount > 999999.99) {
+        throw new Error('Payment amount exceeds maximum limit');
       }
 
       if (paymentData.type === 'subscription' && !paymentData.planId) {
         throw new Error('Plan ID is required for subscriptions');
       }
 
+      // Validate currency code
+      const validCurrencies = ['USD', 'EUR', 'GBP', 'ZMW'];
+      const currency = paymentData.currency || 'USD';
+      if (!validCurrencies.includes(currency)) {
+        throw new Error('Unsupported currency');
+      }
+
       // Call PayPal checkout function
       const { data, error } = await supabase.functions.invoke('paypal-checkout', {
         body: {
           amount: paymentData.amount,
-          currency: paymentData.currency || 'USD',
+          currency,
           planId: paymentData.planId,
           type: paymentData.type || 'payment',
           description: paymentData.description
@@ -67,15 +78,18 @@ export const usePayPalPayments = () => {
         throw new Error(data?.error || 'Payment processing failed');
       }
 
+      // Validate response
+      if (!data.approvalUrl) {
+        throw new Error('No approval URL received from PayPal');
+      }
+
       toast({
         title: "Payment Initiated",
         description: "Redirecting to PayPal for payment completion...",
       });
 
       // Redirect to PayPal
-      if (data.approvalUrl) {
-        window.open(data.approvalUrl, '_blank');
-      }
+      window.open(data.approvalUrl, '_blank');
 
       return {
         success: true,

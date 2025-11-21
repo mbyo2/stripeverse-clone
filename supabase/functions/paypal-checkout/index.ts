@@ -36,6 +36,21 @@ serve(async (req) => {
     if (!user?.id || !user?.email) throw new Error("User not authenticated");
 
     const { planId, amount, currency = 'USD', type = 'subscription' } = await req.json();
+    
+    // Input validation
+    if (!amount || amount <= 0 || amount > 999999.99) {
+      throw new Error('Invalid payment amount');
+    }
+    
+    const validCurrencies = ['USD', 'EUR', 'GBP', 'ZMW'];
+    if (!validCurrencies.includes(currency)) {
+      throw new Error('Unsupported currency');
+    }
+    
+    if (type === 'subscription' && !planId) {
+      throw new Error('Plan ID required for subscriptions');
+    }
+    
     logStep("Checkout request", { planId, amount, currency, type, userId: user.id });
 
     // Get PayPal access token
