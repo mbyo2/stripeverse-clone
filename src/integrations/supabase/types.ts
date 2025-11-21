@@ -19,7 +19,7 @@ export type Database = {
           action: string
           created_at: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           new_values: Json | null
           old_values: Json | null
           record_id: string
@@ -31,7 +31,7 @@ export type Database = {
           action: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           record_id: string
@@ -43,7 +43,7 @@ export type Database = {
           action?: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           record_id?: string
@@ -887,7 +887,7 @@ export type Database = {
           event_data: Json | null
           event_type: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           risk_score: number | null
           user_agent: string | null
           user_id: string | null
@@ -897,7 +897,7 @@ export type Database = {
           event_data?: Json | null
           event_type: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           risk_score?: number | null
           user_agent?: string | null
           user_id?: string | null
@@ -907,7 +907,7 @@ export type Database = {
           event_data?: Json | null
           event_type?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           risk_score?: number | null
           user_agent?: string | null
           user_id?: string | null
@@ -1409,7 +1409,7 @@ export type Database = {
           device_info: Json | null
           expires_at: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           last_activity: string
           session_token: string
           user_id: string
@@ -1419,7 +1419,7 @@ export type Database = {
           device_info?: Json | null
           expires_at: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           last_activity?: string
           session_token: string
           user_id: string
@@ -1429,7 +1429,7 @@ export type Database = {
           device_info?: Json | null
           expires_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           last_activity?: string
           session_token?: string
           user_id?: string
@@ -1642,18 +1642,9 @@ export type Database = {
         Args: { p_amount?: number; p_limit_type: string; p_user_id: string }
         Returns: boolean
       }
-      cleanup_expired_sessions: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      cleanup_old_totp_tokens: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      decrypt_card_data: {
-        Args: { encrypted_data: Json }
-        Returns: Json
-      }
+      cleanup_expired_sessions: { Args: never; Returns: undefined }
+      cleanup_old_totp_tokens: { Args: never; Returns: undefined }
+      decrypt_card_data: { Args: { encrypted_data: Json }; Returns: Json }
       encrypt_card_data: {
         Args: { card_number: string; cvv: string }
         Returns: Json
@@ -1662,18 +1653,9 @@ export type Database = {
         Args: { secret_text: string }
         Returns: string
       }
-      enforce_session_security: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      generate_invoice_number: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_merchant_api_key: {
-        Args: { merchant_id: string }
-        Returns: string
-      }
+      enforce_session_security: { Args: never; Returns: undefined }
+      generate_invoice_number: { Args: never; Returns: string }
+      get_merchant_api_key: { Args: { merchant_id: string }; Returns: string }
       get_monthly_transaction_data: {
         Args: { p_user_id: string }
         Returns: {
@@ -1720,10 +1702,7 @@ export type Database = {
           total_points: number
         }[]
       }
-      get_user_tier: {
-        Args: { p_user_id: string }
-        Returns: string
-      }
+      get_user_tier: { Args: { p_user_id: string }; Returns: string }
       get_user_transaction_stats: {
         Args: { p_user_id: string }
         Returns: {
@@ -1732,10 +1711,7 @@ export type Database = {
           total_transactions: number
         }[]
       }
-      get_user_wallet_balance: {
-        Args: { p_user_id: string }
-        Returns: number
-      }
+      get_user_wallet_balance: { Args: { p_user_id: string }; Returns: number }
       has_role: {
         Args: {
           required_role: Database["public"]["Enums"]["app_role"]
@@ -1792,14 +1768,8 @@ export type Database = {
         }
         Returns: undefined
       }
-      mask_api_key: {
-        Args: { api_key: string }
-        Returns: string
-      }
-      run_security_maintenance: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      mask_api_key: { Args: { api_key: string }; Returns: string }
+      run_security_maintenance: { Args: never; Returns: undefined }
       secure_encrypt_card_data: {
         Args: { card_number: string; cvv: string }
         Returns: Json
