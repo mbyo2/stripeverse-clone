@@ -43,6 +43,33 @@ serve(async (req) => {
       currency = 'USD',
       description 
     } = await req.json();
+    
+    // Input validation
+    if (!receiverUserId) {
+      throw new Error('Receiver user ID is required');
+    }
+    
+    if (!grossAmount || grossAmount <= 0 || grossAmount > 999999.99) {
+      throw new Error('Invalid gross amount');
+    }
+    
+    if (!platformFee || platformFee < 0) {
+      throw new Error('Invalid platform fee');
+    }
+    
+    if (!netAmount || netAmount <= 0) {
+      throw new Error('Invalid net amount');
+    }
+    
+    // Validate calculation
+    if (Math.abs((grossAmount - platformFee) - netAmount) > 0.01) {
+      throw new Error('Invalid amount calculation');
+    }
+    
+    const validCurrencies = ['USD', 'EUR', 'GBP', 'ZMW'];
+    if (!validCurrencies.includes(currency)) {
+      throw new Error('Unsupported currency');
+    }
 
     logStep("Marketplace payment request", { 
       payerUserId: user.id,
