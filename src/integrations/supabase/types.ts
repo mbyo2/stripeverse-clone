@@ -241,6 +241,41 @@ export type Database = {
         }
         Relationships: []
       }
+      dispute_messages: {
+        Row: {
+          created_at: string
+          dispute_id: string
+          id: string
+          is_internal: boolean | null
+          message: string
+          sender_id: string
+        }
+        Insert: {
+          created_at?: string
+          dispute_id: string
+          id?: string
+          is_internal?: boolean | null
+          message: string
+          sender_id: string
+        }
+        Update: {
+          created_at?: string
+          dispute_id?: string
+          id?: string
+          is_internal?: boolean | null
+          message?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_messages_dispute_id_fkey"
+            columns: ["dispute_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_disputes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exchange_rates: {
         Row: {
           created_at: string
@@ -1188,6 +1223,62 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      transaction_disputes: {
+        Row: {
+          created_at: string
+          description: string
+          dispute_type: string
+          evidence_urls: string[] | null
+          id: string
+          refund_amount: number | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          transaction_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          dispute_type: string
+          evidence_urls?: string[] | null
+          id?: string
+          refund_amount?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          transaction_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          dispute_type?: string
+          evidence_urls?: string[] | null
+          id?: string
+          refund_amount?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          transaction_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_transaction"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["uuid_id"]
+          },
+        ]
       }
       transactions: {
         Row: {
