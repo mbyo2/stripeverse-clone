@@ -22,11 +22,13 @@ import {
   ChevronsUpDown, 
   ArrowDownLeft, 
   ArrowUpRight, 
-  Clock 
+  Clock,
+  AlertCircle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, TransactionFilter } from "@/types/transaction";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { CreateDisputeDialog } from "@/components/disputes/CreateDisputeDialog";
 import { format, subDays, isValid } from "date-fns";
 
 interface TransactionManagerProps {
@@ -342,9 +344,9 @@ const TransactionManager = ({
           ) : (
             <div className="space-y-4">
               {filteredTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between py-4 border-b last:border-0">
-                  <div className="flex items-center">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                <div key={transaction.id} className="flex items-center justify-between py-4 border-b last:border-0 gap-4">
+                  <div className="flex items-center flex-1 min-w-0">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                       transaction.status === 'pending' ? "bg-amber-100" :
                       transaction.status === 'failed' ? "bg-red-100" :
                       transaction.direction === 'outgoing' ? "bg-blue-100" : "bg-green-100"
@@ -359,8 +361,8 @@ const TransactionManager = ({
                         <ArrowDownLeft className="h-5 w-5 text-green-600" />
                       )}
                     </div>
-                    <div className="ml-4">
-                      <div className="font-medium">
+                    <div className="ml-4 min-w-0">
+                      <div className="font-medium truncate">
                         {transaction.direction === 'outgoing' ? "Sent to" : "Received from"} {" "}
                         {transaction.recipient_name || "Unknown"}
                       </div>
@@ -387,13 +389,27 @@ const TransactionManager = ({
                       </div>
                     </div>
                   </div>
-                  <div className={`font-medium ${
-                    transaction.status === 'failed' ? "text-destructive" :
-                    transaction.status === 'pending' ? "text-amber-600" :
-                    transaction.direction === 'outgoing' ? "text-blue-600" : "text-green-600"
-                  }`}>
-                    {transaction.direction === 'outgoing' ? "-" : "+"}
-                    {transaction.currency} {transaction.amount.toFixed(2)}
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className={`font-medium text-right ${
+                      transaction.status === 'failed' ? "text-destructive" :
+                      transaction.status === 'pending' ? "text-amber-600" :
+                      transaction.direction === 'outgoing' ? "text-blue-600" : "text-green-600"
+                    }`}>
+                      {transaction.direction === 'outgoing' ? "-" : "+"}
+                      {transaction.currency} {transaction.amount.toFixed(2)}
+                    </div>
+                    {transaction.status === 'completed' && (
+                      <CreateDisputeDialog
+                        transactionId={(transaction as any).uuid_id || transaction.id.toString()}
+                        transactionAmount={transaction.amount}
+                        transactionDate={transaction.created_at}
+                        trigger={
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                            <AlertCircle className="h-4 w-4" />
+                          </Button>
+                        }
+                      />
+                    )}
                   </div>
                 </div>
               ))}
