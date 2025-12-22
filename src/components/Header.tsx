@@ -112,6 +112,12 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/help">Help & FAQ</Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/faq">FAQ</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/contact">Contact Us</Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </nav>
@@ -149,9 +155,24 @@ const Header = () => {
             </>
           ) : (
             <div className="flex items-center space-x-2">
+              <Link to="/about">
+                <Button variant="ghost" size="sm">
+                  About
+                </Button>
+              </Link>
+              <Link to="/blog">
+                <Button variant="ghost" size="sm">
+                  Blog
+                </Button>
+              </Link>
               <Link to="/pricing">
                 <Button variant="ghost" size="sm">
                   Pricing
+                </Button>
+              </Link>
+              <Link to="/contact">
+                <Button variant="ghost" size="sm">
+                  Contact
                 </Button>
               </Link>
               <Link to="/login">
