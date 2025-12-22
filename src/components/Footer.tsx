@@ -36,7 +36,7 @@ const Footer = () => {
       className="py-12 px-4 bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green text-white opacity-0"
     >
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-10">
           <div className="col-span-1 md:col-span-2">
             <div className="text-2xl font-bold mb-4">BMaGlass Pay</div>
             <p className="text-primary-foreground/80 max-w-md">
@@ -56,17 +56,62 @@ const Footer = () => {
               </Link>
             </div>
           </div>
+
+          <div>
+            <h4 className="text-base font-medium mb-4">Company</h4>
+            <ul className="space-y-2">
+              <li>
+                <Link 
+                  to="/about"
+                  className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300"
+                >
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  to="/blog"
+                  className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300"
+                >
+                  Blog
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  to="/faq"
+                  className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300"
+                >
+                  FAQ
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  to="/contact"
+                  className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300"
+                >
+                  Contact
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  to="/pricing"
+                  className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300"
+                >
+                  Pricing
+                </Link>
+              </li>
+            </ul>
+          </div>
           
           <div>
             <h4 className="text-base font-medium mb-4">Payment Services</h4>
             <ul className="space-y-2">
               {[
-                {name: 'Mobile Money Integration', icon: <Smartphone className="h-4 w-4 mr-2" />, link: '/payment-services'},
+                {name: 'Mobile Money', icon: <Smartphone className="h-4 w-4 mr-2" />, link: '/payment-services'},
                 {name: 'Card Processing', icon: <CreditCard className="h-4 w-4 mr-2" />, link: '/payment-services'},
                 {name: 'USSD Payments', icon: <Smartphone className="h-4 w-4 mr-2" />, link: '/ussd-access'},
                 {name: 'Business Dashboard', icon: <Globe className="h-4 w-4 mr-2" />, link: '/dashboard'},
-                {name: 'Merchant API', icon: <Shield className="h-4 w-4 mr-2" />, link: '/payment-services'},
-                {name: 'Settlement Services', icon: <CreditCard className="h-4 w-4 mr-2" />, link: '/payment-services'}
+                {name: 'Merchant API', icon: <Shield className="h-4 w-4 mr-2" />, link: '/api'}
               ].map((item) => (
                 <li key={item.name}>
                   <Link 
@@ -112,14 +157,12 @@ const Footer = () => {
             </ul>
             
             <div className="mt-6">
-              <h5 className="text-sm font-medium mb-2">Payment Methods Supported:</h5>
+              <h5 className="text-sm font-medium mb-2">Payment Methods:</h5>
               <div className="flex flex-wrap gap-2">
                 <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">MTN Money</span>
                 <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Airtel Money</span>
-                <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Zamtel Kwacha</span>
                 <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Visa</span>
                 <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Mastercard</span>
-                <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Bitcoin</span>
               </div>
             </div>
           </div>
