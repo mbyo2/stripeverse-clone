@@ -69,25 +69,25 @@ const PaymentSolutions = () => {
           Array.from({ length: 8 }).map((_, index) => (
             <div 
               key={index} 
-              className="p-6 rounded-xl border border-border bg-white animate-pulse"
+              className="p-6 rounded-xl border border-border bg-card animate-pulse"
             >
-              <div className="w-8 h-8 bg-gray-300 rounded mb-4"></div>
-              <div className="h-6 bg-gray-300 rounded mb-2"></div>
-              <div className="h-4 bg-gray-300 rounded"></div>
+              <div className="w-8 h-8 bg-muted rounded mb-4"></div>
+              <div className="h-6 bg-muted rounded mb-2"></div>
+              <div className="h-4 bg-muted rounded"></div>
             </div>
           ))
         ) : (
           features.map((feature, index) => (
             <div 
               key={feature.feature_id} 
-              className="feature-card opacity-0 p-6 rounded-xl border border-border bg-white hover:shadow-medium transition-all duration-500 ease-apple-ease"
+              className="feature-card opacity-0 p-6 rounded-xl border border-border bg-card hover:shadow-medium transition-all duration-500 ease-apple-ease"
               style={{ animationDelay: `${0.1 + index * 0.1}s` }}
             >
               <div className="feature-icon text-primary mb-4">
                 {getFeatureIcon(feature.category)}
               </div>
-              <h3 className="text-xl font-medium mb-2">{feature.name}</h3>
-              <p className="text-foreground/70">{feature.description}</p>
+              <h3 className="text-xl font-medium mb-2 text-card-foreground">{feature.name}</h3>
+              <p className="text-muted-foreground">{feature.description}</p>
             </div>
           ))
         )}

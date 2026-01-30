@@ -66,7 +66,7 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
                 to view your latest activity and manage your account.
               </p>
               <div className="flex flex-wrap gap-4 animate-fadeInUp animate-delay-4">
-                <Button asChild className="bg-primary text-white">
+              <Button asChild className="bg-primary text-primary-foreground">
                   <Link to="/dashboard">
                     Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
@@ -89,7 +89,7 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
                 business easier than ever.
               </p>
               <div className="flex flex-wrap gap-4 animate-fadeInUp animate-delay-4">
-                <Button asChild className="bg-primary text-white">
+              <Button asChild className="bg-primary text-primary-foreground">
                   <Link to="/register">
                     Start Accepting Payments <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
@@ -104,13 +104,13 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
           )}
           
           <div className="mt-10 flex items-center text-sm text-muted-foreground">
-            <div className="flex -space-x-1 mr-3">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-primary/20 flex items-center justify-center text-[10px] font-bold">
-                  {String.fromCharCode(65 + i)}
-                </div>
-              ))}
-            </div>
+              <div className="flex -space-x-1 mr-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="w-6 h-6 rounded-full border-2 border-background bg-primary/20 flex items-center justify-center text-[10px] font-bold text-foreground">
+                    {String.fromCharCode(65 + i)}
+                  </div>
+                ))}
+              </div>
             <span>
               Trusted by {stats?.totalBusinesses || 0}+ Zambian businesses
             </span>
@@ -133,10 +133,10 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
         <div className="relative h-[500px] lg:h-[600px] flex items-center justify-center">
           <div className="absolute w-80 h-80 bg-gradient-radial from-theme-purple/20 to-transparent opacity-70 blur-2xl rounded-full animate-float"></div>
           <div className="relative z-10 transition-transform duration-700 ease-apple-ease product-image animate-scaleIn animate-delay-3">
-            <div className="bg-white/90 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-gray-100 w-[320px]">
+            <div className="bg-card/90 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-border w-[320px]">
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h3 className="font-bold text-lg">Business Dashboard</h3>
+                  <h3 className="font-bold text-lg text-card-foreground">Business Dashboard</h3>
                   <p className="text-sm text-muted-foreground">Transaction Overview</p>
                 </div>
                 <Wallet className="h-10 w-10 text-primary p-2 bg-primary/10 rounded-full" />
@@ -144,22 +144,22 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
               
               <div className="mb-6">
                 <p className="text-sm text-muted-foreground mb-1">Today's Activity</p>
-                <h2 className="text-3xl font-bold">View Dashboard</h2>
+                <h2 className="text-3xl font-bold text-card-foreground">View Dashboard</h2>
                 <p className="text-sm text-muted-foreground">Real-time transaction monitoring</p>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-secondary/20 p-3 rounded-xl flex flex-col items-center justify-center">
+                <div className="bg-secondary p-3 rounded-xl flex flex-col items-center justify-center">
                   <ArrowRight className="h-6 w-6 mb-2 text-primary" />
-                  <span className="text-sm font-medium">Analytics</span>
+                  <span className="text-sm font-medium text-secondary-foreground">Analytics</span>
                 </div>
-                <div className="bg-secondary/20 p-3 rounded-xl flex flex-col items-center justify-center">
+                <div className="bg-secondary p-3 rounded-xl flex flex-col items-center justify-center">
                   <CreditCard className="h-6 w-6 mb-2 text-primary" />
-                  <span className="text-sm font-medium">Settlement</span>
+                  <span className="text-sm font-medium text-secondary-foreground">Settlement</span>
                 </div>
               </div>
               
-              <div className="mt-6 pt-4 border-t border-gray-100">
+              <div className="mt-6 pt-4 border-t border-border">
                 <div className="text-sm text-center text-muted-foreground">
                   Secure • Reliable • Local
                 </div>
