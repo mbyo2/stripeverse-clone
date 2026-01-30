@@ -65,6 +65,7 @@ import Faq from "./pages/Faq";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import NotFound from "./pages/NotFound";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,7 @@ function App() {
           <AuthProvider>
             <RoleProvider>
               <NotificationProvider>
+                <MobileBottomNav />
                 <Routes>
                   {/* Public routes */}
                   <Route path="/" element={<Index />} />
