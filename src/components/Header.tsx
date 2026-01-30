@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
@@ -42,17 +43,24 @@ import {
   LogOut,
   User,
   Shield,
-  Layers
+  Layers,
+  Sun,
+  Moon
 } from "lucide-react";
 
 const Header = () => {
   const { user, signOut } = useAuth();
   const location = useLocation();
+  const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
 
   const MobileNavLink = ({ to, icon: Icon, children }: { to: string; icon: React.ElementType; children: React.ReactNode }) => (
     <Link 
@@ -216,6 +224,18 @@ const Header = () => {
               <Link to="/contact">
                 <Button variant="ghost" size="sm">Contact</Button>
               </Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )}
+              </Button>
               <Link to="/login">
                 <Button variant="ghost" size="sm">Sign In</Button>
               </Link>
@@ -223,6 +243,23 @@ const Header = () => {
                 <Button size="sm">Get Started</Button>
               </Link>
             </div>
+          )}
+
+          {/* Theme toggle for authenticated users */}
+          {user && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="hidden lg:flex"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </Button>
           )}
         </div>
 
@@ -293,6 +330,15 @@ const Header = () => {
                     <MobileNavLink to="/security-settings" icon={Shield}>Security</MobileNavLink>
                     
                     <Separator className="my-2" />
+
+                    {/* Theme Toggle */}
+                    <button 
+                      onClick={toggleTheme}
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-left hover:bg-muted transition-colors"
+                    >
+                      {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                      <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                    </button>
                     
                     <button 
                       onClick={() => { signOut(); closeMobileMenu(); }}
@@ -311,6 +357,17 @@ const Header = () => {
                     <MobileNavLink to="/pricing" icon={DollarSign}>Pricing</MobileNavLink>
                     <MobileNavLink to="/faq" icon={HelpCircle}>FAQ</MobileNavLink>
                     <MobileNavLink to="/contact" icon={Phone}>Contact</MobileNavLink>
+                    
+                    <Separator className="my-4" />
+
+                    {/* Theme Toggle */}
+                    <button 
+                      onClick={toggleTheme}
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-left hover:bg-muted transition-colors"
+                    >
+                      {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                      <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                    </button>
                     
                     <Separator className="my-4" />
                     
