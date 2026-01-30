@@ -1,7 +1,7 @@
 
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { CreditCard, Smartphone, Phone, Mail, MapPin, Shield, Globe } from 'lucide-react';
+import { CreditCard, Smartphone, Phone, Mail, MapPin, Shield, Globe, Facebook, Twitter, Linkedin, Instagram } from 'lucide-react';
 
 const Footer = () => {
   const footerRef = useRef<HTMLDivElement>(null);
@@ -163,6 +163,48 @@ const Footer = () => {
                 <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Airtel Money</span>
                 <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Visa</span>
                 <span className="px-2 py-1 bg-primary-foreground/10 rounded text-xs">Mastercard</span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h5 className="text-sm font-medium mb-3">Follow Us:</h5>
+              <div className="flex items-center space-x-4">
+                <a
+                  href="https://facebook.com/bmaglasspay"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-primary-foreground/10 rounded-full hover:bg-primary-foreground/20 transition-colors"
+                  aria-label="Facebook"
+                >
+                  <Facebook className="h-4 w-4" />
+                </a>
+                <a
+                  href="https://twitter.com/bmaglasspay"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-primary-foreground/10 rounded-full hover:bg-primary-foreground/20 transition-colors"
+                  aria-label="Twitter"
+                >
+                  <Twitter className="h-4 w-4" />
+                </a>
+                <a
+                  href="https://linkedin.com/company/bmaglasspay"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-primary-foreground/10 rounded-full hover:bg-primary-foreground/20 transition-colors"
+                  aria-label="LinkedIn"
+                >
+                  <Linkedin className="h-4 w-4" />
+                </a>
+                <a
+                  href="https://instagram.com/bmaglasspay"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-primary-foreground/10 rounded-full hover:bg-primary-foreground/20 transition-colors"
+                  aria-label="Instagram"
+                >
+                  <Instagram className="h-4 w-4" />
+                </a>
               </div>
             </div>
           </div>
