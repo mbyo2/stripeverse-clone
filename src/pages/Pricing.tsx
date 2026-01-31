@@ -173,7 +173,7 @@ const Pricing = () => {
                 </div>
               )}
               {plan.id === subscriptionTier && (
-                <div className="bg-green-500 text-white text-center py-1 text-sm font-medium">
+                <div className="bg-primary text-primary-foreground text-center py-1 text-sm font-medium">
                   Current Plan
                 </div>
               )}
@@ -195,7 +195,7 @@ const Pricing = () => {
                 </div>
 
                 {/* Transaction Pricing */}
-                <div className="mb-6 p-3 bg-gray-50 rounded-lg">
+                <div className="mb-6 p-3 bg-muted rounded-lg">
                   <h4 className="font-medium text-sm mb-2">Transaction Pricing</h4>
                   <div className="text-xs text-muted-foreground">
                     <div>{plan.pricing.percentage}% + K{plan.pricing.fixedFee} per transaction</div>
@@ -278,7 +278,7 @@ const Pricing = () => {
                 </li>
                 <li className="flex justify-between">
                   <span>Airtime Purchase</span>
-                  <span className="text-green-600 font-medium">Free</span>
+                  <span className="text-primary font-medium">Free</span>
                 </li>
               </ul>
             </div>
