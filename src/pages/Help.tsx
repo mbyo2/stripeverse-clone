@@ -92,7 +92,7 @@ const Help = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
         <div className="mb-8 text-center">
@@ -102,7 +102,7 @@ const Help = () => {
           </p>
           
           <div className="max-w-md mx-auto relative">
-            <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
             <Input
               placeholder="Search for help..."
               value={searchTerm}
