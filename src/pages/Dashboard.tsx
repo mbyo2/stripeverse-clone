@@ -82,7 +82,7 @@ const Dashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -96,7 +96,7 @@ const Dashboard = () => {
   const monthlySavings = (dashboardStats?.monthlyAmount || 0) * 0.2;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
         <div className="flex justify-between items-center mb-6">
@@ -161,9 +161,9 @@ const Dashboard = () => {
 
         {/* Charts and Rewards Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <Card className="transform hover:scale-105 transition-all duration-300">
+          <Card className="transform hover:scale-105 transition-all duration-300 bg-card">
             <CardHeader>
-              <CardTitle className="flex items-center text-blue-600">
+              <CardTitle className="flex items-center text-primary">
                 <BarChart className="mr-2 h-5 w-5" />
                 Monthly Activity
               </CardTitle>
@@ -195,9 +195,9 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="transform hover:scale-105 transition-all duration-300">
+          <Card className="transform hover:scale-105 transition-all duration-300 bg-card">
             <CardHeader>
-              <CardTitle className="flex items-center text-purple-600">
+              <CardTitle className="flex items-center text-primary">
                 <PieChart className="mr-2 h-5 w-5" />
                 Spending Overview
               </CardTitle>
@@ -283,12 +283,12 @@ const Dashboard = () => {
                   <div key={transaction.id} className="flex items-center justify-between py-2">
                     <div className="flex items-center">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        transaction.direction === "outgoing" ? "bg-red-100" : "bg-green-100"
+                        transaction.direction === "outgoing" ? "bg-destructive/10" : "bg-primary/10"
                       }`}>
                         {transaction.direction === "outgoing" ? (
-                          <ArrowUpRight className={`h-5 w-5 text-red-600`} />
+                          <ArrowUpRight className="h-5 w-5 text-destructive" />
                         ) : (
-                          <ArrowDownLeft className={`h-5 w-5 text-green-600`} />
+                          <ArrowDownLeft className="h-5 w-5 text-primary" />
                         )}
                       </div>
                       <div className="ml-4">
@@ -299,7 +299,7 @@ const Dashboard = () => {
                       </div>
                     </div>
                     <div className={`font-medium ${
-                      transaction.direction === "outgoing" ? "text-red-600" : "text-green-600"
+                      transaction.direction === "outgoing" ? "text-destructive" : "text-primary"
                     }`}>
                       {transaction.direction === "outgoing" ? "-" : "+"}
                       {formatCurrency(transaction.amount)}

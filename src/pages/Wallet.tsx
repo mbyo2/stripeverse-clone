@@ -75,7 +75,7 @@ const Wallet = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -86,7 +86,7 @@ const Wallet = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
         <div className="flex justify-between items-center mb-6">
@@ -138,7 +138,7 @@ const Wallet = () => {
         
         {/* Enhanced Tabs */}
         <Tabs defaultValue="payment-methods" className="mb-8">
-          <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-blue-100 to-purple-100">
+          <TabsList className="grid w-full grid-cols-2 bg-muted">
             <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
             <TabsTrigger value="transaction-history">Transaction History</TabsTrigger>
           </TabsList>

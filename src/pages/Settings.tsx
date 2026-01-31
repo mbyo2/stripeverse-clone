@@ -107,7 +107,7 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-4xl mx-auto w-full">
         <div className="mb-6">
@@ -365,9 +365,9 @@ const Settings = () => {
           </TabsContent>
         </Tabs>
 
-        <Card className="mt-6 border-red-200">
+        <Card className="mt-6 border-destructive/50">
           <CardHeader>
-            <CardTitle className="text-red-600">Danger Zone</CardTitle>
+            <CardTitle className="text-destructive">Danger Zone</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">

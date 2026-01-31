@@ -84,7 +84,7 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-4xl mx-auto w-full">
         <div className="mb-6">
@@ -148,7 +148,7 @@ const Profile = () => {
                   id="email"
                   value={user.email || ""}
                   disabled
-                  className="bg-gray-100"
+                  className="bg-muted"
                 />
               </div>
             </div>
