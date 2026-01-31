@@ -70,8 +70,8 @@ const Transfer = () => {
             <Card>
               <CardContent className="pt-6 pb-6">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle2 className="h-8 w-8 text-green-600" />
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle2 className="h-8 w-8 text-primary" />
                   </div>
                   
                   <h2 className="text-2xl font-bold mb-2">Transfer Successful!</h2>
