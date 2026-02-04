@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowRight, Wallet, CreditCard } from "lucide-react";
 import { useStats } from '@/hooks/useStats';
 import { formatCurrency } from '@/utils/formatters';
+import { FadeIn, MotionCard } from '@/components/animations';
 
 interface HeroProps {
   isAuthenticated: boolean;
@@ -53,93 +55,135 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-0 items-center z-10">
         <div className="lg:pr-10 max-w-2xl">
-          <span className="inline-block px-3 py-1 rounded-full bg-theme-purple/10 text-theme-purple font-medium mb-6 animate-fadeIn animate-delay-1">
-            Zambia's Premier Payment Gateway
-          </span>
+          <FadeIn delay={0.1} duration={0.6} distance={16}>
+            <span className="inline-block px-3 py-1 rounded-full bg-theme-purple/10 text-theme-purple font-medium mb-6">
+              Zambia's Premier Payment Gateway
+            </span>
+          </FadeIn>
+          
           {isAuthenticated ? (
             <>
-              <h1 className="heading-1 mb-6 animate-fadeInUp animate-delay-2 bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green bg-clip-text text-transparent">
-                Welcome back to<br />BMaGlass Pay
-              </h1>
-              <p className="body-text mb-8 animate-fadeInUp animate-delay-3">
-                Continue managing your payments and transactions seamlessly. Access your dashboard
-                to view your latest activity and manage your account.
-              </p>
-              <div className="flex flex-wrap gap-4 animate-fadeInUp animate-delay-4">
-              <Button asChild className="bg-primary text-primary-foreground">
-                  <Link to="/dashboard">
-                    Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link to="/wallet">
-                    View Wallet
-                  </Link>
-                </Button>
-              </div>
+              <FadeIn delay={0.2} duration={0.7} distance={20}>
+                <h1 className="heading-1 mb-6 bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green bg-clip-text text-transparent">
+                  Welcome back to<br />BMaGlass Pay
+                </h1>
+              </FadeIn>
+              <FadeIn delay={0.3} duration={0.6} distance={16}>
+                <p className="body-text mb-8">
+                  Continue managing your payments and transactions seamlessly. Access your dashboard
+                  to view your latest activity and manage your account.
+                </p>
+              </FadeIn>
+              <FadeIn delay={0.4} duration={0.6} distance={12}>
+                <div className="flex flex-wrap gap-4">
+                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+                    <Button asChild className="bg-primary text-primary-foreground">
+                      <Link to="/dashboard">
+                        Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </motion.div>
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    <Button variant="outline" asChild>
+                      <Link to="/wallet">
+                        View Wallet
+                      </Link>
+                    </Button>
+                  </motion.div>
+                </div>
+              </FadeIn>
             </>
           ) : (
             <>
-              <h1 className="heading-1 mb-6 animate-fadeInUp animate-delay-2 bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green bg-clip-text text-transparent">
-                Empowering Zambian<br />businesses with seamless payments
-              </h1>
-              <p className="body-text mb-8 animate-fadeInUp animate-delay-3">
-                BMaGlass Pay is Lusaka's most reliable payment gateway, designed specifically for Zambian 
-                businesses. Our platform makes accepting payments, managing finances, and growing your 
-                business easier than ever.
-              </p>
-              <div className="flex flex-wrap gap-4 animate-fadeInUp animate-delay-4">
-              <Button asChild className="bg-primary text-primary-foreground">
-                  <Link to="/register">
-                    Start Accepting Payments <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link to="/login">
-                    Business Login
-                  </Link>
-                </Button>
-              </div>
+              <FadeIn delay={0.2} duration={0.7} distance={20}>
+                <h1 className="heading-1 mb-6 bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green bg-clip-text text-transparent">
+                  Empowering Zambian<br />businesses with seamless payments
+                </h1>
+              </FadeIn>
+              <FadeIn delay={0.3} duration={0.6} distance={16}>
+                <p className="body-text mb-8">
+                  BMaGlass Pay is Lusaka's most reliable payment gateway, designed specifically for Zambian 
+                  businesses. Our platform makes accepting payments, managing finances, and growing your 
+                  business easier than ever.
+                </p>
+              </FadeIn>
+              <FadeIn delay={0.4} duration={0.6} distance={12}>
+                <div className="flex flex-wrap gap-4">
+                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+                    <Button asChild className="bg-primary text-primary-foreground">
+                      <Link to="/register">
+                        Start Accepting Payments <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </motion.div>
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    <Button variant="outline" asChild>
+                      <Link to="/login">
+                        Business Login
+                      </Link>
+                    </Button>
+                  </motion.div>
+                </div>
+              </FadeIn>
             </>
           )}
           
-          <div className="mt-10 flex items-center text-sm text-muted-foreground">
+          <FadeIn delay={0.5} duration={0.6} distance={12}>
+            <div className="mt-10 flex items-center text-sm text-muted-foreground">
               <div className="flex -space-x-1 mr-3">
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className="w-6 h-6 rounded-full border-2 border-background bg-primary/20 flex items-center justify-center text-[10px] font-bold text-foreground">
+                  <motion.div 
+                    key={i} 
+                    className="w-6 h-6 rounded-full border-2 border-background bg-primary/20 flex items-center justify-center text-[10px] font-bold text-foreground"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.6 + i * 0.1, duration: 0.3 }}
+                  >
                     {String.fromCharCode(65 + i)}
-                  </div>
+                  </motion.div>
                 ))}
               </div>
-            <span>
-              Trusted by {stats?.totalBusinesses || 0}+ Zambian businesses
-            </span>
-          </div>
+              <span>
+                Trusted by {stats?.totalBusinesses || 0}+ Zambian businesses
+              </span>
+            </div>
+          </FadeIn>
           
           {stats && (
-            <div className="mt-6 grid grid-cols-2 gap-4 text-center">
-              <div>
-                <p className="text-2xl font-bold text-primary">{stats.totalTransactions.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">Transactions Processed</p>
+            <FadeIn delay={0.6} duration={0.6} distance={16}>
+              <div className="mt-6 grid grid-cols-2 gap-4 text-center">
+                <MotionCard className="p-4 rounded-lg bg-card/50" hoverScale={1.02} hoverLift={-1}>
+                  <p className="text-2xl font-bold text-primary">{stats.totalTransactions.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">Transactions Processed</p>
+                </MotionCard>
+                <MotionCard className="p-4 rounded-lg bg-card/50" hoverScale={1.02} hoverLift={-1}>
+                  <p className="text-2xl font-bold text-primary">{formatCurrency(stats.totalVolume)}</p>
+                  <p className="text-sm text-muted-foreground">Total Volume</p>
+                </MotionCard>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-primary">{formatCurrency(stats.totalVolume)}</p>
-                <p className="text-sm text-muted-foreground">Total Volume</p>
-              </div>
-            </div>
+            </FadeIn>
           )}
         </div>
         
         <div className="relative h-[500px] lg:h-[600px] flex items-center justify-center">
           <div className="absolute w-80 h-80 bg-gradient-radial from-theme-purple/20 to-transparent opacity-70 blur-2xl rounded-full animate-float"></div>
-          <div className="relative z-10 transition-transform duration-700 ease-apple-ease product-image animate-scaleIn animate-delay-3">
-            <div className="bg-card/90 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-border w-[320px]">
+          <FadeIn delay={0.3} duration={0.8} direction="none" className="relative z-10 product-image">
+            <MotionCard 
+              className="bg-card/90 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-border w-[320px]"
+              hoverScale={1.02}
+              hoverLift={-4}
+            >
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h3 className="font-bold text-lg text-card-foreground">Business Dashboard</h3>
                   <p className="text-sm text-muted-foreground">Transaction Overview</p>
                 </div>
-                <Wallet className="h-10 w-10 text-primary p-2 bg-primary/10 rounded-full" />
+                <motion.div
+                  whileHover={{ rotate: 10 }}
+                  transition={{ type: 'spring', stiffness: 300 }}
+                >
+                  <Wallet className="h-10 w-10 text-primary p-2 bg-primary/10 rounded-full" />
+                </motion.div>
               </div>
               
               <div className="mb-6">
@@ -149,14 +193,24 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
               </div>
               
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-secondary p-3 rounded-xl flex flex-col items-center justify-center">
+                <motion.div 
+                  className="bg-secondary p-3 rounded-xl flex flex-col items-center justify-center cursor-pointer"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                >
                   <ArrowRight className="h-6 w-6 mb-2 text-primary" />
                   <span className="text-sm font-medium text-secondary-foreground">Analytics</span>
-                </div>
-                <div className="bg-secondary p-3 rounded-xl flex flex-col items-center justify-center">
+                </motion.div>
+                <motion.div 
+                  className="bg-secondary p-3 rounded-xl flex flex-col items-center justify-center cursor-pointer"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                >
                   <CreditCard className="h-6 w-6 mb-2 text-primary" />
                   <span className="text-sm font-medium text-secondary-foreground">Settlement</span>
-                </div>
+                </motion.div>
               </div>
               
               <div className="mt-6 pt-4 border-t border-border">
@@ -164,16 +218,25 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
                   Secure • Reliable • Local
                 </div>
               </div>
-            </div>
-          </div>
+            </MotionCard>
+          </FadeIn>
         </div>
       </div>
       
-      <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-fadeIn animate-delay-5">
+      <motion.div 
+        className="absolute bottom-10 left-1/2 transform -translate-x-1/2"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1, duration: 0.6 }}
+      >
         <div className="w-8 h-12 rounded-full border-2 border-foreground/20 flex items-start justify-center p-2">
-          <div className="w-1 h-2 bg-foreground/60 rounded-full animate-float"></div>
+          <motion.div 
+            className="w-1 h-2 bg-foreground/60 rounded-full"
+            animate={{ y: [0, 6, 0] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
+          />
         </div>
-      </div>
+      </motion.div>
     </section>
   );
 };
