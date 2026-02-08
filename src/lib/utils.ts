@@ -238,7 +238,7 @@ export const formatBitcoinAmount = (amount: number): string => {
 export const generateBTCPayCheckoutUrl = (
   amount: number, 
   orderId: string, 
-  currency: string = 'USD'
+  currency: string = 'ZMW'
 ): string => {
   // In a real implementation, this would generate a BTCPay Server checkout URL
   // This would be configured per environment

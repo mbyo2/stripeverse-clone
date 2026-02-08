@@ -15,13 +15,13 @@ export default function PayPalTestPage() {
   
   // One-time payment state
   const [paymentAmount, setPaymentAmount] = useState('10.00');
-  const [paymentCurrency, setPaymentCurrency] = useState('USD');
+  const [paymentCurrency, setPaymentCurrency] = useState('ZMW');
   const [paymentDescription, setPaymentDescription] = useState('Test Payment');
   
   // Subscription state
   const [subscriptionPlan, setSubscriptionPlan] = useState('basic');
   const [subscriptionAmount, setSubscriptionAmount] = useState('9.99');
-  const [subscriptionCurrency, setSubscriptionCurrency] = useState('USD');
+  const [subscriptionCurrency, setSubscriptionCurrency] = useState('ZMW');
   
   // Results
   const [lastResult, setLastResult] = useState<any>(null);
@@ -93,10 +93,10 @@ export default function PayPalTestPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="ZMW">ZMW - Zambian Kwacha</SelectItem>
                       <SelectItem value="USD">USD - US Dollar</SelectItem>
                       <SelectItem value="EUR">EUR - Euro</SelectItem>
                       <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                      <SelectItem value="ZMW">ZMW - Zambian Kwacha</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -167,10 +167,10 @@ export default function PayPalTestPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="ZMW">ZMW - Zambian Kwacha</SelectItem>
                       <SelectItem value="USD">USD - US Dollar</SelectItem>
                       <SelectItem value="EUR">EUR - Euro</SelectItem>
                       <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                      <SelectItem value="ZMW">ZMW - Zambian Kwacha</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

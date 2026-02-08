@@ -63,7 +63,7 @@ export const useMarketplace = () => {
           grossAmount: paymentData.amount,
           platformFee,
           netAmount,
-          currency: paymentData.currency || 'USD',
+          currency: paymentData.currency || 'ZMW',
           description: paymentData.description || 'Marketplace payment'
         }
       });

@@ -52,8 +52,8 @@ export const usePayPalPayments = () => {
       }
 
       // Validate currency code
-      const validCurrencies = ['USD', 'EUR', 'GBP', 'ZMW'];
-      const currency = paymentData.currency || 'USD';
+      const validCurrencies = ['ZMW', 'USD', 'EUR', 'GBP'];
+      const currency = paymentData.currency || 'ZMW';
       if (!validCurrencies.includes(currency)) {
         throw new Error('Unsupported currency');
       }
@@ -114,7 +114,7 @@ export const usePayPalPayments = () => {
     }
   }, [user, toast]);
 
-  const createSubscription = useCallback(async (planId: string, amount: number, currency = 'USD'): Promise<PayPalPaymentResult> => {
+  const createSubscription = useCallback(async (planId: string, amount: number, currency = 'ZMW'): Promise<PayPalPaymentResult> => {
     return processPayment({
       amount,
       currency,
@@ -124,7 +124,7 @@ export const usePayPalPayments = () => {
     });
   }, [processPayment]);
 
-  const createOneTimePayment = useCallback(async (amount: number, currency = 'USD', description?: string): Promise<PayPalPaymentResult> => {
+  const createOneTimePayment = useCallback(async (amount: number, currency = 'ZMW', description?: string): Promise<PayPalPaymentResult> => {
     return processPayment({
       amount,
       currency,
