@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,8 @@ import Footer from "@/components/Footer";
 import { User, Shield, Bell, CreditCard, LogOut, Camera } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { CurrencySelector } from "@/components/CurrencySelector";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 const Settings = () => {
   const { user, signOut } = useAuth();
@@ -323,12 +324,11 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="currency">Default Currency</Label>
-                  <Input
-                    id="currency"
-                    value={payment.defaultCurrency}
-                    onChange={(e) => setPayment({ ...payment, defaultCurrency: e.target.value })}
-                  />
+                  <Label>Default Currency</Label>
+                  <CurrencySelector />
+                  <p className="text-sm text-muted-foreground">
+                    This currency will be used across the entire app
+                  </p>
                 </div>
 
                 <Separator />

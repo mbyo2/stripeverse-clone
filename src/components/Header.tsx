@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "next-themes";
@@ -6,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { RoleBadge } from "@/components/FeatureAccess";
+import { CurrencySelector } from "@/components/CurrencySelector";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,7 +45,8 @@ import {
   Shield,
   Layers,
   Sun,
-  Moon
+  Moon,
+  Globe
 } from "lucide-react";
 
 const Header = () => {
@@ -180,10 +181,10 @@ const Header = () => {
           )}
         </div>
 
-        {/* Desktop Navigation */}
         <div className="hidden lg:flex items-center space-x-4">
           {user ? (
             <>
+              <CurrencySelector compact />
               <RoleBadge />
               <RoleSwitcher />
               <DropdownMenu>
@@ -328,6 +329,17 @@ const Header = () => {
                     <MobileNavLink to="/profile" icon={User}>Profile</MobileNavLink>
                     <MobileNavLink to="/settings" icon={Settings}>Settings</MobileNavLink>
                     <MobileNavLink to="/security-settings" icon={Shield}>Security</MobileNavLink>
+                    
+                    <Separator className="my-2" />
+                    <p className="px-4 py-2 text-sm font-medium text-muted-foreground">Preferences</p>
+                    
+                    <div className="px-4 py-2">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                        <Globe className="h-4 w-4" />
+                        <span>Currency</span>
+                      </div>
+                      <CurrencySelector />
+                    </div>
                     
                     <Separator className="my-2" />
 
