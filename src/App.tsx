@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import AnimatedRoutes from "@/components/AnimatedRoutes";
 
@@ -22,8 +22,10 @@ function App() {
           <AuthProvider>
             <RoleProvider>
               <NotificationProvider>
-                <MobileBottomNav />
-                <AnimatedRoutes />
+                <CurrencyProvider>
+                  <MobileBottomNav />
+                  <AnimatedRoutes />
+                </CurrencyProvider>
               </NotificationProvider>
             </RoleProvider>
           </AuthProvider>

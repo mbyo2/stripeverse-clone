@@ -1,9 +1,8 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowUpRight, ArrowDownLeft, Wallet } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
 import { useWallet } from "@/hooks/useWallet";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface WalletBalanceProps {
   onSendMoney: () => void;
@@ -12,6 +11,7 @@ interface WalletBalanceProps {
 
 const WalletBalance = ({ onSendMoney, onReceiveMoney }: WalletBalanceProps) => {
   const { wallet, isLoading } = useWallet();
+  const { formatAmount } = useCurrency();
 
   if (isLoading) {
     return (
@@ -38,7 +38,7 @@ const WalletBalance = ({ onSendMoney, onReceiveMoney }: WalletBalanceProps) => {
       </CardHeader>
       <CardContent>
         <div className="text-4xl font-bold mb-4">
-          {formatCurrency(wallet?.balance || 0)}
+          {formatAmount(wallet?.balance || 0)}
         </div>
         <div className="flex space-x-4">
           <Button 
