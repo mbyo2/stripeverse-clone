@@ -325,7 +325,7 @@ const Pricing = () => {
                 ? plans.find(p => p.id === selectedPlan)?.monthlyPrice || 0
                 : plans.find(p => p.id === selectedPlan)?.yearlyPrice || 0
               }
-              currency="USD"
+              currency="ZMW"
               features={plans.find(p => p.id === selectedPlan)?.features || []}
               onSuccess={handleCheckoutSuccess}
               onCancel={handleCheckoutCancel}

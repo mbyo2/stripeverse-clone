@@ -38,7 +38,7 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         const { data, error } = await supabase.functions.invoke('btc-payment', {
           body: {
             amount: amount,
-            currency: 'USD',
+            currency: 'ZMW',
             orderId: orderId,
             redirectUrl: window.location.origin + '/dashboard'
           }

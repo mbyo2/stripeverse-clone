@@ -20,7 +20,7 @@ interface PayPalCheckoutProps {
 export const PayPalCheckout: React.FC<PayPalCheckoutProps> = ({
   type,
   amount,
-  currency = 'USD',
+  currency = 'ZMW',
   planId,
   planName,
   features,
