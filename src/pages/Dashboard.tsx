@@ -1,6 +1,7 @@
 
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,8 +38,11 @@ import RewardsCard from "@/components/rewards/RewardsCard";
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { dashboardStats, monthlyData, spendingData, recentTransactions, rewards, isLoading } = useDashboardData();
   const { formatAmount } = useCurrency();
+
+  const firstName = user?.user_metadata?.first_name || "there";
 
   const handleAction = (action: string) => {
     switch(action) {
@@ -101,7 +105,10 @@ const Dashboard = () => {
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <div>
+            <h1 className="text-3xl font-bold">Welcome back, {firstName}! 👋</h1>
+            <p className="text-muted-foreground mt-1">Here's an overview of your finances</p>
+          </div>
           <RoleBadge />
         </div>
 
