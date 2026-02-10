@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatCurrency } from "@/lib/utils";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { CreditCard, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,6 +23,7 @@ interface VirtualCardListProps {
 const VirtualCardList = ({ virtualCards, onCreateCard }: VirtualCardListProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { formatAmount } = useCurrency();
 
   const handleFundCard = (cardId: number) => {
     navigate("/virtual-card/fund", { state: { cardId } });
@@ -71,7 +72,7 @@ const VirtualCardList = ({ virtualCards, onCreateCard }: VirtualCardListProps) =
             </div>
             <div className="mb-4">
               <div className="text-sm font-medium text-muted-foreground">Balance</div>
-              <div className="text-xl font-bold">{formatCurrency(card.balance)}</div>
+              <div className="text-xl font-bold">{formatAmount(card.balance)}</div>
             </div>
             <div className="flex justify-between text-sm mb-4">
               <div>

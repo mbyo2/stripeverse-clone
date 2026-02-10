@@ -6,7 +6,7 @@ import { ArrowDownLeft, ArrowUpRight, Clock, XIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { trackRender } from "@/lib/performance";
-import { formatCurrency } from "@/lib/utils";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface TransactionItemProps {
   transaction: Transaction;
@@ -15,6 +15,7 @@ interface TransactionItemProps {
 
 // Memoized transaction item to prevent unnecessary re-renders
 const TransactionItem = React.memo(({ transaction, style }: TransactionItemProps) => {
+  const { formatAmount } = useCurrency();
   return (
     <div 
       className="flex items-center justify-between py-4 border-b last:border-0" 
@@ -62,7 +63,7 @@ const TransactionItem = React.memo(({ transaction, style }: TransactionItemProps
         transaction.direction === 'outgoing' ? "text-blue-600" : "text-green-600"
       }`}>
         {transaction.direction === 'outgoing' ? "-" : "+"}
-        {transaction.currency} {transaction.amount.toFixed(2)}
+        {formatAmount(transaction.amount)}
       </div>
     </div>
   );
