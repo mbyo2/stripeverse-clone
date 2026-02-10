@@ -27,7 +27,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, TransactionFilter } from "@/types/transaction";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { CreateDisputeDialog } from "@/components/disputes/CreateDisputeDialog";
 import { format, subDays, isValid } from "date-fns";
 
@@ -44,6 +45,7 @@ const TransactionManager = ({
   showExport = true,
   className = ""
 }: TransactionManagerProps) => {
+  const { formatAmount } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<TransactionFilter>({});
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -396,7 +398,7 @@ const TransactionManager = ({
                       transaction.direction === 'outgoing' ? "text-blue-600" : "text-green-600"
                     }`}>
                       {transaction.direction === 'outgoing' ? "-" : "+"}
-                      {transaction.currency} {transaction.amount.toFixed(2)}
+                      {formatAmount(transaction.amount)}
                     </div>
                     {transaction.status === 'completed' && (
                       <CreateDisputeDialog

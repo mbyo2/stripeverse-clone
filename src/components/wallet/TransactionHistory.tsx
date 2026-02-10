@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ArrowUpRight, ArrowDownLeft, Search, Filter, CalendarIcon, Receipt } from "lucide-react";
-import { formatCurrency } from "@/utils/walletUtils";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTransactions } from '@/hooks/useTransactions';
@@ -32,6 +32,7 @@ interface TransactionHistoryProps {
 }
 
 const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryProps) => {
+  const { formatAmount } = useCurrency();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [directionFilter, setDirectionFilter] = useState<string>('all');
@@ -204,7 +205,7 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
                       transaction.direction === 'incoming' ? 'text-green-600' : 'text-red-600'
                     )}>
                       {transaction.direction === 'incoming' ? '+' : '-'}
-                      {formatCurrency(transaction.amount)}
+                      {formatAmount(transaction.amount)}
                     </p>
                     <Badge variant="secondary" className={getStatusColor(transaction.status)}>
                       {transaction.status}

@@ -31,13 +31,14 @@ import {
 import { Link } from "react-router-dom";
 import { FeatureList, RoleBadge } from "@/components/FeatureAccess";
 import { useDashboardData } from "@/hooks/useDashboardData";
-import { formatCurrency } from "@/lib/utils";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import RewardsCard from "@/components/rewards/RewardsCard";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { dashboardStats, monthlyData, spendingData, recentTransactions, rewards, isLoading } = useDashboardData();
+  const { formatAmount } = useCurrency();
 
   const handleAction = (action: string) => {
     switch(action) {
@@ -111,7 +112,7 @@ const Dashboard = () => {
               <CardTitle className="text-sm font-medium opacity-90">Total Balance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(dashboardStats?.totalBalance || 0)}</div>
+              <div className="text-2xl font-bold">{formatAmount(dashboardStats?.totalBalance || 0)}</div>
               <div className="flex items-center mt-2 text-sm">
                 <ArrowUpRight className="h-4 w-4 mr-1" />
                 <span>Current balance</span>
@@ -124,7 +125,7 @@ const Dashboard = () => {
               <CardTitle className="text-sm font-medium opacity-90">Monthly Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(monthlySavings)}</div>
+              <div className="text-2xl font-bold">{formatAmount(monthlySavings)}</div>
               <div className="flex items-center mt-2 text-sm">
                 <ArrowUpRight className="h-4 w-4 mr-1" />
                 <span>This month</span>
@@ -181,7 +182,7 @@ const Dashboard = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
-                    <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Amount']} />
+                    <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
                     <Area 
                       type="monotone" 
                       dataKey="amount" 
@@ -209,7 +210,7 @@ const Dashboard = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="category" />
                     <YAxis />
-                    <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Amount']} />
+                    <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
                     <Bar dataKey="amount" fill="#8B5CF6" />
                   </RechartsBarChart>
                 </ResponsiveContainer>
@@ -302,7 +303,7 @@ const Dashboard = () => {
                       transaction.direction === "outgoing" ? "text-destructive" : "text-primary"
                     }`}>
                       {transaction.direction === "outgoing" ? "-" : "+"}
-                      {formatCurrency(transaction.amount)}
+                      {formatAmount(transaction.amount)}
                     </div>
                   </div>
                 ))}

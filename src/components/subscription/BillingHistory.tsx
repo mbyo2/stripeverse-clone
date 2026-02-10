@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { Download, FileText } from "lucide-react";
 
 const BillingHistory = () => {
   const { user } = useAuth();
+  const { formatAmount } = useCurrency();
 
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['invoices', user?.id],
@@ -98,7 +99,7 @@ const BillingHistory = () => {
               <div className="flex items-center gap-4">
                 <div className="text-right">
                   <div className="font-medium">
-                    {formatCurrency(invoice.amount)}
+                    {formatAmount(invoice.amount)}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {invoice.currency.toUpperCase()}
