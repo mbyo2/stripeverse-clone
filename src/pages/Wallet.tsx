@@ -40,12 +40,6 @@ const Wallet = () => {
     }
   };
 
-  const handleReceiveMoney = () => {
-    toast({
-      title: "Receive Money",
-      description: "QR code generation feature coming soon",
-    });
-  };
 
   const AddMoneyContent = () => (
     <div className="space-y-4 p-4">
@@ -125,7 +119,6 @@ const Wallet = () => {
         {/* Wallet Balance */}
         <WalletBalance 
           onSendMoney={handleSendMoney}
-          onReceiveMoney={handleReceiveMoney}
         />
         
         {/* Quick Actions */}
