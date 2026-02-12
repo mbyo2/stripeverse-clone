@@ -1,5 +1,6 @@
 
 import React from "react";
+import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -74,7 +75,7 @@ const About = () => {
               Our team brings together expertise from fintech, banking, telecommunications, and customer service. We're a diverse group united by a passion for financial inclusion and technological innovation.
             </p>
             <p>
-              Interested in joining our team? Check out our <a href="/careers" className="text-primary hover:underline">careers page</a> for current opportunities.
+              Interested in joining our team? Reach out to us via our <Link to="/contact" className="text-primary hover:underline">contact page</Link> for current opportunities.
             </p>
           </section>
         </div>
