@@ -1,6 +1,7 @@
 
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -71,8 +72,27 @@ const Wallet = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
+          <div className="flex justify-between items-center mb-6">
+            <Skeleton className="h-9 w-32" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <Card className="mb-8">
+            <CardContent className="pt-6 space-y-4">
+              <Skeleton className="h-6 w-24" />
+              <Skeleton className="h-10 w-48" />
+              <div className="flex gap-4"><Skeleton className="h-10 w-28" /><Skeleton className="h-10 w-28" /></div>
+            </CardContent>
+          </Card>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+          </div>
+          <Card className="mb-8">
+            <CardContent className="pt-6 space-y-4">
+              <Skeleton className="h-6 w-32 mb-4" />
+              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+            </CardContent>
+          </Card>
         </main>
         <Footer />
       </div>
