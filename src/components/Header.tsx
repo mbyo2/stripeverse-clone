@@ -196,7 +196,7 @@ const Header = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="bg-background border shadow-lg">
                   <DropdownMenuItem asChild>
-                    <Link to="/profile">Profile</Link>
+                    <Link to="/settings">Profile</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/settings">Settings</Link>
@@ -326,8 +326,7 @@ const Header = () => {
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-sm font-medium text-muted-foreground">Account</p>
                     
-                    <MobileNavLink to="/profile" icon={User}>Profile</MobileNavLink>
-                    <MobileNavLink to="/settings" icon={Settings}>Settings</MobileNavLink>
+                    <MobileNavLink to="/settings" icon={User}>Profile & Settings</MobileNavLink>
                     <MobileNavLink to="/security-settings" icon={Shield}>Security</MobileNavLink>
                     
                     <Separator className="my-2" />

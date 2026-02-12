@@ -32,7 +32,7 @@ import Help from '@/pages/Help';
 import ResetPassword from '@/pages/ResetPassword';
 import UpdatePassword from '@/pages/UpdatePassword';
 import Pricing from '@/pages/Pricing';
-import Profile from '@/pages/Profile';
+import { Navigate } from 'react-router-dom';
 import Checkout from '@/pages/Checkout';
 import SubscriptionTiers from '@/pages/SubscriptionTiers';
 import Billing from '@/pages/Billing';
@@ -156,11 +156,7 @@ const AnimatedRoutes = () => {
           </ProtectedRoute>
         } />
 
-        <Route path="/profile" element={
-          <ProtectedRoute>
-            <PageTransition><Profile /></PageTransition>
-          </ProtectedRoute>
-        } />
+        <Route path="/profile" element={<Navigate to="/settings" replace />} />
 
         <Route path="/wallet" element={
           <ProtectedRoute>
