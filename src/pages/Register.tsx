@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Register = () => {
   const [firstName, setFirstName] = useState("");
@@ -15,10 +16,29 @@ const Register = () => {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const { signUp, isLoading, user } = useAuth();
+  const { toast } = useToast();
+
+  const passwordErrors = password.length > 0 ? [
+    password.length < 8 && "At least 8 characters",
+    !/[A-Z]/.test(password) && "One uppercase letter",
+    !/[0-9]/.test(password) && "One number",
+  ].filter(Boolean) as string[] : [];
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (passwordErrors.length > 0) {
+      toast({ title: "Weak password", description: passwordErrors.join(", "), variant: "destructive" });
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      toast({ title: "Passwords don't match", description: "Please make sure both passwords are the same.", variant: "destructive" });
+      return;
+    }
+
     await signUp(email, password, {
       first_name: firstName,
       last_name: lastName,
@@ -95,8 +115,28 @@ const Register = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
+                {passwordErrors.length > 0 && (
+                  <ul className="text-xs text-destructive space-y-1">
+                    {passwordErrors.map((err, i) => (
+                      <li key={i}>• {err}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input 
+                  id="confirmPassword" 
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="text-xs text-destructive">Passwords don't match</p>
+                )}
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading || passwordErrors.length > 0 || (confirmPassword !== '' && password !== confirmPassword)}>
                 {isLoading ? "Creating account..." : "Create account"}
               </Button>
             </form>

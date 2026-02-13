@@ -1,7 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import Stripe from "https://esm.sh/stripe@14.21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,37 +44,31 @@ serve(async (req) => {
       throw new Error("Invalid amount");
     }
 
-    let transactionResult;
+    if (amount > 50000) {
+      throw new Error("Maximum deposit amount is 50,000 ZMW");
+    }
 
-    if (paymentMethod === 'stripe') {
-      // Initialize Stripe (if STRIPE_SECRET_KEY is available)
-      const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-      if (!stripeKey) {
-        throw new Error("Stripe not configured");
-      }
+    // For MVP beta, simulate successful deposit for all methods
+    const reference = `DEP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-      const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
-      
-      // Create payment intent
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Convert to cents
-        currency: 'usd', // or 'zmw' if supported
-        metadata: {
-          user_id: user.id,
-          type: 'wallet_deposit'
-        }
-      });
+    // Ensure wallet exists first
+    const { data: wallet } = await supabaseClient
+      .from('wallets')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-      transactionResult = {
-        external_reference: paymentIntent.id,
-        status: 'pending'
-      };
-    } else {
-      // Mock successful payment for other methods
-      transactionResult = {
-        external_reference: `MOCK-${Date.now()}`,
-        status: 'completed'
-      };
+    let walletId = wallet?.id;
+
+    if (!walletId) {
+      const { data: newWallet, error: walletCreateError } = await supabaseClient
+        .from('wallets')
+        .insert({ user_id: user.id, balance: 0, currency: 'ZMW', status: 'active' })
+        .select('id')
+        .single();
+
+      if (walletCreateError) throw new Error(`Failed to create wallet: ${walletCreateError.message}`);
+      walletId = newWallet.id;
     }
 
     // Record transaction
@@ -83,53 +76,51 @@ serve(async (req) => {
       .from('transactions')
       .insert({
         user_id: user.id,
+        wallet_id: walletId,
         amount: amount,
         currency: 'ZMW',
-        transaction_type: 'deposit',
         direction: 'incoming',
-        status: transactionResult.status,
-        payment_method: paymentMethod,
-        reference: `DEP-${Date.now()}`,
-        external_reference: transactionResult.external_reference,
-        processed_at: transactionResult.status === 'completed' ? new Date().toISOString() : null
+        status: 'completed',
+        payment_method: paymentMethod || 'mobile_money',
+        reference: reference,
+        description: `Wallet deposit via ${paymentMethod || 'mobile money'}`,
+        category: 'deposit',
       })
       .select()
       .single();
 
     if (transactionError) {
+      logStep("Transaction insert error", transactionError);
       throw new Error(`Failed to record transaction: ${transactionError.message}`);
     }
 
-    // If payment is completed, update wallet balance
-    if (transactionResult.status === 'completed') {
-      const { error: walletError } = await supabaseClient
-        .rpc('increment_wallet_balance', {
-          p_user_id: user.id,
-          p_amount: amount
-        });
+    // Update wallet balance
+    const { error: walletError } = await supabaseClient
+      .rpc('increment_wallet_balance', {
+        p_user_id: user.id,
+        p_amount: amount
+      });
 
-      if (walletError) {
-        logStep("Failed to update wallet balance", walletError);
-        // Update transaction status to failed
-        await supabaseClient
-          .from('transactions')
-          .update({ status: 'failed' })
-          .eq('id', transaction.id);
-        throw new Error("Failed to update wallet balance");
-      }
+    if (walletError) {
+      logStep("Failed to update wallet balance", walletError);
+      // Revert transaction status
+      await supabaseClient
+        .from('transactions')
+        .update({ status: 'failed' })
+        .eq('uuid_id', transaction.uuid_id);
+      throw new Error("Failed to update wallet balance");
     }
 
-    logStep("Deposit processed", { transactionId: transaction.id, status: transactionResult.status });
+    logStep("Deposit processed", { transactionId: transaction.uuid_id, amount, reference });
 
     return new Response(JSON.stringify({
       success: true,
       transaction: {
-        id: transaction.id,
+        id: transaction.uuid_id,
         amount: transaction.amount,
         status: transaction.status,
         reference: transaction.reference
-      },
-      paymentIntent: paymentMethod === 'stripe' ? transactionResult.external_reference : null
+      }
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
