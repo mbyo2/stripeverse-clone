@@ -33,7 +33,8 @@ const Transactions = () => {
             <Suspense fallback={<LoadingCard />}>
               <EnhancedTransactionManager 
                 showFilters={true} 
-                showExport={true} 
+                showExport={true}
+                directionFilter="all"
               />
             </Suspense>
           </TabsContent>
@@ -42,7 +43,8 @@ const Transactions = () => {
             <Suspense fallback={<LoadingCard />}>
               <EnhancedTransactionManager 
                 showFilters={true} 
-                showExport={true} 
+                showExport={true}
+                directionFilter="incoming"
               />
             </Suspense>
           </TabsContent>
@@ -51,7 +53,8 @@ const Transactions = () => {
             <Suspense fallback={<LoadingCard />}>
               <EnhancedTransactionManager 
                 showFilters={true} 
-                showExport={true} 
+                showExport={true}
+                directionFilter="outgoing"
               />
             </Suspense>
           </TabsContent>

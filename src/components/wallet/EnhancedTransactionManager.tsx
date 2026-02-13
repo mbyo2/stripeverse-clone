@@ -47,6 +47,7 @@ interface EnhancedTransactionManagerProps {
   limit?: number;
   showFilters?: boolean;
   showExport?: boolean;
+  directionFilter?: string;
   className?: string;
 }
 
@@ -54,6 +55,7 @@ const EnhancedTransactionManager = ({
   limit = 1000,
   showFilters = true,
   showExport = true,
+  directionFilter: externalDirectionFilter,
   className = ""
 }: EnhancedTransactionManagerProps) => {
   const endRenderTracking = trackRender("EnhancedTransactionManager");
@@ -92,6 +94,11 @@ const EnhancedTransactionManager = ({
       .from('transactions')
       .select('*')
       .order('created_at', { ascending: sortOrder === 'asc' });
+
+    // Apply external direction filter from tabs
+    if (externalDirectionFilter && externalDirectionFilter !== 'all') {
+      query = query.eq('direction', externalDirectionFilter);
+    }
       
     if (filters.startDate && isValid(filters.startDate)) {
       query = query.gte('created_at', filters.startDate.toISOString());
@@ -127,12 +134,8 @@ const EnhancedTransactionManager = ({
     
     if (error) throw error;
     
-    if (!data || data.length === 0) {
-      return generateMockTransactions(limit);
-    }
-    
-    return data as Transaction[];
-  }, [filters, limit, sortOrder, currentPage]);
+    return (data || []) as Transaction[];
+  }, [filters, limit, sortOrder, currentPage, externalDirectionFilter]);
   
   const { 
     data: transactions = [], 
