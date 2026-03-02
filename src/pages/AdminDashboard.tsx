@@ -111,23 +111,23 @@ const AdminDashboard = () => {
   const adminActions = [
     {
       title: "User Management",
-      description: "Manage user accounts and roles",
+      description: "Manage users, roles, and KYC approvals",
       icon: <Users className="h-6 w-6" />,
-      link: "/role-management",
+      link: "/admin/users",
       color: "bg-blue-500"
     },
     {
-      title: "Security Settings",
-      description: "Configure system security",
-      icon: <Shield className="h-6 w-6" />,
-      link: "/admin/security",
+      title: "Transaction Oversight",
+      description: "Monitor all platform transactions",
+      icon: <Activity className="h-6 w-6" />,
+      link: "/admin/transactions",
       color: "bg-green-500"
     },
     {
-      title: "System Monitoring",
-      description: "Monitor system performance",
-      icon: <Activity className="h-6 w-6" />,
-      link: "/admin/monitoring",
+      title: "Role Management",
+      description: "Approve role requests and changes",
+      icon: <Shield className="h-6 w-6" />,
+      link: "/role-management",
       color: "bg-purple-500"
     },
     {

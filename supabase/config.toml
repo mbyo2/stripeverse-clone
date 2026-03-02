@@ -52,3 +52,6 @@ verify_jwt = false
 
 [functions.paypal-marketplace]
 verify_jwt = true
+
+[functions.mobile-money-sim]
+verify_jwt = false
