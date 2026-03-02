@@ -35,6 +35,8 @@ import { FeatureList, RoleBadge } from "@/components/FeatureAccess";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import RewardsCard from "@/components/rewards/RewardsCard";
+import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
+import { useOnboarding } from "@/hooks/useOnboarding";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -42,6 +44,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { dashboardStats, monthlyData, spendingData, recentTransactions, rewards, isLoading } = useDashboardData();
   const { formatAmount } = useCurrency();
+  const { showOnboarding, kycLevel, walletBalance, hasProfile, dismiss } = useOnboarding();
 
   const firstName = user?.user_metadata?.first_name || "there";
 
@@ -136,6 +139,16 @@ const Dashboard = () => {
           </div>
           <RoleBadge />
         </div>
+
+        {/* Onboarding Wizard */}
+        {showOnboarding && (
+          <OnboardingWizard
+            kycLevel={kycLevel}
+            walletBalance={walletBalance}
+            hasProfile={hasProfile}
+            onDismiss={dismiss}
+          />
+        )}
 
         {/* Enhanced Card Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

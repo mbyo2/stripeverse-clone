@@ -59,7 +59,8 @@ import Faq from '@/pages/Faq';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
 import NotFound from '@/pages/NotFound';
-
+import AdminUsers from '@/pages/AdminUsers';
+import AdminTransactions from '@/pages/AdminTransactions';
 const AnimatedRoutes = () => {
   const location = useLocation();
 
@@ -305,6 +306,18 @@ const AnimatedRoutes = () => {
         <Route path="/ussd-access" element={
           <ProtectedRoute>
             <PageTransition><UssdAccess /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/users" element={
+          <ProtectedRoute>
+            <PageTransition><AdminUsers /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/transactions" element={
+          <ProtectedRoute>
+            <PageTransition><AdminTransactions /></PageTransition>
           </ProtectedRoute>
         } />
 
