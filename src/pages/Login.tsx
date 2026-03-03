@@ -77,7 +77,7 @@ const Login = () => {
               </Link>
             </div>
             <div className="text-center text-xs text-muted-foreground border-t pt-4 mt-2">
-              <Link to="/ussd" className="flex items-center justify-center gap-1 hover:text-primary">
+              <Link to="/ussd-access" className="flex items-center justify-center gap-1 hover:text-primary">
                 <Hash className="h-3 w-3" />
                 No smartphone? Access via USSD
               </Link>

@@ -9,29 +9,40 @@ import { NotificationProvider } from "@/contexts/NotificationContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import AnimatedRoutes from "@/components/AnimatedRoutes";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <RoleProvider>
-              <NotificationProvider>
-                <CurrencyProvider>
-                  <MobileBottomNav />
-                  <AnimatedRoutes />
-                </CurrencyProvider>
-              </NotificationProvider>
-            </RoleProvider>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <RoleProvider>
+                <NotificationProvider>
+                  <CurrencyProvider>
+                    <MobileBottomNav />
+                    <AnimatedRoutes />
+                  </CurrencyProvider>
+                </NotificationProvider>
+              </RoleProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
