@@ -32,7 +32,7 @@ const PaymentProcessor = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
         <div className="mb-8">

@@ -57,7 +57,7 @@ const API = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
         <div className="mb-8">
@@ -96,7 +96,7 @@ const API = () => {
                             </Badge>
                           </div>
                           <div className="flex items-center gap-2">
-                            <code className="bg-gray-100 px-2 py-1 rounded text-sm">
+                            <code className="bg-muted px-2 py-1 rounded text-sm">
                               {showApiKey ? key.key : '••••••••••••••••'}
                             </code>
                             <Button
@@ -141,7 +141,7 @@ const API = () => {
                 <div className="space-y-6">
                   <div>
                     <h3 className="font-medium mb-2">Quick Start</h3>
-                    <div className="bg-gray-100 p-4 rounded-lg">
+                    <div className="bg-muted p-4 rounded-lg">
                       <pre className="text-sm overflow-x-auto">
 {`curl -X POST https://api.bmaglass.com/v1/payments \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
