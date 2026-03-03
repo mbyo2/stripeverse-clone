@@ -310,13 +310,13 @@ const AnimatedRoutes = () => {
         } />
 
         <Route path="/admin/users" element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredFeature="feedback_dashboard">
             <PageTransition><AdminUsers /></PageTransition>
           </ProtectedRoute>
         } />
 
         <Route path="/admin/transactions" element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredFeature="feedback_dashboard">
             <PageTransition><AdminTransactions /></PageTransition>
           </ProtectedRoute>
         } />
