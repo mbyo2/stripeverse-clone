@@ -97,16 +97,16 @@ const BusinessCompliance = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-border rounded-lg p-6">
+      <div className="bg-card border border-border rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium flex items-center">
+          <h2 className="text-lg font-medium flex items-center text-foreground">
             <Shield className="h-5 w-5 text-primary mr-2" />
             Business Compliance Status
           </h2>
           <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-            complianceScore >= 80 ? 'bg-green-100 text-green-800' :
-            complianceScore >= 50 ? 'bg-amber-100 text-amber-800' :
-            'bg-red-100 text-red-800'
+            complianceScore >= 80 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+            complianceScore >= 50 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
+            'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
           }`}>
             {complianceScore >= 80 ? 'Fully Compliant' :
              complianceScore >= 50 ? 'Partially Compliant' :
@@ -115,7 +115,7 @@ const BusinessCompliance = () => {
         </div>
 
         <div className="mb-2 flex justify-between">
-          <span className="text-sm text-gray-600">Compliance Score</span>
+          <span className="text-sm text-muted-foreground">Compliance Score</span>
           <span className="text-sm font-medium">{complianceScore}%</span>
         </div>
         <Progress value={complianceScore} className="h-2" />
@@ -144,7 +144,7 @@ const BusinessCompliance = () => {
         </div>
       </div>
 
-      <div className="bg-white border border-border rounded-lg">
+      <div className="bg-card border border-border rounded-lg">
         <div className="p-6 border-b border-border">
           <h3 className="font-medium">Compliance Requirements</h3>
           <p className="text-sm text-muted-foreground mt-1">
@@ -212,12 +212,12 @@ const BusinessCompliance = () => {
         </Accordion>
       </div>
       
-      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+      <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
         <div className="flex">
-          <Shield className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
+          <Shield className="h-5 w-5 text-primary mt-0.5 mr-3 flex-shrink-0" />
           <div>
-            <h4 className="font-medium text-blue-800 mb-1">Need Help With Compliance?</h4>
-            <p className="text-sm text-blue-700">
+            <h4 className="font-medium text-foreground mb-1">Need Help With Compliance?</h4>
+            <p className="text-sm text-muted-foreground">
               Our compliance team is available to assist you with meeting all regulatory requirements.
               Contact us at <span className="font-medium">compliance@bmaglasspay.com</span> or 
               call <span className="font-medium">+260 976 123 456</span>.
