@@ -8,11 +8,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Search, MessageCircle, Phone, Mail, ExternalLink, ChevronRight } from "lucide-react";
+import { Search, MessageCircle, Phone, Mail, ExternalLink, ChevronRight, BookOpen, Shield, CreditCard, Smartphone, Users, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Link } from 'react-router-dom';
 
 const Help = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [contactForm, setContactForm] = useState({
     name: '',
     email: '',
@@ -22,68 +27,45 @@ const Help = () => {
   const { toast } = useToast();
 
   const faqs = [
-    {
-      id: '1',
-      question: 'How do I create a virtual card?',
-      answer: 'To create a virtual card, go to your Wallet page and click on "Create Card" in the Virtual Cards section. Fill in the card details and set your initial balance. Your virtual card will be ready for use immediately.'
-    },
-    {
-      id: '2',
-      question: 'What are the transaction limits?',
-      answer: 'Daily transaction limits vary by account type: Basic accounts have a K5,000 daily limit, Premium accounts have K20,000, and Business accounts have K100,000. Monthly limits are 10x the daily limits.'
-    },
-    {
-      id: '3',
-      question: 'How do I add money to my wallet?',
-      answer: 'You can add money to your wallet using Mobile Money (MTN, Airtel, Zamtel), bank transfers, or debit/credit cards. Click "Add Money" on your wallet page and select your preferred payment method.'
-    },
-    {
-      id: '4',
-      question: 'Are international transactions supported?',
-      answer: 'Yes, we support international transactions through our virtual cards. However, international transfers may have additional fees and require KYC verification.'
-    },
-    {
-      id: '5',
-      question: 'How secure are my transactions?',
-      answer: 'All transactions are encrypted using bank-level security. We use 2FA, biometric authentication, and monitor for suspicious activity 24/7.'
-    },
-    {
-      id: '6',
-      question: 'What should I do if my virtual card is compromised?',
-      answer: 'Immediately freeze your card from the wallet page, then contact our support team. You can also create a new virtual card to replace the compromised one.'
-    }
+    { id: '1', question: 'How do I create a virtual card?', answer: 'Go to your Wallet page and click "Create Card" in the Virtual Cards section. Choose a name, set your initial balance, and your card is ready instantly for online purchases.' },
+    { id: '2', question: 'What are the transaction limits?', answer: 'Limits depend on your tier: Free – K5,000/day, Starter – K20,000/day, Professional – K100,000/day, Enterprise – Custom. Monthly limits are 10× daily. Upgrade in Pricing.' },
+    { id: '3', question: 'How do I add money to my wallet?', answer: 'Click "Add Money" on your Wallet page. Choose Mobile Money (MTN, Airtel, Zamtel), bank transfer, or card. Mobile Money deposits are instant; bank transfers take 1-3 business days.' },
+    { id: '4', question: 'Are international transactions supported?', answer: 'Yes, through virtual cards and Bitcoin. International transfers may carry additional fees and require completed KYC verification.' },
+    { id: '5', question: 'How secure are my transactions?', answer: 'We use bank-level AES-256 encryption, PCI DSS compliance, two-factor authentication, and 24/7 fraud monitoring. All card data is encrypted at rest.' },
+    { id: '6', question: 'What should I do if my virtual card is compromised?', answer: 'Immediately freeze the card from your Wallet page, then contact support. You can create a replacement card instantly.' },
+    { id: '7', question: 'How do I complete KYC verification?', answer: 'Navigate to Settings → KYC or go to /kyc directly. Upload your government ID (front & back), a selfie, and proof of address. Verification completes within 24 hours.' },
+    { id: '8', question: 'How do refunds and disputes work?', answer: 'Go to Transactions, find the transaction, and click "Dispute". Provide details and any evidence. Our team reviews within 3-5 business days and you\'ll receive a notification with the outcome.' },
+    { id: '9', question: 'Can I use BMaGlass Pay for my business?', answer: 'Yes! Apply for a Business account through Role Management. You\'ll get access to the merchant dashboard, API keys, webhook management, and settlement tools.' },
+    { id: '10', question: 'What mobile money providers do you support?', answer: 'We support MTN Mobile Money, Airtel Money, and Zamtel Money for deposits, withdrawals, and peer-to-peer transfers.' },
   ];
 
-  const quickActions = [
-    {
-      title: 'Reset Password',
-      description: 'Change your account password',
-      action: () => window.location.href = '/reset-password'
-    },
-    {
-      title: 'Update Profile',
-      description: 'Modify your personal information',
-      action: () => window.location.href = '/profile'
-    },
-    {
-      title: 'Transaction History',
-      description: 'View all your transactions',
-      action: () => window.location.href = '/transactions'
-    },
-    {
-      title: 'KYC Verification',
-      description: 'Complete identity verification',
-      action: () => window.location.href = '/kyc'
-    }
+  const guides = [
+    { title: 'Getting Started', description: 'Create your account and make your first transaction', icon: BookOpen, link: '/dashboard' },
+    { title: 'KYC Verification', description: 'Complete identity verification to unlock full features', icon: Users, link: '/kyc' },
+    { title: 'Virtual Cards', description: 'Create and manage virtual cards for online payments', icon: CreditCard, link: '/wallet' },
+    { title: 'Mobile Money', description: 'Set up mobile money deposits and withdrawals', icon: Smartphone, link: '/payment-services' },
+    { title: 'Security Settings', description: 'Enable 2FA and review your security dashboard', icon: Shield, link: '/security-settings' },
+    { title: 'Business API', description: 'Integrate payments into your website or app', icon: ExternalLink, link: '/api' },
   ];
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Message Sent",
-      description: "We've received your message and will get back to you within 24 hours.",
-    });
-    setContactForm({ name: '', email: '', subject: '', message: '' });
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from('contact_messages').insert({
+        name: contactForm.name,
+        email: contactForm.email,
+        subject: contactForm.subject,
+        message: contactForm.message,
+      });
+      if (error) throw error;
+      toast({ title: "Message Sent", description: "We'll get back to you within 24 hours." });
+      setContactForm({ name: '', email: '', subject: '', message: '' });
+    } catch (error: any) {
+      toast({ title: "Failed to send", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filteredFaqs = faqs.filter(faq =>
@@ -98,9 +80,8 @@ const Help = () => {
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold mb-4">How can we help you?</h1>
           <p className="text-xl text-muted-foreground mb-6">
-            Find answers to common questions or get in touch with our support team
+            Find answers, read guides, or contact our support team
           </p>
-          
           <div className="max-w-md mx-auto relative">
             <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
             <Input
@@ -115,8 +96,8 @@ const Help = () => {
         <Tabs defaultValue="faq" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="faq">FAQ</TabsTrigger>
+            <TabsTrigger value="guides">Guides</TabsTrigger>
             <TabsTrigger value="contact">Contact Support</TabsTrigger>
-            <TabsTrigger value="guides">Quick Actions</TabsTrigger>
           </TabsList>
 
           <TabsContent value="faq">
@@ -128,25 +109,39 @@ const Help = () => {
                 <Accordion type="single" collapsible className="w-full">
                   {filteredFaqs.map((faq) => (
                     <AccordionItem key={faq.id} value={faq.id}>
-                      <AccordionTrigger className="text-left">
-                        {faq.question}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        {faq.answer}
-                      </AccordionContent>
+                      <AccordionTrigger className="text-left">{faq.question}</AccordionTrigger>
+                      <AccordionContent className="text-muted-foreground">{faq.answer}</AccordionContent>
                     </AccordionItem>
                   ))}
                 </Accordion>
-                
                 {filteredFaqs.length === 0 && (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">
-                      No FAQ found matching your search. Try different keywords or contact support.
-                    </p>
-                  </div>
+                  <p className="text-center py-8 text-muted-foreground">No results. Try different keywords or contact support.</p>
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="guides">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {guides.map((guide, index) => (
+                <Link to={guide.link} key={index}>
+                  <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <guide.icon className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-medium mb-1">{guide.title}</h3>
+                          <p className="text-sm text-muted-foreground">{guide.description}</p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-muted-foreground mt-1" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
           </TabsContent>
 
           <TabsContent value="contact">
@@ -158,47 +153,26 @@ const Help = () => {
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={handleContactSubmit} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Name</label>
-                          <Input
-                            value={contactForm.name}
-                            onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                            required
-                          />
+                          <Input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} required />
                         </div>
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Email</label>
-                          <Input
-                            type="email"
-                            value={contactForm.email}
-                            onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                            required
-                          />
+                          <Input type="email" value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} required />
                         </div>
                       </div>
-                      
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Subject</label>
-                        <Input
-                          value={contactForm.subject}
-                          onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
-                          required
-                        />
+                        <Input value={contactForm.subject} onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })} required />
                       </div>
-                      
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Message</label>
-                        <Textarea
-                          value={contactForm.message}
-                          onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
-                          rows={6}
-                          required
-                        />
+                        <Textarea value={contactForm.message} onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })} rows={6} required />
                       </div>
-                      
-                      <Button type="submit" className="w-full">
-                        Send Message
+                      <Button type="submit" className="w-full" disabled={isSubmitting}>
+                        {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</> : "Send Message"}
                       </Button>
                     </form>
                   </CardContent>
@@ -207,79 +181,35 @@ const Help = () => {
 
               <div className="space-y-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Other ways to reach us</CardTitle>
-                  </CardHeader>
+                  <CardHeader><CardTitle>Reach us directly</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center space-x-3">
                       <Phone className="h-5 w-5 text-primary" />
                       <div>
-                        <p className="font-medium">Phone Support</p>
-                        <p className="text-sm text-muted-foreground">+260 21 123 4567</p>
-                        <p className="text-xs text-muted-foreground">Mon-Fri 8AM-6PM</p>
+                        <p className="font-medium">Phone</p>
+                        <p className="text-sm text-muted-foreground">+260 976 123 456</p>
+                        <p className="text-xs text-muted-foreground">Mon-Fri 8AM-6PM CAT</p>
                       </div>
                     </div>
-                    
                     <div className="flex items-center space-x-3">
                       <Mail className="h-5 w-5 text-primary" />
                       <div>
-                        <p className="font-medium">Email Support</p>
-                        <p className="text-sm text-muted-foreground">support@bmaglass.com</p>
+                        <p className="font-medium">Email</p>
+                        <p className="text-sm text-muted-foreground">support@bmaglasspay.com</p>
                         <p className="text-xs text-muted-foreground">Response within 24hrs</p>
                       </div>
                     </div>
-                    
                     <div className="flex items-center space-x-3">
                       <MessageCircle className="h-5 w-5 text-primary" />
                       <div>
                         <p className="font-medium">Live Chat</p>
                         <p className="text-sm text-muted-foreground">Available 24/7</p>
-                        <Button variant="outline" size="sm" className="mt-1">
-                          Start Chat
-                        </Button>
+                        <Button variant="outline" size="sm" className="mt-1">Start Chat</Button>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Resources</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <Button variant="ghost" className="w-full justify-between">
-                      User Guide
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" className="w-full justify-between">
-                      API Documentation
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" className="w-full justify-between">
-                      Security Guide
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
                   </CardContent>
                 </Card>
               </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="guides">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {quickActions.map((action, index) => (
-                <Card key={index} className="cursor-pointer hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium mb-1">{action.title}</h3>
-                        <p className="text-sm text-muted-foreground">{action.description}</p>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
             </div>
           </TabsContent>
         </Tabs>
