@@ -1,151 +1,119 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const Faq = () => {
-  const generalFaqs = [
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const categories = [
     {
-      question: "What is BMaGlass Pay?",
-      answer: "BMaGlass Pay is a comprehensive payment solution that enables businesses and individuals to send, receive, and manage payments securely. Our platform is PCI DSS compliant and approved by the Bank of Zambia, offering mobile money integration, card processing, USSD payments, and more."
+      title: "General",
+      faqs: [
+        { question: "What is BMaGlass Pay?", answer: "BMaGlass Pay is a comprehensive payment solution enabling businesses and individuals to send, receive, and manage payments securely. We're PCI DSS compliant and approved by the Bank of Zambia, offering mobile money, card processing, USSD payments, virtual cards, and Bitcoin." },
+        { question: "How do I create an account?", answer: "Click 'Sign Up' on the homepage. Enter your name, email, and phone number. Verify your email, then complete KYC verification to unlock all features." },
+        { question: "Is my money safe with BMaGlass Pay?", answer: "Yes. We use AES-256 encryption, PCI DSS compliance, two-factor authentication, and 24/7 fraud monitoring. We're officially licensed by the Bank of Zambia." },
+        { question: "What are the transaction fees?", answer: "Mobile Money: 1-2%, Card payments: 2.5-3%, USSD: 1.5%, Bank transfers: K5 flat fee. Volume discounts available for Business accounts. See our Pricing page for details." },
+      ]
     },
     {
-      question: "How do I create an account?",
-      answer: "To create an account, click on the 'Sign Up' button on the homepage. Fill in your details including name, email, and phone number. You'll receive a verification link to confirm your email address."
+      title: "Business & Merchants",
+      faqs: [
+        { question: "How can I integrate BMaGlass Pay into my business?", answer: "Apply for a Business role, then access the API documentation from your Business Dashboard. We provide REST APIs, SDKs, webhook support, and a sandbox environment for testing." },
+        { question: "What reporting features are available?", answer: "Transaction history, revenue analytics, payment method breakdowns, settlement reports, and customisable CSV exports. Real-time dashboards update automatically." },
+        { question: "How long does settlement take?", answer: "Standard: 24-48 hours. Business accounts with high volumes qualify for same-day settlement. Configure settlement frequency (daily/weekly/monthly) in Business Settings." },
+        { question: "Do you provide integration support?", answer: "Yes — documentation, developer community, and dedicated technical support. Enterprise clients receive personalised integration assistance from our solutions engineers." },
+      ]
     },
     {
-      question: "Is my money safe with BMaGlass Pay?",
-      answer: "Yes, your money is secure with BMaGlass Pay. We implement industry-standard security measures including encryption, PCI DSS compliance, and regular security audits. Additionally, we're officially approved by the Bank of Zambia."
+      title: "Payments & Cards",
+      faqs: [
+        { question: "Which payment methods are supported?", answer: "Visa, Mastercard, Mobile Money (MTN, Airtel, Zamtel), USSD, bank transfers, and Bitcoin." },
+        { question: "Are international payments supported?", answer: "Yes, through virtual cards and Bitcoin. International transactions may require additional KYC verification." },
+        { question: "How do virtual cards work?", answer: "Create a virtual card from your Wallet, load funds, and use it for online purchases anywhere Visa/Mastercard is accepted. Cards can be frozen or cancelled instantly." },
+        { question: "What happens if a payment fails?", answer: "You'll receive an instant notification with the failure reason. Retry or choose a different payment method. Failed transactions are never charged." },
+      ]
     },
     {
-      question: "What are the transaction fees?",
-      answer: "Our transaction fees vary depending on the payment method and transaction volume. Generally, mobile money transactions have a fee of 1-2%, card payments 2.5-3%, and USSD payments 1.5%. Volume discounts are available for businesses with high transaction volumes."
+      title: "Security & Account",
+      faqs: [
+        { question: "How do I enable two-factor authentication?", answer: "Go to Settings → Security → Two-Factor Authentication. Scan the QR code with an authenticator app and enter the verification code." },
+        { question: "How do I reset my password?", answer: "Click 'Forgot Password' on the login page, enter your email, and follow the reset link sent to your inbox." },
+        { question: "How do I complete KYC verification?", answer: "Navigate to /kyc or Settings → KYC. Upload government ID (front & back), a selfie, and proof of address. Verification completes within 24 hours." },
+        { question: "Can I delete my account?", answer: "Contact support to request account deletion. All personal data will be removed within 30 days, subject to regulatory data retention requirements." },
+      ]
     }
   ];
 
-  const businessFaqs = [
-    {
-      question: "How can I integrate BMaGlass Pay into my business?",
-      answer: "You can integrate BMaGlass Pay through our API, which supports various payment methods. We provide comprehensive documentation, SDKs for popular programming languages, and dedicated technical support to assist with your integration."
-    },
-    {
-      question: "What reporting features are available for businesses?",
-      answer: "Our business dashboard offers detailed reporting features including transaction history, settlement reports, revenue analytics, customer insights, and customizable export options. You can also set up automated reports to be delivered to your email."
-    },
-    {
-      question: "How long does settlement take?",
-      answer: "Standard settlements are processed within 24-48 hours. Business accounts with high volumes may qualify for faster settlement options, with same-day settlement available for eligible merchants."
-    },
-    {
-      question: "Do you provide integration support?",
-      answer: "Yes, we provide comprehensive integration support through our documentation, developer community, and dedicated technical support team. Enterprise clients receive personalized integration assistance from our solutions engineers."
-    }
-  ];
-
-  const paymentFaqs = [
-    {
-      question: "Which payment methods are supported?",
-      answer: "We support a wide range of payment methods including Visa, Mastercard, mobile money services (MTN, Airtel, Zamtel), USSD payments, bank transfers, and Bitcoin."
-    },
-    {
-      question: "Are international payments supported?",
-      answer: "Yes, we support international payments through card processing and Bitcoin. International transactions may be subject to additional verification for security purposes."
-    },
-    {
-      question: "How secure are the transactions?",
-      answer: "All transactions are secured with industry-standard encryption and comply with PCI DSS standards. We implement multi-factor authentication, tokenization, and real-time fraud detection systems."
-    },
-    {
-      question: "What happens if a payment fails?",
-      answer: "If a payment fails, you'll receive an immediate notification with details about the failure reason. You can retry the payment or choose an alternative payment method. Our system provides clear error messages and resolution guidance."
-    }
-  ];
+  const allFaqs = categories.flatMap(cat => cat.faqs.map(faq => ({ ...faq, category: cat.title })));
+  const filtered = searchTerm
+    ? allFaqs.filter(faq => faq.question.toLowerCase().includes(searchTerm.toLowerCase()) || faq.answer.toLowerCase().includes(searchTerm.toLowerCase()))
+    : null;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
-        <div className="mb-8">
+      <main className="flex-1 pt-24 pb-16 px-4 max-w-5xl mx-auto w-full">
+        <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold mb-4">Frequently Asked Questions</h1>
           <p className="text-muted-foreground mb-8">
-            Find answers to the most common questions about our payment services.
+            Find answers to common questions about BMaGlass Pay
           </p>
-          
-          <div className="relative max-w-md mb-10">
+          <div className="relative max-w-md mx-auto">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search FAQs..."
-              className="pl-10"
-            />
+            <Input placeholder="Search FAQs..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <Card>
-            <CardHeader>
-              <CardTitle>General</CardTitle>
-            </CardHeader>
+
+        {filtered ? (
+          <Card className="mb-8">
+            <CardHeader><CardTitle>Search Results ({filtered.length})</CardTitle></CardHeader>
             <CardContent>
-              <Accordion type="single" collapsible className="w-full">
-                {generalFaqs.map((faq, index) => (
-                  <AccordionItem key={`general-${index}`} value={`general-${index}`}>
+              <Accordion type="single" collapsible>
+                {filtered.map((faq, i) => (
+                  <AccordionItem key={i} value={`search-${i}`}>
                     <AccordionTrigger className="text-left">{faq.question}</AccordionTrigger>
-                    <AccordionContent>{faq.answer}</AccordionContent>
+                    <AccordionContent className="text-muted-foreground">{faq.answer}</AccordionContent>
                   </AccordionItem>
                 ))}
               </Accordion>
+              {filtered.length === 0 && <p className="text-center text-muted-foreground py-6">No results found.</p>}
             </CardContent>
           </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Business & Merchants</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Accordion type="single" collapsible className="w-full">
-                {businessFaqs.map((faq, index) => (
-                  <AccordionItem key={`business-${index}`} value={`business-${index}`}>
-                    <AccordionTrigger className="text-left">{faq.question}</AccordionTrigger>
-                    <AccordionContent>{faq.answer}</AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Payments</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Accordion type="single" collapsible className="w-full">
-                {paymentFaqs.map((faq, index) => (
-                  <AccordionItem key={`payment-${index}`} value={`payment-${index}`}>
-                    <AccordionTrigger className="text-left">{faq.question}</AccordionTrigger>
-                    <AccordionContent>{faq.answer}</AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div className="bg-secondary/20 rounded-lg p-8 text-center">
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            {categories.map((cat) => (
+              <Card key={cat.title}>
+                <CardHeader><CardTitle>{cat.title}</CardTitle></CardHeader>
+                <CardContent>
+                  <Accordion type="single" collapsible>
+                    {cat.faqs.map((faq, i) => (
+                      <AccordionItem key={i} value={`${cat.title}-${i}`}>
+                        <AccordionTrigger className="text-left">{faq.question}</AccordionTrigger>
+                        <AccordionContent className="text-muted-foreground">{faq.answer}</AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <div className="bg-muted/50 rounded-lg p-8 text-center">
           <h2 className="text-2xl font-bold mb-4">Still have questions?</h2>
-          <p className="mb-6 max-w-xl mx-auto">
-            If you couldn't find the answer to your question, please reach out to our support team.
+          <p className="mb-6 text-muted-foreground max-w-xl mx-auto">
+            Our support team is ready to help you with any questions not covered here.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <a href="/contact" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-              Contact Support
-            </a>
-            <a href="mailto:support@bmaglasspay.com" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
-              Email Us
-            </a>
+            <Button asChild><Link to="/support">Contact Support</Link></Button>
+            <Button variant="outline" asChild><a href="mailto:support@bmaglasspay.com">Email Us</a></Button>
           </div>
         </div>
       </main>
