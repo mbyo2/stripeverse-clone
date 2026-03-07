@@ -222,6 +222,9 @@ const Header = () => {
               <Link to="/pricing">
                 <Button variant="ghost" size="sm">Pricing</Button>
               </Link>
+              <Link to="/developers">
+                <Button variant="ghost" size="sm">Developers</Button>
+              </Link>
               <Link to="/contact">
                 <Button variant="ghost" size="sm">Contact</Button>
               </Link>
