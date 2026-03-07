@@ -173,7 +173,7 @@ export function TestingGuide() {
                         type="text"
                         value={card.type}
                         onChange={(e) => updateTestCard(index, { type: e.target.value })}
-                        className="font-medium bg-transparent border-none p-0 focus:outline-none focus:ring-0"
+                        className="font-medium bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-foreground"
                       />
                       <span className="text-xs bg-secondary px-2 py-1 rounded">
                         {card.currency || 'ZMW'}
