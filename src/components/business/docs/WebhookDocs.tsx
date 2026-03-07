@@ -59,7 +59,7 @@ export function WebhookDocs() {
               All webhook events follow the same JSON structure:
             </p>
             
-            <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto text-xs">
+            <pre className="bg-secondary/20 p-4 rounded-md overflow-x-auto text-xs">
 {`{
   "event_type": "payment.success",
   "event_id": "evt_123456789",
