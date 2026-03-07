@@ -61,6 +61,7 @@ import TermsOfService from '@/pages/TermsOfService';
 import NotFound from '@/pages/NotFound';
 import AdminUsers from '@/pages/AdminUsers';
 import AdminTransactions from '@/pages/AdminTransactions';
+import Developers from '@/pages/Developers';
 const AnimatedRoutes = () => {
   const location = useLocation();
 
@@ -82,6 +83,7 @@ const AnimatedRoutes = () => {
         <Route path="/faq" element={<PageTransition><Faq /></PageTransition>} />
         <Route path="/privacy-policy" element={<PageTransition><PrivacyPolicy /></PageTransition>} />
         <Route path="/terms-of-service" element={<PageTransition><TermsOfService /></PageTransition>} />
+        <Route path="/developers" element={<PageTransition><Developers /></PageTransition>} />
         <Route path="/payment-success" element={<PageTransition><PaymentSuccess /></PageTransition>} />
         <Route path="/payment-failed" element={<PageTransition><PaymentFailed /></PageTransition>} />
         

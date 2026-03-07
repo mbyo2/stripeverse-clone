@@ -47,6 +47,7 @@ const Footer = () => {
                 {[
                   { to: '/about', label: 'About Us' },
                   { to: '/blog', label: 'Blog' },
+                  { to: '/developers', label: 'Developers' },
                   { to: '/faq', label: 'FAQ' },
                   { to: '/contact', label: 'Contact' },
                   { to: '/pricing', label: 'Pricing' },
