@@ -149,7 +149,7 @@ export function SdkDocs() {
                     href={sdk.repository} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-500 hover:underline"
+                    className="text-xs text-primary hover:underline"
                   >
                     Repository
                   </a>
@@ -157,7 +157,7 @@ export function SdkDocs() {
                     href={sdk.documentation} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-500 hover:underline"
+                    className="text-xs text-primary hover:underline"
                   >
                     Documentation
                   </a>
