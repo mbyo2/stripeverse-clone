@@ -61,6 +61,7 @@ import TermsOfService from '@/pages/TermsOfService';
 import NotFound from '@/pages/NotFound';
 import AdminUsers from '@/pages/AdminUsers';
 import AdminTransactions from '@/pages/AdminTransactions';
+import Developers from '@/pages/Developers';
 const AnimatedRoutes = () => {
   const location = useLocation();
 
