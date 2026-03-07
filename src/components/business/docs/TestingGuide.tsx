@@ -183,7 +183,7 @@ export function TestingGuide() {
                       type="text"
                       value={card.number}
                       onChange={(e) => updateTestCard(index, { number: e.target.value })}
-                      className="text-sm font-mono bg-transparent border-none p-0 focus:outline-none focus:ring-0 w-full"
+                      className="text-sm font-mono bg-transparent border-none p-0 focus:outline-none focus:ring-0 w-full text-foreground"
                     />
                     <input
                       type="text"
