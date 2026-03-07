@@ -204,7 +204,7 @@ export function WebhookDocs() {
             
             <div className="mt-4">
               <h5 className="font-medium">Implementation Example</h5>
-              <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto text-xs mt-2">
+              <pre className="bg-secondary/20 p-4 rounded-md overflow-x-auto text-xs mt-2">
 {`// Example of verifying webhook signature
 const crypto = require('crypto');
 

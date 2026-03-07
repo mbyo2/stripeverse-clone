@@ -213,7 +213,7 @@ export function TestingGuide() {
                   type="url"
                   value={testConfig.webhookUrl}
                   onChange={(e) => setTestConfig(prev => ({ ...prev, webhookUrl: e.target.value }))}
-                  className="w-full text-xs border rounded px-2 py-1 mt-1"
+                  className="w-full text-xs border rounded px-2 py-1 mt-1 bg-background text-foreground"
                 />
               </div>
               <div>
@@ -222,7 +222,7 @@ export function TestingGuide() {
                   type="number"
                   value={testConfig.timeoutSeconds}
                   onChange={(e) => setTestConfig(prev => ({ ...prev, timeoutSeconds: parseInt(e.target.value) }))}
-                  className="w-full text-xs border rounded px-2 py-1 mt-1"
+                  className="w-full text-xs border rounded px-2 py-1 mt-1 bg-background text-foreground"
                 />
               </div>
             </div>

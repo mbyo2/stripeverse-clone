@@ -170,7 +170,7 @@ export function SdkDocs() {
                     type="text"
                     value={sdk.version}
                     onChange={(e) => updateSdk(index, { version: e.target.value })}
-                    className="text-xs border rounded px-1 w-16 mt-1"
+                    className="text-xs border rounded px-1 w-16 mt-1 bg-background text-foreground"
                   />
                 </div>
                 <Button variant="outline" size="sm">
