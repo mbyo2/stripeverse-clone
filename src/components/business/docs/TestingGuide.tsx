@@ -173,7 +173,7 @@ export function TestingGuide() {
                         type="text"
                         value={card.type}
                         onChange={(e) => updateTestCard(index, { type: e.target.value })}
-                        className="font-medium bg-transparent border-none p-0 focus:outline-none focus:ring-0"
+                        className="font-medium bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-foreground"
                       />
                       <span className="text-xs bg-secondary px-2 py-1 rounded">
                         {card.currency || 'ZMW'}
@@ -183,7 +183,7 @@ export function TestingGuide() {
                       type="text"
                       value={card.number}
                       onChange={(e) => updateTestCard(index, { number: e.target.value })}
-                      className="text-sm font-mono bg-transparent border-none p-0 focus:outline-none focus:ring-0 w-full"
+                      className="text-sm font-mono bg-transparent border-none p-0 focus:outline-none focus:ring-0 w-full text-foreground"
                     />
                     <input
                       type="text"
@@ -192,7 +192,7 @@ export function TestingGuide() {
                       className="text-sm text-muted-foreground bg-transparent border-none p-0 focus:outline-none focus:ring-0 w-full mt-1"
                     />
                     <details className="mt-2">
-                      <summary className="text-xs text-blue-500 cursor-pointer">View test payload</summary>
+                      <summary className="text-xs text-primary cursor-pointer">View test payload</summary>
                       <pre className="text-xs bg-secondary/20 p-2 rounded mt-1 overflow-x-auto">
                         {JSON.stringify(generateTestPayload(card), null, 2)}
                       </pre>
@@ -213,7 +213,7 @@ export function TestingGuide() {
                   type="url"
                   value={testConfig.webhookUrl}
                   onChange={(e) => setTestConfig(prev => ({ ...prev, webhookUrl: e.target.value }))}
-                  className="w-full text-xs border rounded px-2 py-1 mt-1"
+                  className="w-full text-xs border rounded px-2 py-1 mt-1 bg-background text-foreground"
                 />
               </div>
               <div>
@@ -222,7 +222,7 @@ export function TestingGuide() {
                   type="number"
                   value={testConfig.timeoutSeconds}
                   onChange={(e) => setTestConfig(prev => ({ ...prev, timeoutSeconds: parseInt(e.target.value) }))}
-                  className="w-full text-xs border rounded px-2 py-1 mt-1"
+                  className="w-full text-xs border rounded px-2 py-1 mt-1 bg-background text-foreground"
                 />
               </div>
             </div>

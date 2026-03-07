@@ -38,12 +38,12 @@ export function WebhookDocs() {
               <li>Implement proper validation of incoming webhook requests</li>
             </ol>
             
-            <div className="bg-blue-50 p-4 rounded-md">
+            <div className="bg-accent/50 p-4 rounded-md border border-accent">
               <div className="flex">
-                <AlertCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" /> 
+                <AlertCircle className="h-5 w-5 text-primary mr-2 flex-shrink-0" /> 
                 <div>
-                  <h5 className="font-medium text-blue-800 mb-1">Testing Webhooks</h5>
-                  <p className="text-sm text-blue-700">
+                  <h5 className="font-medium mb-1">Testing Webhooks</h5>
+                  <p className="text-sm text-muted-foreground">
                     During development, you can use services like webhook.site or ngrok to receive and inspect webhooks.
                   </p>
                 </div>
@@ -59,7 +59,7 @@ export function WebhookDocs() {
               All webhook events follow the same JSON structure:
             </p>
             
-            <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto text-xs">
+            <pre className="bg-secondary/20 p-4 rounded-md overflow-x-auto text-xs">
 {`{
   "event_type": "payment.success",
   "event_id": "evt_123456789",
@@ -204,7 +204,7 @@ export function WebhookDocs() {
             
             <div className="mt-4">
               <h5 className="font-medium">Implementation Example</h5>
-              <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto text-xs mt-2">
+              <pre className="bg-secondary/20 p-4 rounded-md overflow-x-auto text-xs mt-2">
 {`// Example of verifying webhook signature
 const crypto = require('crypto');
 

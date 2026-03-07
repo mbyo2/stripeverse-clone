@@ -149,7 +149,7 @@ export function SdkDocs() {
                     href={sdk.repository} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-500 hover:underline"
+                    className="text-xs text-primary hover:underline"
                   >
                     Repository
                   </a>
@@ -157,7 +157,7 @@ export function SdkDocs() {
                     href={sdk.documentation} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-500 hover:underline"
+                    className="text-xs text-primary hover:underline"
                   >
                     Documentation
                   </a>
@@ -170,7 +170,7 @@ export function SdkDocs() {
                     type="text"
                     value={sdk.version}
                     onChange={(e) => updateSdk(index, { version: e.target.value })}
-                    className="text-xs border rounded px-1 w-16 mt-1"
+                    className="text-xs border rounded px-1 w-16 mt-1 bg-background text-foreground"
                   />
                 </div>
                 <Button variant="outline" size="sm">
