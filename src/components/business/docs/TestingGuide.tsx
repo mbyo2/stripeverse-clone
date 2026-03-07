@@ -192,7 +192,7 @@ export function TestingGuide() {
                       className="text-sm text-muted-foreground bg-transparent border-none p-0 focus:outline-none focus:ring-0 w-full mt-1"
                     />
                     <details className="mt-2">
-                      <summary className="text-xs text-blue-500 cursor-pointer">View test payload</summary>
+                      <summary className="text-xs text-primary cursor-pointer">View test payload</summary>
                       <pre className="text-xs bg-secondary/20 p-2 rounded mt-1 overflow-x-auto">
                         {JSON.stringify(generateTestPayload(card), null, 2)}
                       </pre>
