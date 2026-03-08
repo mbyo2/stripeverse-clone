@@ -247,8 +247,8 @@ const Compliance = () => {
                       ))}
                     </div>
                     
-                    <div className="bg-blue-50 p-4 rounded-lg mt-6">
-                      <p className="text-sm text-blue-700">
+                    <div className="bg-accent/50 p-4 rounded-lg mt-6 border border-accent">
+                      <p className="text-sm text-muted-foreground">
                         You need to review and accept all policy documents to achieve full compliance status.
                         This will ensure that you understand our terms, privacy policies, and anti-money laundering requirements.
                       </p>
