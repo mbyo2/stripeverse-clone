@@ -418,8 +418,12 @@ const Header = () => {
                     <MobileNavLink to="/payment-links" icon={Link2}>Payment Links</MobileNavLink>
                     <MobileNavLink to="/sub-accounts" icon={GitBranch}>Split Payments</MobileNavLink>
                     <MobileNavLink to="/invoices" icon={FileText}>Invoices</MobileNavLink>
+                    <MobileNavLink to="/settlements" icon={Receipt}>Settlements</MobileNavLink>
+                    <MobileNavLink to="/disputes" icon={AlertCircle}>Disputes</MobileNavLink>
+                    <MobileNavLink to="/webhook-logs" icon={Zap}>Webhook Logs</MobileNavLink>
                     <MobileNavLink to="/analytics" icon={BarChart3}>Analytics</MobileNavLink>
                     <MobileNavLink to="/api" icon={Code2}>API</MobileNavLink>
+                    <MobileNavLink to="/sdk-docs" icon={Package}>SDK Docs</MobileNavLink>
                     <MobileNavLink to="/billing" icon={DollarSign}>Billing</MobileNavLink>
                     <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
                     
