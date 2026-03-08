@@ -340,7 +340,7 @@ const Settings = () => {
                     <h3 className="font-medium">Security Dashboard</h3>
                     <p className="text-sm text-muted-foreground">View login activity and security events</p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => window.location.href = '/security-settings'}>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/security-settings')}>
                     View
                   </Button>
                 </div>
