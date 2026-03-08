@@ -650,6 +650,69 @@ export function ApiPlayground() {
               cURL
             </Button>
           </div>
+
+          {/* Code Generation */}
+          <Card>
+            <CardHeader className="pb-2">
+              <button
+                onClick={() => setShowCodeGen(!showCodeGen)}
+                className="flex items-center justify-between w-full"
+              >
+                <div className="flex items-center gap-2">
+                  <Code2 className="h-4 w-4 text-primary" />
+                  <CardTitle className="text-sm">Generated Code</CardTitle>
+                </div>
+                {showCodeGen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+              </button>
+            </CardHeader>
+            {showCodeGen && (
+              <CardContent>
+                <Tabs value={codeLang} onValueChange={(v) => setCodeLang(v as CodeLang)}>
+                  <TabsList className="w-full flex flex-wrap h-auto gap-0.5 bg-muted/50 p-0.5 mb-3">
+                    {CODE_LANGS.map(l => (
+                      <TabsTrigger key={l.id} value={l.id} className="text-xs px-2 py-1">
+                        {l.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  {CODE_LANGS.map(l => (
+                    <TabsContent key={l.id} value={l.id}>
+                      <div className="relative group">
+                        <pre className="bg-secondary/20 border rounded-lg p-4 overflow-x-auto text-xs font-mono text-foreground max-h-[400px]">
+                          <code>{generateCode(
+                            l.id,
+                            selectedEndpoint.method,
+                            `https://api.sandbox.bmaglasspay.com${resolvedPath}`,
+                            apiKey,
+                            requestBody
+                          )}</code>
+                        </pre>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => {
+                            navigator.clipboard.writeText(generateCode(
+                              l.id,
+                              selectedEndpoint.method,
+                              `https://api.sandbox.bmaglasspay.com${resolvedPath}`,
+                              apiKey,
+                              requestBody
+                            ));
+                            setCodeCopied(true);
+                            toast({ title: `${l.label} code copied` });
+                            setTimeout(() => setCodeCopied(false), 2000);
+                          }}
+                        >
+                          {codeCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              </CardContent>
+            )}
+          </Card>
         </div>
 
         {/* Right: Response + History */}
