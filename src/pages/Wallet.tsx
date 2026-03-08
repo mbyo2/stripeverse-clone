@@ -1,12 +1,12 @@
-
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { Separator } from "@/components/ui/separator";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import WalletBalance from "@/components/wallet/WalletBalance";
@@ -14,7 +14,7 @@ import QuickActions from "@/components/wallet/QuickActions";
 import VirtualCardManager from "@/components/wallet/VirtualCardManager";
 import PaymentMethodList from "@/components/wallet/PaymentMethodList";
 import TransactionHistory from "@/components/wallet/TransactionHistory";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Wallet as WalletIcon, CreditCard, Clock, ArrowRight, ChevronRight } from "lucide-react";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -41,26 +41,26 @@ const Wallet = () => {
     }
   };
 
-
   const AddMoneyContent = () => (
-    <div className="space-y-4 p-4">
+    <div className="space-y-5 p-4">
       <div className="space-y-2">
-        <label htmlFor="amount" className="text-sm font-medium">
-          Enter Amount
-        </label>
+        <Label htmlFor="amount" className="text-sm font-medium">
+          Amount to add
+        </Label>
         <Input
           id="amount"
           type="number"
-          placeholder="Enter amount to add"
+          placeholder="0.00"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="text-lg"
+          className="text-2xl h-14 font-semibold text-center rounded-lg"
           min="0"
         />
+        <p className="text-xs text-muted-foreground text-center">Enter the amount you want to add to your wallet</p>
       </div>
       <Button 
         onClick={handleAddMoney} 
-        className="w-full" 
+        className="w-full h-12 rounded-lg text-base font-semibold" 
         disabled={!amount || parseFloat(amount) <= 0 || isDepositing}
       >
         {isDepositing ? "Processing..." : "Add Money"}
@@ -70,29 +70,18 @@ const Wallet = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="min-h-screen flex flex-col bg-muted/30">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
-          <div className="flex justify-between items-center mb-6">
-            <Skeleton className="h-9 w-32" />
-            <Skeleton className="h-10 w-32" />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
+          <div className="flex justify-between items-center mb-8">
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-11 w-32 rounded-lg" />
           </div>
-          <Card className="mb-8">
-            <CardContent className="pt-6 space-y-4">
-              <Skeleton className="h-6 w-24" />
-              <Skeleton className="h-10 w-48" />
-              <div className="flex gap-4"><Skeleton className="h-10 w-28" /><Skeleton className="h-10 w-28" /></div>
-            </CardContent>
-          </Card>
+          <Skeleton className="h-48 rounded-xl mb-8" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
           </div>
-          <Card className="mb-8">
-            <CardContent className="pt-6 space-y-4">
-              <Skeleton className="h-6 w-32 mb-4" />
-              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
-            </CardContent>
-          </Card>
+          <Skeleton className="h-64 rounded-xl mb-8" />
         </main>
         <Footer />
       </div>
@@ -100,20 +89,30 @@ const Wallet = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-muted/30">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Wallet</h1>
+      <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <WalletIcon className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Wallet</h1>
+              <p className="text-sm text-muted-foreground">Manage your money and cards</p>
+            </div>
+          </div>
+          
           {isMobile ? (
             <Drawer>
               <DrawerTrigger asChild>
-                <Button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700">
+                <Button className="h-11 px-5 rounded-lg font-semibold">
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Money
                 </Button>
               </DrawerTrigger>
               <DrawerContent>
-                <DrawerHeader>
+                <DrawerHeader className="text-center">
                   <DrawerTitle>Add Money to Wallet</DrawerTitle>
                 </DrawerHeader>
                 <AddMoneyContent />
@@ -122,11 +121,11 @@ const Wallet = () => {
           ) : (
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700">
+                <Button className="h-11 px-5 rounded-lg font-semibold">
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Money
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Add Money to Wallet</DialogTitle>
                 </DialogHeader>
@@ -136,34 +135,66 @@ const Wallet = () => {
           )}
         </div>
         
-        {/* Wallet Balance */}
-        <WalletBalance 
-          onSendMoney={handleSendMoney}
-        />
+        {/* Wallet Balance Hero */}
+        <WalletBalance onSendMoney={handleSendMoney} />
         
         {/* Quick Actions */}
         <QuickActions />
         
-        {/* Virtual Cards Section */}
-        <div className="mb-8 animate-fadeIn">
-          <VirtualCardManager maxCards={5} />
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Virtual Cards */}
+          <div className="lg:col-span-2">
+            <Card className="border-0 shadow-sm h-full">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-lg">Virtual Cards</CardTitle>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/wallet')} className="text-primary">
+                    View all <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+                <CardDescription>Manage your virtual payment cards</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <VirtualCardManager maxCards={3} />
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Payment Methods */}
+          <div className="lg:col-span-1">
+            <Card className="border-0 shadow-sm h-full">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Payment Methods</CardTitle>
+                <CardDescription>Your linked accounts</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PaymentMethodList paymentMethods={paymentMethods} compact />
+              </CardContent>
+            </Card>
+          </div>
         </div>
         
-        {/* Enhanced Tabs */}
-        <Tabs defaultValue="payment-methods" className="mb-8">
-          <TabsList className="grid w-full grid-cols-2 bg-muted">
-            <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
-            <TabsTrigger value="transaction-history">Transaction History</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="payment-methods" className="mt-6">
-            <PaymentMethodList paymentMethods={paymentMethods} />
-          </TabsContent>
-          
-          <TabsContent value="transaction-history" className="mt-6">
+        {/* Recent Transactions */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Recent Activity</CardTitle>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/transactions')} className="text-primary">
+                View all <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
             <TransactionHistory limit={5} />
-          </TabsContent>
-        </Tabs>
+          </CardContent>
+        </Card>
       </main>
       <Footer />
     </div>
