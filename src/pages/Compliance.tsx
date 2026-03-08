@@ -170,10 +170,10 @@ const Compliance = () => {
                   
                   <TabsContent value="status" className="mt-6">
                     <div className="space-y-8">
-                      <div className="bg-white border border-gray-100 rounded-lg p-6">
+                       <div className="bg-card border border-border rounded-lg p-6">
                         <h2 className="text-lg font-semibold mb-4">Your Compliance Score</h2>
                         <div className="mb-2 flex justify-between">
-                          <span className="text-sm text-gray-600">Compliance Level: {complianceScore}%</span>
+                          <span className="text-sm text-muted-foreground">Compliance Level: {complianceScore}%</span>
                           <span className="text-sm font-medium">
                             {complianceScore < 40 ? 'Non-Compliant' : 
                              complianceScore < 70 ? 'Partially Compliant' : 
