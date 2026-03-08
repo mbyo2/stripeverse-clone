@@ -533,13 +533,13 @@ export function ApiPlayground() {
         {/* Left: Request Builder */}
         <div className="lg:col-span-3 space-y-4">
           {/* API Key */}
-          <Card>
+          <Card className="border-0 shadow-sm">
             <CardContent className="pt-4 pb-4">
-              <Label className="text-xs text-muted-foreground mb-1.5 block">API Key</Label>
+              <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">API Key</Label>
               <Input
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="font-mono text-sm"
+                className="font-mono text-sm h-11 rounded-lg"
                 placeholder="pk_test_..."
               />
             </CardContent>
