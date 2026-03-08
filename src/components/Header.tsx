@@ -60,8 +60,11 @@ import {
   Banknote,
   Zap,
   Package,
-  Shield as ShieldIcon,
-  Receipt
+  ShieldCheck,
+  Receipt,
+  CalendarClock,
+  Lock,
+  MapPin
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
