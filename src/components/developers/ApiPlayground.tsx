@@ -639,7 +639,7 @@ export function ApiPlayground() {
           </div>
 
           {/* Code Generation */}
-          <Card>
+          <Card className="border-0 shadow-sm">
             <CardHeader className="pb-2">
               <button
                 onClick={() => setShowCodeGen(!showCodeGen)}
