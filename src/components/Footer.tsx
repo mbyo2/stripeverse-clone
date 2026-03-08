@@ -14,7 +14,7 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="py-12 px-4 bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green text-white">
+    <footer className="py-12 px-4 bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green text-white [&_*]:!text-inherit">
       <FadeIn duration={0.6} distance={20}>
         <div className="max-w-7xl mx-auto">
           <StaggerChildren 
