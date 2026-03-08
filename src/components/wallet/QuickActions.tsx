@@ -1,13 +1,11 @@
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { 
   CreditCard, 
   Send, 
   QrCode, 
   History,
-  PlusCircle,
-  ArrowUpRight
+  Smartphone,
+  Receipt
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -17,67 +15,65 @@ const QuickActions = () => {
   const actions = [
     {
       icon: Send,
-      label: "Send Money",
-      description: "Transfer to friends & family",
+      label: "Send",
+      description: "Transfer money",
       onClick: () => navigate("/transfer"),
-      color: "bg-green-500 hover:bg-green-600",
     },
     {
       icon: CreditCard,
-      label: "Virtual Cards",
-      description: "Manage your cards",
+      label: "Cards",
+      description: "Virtual cards",
       onClick: () => navigate("/wallet"),
-      color: "bg-purple-500 hover:bg-purple-600",
     },
     {
       icon: QrCode,
       label: "QR Pay",
-      description: "Scan to pay or receive",
+      description: "Scan & pay",
       onClick: () => {
-        // QR Pay functionality - coming soon
         alert("QR payment feature coming soon");
       },
-      color: "bg-blue-500 hover:bg-blue-600",
     },
     {
       icon: History,
-      label: "Transactions",
-      description: "View transaction history",
+      label: "History",
+      description: "All transactions",
       onClick: () => navigate("/transactions"),
-      color: "bg-orange-500 hover:bg-orange-600",
+    },
+    {
+      icon: Smartphone,
+      label: "Mobile",
+      description: "Top up airtime",
+      onClick: () => navigate("/wallet"),
+    },
+    {
+      icon: Receipt,
+      label: "Bills",
+      description: "Pay utilities",
+      onClick: () => navigate("/wallet"),
     },
   ];
 
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <PlusCircle className="mr-2 h-5 w-5" />
-          Quick Actions
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {actions.map((action, index) => {
-            const Icon = action.icon;
-            return (
-              <Button
-                key={index}
-                variant="outline"
-                className={`h-20 flex-col space-y-2 hover:text-white transition-all duration-200 ${action.color}`}
-                onClick={action.onClick}
-              >
-                <Icon className="h-6 w-6" />
-                <div className="text-center">
-                  <div className="font-medium text-sm">{action.label}</div>
-                  <div className="text-xs opacity-70">{action.description}</div>
-                </div>
-              </Button>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="mb-8">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+        {actions.map((action, index) => {
+          const Icon = action.icon;
+          return (
+            <button
+              key={index}
+              onClick={action.onClick}
+              className="flex flex-col items-center p-4 rounded-xl bg-background border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 group"
+            >
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2 group-hover:bg-primary/15 transition-colors">
+                <Icon className="h-5 w-5 text-primary" />
+              </div>
+              <span className="text-sm font-medium text-foreground">{action.label}</span>
+              <span className="text-[10px] text-muted-foreground">{action.description}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 };
 
