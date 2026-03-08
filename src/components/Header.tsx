@@ -457,6 +457,9 @@ const Header = () => {
                     <MobileNavLink to="/card-vault" icon={ShieldIcon}>Card Vault</MobileNavLink>
                     <MobileNavLink to="/buy-now-pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
                     <MobileNavLink to="/scheduled-payments" icon={Clock}>Scheduled Payments</MobileNavLink>
+                    <MobileNavLink to="/savings" icon={Star}>Savings</MobileNavLink>
+                    <MobileNavLink to="/statements" icon={FileText}>Statements</MobileNavLink>
+                    <MobileNavLink to="/transaction-search" icon={Globe}>Search Transactions</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business</p>
