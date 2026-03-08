@@ -484,7 +484,7 @@ const Compliance = () => {
                 </Tabs>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm p-8 mb-8 text-center">
+              <div className="bg-card rounded-lg shadow-sm p-8 mb-8 text-center border border-border">
                 <Shield className="h-12 w-12 mx-auto text-primary mb-4" />
                 <h2 className="text-xl font-semibold mb-3">Authentication Required</h2>
                 <p className="mb-6">Please log in to view your compliance status and required actions.</p>
