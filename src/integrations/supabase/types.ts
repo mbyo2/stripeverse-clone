@@ -92,6 +92,102 @@ export type Database = {
         }
         Relationships: []
       }
+      bnpl_plans: {
+        Row: {
+          created_at: string
+          currency: string
+          description: string | null
+          id: string
+          installment_amount: number
+          installments_paid: number
+          installments_total: number
+          merchant_name: string | null
+          next_payment_date: string | null
+          status: string
+          total_amount: number
+          transaction_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          installment_amount: number
+          installments_paid?: number
+          installments_total?: number
+          merchant_name?: string | null
+          next_payment_date?: string | null
+          status?: string
+          total_amount: number
+          transaction_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          installment_amount?: number
+          installments_paid?: number
+          installments_total?: number
+          merchant_name?: string | null
+          next_payment_date?: string | null
+          status?: string
+          total_amount?: number
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      budget_goals: {
+        Row: {
+          category: string | null
+          color: string | null
+          created_at: string
+          current_amount: number
+          deadline: string | null
+          icon: string | null
+          id: string
+          name: string
+          status: string
+          target_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          color?: string | null
+          created_at?: string
+          current_amount?: number
+          deadline?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          status?: string
+          target_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          color?: string | null
+          created_at?: string
+          current_amount?: number
+          deadline?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          status?: string
+          target_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       compliance_checks: {
         Row: {
           check_type: string
@@ -557,6 +653,69 @@ export type Database = {
         }
         Relationships: []
       }
+      merchant_invoices: {
+        Row: {
+          created_at: string
+          currency: string
+          customer_email: string
+          customer_name: string | null
+          due_date: string | null
+          id: string
+          invoice_number: string
+          items: Json
+          merchant_id: string
+          notes: string | null
+          paid_at: string | null
+          payment_link_code: string | null
+          sent_at: string | null
+          status: string
+          subtotal: number
+          tax_amount: number
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          customer_email: string
+          customer_name?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_number?: string
+          items?: Json
+          merchant_id: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_link_code?: string | null
+          sent_at?: string | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          customer_email?: string
+          customer_name?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_number?: string
+          items?: Json
+          merchant_id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_link_code?: string | null
+          sent_at?: string | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       newsletter_subscriptions: {
         Row: {
           created_at: string
@@ -689,6 +848,60 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      payment_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          paid_at: string | null
+          paid_by: string | null
+          payment_link_code: string | null
+          recipient_email: string | null
+          recipient_phone: string | null
+          requester_id: string
+          status: string
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          paid_at?: string | null
+          paid_by?: string | null
+          payment_link_code?: string | null
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          requester_id: string
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          paid_at?: string | null
+          paid_by?: string | null
+          payment_link_code?: string | null
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          requester_id?: string
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -916,6 +1129,51 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_contacts: {
+        Row: {
+          avatar_url: string | null
+          contact_name: string
+          created_at: string
+          email: string | null
+          id: string
+          is_favorite: boolean
+          last_transacted_at: string | null
+          notes: string | null
+          phone_number: string | null
+          transaction_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          contact_name: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_favorite?: boolean
+          last_transacted_at?: string | null
+          notes?: string | null
+          phone_number?: string | null
+          transaction_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          contact_name?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_favorite?: boolean
+          last_transacted_at?: string | null
+          notes?: string | null
+          phone_number?: string | null
+          transaction_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       security_events: {
         Row: {
           created_at: string
@@ -946,6 +1204,42 @@ export type Database = {
           risk_score?: number | null
           user_agent?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      spending_budgets: {
+        Row: {
+          alert_threshold: number
+          category: string
+          created_at: string
+          id: string
+          month_year: string
+          monthly_limit: number
+          spent_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_threshold?: number
+          category: string
+          created_at?: string
+          id?: string
+          month_year?: string
+          monthly_limit: number
+          spent_amount?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_threshold?: number
+          category?: string
+          created_at?: string
+          id?: string
+          month_year?: string
+          monthly_limit?: number
+          spent_amount?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
