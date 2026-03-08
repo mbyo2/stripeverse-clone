@@ -526,6 +526,7 @@ const Business = () => {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
 
             {/* Banking Tab */}
             <TabsContent value="banking">
