@@ -173,6 +173,9 @@ const Developers = () => {
               <TabsTrigger value="testing" className="flex items-center gap-1.5">
                 <CreditCard className="h-4 w-4" /> Testing
               </TabsTrigger>
+              <TabsTrigger value="playground" className="flex items-center gap-1.5">
+                <Play className="h-4 w-4" /> Playground
+              </TabsTrigger>
             </TabsList>
 
             {/* QUICK START */}
