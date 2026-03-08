@@ -10,8 +10,8 @@ import { RefreshCw, CheckCircle, XCircle, Clock, Zap, AlertTriangle } from 'luci
 import { format } from 'date-fns';
 
 const WebhookLogs = () => {
-  const { businessData } = useBusinessData();
-  const { logs, isLoading, retryWebhook, stats } = useWebhookRetries(businessData?.id);
+  const { merchantAccount } = useBusinessData();
+  const { logs, isLoading, retryWebhook, stats } = useWebhookRetries(merchantAccount?.id);
 
   const statusIcon = (status: string) => {
     switch (status) {
