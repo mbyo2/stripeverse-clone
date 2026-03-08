@@ -870,6 +870,11 @@ app.post('/webhook', (req, res) => {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* PLAYGROUND */}
+            <TabsContent value="playground">
+              <ApiPlayground />
+            </TabsContent>
           </Tabs>
         </section>
 
