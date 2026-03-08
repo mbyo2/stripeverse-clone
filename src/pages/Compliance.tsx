@@ -494,7 +494,7 @@ const Compliance = () => {
               </div>
             )}
             
-            <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
+            <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
               <div className="flex items-center justify-center mb-6">
                 <Shield className="h-16 w-16 text-primary" />
               </div>
