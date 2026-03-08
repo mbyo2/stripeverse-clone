@@ -50,7 +50,7 @@ import {
   Bell,
   Code2
 } from "lucide-react";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
 const Header = () => {
   const { user, signOut } = useAuth();
