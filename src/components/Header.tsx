@@ -49,7 +49,14 @@ import {
   Globe,
   Bell,
   Code2,
-  Clock
+  Clock,
+  Building2,
+  Link2,
+  GitBranch,
+  Coins,
+  FileSpreadsheet,
+  RotateCcw,
+  Banknote
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 
