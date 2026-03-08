@@ -181,10 +181,13 @@ const Business = () => {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {setupProgress.map((step) => (
-                    <div 
+                    <button 
                       key={step.label}
-                      className={`flex items-center gap-2 text-sm p-2 rounded-lg ${
-                        step.done ? 'text-primary bg-primary/10' : 'text-muted-foreground bg-muted'
+                      onClick={!step.done ? step.action : undefined}
+                      className={`flex items-center gap-2 text-sm p-2 rounded-lg transition-all text-left ${
+                        step.done 
+                          ? 'text-primary bg-primary/10' 
+                          : 'text-muted-foreground bg-muted hover:bg-muted/80 hover:text-foreground cursor-pointer'
                       }`}
                     >
                       {step.done ? (
@@ -193,7 +196,8 @@ const Business = () => {
                         <AlertCircle className="h-4 w-4 shrink-0" />
                       )}
                       <span className="truncate">{step.label}</span>
-                    </div>
+                      {!step.done && <ArrowRight className="h-3 w-3 ml-auto shrink-0" />}
+                    </button>
                   ))}
                 </div>
               </CardContent>
