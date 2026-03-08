@@ -117,6 +117,16 @@ const Header = () => {
                       <DollarSign className="h-4 w-4" /> Send Money
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/request-money" className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" /> Request Money
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/contacts" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" /> Contacts
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
