@@ -62,6 +62,11 @@ import NotFound from '@/pages/NotFound';
 import AdminUsers from '@/pages/AdminUsers';
 import AdminTransactions from '@/pages/AdminTransactions';
 import Developers from '@/pages/Developers';
+import RequestMoney from '@/pages/RequestMoney';
+import Contacts from '@/pages/Contacts';
+import SpendingInsights from '@/pages/SpendingInsights';
+import InvoicesPage from '@/pages/Invoices';
+import BuyNowPayLater from '@/pages/BuyNowPayLater';
 const AnimatedRoutes = () => {
   const location = useLocation();
 
@@ -320,6 +325,37 @@ const AnimatedRoutes = () => {
         <Route path="/admin/transactions" element={
           <ProtectedRoute requiredFeature="feedback_dashboard">
             <PageTransition><AdminTransactions /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        {/* New PayPal-competitive features */}
+        <Route path="/request-money" element={
+          <ProtectedRoute>
+            <PageTransition><RequestMoney /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/contacts" element={
+          <ProtectedRoute>
+            <PageTransition><Contacts /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/spending-insights" element={
+          <ProtectedRoute>
+            <PageTransition><SpendingInsights /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/invoices" element={
+          <ProtectedRoute>
+            <PageTransition><InvoicesPage /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/pay-later" element={
+          <ProtectedRoute>
+            <PageTransition><BuyNowPayLater /></PageTransition>
           </ProtectedRoute>
         } />
 
