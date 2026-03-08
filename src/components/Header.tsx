@@ -48,7 +48,8 @@ import {
   Moon,
   Globe,
   Bell,
-  Code2
+  Code2,
+  Clock
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 
