@@ -206,6 +206,21 @@ const Header = () => {
                       <Layers className="h-4 w-4" /> Buy Now Pay Later
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/savings" className="flex items-center gap-2">
+                      <Star className="h-4 w-4" /> Savings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/statements" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Statements
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/transaction-search" className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" /> Search Transactions
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
