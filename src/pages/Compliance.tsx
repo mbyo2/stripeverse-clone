@@ -386,7 +386,7 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
+                    <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6">Bank of Zambia Approval</h2>
                       
                       <p className="mb-6">
