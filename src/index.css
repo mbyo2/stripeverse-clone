@@ -152,7 +152,21 @@
   }
 
   .card-hover {
-    @apply transition-all duration-200 hover:shadow-md hover:border-primary/20;
+    @apply transition-all duration-200 hover:shadow-md hover:border-primary/20 cursor-pointer;
+  }
+
+  /* Clickable cards and list items */
+  .clickable {
+    @apply cursor-pointer transition-all duration-150 hover:bg-accent/50;
+  }
+
+  .clickable-scale {
+    @apply cursor-pointer transition-transform duration-150 hover:scale-[1.02] active:scale-[0.98];
+  }
+
+  /* Icon buttons */
+  .icon-btn {
+    @apply cursor-pointer transition-colors duration-150 hover:text-primary hover:bg-primary/10 rounded-lg p-2;
   }
 
   .feature-icon {
