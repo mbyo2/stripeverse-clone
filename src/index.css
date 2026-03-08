@@ -100,7 +100,7 @@
 
 @layer components {
   .glass {
-    @apply backdrop-blur-xl bg-white/70 border border-white/20 shadow-glass;
+    @apply backdrop-blur-xl bg-background/70 border border-border/20 shadow-glass;
   }
   
   .section {
