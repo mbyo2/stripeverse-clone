@@ -160,7 +160,7 @@ const Compliance = () => {
             <h1 className="text-3xl font-bold mb-8 text-center">Compliance & Security</h1>
             
             {user ? (
-              <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
+              <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
                 <Tabs defaultValue="status">
                   <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="status">Compliance Status</TabsTrigger>
