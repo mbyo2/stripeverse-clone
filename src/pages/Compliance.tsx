@@ -444,7 +444,7 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-white rounded-lg shadow-sm p-8">
+                    <div className="bg-card rounded-lg shadow-sm p-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6">Merchant Compliance Requirements</h2>
                       
                       <div className="mb-8">
