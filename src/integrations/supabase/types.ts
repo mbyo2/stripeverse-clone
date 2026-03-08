@@ -14,6 +14,147 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_locations: {
+        Row: {
+          address: string | null
+          agent_code: string
+          agent_name: string
+          city: string
+          country: string
+          created_at: string
+          daily_limit: number | null
+          id: string
+          is_active: boolean
+          latitude: number | null
+          location_name: string
+          longitude: number | null
+          operating_hours: Json | null
+          phone: string | null
+          province: string | null
+          services: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          agent_code: string
+          agent_name: string
+          city: string
+          country?: string
+          created_at?: string
+          daily_limit?: number | null
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          location_name: string
+          longitude?: number | null
+          operating_hours?: Json | null
+          phone?: string | null
+          province?: string | null
+          services?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          agent_code?: string
+          agent_name?: string
+          city?: string
+          country?: string
+          created_at?: string
+          daily_limit?: number | null
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          location_name?: string
+          longitude?: number | null
+          operating_hours?: Json | null
+          phone?: string | null
+          province?: string | null
+          services?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      aml_screenings: {
+        Row: {
+          country: string | null
+          created_at: string
+          date_of_birth: string | null
+          full_name: string
+          id: string
+          match_details: Json | null
+          match_found: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          risk_level: string
+          screened_at: string
+          screening_type: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          full_name: string
+          id?: string
+          match_details?: Json | null
+          match_found?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_level?: string
+          screened_at?: string
+          screening_type?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          full_name?: string
+          id?: string
+          match_details?: Json | null
+          match_found?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_level?: string
+          screened_at?: string
+          screening_type?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      api_ip_whitelist: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: string
+          is_active: boolean
+          label: string | null
+          last_used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address: string
+          is_active?: boolean
+          label?: string | null
+          last_used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: string
+          is_active?: boolean
+          label?: string | null
+          last_used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -146,6 +287,57 @@ export type Database = {
           severity?: string | null
           title?: string
           type?: string
+        }
+        Relationships: []
+      }
+      bill_payments: {
+        Row: {
+          account_number: string
+          amount: number
+          biller_code: string | null
+          biller_name: string
+          category: string
+          created_at: string
+          currency: string
+          id: string
+          metadata: Json | null
+          paid_at: string | null
+          reference: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_number: string
+          amount: number
+          biller_code?: string | null
+          biller_name: string
+          category?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          reference?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_number?: string
+          amount?: number
+          biller_code?: string | null
+          biller_name?: string
+          category?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          reference?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -709,6 +901,57 @@ export type Database = {
           },
         ]
       }
+      escrow_transactions: {
+        Row: {
+          amount: number
+          buyer_id: string
+          created_at: string
+          currency: string
+          description: string | null
+          disputed_at: string | null
+          funded_at: string | null
+          id: string
+          metadata: Json | null
+          release_conditions: string | null
+          released_at: string | null
+          seller_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          buyer_id: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          disputed_at?: string | null
+          funded_at?: string | null
+          id?: string
+          metadata?: Json | null
+          release_conditions?: string | null
+          released_at?: string | null
+          seller_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          buyer_id?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          disputed_at?: string | null
+          funded_at?: string | null
+          id?: string
+          metadata?: Json | null
+          release_conditions?: string | null
+          released_at?: string | null
+          seller_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       exchange_rates: {
         Row: {
           created_at: string
@@ -768,6 +1011,54 @@ export type Database = {
           feature_id?: string
           id?: string
           name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fraud_rules: {
+        Row: {
+          action: string
+          conditions: Json
+          created_at: string
+          description: string | null
+          hits_count: number
+          id: string
+          is_active: boolean
+          last_triggered_at: string | null
+          merchant_id: string | null
+          name: string
+          rule_type: string
+          severity: string
+          updated_at: string
+        }
+        Insert: {
+          action?: string
+          conditions?: Json
+          created_at?: string
+          description?: string | null
+          hits_count?: number
+          id?: string
+          is_active?: boolean
+          last_triggered_at?: string | null
+          merchant_id?: string | null
+          name: string
+          rule_type?: string
+          severity?: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          conditions?: Json
+          created_at?: string
+          description?: string | null
+          hits_count?: number
+          id?: string
+          is_active?: boolean
+          last_triggered_at?: string | null
+          merchant_id?: string | null
+          name?: string
+          rule_type?: string
+          severity?: string
           updated_at?: string
         }
         Relationships: []
@@ -1048,6 +1339,63 @@ export type Database = {
           status?: string
           subtotal?: number
           tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      merchant_payment_plans: {
+        Row: {
+          created_at: string
+          currency: string
+          customer_email: string
+          customer_name: string | null
+          description: string | null
+          frequency: string
+          id: string
+          installment_amount: number
+          installments_paid: number
+          installments_total: number
+          merchant_id: string
+          metadata: Json | null
+          next_payment_date: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          customer_email: string
+          customer_name?: string | null
+          description?: string | null
+          frequency?: string
+          id?: string
+          installment_amount: number
+          installments_paid?: number
+          installments_total?: number
+          merchant_id: string
+          metadata?: Json | null
+          next_payment_date?: string | null
+          status?: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          customer_email?: string
+          customer_name?: string | null
+          description?: string | null
+          frequency?: string
+          id?: string
+          installment_amount?: number
+          installments_paid?: number
+          installments_total?: number
+          merchant_id?: string
+          metadata?: Json | null
+          next_payment_date?: string | null
+          status?: string
           total_amount?: number
           updated_at?: string
         }
@@ -1614,6 +1962,60 @@ export type Database = {
           notes?: string | null
           phone_number?: string | null
           transaction_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      savings_accounts: {
+        Row: {
+          auto_save_amount: number | null
+          auto_save_frequency: string | null
+          balance: number
+          created_at: string
+          currency: string
+          id: string
+          interest_earned: number
+          interest_rate: number
+          last_interest_date: string | null
+          name: string
+          status: string
+          target_amount: number | null
+          target_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_save_amount?: number | null
+          auto_save_frequency?: string | null
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          interest_earned?: number
+          interest_rate?: number
+          last_interest_date?: string | null
+          name?: string
+          status?: string
+          target_amount?: number | null
+          target_date?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_save_amount?: number | null
+          auto_save_frequency?: string | null
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          interest_earned?: number
+          interest_rate?: number
+          last_interest_date?: string | null
+          name?: string
+          status?: string
+          target_amount?: number | null
+          target_date?: string | null
           updated_at?: string
           user_id?: string
         }
