@@ -417,7 +417,7 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-white rounded-lg shadow-sm p-8">
+                    <div className="bg-card rounded-lg shadow-sm p-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6">Our Compliance Commitments</h2>
                       
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
