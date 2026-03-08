@@ -705,7 +705,7 @@ export function ApiPlayground() {
         {/* Right: Response + History */}
         <div className="lg:col-span-2 space-y-4">
           {/* Response */}
-          <Card className="sticky top-24">
+          <Card className="sticky top-24 border-0 shadow-sm">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm">Response</CardTitle>
