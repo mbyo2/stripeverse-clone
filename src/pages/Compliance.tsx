@@ -318,7 +318,7 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-white rounded-lg shadow-sm p-8 mb-8 mt-8">
+                    <div className="bg-card rounded-lg shadow-sm p-8 mb-8 mt-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6 flex items-center">
                         <CreditCard className="h-5 w-5 mr-2 text-primary" />
                         PCI DSS Compliance
