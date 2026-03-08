@@ -131,6 +131,16 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/bank-transfers" className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" /> Bank Transfers
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/bulk-payments" className="flex items-center gap-2">
+                      <FileSpreadsheet className="h-4 w-4" /> Bulk Payments
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/contacts" className="flex items-center gap-2">
                       <Users className="h-4 w-4" /> Contacts
                     </Link>
