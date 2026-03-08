@@ -60,10 +60,14 @@ import {
   Banknote,
   Zap,
   Package,
-  Shield as ShieldIcon,
-  Receipt
+  ShieldCheck,
+  Receipt,
+  CalendarClock,
+  Lock,
+  MapPin
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -197,12 +201,27 @@ const Header = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/card-vault" className="flex items-center gap-2">
-                      <ShieldIcon className="h-4 w-4" /> Card Vault
+                      <ShieldCheck className="h-4 w-4" /> Card Vault
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/buy-now-pay-later" className="flex items-center gap-2">
                       <Layers className="h-4 w-4" /> Buy Now Pay Later
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/savings" className="flex items-center gap-2">
+                      <Star className="h-4 w-4" /> Savings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/statements" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Statements
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/transaction-search" className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" /> Search Transactions
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -270,6 +289,36 @@ const Header = () => {
                       <DollarSign className="h-4 w-4" /> Billing
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/payment-plans" className="flex items-center gap-2">
+                      <CalendarClock className="h-4 w-4" /> Payment Plans
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/escrow" className="flex items-center gap-2">
+                      <Lock className="h-4 w-4" /> Escrow
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/bill-payments" className="flex items-center gap-2">
+                      <Zap className="h-4 w-4" /> Bill Payments
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/agent-network" className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" /> Agent Network
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/fraud-rules" className="flex items-center gap-2">
+                      <Shield className="h-4 w-4" /> Fraud Rules
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/ip-whitelist" className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4" /> IP Whitelist
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -286,6 +335,7 @@ const Header = () => {
         <div className="hidden lg:flex items-center gap-2">
           {user ? (
             <>
+              <LanguageSelector compact />
               <CurrencySelector compact />
               <NotificationBell />
               <RoleBadge />
@@ -407,9 +457,12 @@ const Header = () => {
                     <MobileNavLink to="/card/new" icon={CardIcon}>Virtual Cards</MobileNavLink>
                     <MobileNavLink to="/spending-insights" icon={BarChart3}>Spending Insights</MobileNavLink>
                     <MobileNavLink to="/refunds" icon={RotateCcw}>Refunds</MobileNavLink>
-                    <MobileNavLink to="/card-vault" icon={ShieldIcon}>Card Vault</MobileNavLink>
+                    <MobileNavLink to="/card-vault" icon={ShieldCheck}>Card Vault</MobileNavLink>
                     <MobileNavLink to="/buy-now-pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
                     <MobileNavLink to="/scheduled-payments" icon={Clock}>Scheduled Payments</MobileNavLink>
+                    <MobileNavLink to="/savings" icon={Star}>Savings</MobileNavLink>
+                    <MobileNavLink to="/statements" icon={FileText}>Statements</MobileNavLink>
+                    <MobileNavLink to="/transaction-search" icon={Globe}>Search Transactions</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business</p>
@@ -425,6 +478,12 @@ const Header = () => {
                     <MobileNavLink to="/api" icon={Code2}>API</MobileNavLink>
                     <MobileNavLink to="/sdk-docs" icon={Package}>SDK Docs</MobileNavLink>
                     <MobileNavLink to="/billing" icon={DollarSign}>Billing</MobileNavLink>
+                    <MobileNavLink to="/payment-plans" icon={CalendarClock}>Payment Plans</MobileNavLink>
+                    <MobileNavLink to="/escrow" icon={Lock}>Escrow</MobileNavLink>
+                    <MobileNavLink to="/bill-payments" icon={Zap}>Bill Payments</MobileNavLink>
+                    <MobileNavLink to="/agent-network" icon={MapPin}>Agent Network</MobileNavLink>
+                    <MobileNavLink to="/fraud-rules" icon={Shield}>Fraud Rules</MobileNavLink>
+                    <MobileNavLink to="/ip-whitelist" icon={ShieldCheck}>IP Whitelist</MobileNavLink>
                     <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
                     
                     <Separator className="my-2" />
