@@ -1230,6 +1230,72 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          description: string | null
+          end_date: string | null
+          frequency: string
+          id: string
+          last_run_at: string | null
+          max_runs: number | null
+          metadata: Json | null
+          next_run_at: string
+          payment_method: string
+          recipient_account: string | null
+          recipient_bank: string | null
+          recipient_name: string
+          status: string
+          total_runs: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          description?: string | null
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          last_run_at?: string | null
+          max_runs?: number | null
+          metadata?: Json | null
+          next_run_at: string
+          payment_method?: string
+          recipient_account?: string | null
+          recipient_bank?: string | null
+          recipient_name: string
+          status?: string
+          total_runs?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          description?: string | null
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          last_run_at?: string | null
+          max_runs?: number | null
+          metadata?: Json | null
+          next_run_at?: string
+          payment_method?: string
+          recipient_account?: string | null
+          recipient_bank?: string | null
+          recipient_name?: string
+          status?: string
+          total_runs?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       security_events: {
         Row: {
           created_at: string

@@ -48,7 +48,8 @@ import {
   Moon,
   Globe,
   Bell,
-  Code2
+  Code2,
+  Clock
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 
@@ -125,6 +126,11 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/contacts" className="flex items-center gap-2">
                       <Users className="h-4 w-4" /> Contacts
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/scheduled-payments" className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" /> Scheduled Payments
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -331,6 +337,7 @@ const Header = () => {
                     <MobileNavLink to="/card/new" icon={CardIcon}>Virtual Cards</MobileNavLink>
                     <MobileNavLink to="/spending-insights" icon={BarChart3}>Spending Insights</MobileNavLink>
                     <MobileNavLink to="/buy-now-pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
+                    <MobileNavLink to="/scheduled-payments" icon={Clock}>Scheduled Payments</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business</p>

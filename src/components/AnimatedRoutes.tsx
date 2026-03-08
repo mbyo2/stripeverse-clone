@@ -67,6 +67,7 @@ import Contacts from '@/pages/Contacts';
 import SpendingInsights from '@/pages/SpendingInsights';
 import InvoicesPage from '@/pages/Invoices';
 import BuyNowPayLater from '@/pages/BuyNowPayLater';
+import ScheduledPayments from '@/pages/ScheduledPayments';
 const AnimatedRoutes = () => {
   const location = useLocation();
 
@@ -356,6 +357,12 @@ const AnimatedRoutes = () => {
         <Route path="/pay-later" element={
           <ProtectedRoute>
             <PageTransition><BuyNowPayLater /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/scheduled-payments" element={
+          <ProtectedRoute>
+            <PageTransition><ScheduledPayments /></PageTransition>
           </ProtectedRoute>
         } />
 
