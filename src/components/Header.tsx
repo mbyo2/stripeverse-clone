@@ -407,6 +407,7 @@ const Header = () => {
                     <MobileNavLink to="/card/new" icon={CardIcon}>Virtual Cards</MobileNavLink>
                     <MobileNavLink to="/spending-insights" icon={BarChart3}>Spending Insights</MobileNavLink>
                     <MobileNavLink to="/refunds" icon={RotateCcw}>Refunds</MobileNavLink>
+                    <MobileNavLink to="/card-vault" icon={ShieldIcon}>Card Vault</MobileNavLink>
                     <MobileNavLink to="/buy-now-pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
                     <MobileNavLink to="/scheduled-payments" icon={Clock}>Scheduled Payments</MobileNavLink>
                     
