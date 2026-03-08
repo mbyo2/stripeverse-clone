@@ -30,6 +30,7 @@ const Business = () => {
   const { merchantAccount, metrics, monthlyChart, paymentMethodBreakdown, businessTransactions, isLoading } = useBusinessData();
   const { formatAmount } = useCurrency();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
   const navigate = useNavigate();
 
   if (isLoading) {
