@@ -46,8 +46,11 @@ import {
   Layers,
   Sun,
   Moon,
-  Globe
+  Globe,
+  Bell,
+  Code2
 } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -67,335 +70,309 @@ const Header = () => {
     <Link 
       to={to} 
       onClick={closeMobileMenu}
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-        isActive(to) ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
+        isActive(to) ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'
       }`}
     >
-      <Icon className="h-5 w-5" />
+      <Icon className="h-4 w-4" />
       <span>{children}</span>
     </Link>
   );
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center space-x-6">
-          <Link to="/" className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            BMaGlass Pay
+    <header className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border shadow-subtle">
+      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+        {/* Logo */}
+        <div className="flex items-center gap-8">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg paypal-gradient flex items-center justify-center">
+              <CreditCard className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-lg font-bold text-foreground">BMaGlass<span className="text-primary">Pay</span></span>
           </Link>
           
+          {/* Desktop Nav */}
           {user && (
-            <nav className="hidden lg:flex items-center space-x-2">
+            <nav className="hidden lg:flex items-center gap-1">
               <Link to="/dashboard">
-                <Button variant={isActive("/dashboard") ? "default" : "ghost"} size="sm">
+                <Button variant={isActive("/dashboard") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9">
                   Dashboard
                 </Button>
               </Link>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
-                    Payments <ChevronDown className="h-3 w-3" />
+                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1">
+                    Send & Request <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-background border shadow-lg">
+                <DropdownMenuContent align="start" className="w-52">
                   <DropdownMenuItem asChild>
-                    <Link to="/wallet" className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4" />
-                      Wallet
+                    <Link to="/transfer" className="flex items-center gap-2">
+                      <ArrowLeftRight className="h-4 w-4" /> Transfer Money
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/transactions">Transactions</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/transfer">Transfer Money</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/card/new">Virtual Cards</Link>
+                    <Link to="/send-money" className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" /> Send Money
+                    </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1">
+                    Wallet <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuItem asChild>
+                    <Link to="/wallet" className="flex items-center gap-2">
+                      <Wallet className="h-4 w-4" /> My Wallet
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/transactions" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Transactions
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/card/new" className="flex items-center gap-2">
+                      <CardIcon className="h-4 w-4" /> Virtual Cards
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1">
                     Business <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-background border shadow-lg">
+                <DropdownMenuContent align="start" className="w-52">
                   <DropdownMenuItem asChild>
-                    <Link to="/analytics" className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4" />
-                      Analytics
+                    <Link to="/business" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" /> Business Tools
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/api">API Management</Link>
+                    <Link to="/analytics" className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4" /> Analytics
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/billing">Billing</Link>
+                    <Link to="/api" className="flex items-center gap-2">
+                      <Code2 className="h-4 w-4" /> API Management
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/business">Business Tools</Link>
+                    <Link to="/billing" className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" /> Billing
+                    </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Link to="/rewards">
-                <Button variant={isActive("/rewards") ? "default" : "ghost"} size="sm" className="flex items-center gap-1">
-                  <Star className="h-4 w-4" />
-                  Rewards
+              <Link to="/developers">
+                <Button variant={isActive("/developers") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9">
+                  Developers
                 </Button>
               </Link>
-
-              <Link to="/tier-management">
-                <Button variant={isActive("/tier-management") ? "default" : "ghost"} size="sm">
-                  Tiers
-                </Button>
-              </Link>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
-                    <HelpCircle className="h-4 w-4" />
-                    Help <ChevronDown className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-background border shadow-lg">
-                  <DropdownMenuItem asChild>
-                    <Link to="/support">Support Center</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/help">Help & FAQ</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/faq">FAQ</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/contact">Contact Us</Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </nav>
           )}
         </div>
 
-        <div className="hidden lg:flex items-center space-x-4">
+        {/* Right Side */}
+        <div className="hidden lg:flex items-center gap-2">
           {user ? (
             <>
               <CurrencySelector compact />
+              <NotificationBell />
               <RoleBadge />
-              <RoleSwitcher />
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="h-9 w-9"
+                aria-label="Toggle theme"
+              >
+                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
-                    <Settings className="h-4 w-4" />
-                    Account <ChevronDown className="h-3 w-3" />
+                  <Button variant="ghost" size="sm" className="h-9 gap-1">
+                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-background border shadow-lg">
+                <DropdownMenuContent align="end" className="w-52">
                   <DropdownMenuItem asChild>
-                    <Link to="/settings">Profile</Link>
+                    <Link to="/settings" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" /> Settings
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/settings">Settings</Link>
+                    <Link to="/security-settings" className="flex items-center gap-2">
+                      <Shield className="h-4 w-4" /> Security
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/role-management">Role Management</Link>
+                    <Link to="/rewards" className="flex items-center gap-2">
+                      <Star className="h-4 w-4" /> Rewards
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/tier-management" className="flex items-center gap-2">
+                      <Layers className="h-4 w-4" /> Subscription
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/role-management" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" /> Role Management
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={signOut}>
-                    Sign Out
+                  <DropdownMenuItem asChild>
+                    <Link to="/support" className="flex items-center gap-2">
+                      <HelpCircle className="h-4 w-4" /> Help & Support
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut} className="text-destructive">
+                    <LogOut className="h-4 w-4 mr-2" /> Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
           ) : (
-            <div className="flex items-center space-x-2">
-              <Link to="/about">
-                <Button variant="ghost" size="sm">About</Button>
-              </Link>
-              <Link to="/blog">
-                <Button variant="ghost" size="sm">Blog</Button>
-              </Link>
-              <Link to="/pricing">
-                <Button variant="ghost" size="sm">Pricing</Button>
-              </Link>
-              <Link to="/developers">
-                <Button variant="ghost" size="sm">Developers</Button>
-              </Link>
-              <Link to="/contact">
-                <Button variant="ghost" size="sm">Contact</Button>
-              </Link>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleTheme}
-                aria-label="Toggle theme"
-              >
-                {theme === 'dark' ? (
-                  <Sun className="h-5 w-5" />
-                ) : (
-                  <Moon className="h-5 w-5" />
-                )}
+            <div className="flex items-center gap-2">
+              <Link to="/about"><Button variant="ghost" size="sm" className="text-sm h-9">About</Button></Link>
+              <Link to="/pricing"><Button variant="ghost" size="sm" className="text-sm h-9">Pricing</Button></Link>
+              <Link to="/developers"><Button variant="ghost" size="sm" className="text-sm h-9">Developers</Button></Link>
+              <Link to="/contact"><Button variant="ghost" size="sm" className="text-sm h-9">Contact</Button></Link>
+              <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-9 w-9" aria-label="Toggle theme">
+                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
-              <Link to="/login">
-                <Button variant="ghost" size="sm">Sign In</Button>
-              </Link>
-              <Link to="/register">
-                <Button size="sm">Get Started</Button>
-              </Link>
+              <Separator orientation="vertical" className="h-6" />
+              <Link to="/login"><Button variant="ghost" size="sm" className="text-sm h-9">Log In</Button></Link>
+              <Link to="/register"><Button size="sm" className="text-sm h-9 rounded-full px-5">Sign Up Free</Button></Link>
             </div>
-          )}
-
-          {/* Theme toggle for authenticated users */}
-          {user && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="hidden lg:flex"
-              aria-label="Toggle theme"
-            >
-              {theme === 'dark' ? (
-                <Sun className="h-5 w-5" />
-              ) : (
-                <Moon className="h-5 w-5" />
-              )}
-            </Button>
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <div className="lg:hidden">
+        {/* Mobile Menu */}
+        <div className="lg:hidden flex items-center gap-2">
+          {user && <NotificationBell />}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="h-6 w-6" />
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-80 overflow-y-auto">
               <SheetHeader>
-                <SheetTitle className="text-left bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  BMaGlass Pay
+                <SheetTitle className="text-left flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg paypal-gradient flex items-center justify-center">
+                    <CreditCard className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  BMaGlass<span className="text-primary">Pay</span>
                 </SheetTitle>
               </SheetHeader>
               
               <div className="mt-6 space-y-1">
                 {user ? (
                   <>
-                    {/* User Info */}
-                    <div className="px-4 py-3 mb-4">
+                    <div className="px-4 py-3 mb-2">
                       <RoleBadge />
                     </div>
                     
                     <Separator className="my-2" />
-                    
-                    {/* Main Navigation */}
                     <MobileNavLink to="/dashboard" icon={Home}>Dashboard</MobileNavLink>
                     
                     <Separator className="my-2" />
-                    <p className="px-4 py-2 text-sm font-medium text-muted-foreground">Payments</p>
-                    
+                    <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Money</p>
                     <MobileNavLink to="/wallet" icon={Wallet}>Wallet</MobileNavLink>
                     <MobileNavLink to="/transactions" icon={FileText}>Transactions</MobileNavLink>
-                    <MobileNavLink to="/transfer" icon={ArrowLeftRight}>Transfer Money</MobileNavLink>
+                    <MobileNavLink to="/transfer" icon={ArrowLeftRight}>Transfer</MobileNavLink>
                     <MobileNavLink to="/send-money" icon={DollarSign}>Send Money</MobileNavLink>
                     <MobileNavLink to="/card/new" icon={CardIcon}>Virtual Cards</MobileNavLink>
                     
                     <Separator className="my-2" />
-                    <p className="px-4 py-2 text-sm font-medium text-muted-foreground">Business</p>
-                    
-                    <MobileNavLink to="/analytics" icon={BarChart3}>Analytics</MobileNavLink>
-                    <MobileNavLink to="/api" icon={FileText}>API Management</MobileNavLink>
-                    <MobileNavLink to="/billing" icon={DollarSign}>Billing</MobileNavLink>
+                    <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business</p>
                     <MobileNavLink to="/business" icon={Users}>Business Tools</MobileNavLink>
+                    <MobileNavLink to="/analytics" icon={BarChart3}>Analytics</MobileNavLink>
+                    <MobileNavLink to="/api" icon={Code2}>API</MobileNavLink>
+                    <MobileNavLink to="/billing" icon={DollarSign}>Billing</MobileNavLink>
+                    <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
                     
                     <Separator className="my-2" />
-                    <p className="px-4 py-2 text-sm font-medium text-muted-foreground">More</p>
-                    
+                    <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
                     <MobileNavLink to="/rewards" icon={Star}>Rewards</MobileNavLink>
-                    <MobileNavLink to="/tier-management" icon={Layers}>Tiers</MobileNavLink>
-                    <MobileNavLink to="/notifications" icon={HelpCircle}>Notifications</MobileNavLink>
-                    
-                    <Separator className="my-2" />
-                    <p className="px-4 py-2 text-sm font-medium text-muted-foreground">Help & Support</p>
-                    
-                    <MobileNavLink to="/support" icon={HelpCircle}>Support Center</MobileNavLink>
-                    <MobileNavLink to="/faq" icon={BookOpen}>FAQ</MobileNavLink>
-                    <MobileNavLink to="/contact" icon={Phone}>Contact Us</MobileNavLink>
-                    
-                    <Separator className="my-2" />
-                    <p className="px-4 py-2 text-sm font-medium text-muted-foreground">Account</p>
-                    
-                    <MobileNavLink to="/settings" icon={User}>Profile & Settings</MobileNavLink>
+                    <MobileNavLink to="/tier-management" icon={Layers}>Subscription</MobileNavLink>
+                    <MobileNavLink to="/settings" icon={Settings}>Settings</MobileNavLink>
                     <MobileNavLink to="/security-settings" icon={Shield}>Security</MobileNavLink>
                     
                     <Separator className="my-2" />
-                    <p className="px-4 py-2 text-sm font-medium text-muted-foreground">Preferences</p>
-                    
+                    <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Preferences</p>
                     <div className="px-4 py-2">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                        <Globe className="h-4 w-4" />
-                        <span>Currency</span>
-                      </div>
                       <CurrencySelector />
                     </div>
-                    
-                    <Separator className="my-2" />
 
-                    {/* Theme Toggle */}
                     <button 
                       onClick={toggleTheme}
-                      className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-left hover:bg-muted transition-colors"
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-left hover:bg-muted transition-colors text-sm font-medium"
                     >
-                      {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                       <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
                     </button>
+
+                    <Separator className="my-2" />
+                    <MobileNavLink to="/support" icon={HelpCircle}>Help & Support</MobileNavLink>
+                    <MobileNavLink to="/faq" icon={BookOpen}>FAQ</MobileNavLink>
                     
+                    <Separator className="my-2" />
                     <button 
                       onClick={() => { signOut(); closeMobileMenu(); }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-left text-destructive hover:bg-destructive/10 transition-colors"
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-left text-destructive hover:bg-destructive/10 transition-colors text-sm font-medium"
                     >
-                      <LogOut className="h-5 w-5" />
+                      <LogOut className="h-4 w-4" />
                       <span>Sign Out</span>
                     </button>
                   </>
                 ) : (
                   <>
-                    {/* Public Navigation */}
                     <MobileNavLink to="/" icon={Home}>Home</MobileNavLink>
-                    <MobileNavLink to="/about" icon={Users}>About Us</MobileNavLink>
-                    <MobileNavLink to="/blog" icon={BookOpen}>Blog</MobileNavLink>
+                    <MobileNavLink to="/about" icon={Users}>About</MobileNavLink>
                     <MobileNavLink to="/pricing" icon={DollarSign}>Pricing</MobileNavLink>
+                    <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
                     <MobileNavLink to="/faq" icon={HelpCircle}>FAQ</MobileNavLink>
                     <MobileNavLink to="/contact" icon={Phone}>Contact</MobileNavLink>
                     
                     <Separator className="my-4" />
-
-                    {/* Theme Toggle */}
                     <button 
                       onClick={toggleTheme}
-                      className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-left hover:bg-muted transition-colors"
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-left hover:bg-muted transition-colors text-sm font-medium"
                     >
-                      {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                       <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
                     </button>
                     
                     <Separator className="my-4" />
-                    
                     <div className="px-4 space-y-3">
                       <Link to="/login" onClick={closeMobileMenu}>
-                        <Button variant="outline" className="w-full justify-start gap-2">
-                          <LogIn className="h-4 w-4" />
-                          Sign In
+                        <Button variant="outline" className="w-full gap-2">
+                          <LogIn className="h-4 w-4" /> Log In
                         </Button>
                       </Link>
                       <Link to="/register" onClick={closeMobileMenu}>
-                        <Button className="w-full justify-start gap-2">
-                          <UserPlus className="h-4 w-4" />
-                          Get Started
+                        <Button className="w-full gap-2 rounded-full">
+                          <UserPlus className="h-4 w-4" /> Sign Up Free
                         </Button>
                       </Link>
                     </div>
