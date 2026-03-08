@@ -483,7 +483,7 @@ const Header = () => {
                     <MobileNavLink to="/bill-payments" icon={Zap}>Bill Payments</MobileNavLink>
                     <MobileNavLink to="/agent-network" icon={MapPin}>Agent Network</MobileNavLink>
                     <MobileNavLink to="/fraud-rules" icon={Shield}>Fraud Rules</MobileNavLink>
-                    <MobileNavLink to="/ip-whitelist" icon={ShieldIcon}>IP Whitelist</MobileNavLink>
+                    <MobileNavLink to="/ip-whitelist" icon={ShieldCheck}>IP Whitelist</MobileNavLink>
                     <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
                     
                     <Separator className="my-2" />
