@@ -374,6 +374,48 @@ const AnimatedRoutes = () => {
           </ProtectedRoute>
         } />
 
+        <Route path="/bank-transfers" element={
+          <ProtectedRoute>
+            <PageTransition><BankTransfers /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/collect-payments" element={
+          <ProtectedRoute>
+            <PageTransition><CollectPayments /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/payment-links" element={
+          <ProtectedRoute>
+            <PageTransition><PaymentLinks /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/sub-accounts" element={
+          <ProtectedRoute>
+            <PageTransition><SubAccounts /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/multi-currency" element={
+          <ProtectedRoute>
+            <PageTransition><MultiCurrencyWallet /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/bulk-payments" element={
+          <ProtectedRoute>
+            <PageTransition><BulkPayments /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/refunds" element={
+          <ProtectedRoute>
+            <PageTransition><Refunds /></PageTransition>
+          </ProtectedRoute>
+        } />
+
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
