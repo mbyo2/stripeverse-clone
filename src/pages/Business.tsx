@@ -145,7 +145,11 @@ const Business = () => {
           transition={{ duration: 0.3, delay: 0.1 }}
         >
           {statCards.map((stat, i) => (
-            <Card key={stat.title} className={`bg-gradient-to-br ${stat.gradient} text-white border-0 overflow-hidden relative`}>
+            <Card 
+              key={stat.title} 
+              className={`bg-gradient-to-br ${stat.gradient} text-white border-0 overflow-hidden relative ${stat.onClick ? 'cursor-pointer hover:scale-[1.02] transition-transform' : ''}`}
+              onClick={stat.onClick}
+            >
               <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8" />
               <CardContent className="p-5 relative z-10">
                 <div className="flex items-center justify-between mb-3">
