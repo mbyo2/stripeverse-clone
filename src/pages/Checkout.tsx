@@ -123,7 +123,7 @@ const Checkout = () => {
                 )}
                 
                 {selectedPaymentMethod === "bitcoin" && (
-                  <div className="bg-white rounded-lg shadow p-4 mb-4">
+                  <div className="bg-card rounded-lg shadow p-4 mb-4 border border-border">
                     <BitcoinPayment
                       amount={amount}
                       onSuccess={handlePaymentComplete}

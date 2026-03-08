@@ -297,7 +297,7 @@ const TwoFactorAuth = () => {
                     </p>
                     
                     <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start mt-4">
-                      <div className="bg-white p-4 rounded-lg border">
+                      <div className="bg-card p-4 rounded-lg border border-border">
                         {twoFactorState.qrCodeUrl && (
                           <QRCode value={twoFactorState.qrCodeUrl} size={180} />
                         )}
