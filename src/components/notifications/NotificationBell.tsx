@@ -216,7 +216,7 @@ const NotificationBell = () => {
             variant="ghost" 
             size="sm" 
             className="w-full" 
-            onClick={() => window.location.assign("/notifications")}
+            onClick={() => navigate("/notifications")}
           >
             View all notifications
           </Button>
