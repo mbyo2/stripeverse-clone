@@ -148,7 +148,7 @@ const Compliance = () => {
   };
   
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-background">
       <Header />
       
       <main className="flex-grow pt-24 pb-16">
