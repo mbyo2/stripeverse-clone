@@ -64,6 +64,7 @@ import {
   Receipt
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 const Header = () => {
   const { user, signOut } = useAuth();
