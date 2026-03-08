@@ -30,6 +30,7 @@ const Business = () => {
   const { merchantAccount, metrics, monthlyChart, paymentMethodBreakdown, businessTransactions, isLoading } = useBusinessData();
   const { formatAmount } = useCurrency();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
   const navigate = useNavigate();
 
   if (isLoading) {
@@ -55,10 +56,10 @@ const Business = () => {
   }
 
   const setupProgress = [
-    { label: 'Business Profile', done: !!merchantAccount?.business_name, link: 'settings' },
-    { label: 'Bank Account', done: !!(merchantAccount?.contact_info as any)?.banking?.accountName, link: 'banking' },
-    { label: 'API Key', done: !!merchantAccount?.api_key_masked, link: 'api' },
-    { label: 'Webhook', done: !!merchantAccount?.webhook_url, link: 'webhooks' },
+    { label: 'Business Profile', done: !!merchantAccount?.business_name, action: () => setSettingsOpen(true) },
+    { label: 'Bank Account', done: !!(merchantAccount?.contact_info as any)?.banking?.accountName, action: () => setActiveTab('banking') },
+    { label: 'API Key', done: !!merchantAccount?.api_key_masked, action: () => setActiveTab('api') },
+    { label: 'Webhook', done: !!merchantAccount?.webhook_url, action: () => setActiveTab('webhooks') },
   ];
   const completedSteps = setupProgress.filter(s => s.done).length;
 
@@ -180,10 +181,13 @@ const Business = () => {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {setupProgress.map((step) => (
-                    <div 
+                    <button 
                       key={step.label}
-                      className={`flex items-center gap-2 text-sm p-2 rounded-lg ${
-                        step.done ? 'text-primary bg-primary/10' : 'text-muted-foreground bg-muted'
+                      onClick={!step.done ? step.action : undefined}
+                      className={`flex items-center gap-2 text-sm p-2 rounded-lg transition-all text-left ${
+                        step.done 
+                          ? 'text-primary bg-primary/10' 
+                          : 'text-muted-foreground bg-muted hover:bg-muted/80 hover:text-foreground cursor-pointer'
                       }`}
                     >
                       {step.done ? (
@@ -192,7 +196,8 @@ const Business = () => {
                         <AlertCircle className="h-4 w-4 shrink-0" />
                       )}
                       <span className="truncate">{step.label}</span>
-                    </div>
+                      {!step.done && <ArrowRight className="h-3 w-3 ml-auto shrink-0" />}
+                    </button>
                   ))}
                 </div>
               </CardContent>
@@ -206,7 +211,7 @@ const Business = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
         >
-          <Tabs defaultValue="overview" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="w-full flex overflow-x-auto bg-muted/50 p-1 rounded-xl">
               <TabsTrigger value="overview" className="flex-1 min-w-0 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <Store className="h-4 w-4 mr-1.5 shrink-0" />
