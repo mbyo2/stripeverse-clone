@@ -118,7 +118,7 @@ const BetaBanner = ({ expiryDays = 7, version = "0.0.1" }: BetaBannerProps) => {
           
           <button 
             onClick={dismissBanner}
-            className="text-black hover:text-gray-700 ml-2"
+            className="text-black hover:text-black/70 ml-2"
             aria-label="Dismiss banner"
           >
             <X className="h-4 w-4" />

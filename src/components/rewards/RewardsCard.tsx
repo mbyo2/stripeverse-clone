@@ -44,7 +44,7 @@ const RewardsCard = () => {
     : 100;
 
   return (
-    <Card className="bg-gradient-to-br from-blue-50 to-purple-50">
+    <Card className="bg-card">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center justify-between">
           <span className="text-lg">Rewards</span>
