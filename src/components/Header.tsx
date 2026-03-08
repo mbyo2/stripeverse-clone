@@ -211,6 +211,21 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/collect-payments" className="flex items-center gap-2">
+                      <Banknote className="h-4 w-4" /> Collect Payments
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/payment-links" className="flex items-center gap-2">
+                      <Link2 className="h-4 w-4" /> Payment Links
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/sub-accounts" className="flex items-center gap-2">
+                      <GitBranch className="h-4 w-4" /> Split Payments
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/invoices" className="flex items-center gap-2">
                       <FileText className="h-4 w-4" /> Invoices
                     </Link>
