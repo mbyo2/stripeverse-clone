@@ -12,8 +12,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { 
   Store, CreditCard, BarChart3, Settings, Shield, Wallet, FileText, 
   Webhook, TrendingUp, Activity, ArrowUpRight, ArrowRight, 
-  CheckCircle, AlertCircle, Clock, Users
+  CheckCircle, AlertCircle, Clock, Users, Zap, Globe
 } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
 import { BusinessSettings } from "@/components/business/BusinessSettings";
 import { BusinessBankingInfo } from "@/components/business/BusinessBankingInfo";
 import BusinessCompliance from "@/components/business/BusinessCompliance";
