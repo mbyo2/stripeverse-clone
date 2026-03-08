@@ -14,7 +14,7 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="py-12 px-4 bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green text-white [&_*]:!text-inherit">
+    <footer className="py-12 px-4 bg-gradient-to-r from-theme-blue via-theme-purple to-theme-green text-white">
       <FadeIn duration={0.6} distance={20}>
         <div className="max-w-7xl mx-auto">
           <StaggerChildren 
@@ -23,19 +23,19 @@ const Footer = () => {
           >
             <StaggerItem className="col-span-1 md:col-span-2">
               <div className="text-2xl font-bold mb-4">BMaGlass Pay</div>
-              <p className="text-primary-foreground/80 max-w-md">
+              <p className="text-white/80 max-w-md">
                 Founded by Mabvuto Banda in Lusaka, BMaGlass Pay is Zambia's trusted payment gateway solution, serving businesses of all sizes with secure and efficient digital payment processing.
               </p>
               
               <div className="mt-6 flex items-center space-x-4">
-                <Shield className="h-5 w-5 text-primary-foreground/80" />
-                <Link to="/compliance" className="text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+                <Shield className="h-5 w-5 text-white/80" />
+                <Link to="/compliance" className="text-white/80 hover:text-white transition-colors">
                   PCI DSS Compliant
                 </Link>
               </div>
               <div className="mt-2 flex items-center space-x-4">
-                <Globe className="h-5 w-5 text-primary-foreground/80" />
-                <Link to="/compliance" className="text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+                <Globe className="h-5 w-5 text-white/80" />
+                <Link to="/compliance" className="text-white/80 hover:text-white transition-colors">
                   Bank of Zambia Approved
                 </Link>
               </div>
@@ -56,7 +56,7 @@ const Footer = () => {
                     <motion.div whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 300 }}>
                       <Link 
                         to={item.to}
-                        className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300"
+                        className="text-white/80 hover:text-white transition-colors duration-300"
                       >
                         {item.label}
                       </Link>
@@ -80,7 +80,7 @@ const Footer = () => {
                     <motion.div whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 300 }}>
                       <Link 
                         to={item.link}
-                        className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300 flex items-center"
+                        className="text-white/80 hover:text-white transition-colors duration-300 flex items-center"
                       >
                         <item.icon className="h-4 w-4 mr-2" />
                         {item.name}
@@ -94,14 +94,14 @@ const Footer = () => {
             <StaggerItem>
               <h4 className="text-base font-medium mb-4">Contact Us</h4>
               <ul className="space-y-3">
-                <li className="flex items-center text-primary-foreground/80">
+                <li className="flex items-center text-white/80">
                   <MapPin className="h-4 w-4 mr-2" />
                   <span>Cairo Road, Lusaka, Zambia</span>
                 </li>
                 <li>
                   <a 
                     href="mailto:info@bmaglasspay.com"
-                    className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300 flex items-center"
+                    className="text-white/80 hover:text-white transition-colors duration-300 flex items-center"
                   >
                     <Mail className="h-4 w-4 mr-2" />
                     info@bmaglasspay.com
@@ -110,13 +110,13 @@ const Footer = () => {
                 <li>
                   <a 
                     href="tel:+260976123456"
-                    className="text-primary-foreground/80 hover:text-primary-foreground transition-colors duration-300 flex items-center"
+                    className="text-white/80 hover:text-white transition-colors duration-300 flex items-center"
                   >
                     <Phone className="h-4 w-4 mr-2" />
                     +260 976 123 456
                   </a>
                 </li>
-                <li className="pt-3 text-primary-foreground/60 text-sm">
+                <li className="pt-3 text-white/60 text-sm">
                   Business Hours: Mon-Fri 8:30 - 17:00
                 </li>
               </ul>
@@ -127,7 +127,7 @@ const Footer = () => {
                   {['MTN Money', 'Airtel Money', 'Visa', 'Mastercard'].map((method) => (
                     <motion.span 
                       key={method}
-                      className="px-2 py-1 bg-primary-foreground/10 rounded text-xs"
+                      className="px-2 py-1 bg-white/10 rounded text-xs"
                       whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.2)' }}
                       transition={{ type: 'spring', stiffness: 400 }}
                     >
@@ -146,7 +146,7 @@ const Footer = () => {
                       href={social.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 bg-primary-foreground/10 rounded-full hover:bg-primary-foreground/20 transition-colors"
+                      className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
                       aria-label={social.label}
                       whileHover={{ scale: 1.1, y: -2 }}
                       whileTap={{ scale: 0.95 }}
@@ -161,13 +161,13 @@ const Footer = () => {
           </StaggerChildren>
           
           <motion.div 
-            className="mt-12 pt-6 border-t border-primary-foreground/10 flex flex-col md:flex-row justify-between items-center"
+            className="mt-12 pt-6 border-t border-white/10 flex flex-col md:flex-row justify-between items-center"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             transition={{ delay: 0.4, duration: 0.5 }}
             viewport={{ once: true }}
           >
-            <p className="text-primary-foreground/60 text-sm">
+            <p className="text-white/60 text-sm">
               &copy; {currentYear} BMaGlass Pay. All rights reserved. Founded by Mabvuto Banda.
             </p>
             <div className="mt-4 md:mt-0 flex items-center space-x-6">
@@ -179,7 +179,7 @@ const Footer = () => {
                 <motion.div key={link.to} whileHover={{ y: -1 }}>
                   <Link 
                     to={link.to} 
-                    className="text-primary-foreground/60 hover:text-primary-foreground text-sm transition-colors duration-300"
+                    className="text-white/60 hover:text-white text-sm transition-colors duration-300"
                   >
                     {link.label}
                   </Link>
