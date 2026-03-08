@@ -152,6 +152,16 @@ const Header = () => {
                       <CardIcon className="h-4 w-4" /> Virtual Cards
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/spending-insights" className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4" /> Spending Insights
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/buy-now-pay-later" className="flex items-center gap-2">
+                      <Layers className="h-4 w-4" /> Buy Now Pay Later
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
