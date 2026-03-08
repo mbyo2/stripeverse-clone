@@ -8,8 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  LineChart, 
-  Line,
   BarChart as RechartsBarChart,
   Bar,
   XAxis,
@@ -25,13 +23,18 @@ import {
   Wallet,
   ArrowUpRight,
   ArrowDownRight,
-  BarChart,
-  PieChart,
   ArrowDownLeft,
-  Star
+  Star,
+  Send,
+  CreditCard,
+  Plus,
+  Eye,
+  TrendingUp,
+  PieChart,
+  BarChart
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { FeatureList, RoleBadge } from "@/components/FeatureAccess";
+import { RoleBadge } from "@/components/FeatureAccess";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import RewardsCard from "@/components/rewards/RewardsCard";
@@ -48,321 +51,245 @@ const Dashboard = () => {
 
   const firstName = user?.user_metadata?.first_name || "there";
 
-  const handleAction = (action: string) => {
-    switch(action) {
-      case "Transfer":
-        toast({
-          title: "Transfer",
-          description: "Navigating to transfer page",
-        });
-        navigate("/transfer");
-        break;
-      case "Deposit":
-        toast({
-          title: "Deposit",
-          description: "Navigating to deposit funds",
-        });
-        navigate("/wallet");
-        break;
-      case "Wallet":
-        toast({
-          title: "Wallet",
-          description: "Navigating to your wallet",
-        });
-        navigate("/wallet");
-        break;
-      case "History":
-        toast({
-          title: "Transaction History",
-          description: "Viewing your transaction history",
-        });
-        navigate("/transactions");
-        break;
-      case "Rewards":
-        navigate("/rewards");
-        break;
-      default:
-        toast({
-          title: "Action",
-          description: `${action} action completed successfully`,
-        });
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
-          <div className="mb-6">
-            <Skeleton className="h-9 w-64 mb-2" />
-            <Skeleton className="h-5 w-48" />
+        <main className="flex-1 pt-20 pb-16 px-4 max-w-[1320px] mx-auto w-full">
+          <div className="mb-6 mt-6">
+            <Skeleton className="h-8 w-48 mb-2" />
+            <Skeleton className="h-5 w-64" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {[...Array(4)].map((_, i) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+            {[...Array(3)].map((_, i) => (
               <Card key={i}>
-                <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
-                <CardContent><Skeleton className="h-8 w-32 mb-2" /><Skeleton className="h-4 w-20" /></CardContent>
+                <CardContent className="pt-6"><Skeleton className="h-16 w-full" /></CardContent>
               </Card>
             ))}
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {[...Array(3)].map((_, i) => (
-              <Card key={i}><CardContent className="pt-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>
-            ))}
-          </div>
-          <Card><CardContent className="pt-6 space-y-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-4"><Skeleton className="h-10 w-10 rounded-full" /><div><Skeleton className="h-4 w-32 mb-1" /><Skeleton className="h-3 w-20" /></div></div>
-                <Skeleton className="h-5 w-16" />
-              </div>
-            ))}
-          </CardContent></Card>
         </main>
         <Footer />
       </div>
     );
   }
 
-  // Calculate monthly savings (assume 20% of monthly amount)
-  const monthlySavings = (dashboardStats?.monthlyAmount || 0) * 0.2;
+  const quickActions = [
+    { label: 'Send', icon: Send, action: () => navigate('/transfer'), color: 'bg-primary' },
+    { label: 'Request', icon: ArrowDownRight, action: () => navigate('/wallet'), color: 'bg-success' },
+    { label: 'Cards', icon: CreditCard, action: () => navigate('/card/new'), color: 'bg-paypal-gold' },
+    { label: 'Add Money', icon: Plus, action: () => navigate('/wallet'), color: 'bg-primary' },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">Welcome back, {firstName}! 👋</h1>
-            <p className="text-muted-foreground mt-1">Here's an overview of your finances</p>
-          </div>
-          <RoleBadge />
-        </div>
-
-        {/* Onboarding Wizard */}
-        {showOnboarding && (
-          <OnboardingWizard
-            kycLevel={kycLevel}
-            walletBalance={walletBalance}
-            hasProfile={hasProfile}
-            onDismiss={dismiss}
-          />
-        )}
-
-        {/* Enhanced Card Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white transform hover:scale-105 transition-all duration-300">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Total Balance</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatAmount(dashboardStats?.totalBalance || 0)}</div>
-              <div className="flex items-center mt-2 text-sm">
-                <ArrowUpRight className="h-4 w-4 mr-1" />
-                <span>Current balance</span>
+      <main className="flex-1 pt-20 pb-16">
+        {/* Balance Hero */}
+        <div className="paypal-gradient">
+          <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-8">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+              <div>
+                <p className="text-white/80 text-sm font-medium mb-1">Welcome back, {firstName}</p>
+                <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+                  {formatAmount(dashboardStats?.totalBalance || 0)}
+                </h1>
+                <p className="text-white/70 text-sm">Available balance</p>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white transform hover:scale-105 transition-all duration-300">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Monthly Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatAmount(monthlySavings)}</div>
-              <div className="flex items-center mt-2 text-sm">
-                <ArrowUpRight className="h-4 w-4 mr-1" />
-                <span>This month</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white transform hover:scale-105 transition-all duration-300">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Total Transactions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{dashboardStats?.totalTransactions || 0}</div>
-              <div className="flex items-center mt-2 text-sm">
-                <ArrowUpRight className="h-4 w-4 mr-1" />
-                <span>{dashboardStats?.monthlyTransactions || 0} this month</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white transform hover:scale-105 transition-all duration-300">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Rewards Points</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{rewards?.total_points || 0}</div>
-              <div className="flex items-center mt-2 text-sm">
-                <Star className="h-4 w-4 mr-1" />
-                <span className="capitalize">{rewards?.tier || 'bronze'} tier</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts and Rewards Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <Card className="transform hover:scale-105 transition-all duration-300 bg-card">
-            <CardHeader>
-              <CardTitle className="flex items-center text-primary">
-                <BarChart className="mr-2 h-5 w-5" />
-                Monthly Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyData || []}>
-                    <defs>
-                      <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
-                    <Area 
-                      type="monotone" 
-                      dataKey="amount" 
-                      stroke="#3B82F6" 
-                      fillOpacity={1} 
-                      fill="url(#colorAmount)" 
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="transform hover:scale-105 transition-all duration-300 bg-card">
-            <CardHeader>
-              <CardTitle className="flex items-center text-primary">
-                <PieChart className="mr-2 h-5 w-5" />
-                Spending Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsBarChart data={spendingData || []}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="category" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
-                    <Bar dataKey="amount" fill="#8B5CF6" />
-                  </RechartsBarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div>
-            <RewardsCard />
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-            <Button 
-              onClick={() => handleAction("Transfer")}
-              className="flex flex-col items-center gap-2 h-24 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-            >
-              <ArrowUpRight className="h-6 w-6" />
-              <span>Transfer</span>
-            </Button>
-            <Button 
-              onClick={() => handleAction("Deposit")}
-              className="flex flex-col items-center gap-2 h-24 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-            >
-              <ArrowDownRight className="h-6 w-6" />
-              <span>Deposit</span>
-            </Button>
-            <Button 
-              onClick={() => handleAction("Wallet")}
-              className="flex flex-col items-center gap-2 h-24 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
-            >
-              <Wallet className="h-6 w-6" />
-              <span>Wallet</span>
-            </Button>
-            <Button 
-              onClick={() => handleAction("History")}
-              className="flex flex-col items-center gap-2 h-24 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600"
-            >
-              <BarChart className="h-6 w-6" />
-              <span>History</span>
-            </Button>
-            <Button 
-              onClick={() => handleAction("Rewards")}
-              className="flex flex-col items-center gap-2 h-24 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
-            >
-              <Star className="h-6 w-6" />
-              <span>Rewards</span>
-            </Button>
-          </CardContent>
-        </Card>
-        
-        {/* Recent Transactions */}
-        <Card className="mb-8">
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-center">
-              <CardTitle>Recent Transactions</CardTitle>
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/transactions">View All</Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {recentTransactions && recentTransactions.length > 0 ? (
-              <div className="space-y-4">
-                {recentTransactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between py-2">
-                    <div className="flex items-center">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        transaction.direction === "outgoing" ? "bg-destructive/10" : "bg-primary/10"
-                      }`}>
-                        {transaction.direction === "outgoing" ? (
-                          <ArrowUpRight className="h-5 w-5 text-destructive" />
-                        ) : (
-                          <ArrowDownLeft className="h-5 w-5 text-primary" />
-                        )}
-                      </div>
-                      <div className="ml-4">
-                        <div className="font-medium">{transaction.recipient_name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {new Date(transaction.created_at).toLocaleDateString()}
-                        </div>
-                      </div>
+              <div className="flex gap-3">
+                {quickActions.map((action) => (
+                  <button
+                    key={action.label}
+                    onClick={action.action}
+                    className="flex flex-col items-center gap-1.5 group"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center">
+                      <action.icon className="h-5 w-5 text-white" />
                     </div>
-                    <div className={`font-medium ${
-                      transaction.direction === "outgoing" ? "text-destructive" : "text-primary"
-                    }`}>
-                      {transaction.direction === "outgoing" ? "-" : "+"}
-                      {formatAmount(transaction.amount)}
-                    </div>
-                  </div>
+                    <span className="text-xs text-white/80 font-medium">{action.label}</span>
+                  </button>
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No recent transactions found</p>
-                <Button variant="outline" className="mt-4" onClick={() => navigate("/transfer")}>
-                  Make your first transaction
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 mt-6">
+          {/* Onboarding */}
+          {showOnboarding && (
+            <div className="mb-6">
+              <OnboardingWizard
+                kycLevel={kycLevel}
+                walletBalance={walletBalance}
+                hasProfile={hasProfile}
+                onDismiss={dismiss}
+              />
+            </div>
+          )}
+
+          {/* Stats Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+            <Card className="card-hover">
+              <CardContent className="pt-5 pb-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium">Monthly Activity</p>
+                    <p className="text-2xl font-bold text-foreground mt-1">{formatAmount(dashboardStats?.monthlyAmount || 0)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{dashboardStats?.monthlyTransactions || 0} transactions</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-hover">
+              <CardContent className="pt-5 pb-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium">Total Transactions</p>
+                    <p className="text-2xl font-bold text-foreground mt-1">{dashboardStats?.totalTransactions || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1">All time</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                    <BarChart className="h-5 w-5 text-success" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-hover cursor-pointer" onClick={() => navigate('/rewards')}>
+              <CardContent className="pt-5 pb-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium">Rewards Points</p>
+                    <p className="text-2xl font-bold text-foreground mt-1">{rewards?.total_points || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1 capitalize">{rewards?.tier || 'bronze'} tier</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                    <Star className="h-5 w-5 text-warning" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Charts & Activity */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  Monthly Activity
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={monthlyData || []}>
+                      <defs>
+                        <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(213, 100%, 36%)" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="hsl(213, 100%, 36%)" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 47%)" />
+                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 47%)" />
+                      <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="amount" 
+                        stroke="hsl(213, 100%, 36%)" 
+                        strokeWidth={2}
+                        fillOpacity={1} 
+                        fill="url(#colorAmount)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <PieChart className="h-4 w-4 text-primary" />
+                  Spending
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart data={spendingData || []} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
+                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(215, 16%, 47%)" />
+                      <YAxis dataKey="category" type="category" tick={{ fontSize: 11 }} width={80} stroke="hsl(215, 16%, 47%)" />
+                      <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
+                      <Bar dataKey="amount" fill="hsl(213, 100%, 36%)" radius={[0, 4, 4, 0]} />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent Transactions */}
+          <Card className="mb-6">
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
+                <Button variant="ghost" size="sm" asChild className="text-primary font-medium">
+                  <Link to="/transactions">View All</Link>
                 </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent>
+              {recentTransactions && recentTransactions.length > 0 ? (
+                <div className="divide-y divide-border">
+                  {recentTransactions.map((transaction) => (
+                    <div key={transaction.id} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                          transaction.direction === "outgoing" ? "bg-destructive/10" : "bg-success/10"
+                        }`}>
+                          {transaction.direction === "outgoing" ? (
+                            <ArrowUpRight className="h-4 w-4 text-destructive" />
+                          ) : (
+                            <ArrowDownLeft className="h-4 w-4 text-success" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{transaction.recipient_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(transaction.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`text-sm font-semibold ${
+                        transaction.direction === "outgoing" ? "text-destructive" : "text-success"
+                      }`}>
+                        {transaction.direction === "outgoing" ? "-" : "+"}
+                        {formatAmount(transaction.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 text-muted-foreground">
+                  <Wallet className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
+                  <p className="text-sm mb-3">No recent transactions</p>
+                  <Button size="sm" className="rounded-full" onClick={() => navigate("/transfer")}>
+                    Make your first transaction
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Rewards */}
+          <RewardsCard />
+        </div>
       </main>
       <Footer />
     </div>

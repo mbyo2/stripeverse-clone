@@ -36,6 +36,14 @@ export default {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
@@ -52,24 +60,15 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        "theme-blue": {
-          light: "#60A5FA",
-          DEFAULT: "#3B82F6",
-          dark: "#2563EB"
+        "paypal-blue": {
+          DEFAULT: "hsl(var(--paypal-blue))",
+          light: "hsl(var(--paypal-blue-light))",
         },
-        "theme-green": {
-          light: "#4ADE80",
-          DEFAULT: "#22C55E",
-          dark: "#16A34A"
-        },
-        "theme-purple": {
-          light: "#A78BFA",
-          DEFAULT: "#8B5CF6",
-          dark: "#7C3AED"
-        }
+        "paypal-dark": "hsl(var(--paypal-dark))",
+        "paypal-gold": "hsl(var(--paypal-gold))",
       },
       fontFamily: {
-        sans: ["SF Pro Display", "system-ui", "sans-serif"],
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -120,23 +119,16 @@ export default {
         float: "float 5s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
       },
-      transitionTimingFunction: {
-        "apple-ease": "cubic-bezier(0.25, 0.1, 0.25, 1)",
-      },
       boxShadow: {
-        subtle: "0px 2px 5px rgba(0, 0, 0, 0.05)",
-        medium: "0px 4px 10px rgba(0, 0, 0, 0.1)",
-        strong: "0px 10px 25px rgba(0, 0, 0, 0.15)",
-        glass: "0 8px 32px rgba(0, 0, 0, 0.06)",
+        subtle: "0 1px 3px rgba(0, 0, 0, 0.08)",
+        medium: "0 4px 12px rgba(0, 0, 0, 0.1)",
+        strong: "0 8px 24px rgba(0, 0, 0, 0.12)",
+        glass: "0 4px 16px rgba(0, 0, 0, 0.06)",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "glass-gradient": "linear-gradient(to right bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.2))",
         "shimmer-gradient": "linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0) 100%)",
-        "gradient-blue": "linear-gradient(to right bottom, var(--tw-gradient-stops))",
-        "gradient-green": "linear-gradient(135deg, rgb(34, 197, 94) 0%, rgb(16, 185, 129) 100%)",
-        "gradient-purple": "linear-gradient(135deg, rgb(139, 92, 246) 0%, rgb(124, 58, 237) 100%)",
-        "hero-pattern": "linear-gradient(to right bottom, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1))"
+        "hero-pattern": "linear-gradient(135deg, hsl(213 100% 36% / 0.05), hsl(207 90% 54% / 0.08))",
       },
     },
   },
