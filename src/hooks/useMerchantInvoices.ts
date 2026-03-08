@@ -44,7 +44,7 @@ export const useMerchantInvoices = () => {
         .eq('merchant_id', user!.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data as MerchantInvoice[];
+      return (data as unknown) as MerchantInvoice[];
     },
     enabled: !!user?.id,
   });
