@@ -70,6 +70,7 @@ const Business = () => {
       icon: TrendingUp,
       gradient: "from-emerald-500 to-emerald-600",
       change: "From completed transactions",
+      onClick: () => navigate('/business-dashboard'),
     },
     {
       title: "Transactions",
@@ -77,6 +78,7 @@ const Business = () => {
       icon: Activity,
       gradient: "from-blue-500 to-blue-600",
       change: "All time",
+      onClick: () => navigate('/transactions'),
     },
     {
       title: "Success Rate",
@@ -84,13 +86,15 @@ const Business = () => {
       icon: CheckCircle,
       gradient: "from-violet-500 to-violet-600",
       change: "Completed vs total",
+      onClick: () => navigate('/business-dashboard'),
     },
     {
       title: "Status",
       value: merchantAccount?.status === 'active' ? 'Active' : 'Setup',
       icon: Store,
       gradient: merchantAccount?.status === 'active' ? "from-emerald-500 to-teal-600" : "from-amber-500 to-orange-600",
-      change: merchantAccount?.status === 'active' ? 'Account verified' : 'Complete setup',
+      change: merchantAccount?.status === 'active' ? 'Account verified' : 'Complete setup →',
+      onClick: merchantAccount?.status === 'active' ? undefined : () => setSettingsOpen(true),
     },
   ];
 
@@ -141,7 +145,11 @@ const Business = () => {
           transition={{ duration: 0.3, delay: 0.1 }}
         >
           {statCards.map((stat, i) => (
-            <Card key={stat.title} className={`bg-gradient-to-br ${stat.gradient} text-white border-0 overflow-hidden relative`}>
+            <Card 
+              key={stat.title} 
+              className={`bg-gradient-to-br ${stat.gradient} text-white border-0 overflow-hidden relative ${stat.onClick ? 'cursor-pointer hover:scale-[1.02] transition-transform' : ''}`}
+              onClick={stat.onClick}
+            >
               <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8" />
               <CardContent className="p-5 relative z-10">
                 <div className="flex items-center justify-between mb-3">
