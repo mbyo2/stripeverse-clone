@@ -546,7 +546,7 @@ export function ApiPlayground() {
           </Card>
 
           {/* Endpoint Selector */}
-          <Card>
+          <Card className="border-0 shadow-sm">
             <CardContent className="pt-4 pb-4 space-y-4">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5 block">Endpoint</Label>
