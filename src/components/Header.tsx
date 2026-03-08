@@ -240,6 +240,21 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/settlements" className="flex items-center gap-2">
+                      <Receipt className="h-4 w-4" /> Settlements
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/disputes" className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" /> Disputes
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/webhook-logs" className="flex items-center gap-2">
+                      <Zap className="h-4 w-4" /> Webhook Logs
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/api" className="flex items-center gap-2">
                       <Code2 className="h-4 w-4" /> API Management
                     </Link>
