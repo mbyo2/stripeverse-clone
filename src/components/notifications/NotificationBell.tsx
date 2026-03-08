@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Separator } from "@/components/ui/separator";
+import { useNavigate } from "react-router-dom";
 
 export interface Notification {
   id: string;
@@ -28,6 +29,7 @@ const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Fetch notifications
   useEffect(() => {
@@ -214,7 +216,7 @@ const NotificationBell = () => {
             variant="ghost" 
             size="sm" 
             className="w-full" 
-            onClick={() => window.location.href = "/notifications"}
+            onClick={() => navigate("/notifications")}
           >
             View all notifications
           </Button>

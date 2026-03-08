@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from 'react-router-dom';
 import KycVerificationStatus, { KycLevel, KycStatus } from '@/components/wallet/KycVerificationStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +14,7 @@ import BusinessCompliance from '@/components/business/BusinessCompliance';
 
 const Compliance = () => {
   const contentRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [kycLevel, setKycLevel] = useState<KycLevel>(KycLevel.NONE);
@@ -207,7 +209,7 @@ const Compliance = () => {
                           
                           <div className="mt-6">
                             <Button 
-                              onClick={() => window.location.href = '/wallet'}
+                              onClick={() => navigate('/wallet')}
                               variant="outline"
                             >
                               Update KYC Verification
@@ -488,7 +490,7 @@ const Compliance = () => {
                 <Shield className="h-12 w-12 mx-auto text-primary mb-4" />
                 <h2 className="text-xl font-semibold mb-3">Authentication Required</h2>
                 <p className="mb-6">Please log in to view your compliance status and required actions.</p>
-                <Button onClick={() => window.location.href = '/login'}>
+                <Button onClick={() => navigate('/login')}>
                   Log In to Continue
                 </Button>
               </div>

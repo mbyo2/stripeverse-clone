@@ -14,12 +14,14 @@ import Footer from "@/components/Footer";
 import { User, Shield, Bell, CreditCard, LogOut, Camera, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { CurrencySelector } from "@/components/CurrencySelector";
 import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -313,7 +315,7 @@ const Settings = () => {
                     <Badge variant={twoFactorEnabled ? "default" : "secondary"}>
                       {twoFactorEnabled ? "Enabled" : "Disabled"}
                     </Badge>
-                    <Button variant="outline" size="sm" onClick={() => window.location.href = '/two-factor-auth'}>
+                    <Button variant="outline" size="sm" onClick={() => navigate('/two-factor-auth')}>
                       {twoFactorEnabled ? "Manage" : "Set Up"}
                     </Button>
                   </div>
@@ -326,7 +328,7 @@ const Settings = () => {
                     <h3 className="font-medium">Change Password</h3>
                     <p className="text-sm text-muted-foreground">Update your account password</p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => window.location.href = '/reset-password'}>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/reset-password')}>
                     Change
                   </Button>
                 </div>
@@ -338,7 +340,7 @@ const Settings = () => {
                     <h3 className="font-medium">Security Dashboard</h3>
                     <p className="text-sm text-muted-foreground">View login activity and security events</p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => window.location.href = '/security-settings'}>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/security-settings')}>
                     View
                   </Button>
                 </div>
