@@ -211,7 +211,7 @@ const Business = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
         >
-          <Tabs defaultValue="overview" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="w-full flex overflow-x-auto bg-muted/50 p-1 rounded-xl">
               <TabsTrigger value="overview" className="flex-1 min-w-0 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <Store className="h-4 w-4 mr-1.5 shrink-0" />
