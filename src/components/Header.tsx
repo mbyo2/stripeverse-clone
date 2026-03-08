@@ -23,7 +23,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { 
   ChevronDown, 
-  CreditCard, 
+  CreditCard,
+  AlertCircle,
   BarChart3, 
   Settings, 
   HelpCircle, 
