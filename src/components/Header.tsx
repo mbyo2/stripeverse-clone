@@ -201,7 +201,7 @@ const Header = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/card-vault" className="flex items-center gap-2">
-                      <ShieldIcon className="h-4 w-4" /> Card Vault
+                      <ShieldCheck className="h-4 w-4" /> Card Vault
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
