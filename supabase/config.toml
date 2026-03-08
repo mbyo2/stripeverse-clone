@@ -58,3 +58,9 @@ verify_jwt = false
 
 [functions.send-notification]
 verify_jwt = false
+
+[functions.process-recurring-billing]
+verify_jwt = false
+
+[functions.manage-subscription]
+verify_jwt = false
