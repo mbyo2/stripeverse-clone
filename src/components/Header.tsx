@@ -166,6 +166,11 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/multi-currency" className="flex items-center gap-2">
+                      <Coins className="h-4 w-4" /> Multi-Currency
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/transactions" className="flex items-center gap-2">
                       <FileText className="h-4 w-4" /> Transactions
                     </Link>
@@ -178,6 +183,11 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/spending-insights" className="flex items-center gap-2">
                       <BarChart3 className="h-4 w-4" /> Spending Insights
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/refunds" className="flex items-center gap-2">
+                      <RotateCcw className="h-4 w-4" /> Refunds
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
