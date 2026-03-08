@@ -521,45 +521,32 @@ export function ApiPlayground() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <Card className="border-primary/20">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Play className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle>API Playground</CardTitle>
-              <CardDescription>Make test API calls directly from your browser — no code required</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 p-3 bg-accent/30 rounded-lg border border-accent text-sm">
-            <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/30">Sandbox</Badge>
-            <span className="text-muted-foreground">All requests are simulated — no real payments are processed.</span>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Sandbox Notice */}
+      <div className="flex items-center gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+        <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/30">
+          Sandbox Mode
+        </Badge>
+        <span className="text-sm text-muted-foreground">All requests are simulated — no real payments are processed.</span>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left: Request Builder */}
         <div className="lg:col-span-3 space-y-4">
           {/* API Key */}
-          <Card>
+          <Card className="border-0 shadow-sm">
             <CardContent className="pt-4 pb-4">
-              <Label className="text-xs text-muted-foreground mb-1.5 block">API Key</Label>
+              <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">API Key</Label>
               <Input
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="font-mono text-sm"
+                className="font-mono text-sm h-11 rounded-lg"
                 placeholder="pk_test_..."
               />
             </CardContent>
           </Card>
 
           {/* Endpoint Selector */}
-          <Card>
+          <Card className="border-0 shadow-sm">
             <CardContent className="pt-4 pb-4 space-y-4">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5 block">Endpoint</Label>
@@ -621,7 +608,7 @@ export function ApiPlayground() {
 
           {/* Request Body */}
           {selectedEndpoint.defaultBody && (
-            <Card>
+            <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Request Body</CardTitle>
               </CardHeader>
@@ -652,7 +639,7 @@ export function ApiPlayground() {
           </div>
 
           {/* Code Generation */}
-          <Card>
+          <Card className="border-0 shadow-sm">
             <CardHeader className="pb-2">
               <button
                 onClick={() => setShowCodeGen(!showCodeGen)}
@@ -718,7 +705,7 @@ export function ApiPlayground() {
         {/* Right: Response + History */}
         <div className="lg:col-span-2 space-y-4">
           {/* Response */}
-          <Card className="sticky top-24">
+          <Card className="sticky top-24 border-0 shadow-sm">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm">Response</CardTitle>
@@ -763,7 +750,7 @@ export function ApiPlayground() {
 
           {/* History */}
           {history.length > 0 && (
-            <Card>
+            <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Recent Requests</CardTitle>
               </CardHeader>
