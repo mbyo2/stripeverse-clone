@@ -14,6 +14,7 @@ import BusinessCompliance from '@/components/business/BusinessCompliance';
 
 const Compliance = () => {
   const contentRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [kycLevel, setKycLevel] = useState<KycLevel>(KycLevel.NONE);
