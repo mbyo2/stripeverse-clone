@@ -326,11 +326,16 @@ const Header = () => {
                     <MobileNavLink to="/transactions" icon={FileText}>Transactions</MobileNavLink>
                     <MobileNavLink to="/transfer" icon={ArrowLeftRight}>Transfer</MobileNavLink>
                     <MobileNavLink to="/send-money" icon={DollarSign}>Send Money</MobileNavLink>
+                    <MobileNavLink to="/request-money" icon={Globe}>Request Money</MobileNavLink>
+                    <MobileNavLink to="/contacts" icon={Users}>Contacts</MobileNavLink>
                     <MobileNavLink to="/card/new" icon={CardIcon}>Virtual Cards</MobileNavLink>
+                    <MobileNavLink to="/spending-insights" icon={BarChart3}>Spending Insights</MobileNavLink>
+                    <MobileNavLink to="/buy-now-pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business</p>
                     <MobileNavLink to="/business" icon={Users}>Business Tools</MobileNavLink>
+                    <MobileNavLink to="/invoices" icon={FileText}>Invoices</MobileNavLink>
                     <MobileNavLink to="/analytics" icon={BarChart3}>Analytics</MobileNavLink>
                     <MobileNavLink to="/api" icon={Code2}>API</MobileNavLink>
                     <MobileNavLink to="/billing" icon={DollarSign}>Billing</MobileNavLink>
