@@ -1,16 +1,11 @@
-import { useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { DisputeList } from '@/components/disputes/DisputeList';
-import { CreateDisputeDialog } from '@/components/disputes/CreateDisputeDialog';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { useDisputes } from '@/hooks/useDisputes';
-import { Plus, AlertCircle, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { AlertCircle, Clock, CheckCircle, XCircle } from 'lucide-react';
 
 const Disputes = () => {
-  const [createOpen, setCreateOpen] = useState(false);
   const { disputes } = useDisputes();
 
   const stats = {
@@ -24,12 +19,9 @@ const Disputes = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl mt-14">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Chargebacks & Disputes</h1>
-            <p className="text-muted-foreground">Manage transaction disputes and chargebacks</p>
-          </div>
-          <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-2" />New Dispute</Button>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Chargebacks & Disputes</h1>
+          <p className="text-muted-foreground">Manage transaction disputes and chargebacks. File disputes from your transaction history.</p>
         </div>
 
         {/* Stats */}
@@ -53,7 +45,6 @@ const Disputes = () => {
         </div>
 
         <DisputeList />
-        <CreateDisputeDialog open={createOpen} onOpenChange={setCreateOpen} />
       </main>
       <Footer />
     </div>
