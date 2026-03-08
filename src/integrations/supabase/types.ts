@@ -92,6 +92,62 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_retry_queue: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          last_error: string | null
+          max_retries: number
+          next_retry_at: string
+          retry_count: number
+          status: string
+          subscriber_id: string
+          subscription_tier: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          last_error?: string | null
+          max_retries?: number
+          next_retry_at?: string
+          retry_count?: number
+          status?: string
+          subscriber_id: string
+          subscription_tier: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          last_error?: string | null
+          max_retries?: number
+          next_retry_at?: string
+          retry_count?: number
+          status?: string
+          subscriber_id?: string
+          subscription_tier?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_retry_queue_subscriber_id_fkey"
+            columns: ["subscriber_id"]
+            isOneToOne: false
+            referencedRelation: "subscribers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bnpl_plans: {
         Row: {
           created_at: string
@@ -1246,9 +1302,14 @@ export type Database = {
       subscribers: {
         Row: {
           auto_renewal: boolean
+          billing_interval: string | null
           created_at: string
+          dunning_status: string | null
           email: string
+          failed_payment_count: number | null
           id: string
+          last_billing_date: string | null
+          next_billing_date: string | null
           payment_method_id: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -1261,9 +1322,14 @@ export type Database = {
         }
         Insert: {
           auto_renewal?: boolean
+          billing_interval?: string | null
           created_at?: string
+          dunning_status?: string | null
           email: string
+          failed_payment_count?: number | null
           id?: string
+          last_billing_date?: string | null
+          next_billing_date?: string | null
           payment_method_id?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -1276,9 +1342,14 @@ export type Database = {
         }
         Update: {
           auto_renewal?: boolean
+          billing_interval?: string | null
           created_at?: string
+          dunning_status?: string | null
           email?: string
+          failed_payment_count?: number | null
           id?: string
+          last_billing_date?: string | null
+          next_billing_date?: string | null
           payment_method_id?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -2077,6 +2148,10 @@ export type Database = {
           transaction_count: number
         }[]
       }
+      change_subscription_tier: {
+        Args: { p_new_tier: string; p_prorate?: boolean; p_user_id: string }
+        Returns: Json
+      }
       check_advanced_rate_limit: {
         Args: {
           p_action: string
@@ -2222,6 +2297,11 @@ export type Database = {
         Returns: undefined
       }
       mask_api_key: { Args: { api_key: string }; Returns: string }
+      process_dunning: { Args: { p_subscriber_id: string }; Returns: Json }
+      process_subscriber_billing: {
+        Args: { p_subscriber_id: string }
+        Returns: Json
+      }
       reconcile_all_wallets: {
         Args: never
         Returns: {
