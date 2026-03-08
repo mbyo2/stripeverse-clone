@@ -286,6 +286,36 @@ const Header = () => {
                       <DollarSign className="h-4 w-4" /> Billing
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/payment-plans" className="flex items-center gap-2">
+                      <CalendarClock className="h-4 w-4" /> Payment Plans
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/escrow" className="flex items-center gap-2">
+                      <Lock className="h-4 w-4" /> Escrow
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/bill-payments" className="flex items-center gap-2">
+                      <Zap className="h-4 w-4" /> Bill Payments
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/agent-network" className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" /> Agent Network
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/fraud-rules" className="flex items-center gap-2">
+                      <Shield className="h-4 w-4" /> Fraud Rules
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/ip-whitelist" className="flex items-center gap-2">
+                      <ShieldIcon className="h-4 w-4" /> IP Whitelist
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
