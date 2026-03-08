@@ -66,13 +66,37 @@
   }
 
   * {
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, transform 0.15s ease;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Global clickable element styles */
+  a, button, [role="button"], [type="button"], [type="submit"], 
+  .cursor-pointer, [onclick], label[for], summary {
+    @apply cursor-pointer;
+  }
+
+  a:hover, button:not(:disabled):hover, [role="button"]:hover {
+    @apply opacity-90;
+  }
+
+  /* Interactive element focus states */
+  a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2;
+  }
+
+  /* Links */
+  a:not([class*="button"]):not([class*="btn"]) {
+    @apply transition-colors duration-150;
+  }
+
+  a:not([class*="button"]):not([class*="btn"]):hover {
+    @apply text-primary;
   }
 
   ::-webkit-scrollbar {
