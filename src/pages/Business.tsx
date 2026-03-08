@@ -8,13 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { 
   Store, CreditCard, BarChart3, Settings, Shield, Wallet, FileText, 
   Webhook, TrendingUp, Activity, ArrowUpRight, ArrowRight, 
-  CheckCircle, AlertCircle, Clock, Users, Zap, Globe
+  CheckCircle, AlertCircle, Users, Zap, Globe, ExternalLink,
+  ChevronRight, Code2, ArrowDownLeft
 } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { BusinessSettings } from "@/components/business/BusinessSettings";
 import { BusinessBankingInfo } from "@/components/business/BusinessBankingInfo";
 import BusinessCompliance from "@/components/business/BusinessCompliance";
@@ -22,8 +23,6 @@ import { ApiKeyManager } from "@/components/business/ApiKeyManager";
 import { WebhookManager } from "@/components/business/WebhookManager";
 import { ApiDocs } from "@/components/business/ApiDocs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
-import { motion } from "framer-motion";
 
 const Business = () => {
   const { user } = useAuth();
@@ -37,230 +36,215 @@ const Business = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <Skeleton className="h-9 w-64 mb-2" />
-              <Skeleton className="h-5 w-48" />
+        <main className="flex-1 pt-20 pb-16">
+          <div className="paypal-gradient py-8">
+            <div className="max-w-[1320px] mx-auto px-4 sm:px-6">
+              <Skeleton className="h-8 w-48 mb-2 bg-white/20" />
+              <Skeleton className="h-5 w-64 bg-white/10" />
             </div>
-            <Skeleton className="h-10 w-32" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
+          <div className="max-w-[1320px] mx-auto px-4 sm:px-6 mt-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-lg" />)}
+            </div>
+            <Skeleton className="h-96 rounded-lg" />
           </div>
-          <Skeleton className="h-10 w-full rounded-lg" />
-          <Skeleton className="h-96 rounded-xl" />
         </main>
       </div>
     );
   }
 
   const setupProgress = [
-    { label: 'Business Profile', done: !!merchantAccount?.business_name, action: () => setSettingsOpen(true) },
-    { label: 'Bank Account', done: !!(merchantAccount?.contact_info as any)?.banking?.accountName, action: () => setActiveTab('banking') },
-    { label: 'API Key', done: !!merchantAccount?.api_key_masked, action: () => setActiveTab('api') },
-    { label: 'Webhook', done: !!merchantAccount?.webhook_url, action: () => setActiveTab('webhooks') },
+    { label: 'Business Profile', desc: 'Company information', done: !!merchantAccount?.business_name, action: () => setSettingsOpen(true) },
+    { label: 'Bank Account', desc: 'Settlement details', done: !!(merchantAccount?.contact_info as any)?.banking?.accountName, action: () => setActiveTab('banking') },
+    { label: 'API Key', desc: 'Integration credentials', done: !!merchantAccount?.api_key_masked, action: () => setActiveTab('api') },
+    { label: 'Webhook', desc: 'Event notifications', done: !!merchantAccount?.webhook_url, action: () => setActiveTab('webhooks') },
   ];
   const completedSteps = setupProgress.filter(s => s.done).length;
-
-  const statCards = [
-    {
-      title: "Total Revenue",
-      value: formatAmount(metrics?.revenue || 0),
-      icon: TrendingUp,
-      gradient: "from-emerald-500 to-emerald-600",
-      change: "From completed transactions",
-      onClick: () => navigate('/business-dashboard'),
-    },
-    {
-      title: "Transactions",
-      value: (metrics?.txCount || 0).toLocaleString(),
-      icon: Activity,
-      gradient: "from-blue-500 to-blue-600",
-      change: "All time",
-      onClick: () => navigate('/transactions'),
-    },
-    {
-      title: "Success Rate",
-      value: `${metrics?.successRate || 0}%`,
-      icon: CheckCircle,
-      gradient: "from-violet-500 to-violet-600",
-      change: "Completed vs total",
-      onClick: () => navigate('/business-dashboard'),
-    },
-    {
-      title: "Status",
-      value: merchantAccount?.status === 'active' ? 'Active' : 'Setup',
-      icon: Store,
-      gradient: merchantAccount?.status === 'active' ? "from-emerald-500 to-teal-600" : "from-amber-500 to-orange-600",
-      change: merchantAccount?.status === 'active' ? 'Account verified' : 'Complete setup →',
-      onClick: merchantAccount?.status === 'active' ? undefined : () => setSettingsOpen(true),
-    },
-  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
-        {/* Header */}
-        <motion.div 
-          className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-3xl font-bold text-foreground">Business Portal</h1>
-              {merchantAccount?.status && (
-                <Badge 
-                  variant={merchantAccount.status === 'active' ? 'default' : 'secondary'}
-                  className="text-xs"
-                >
-                  {merchantAccount.status}
-                </Badge>
-              )}
-            </div>
-            <p className="text-muted-foreground">
-              {merchantAccount?.business_name || 'Set up your merchant account to start accepting payments'}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate('/business-dashboard')}>
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Analytics
-            </Button>
-            <Button size="sm" onClick={() => setSettingsOpen(true)}>
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </Button>
-          </div>
-        </motion.div>
-
-        {/* Stat Cards */}
-        <motion.div 
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
-          {statCards.map((stat, i) => (
-            <Card 
-              key={stat.title} 
-              className={`bg-gradient-to-br ${stat.gradient} text-white border-0 overflow-hidden relative ${stat.onClick ? 'cursor-pointer hover:scale-[1.02] transition-transform' : ''}`}
-              onClick={stat.onClick}
-            >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8" />
-              <CardContent className="p-5 relative z-10">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-medium text-white/80">{stat.title}</p>
-                  <stat.icon className="h-5 w-5 text-white/70" />
+      <main className="flex-1 pt-14">
+        {/* Hero Banner */}
+        <div className="paypal-gradient">
+          <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <h1 className="text-2xl font-bold text-white">
+                    {merchantAccount?.business_name || 'Business Portal'}
+                  </h1>
+                  {merchantAccount?.status && (
+                    <Badge className={`text-xs ${merchantAccount.status === 'active' ? 'bg-white/20 text-white border-white/30' : 'bg-warning/80 text-white border-0'}`}>
+                      {merchantAccount.status === 'active' ? '● Active' : '○ Setup Required'}
+                    </Badge>
+                  )}
                 </div>
-                <p className="text-2xl font-bold">{stat.value}</p>
-                <p className="text-xs text-white/60 mt-1">{stat.change}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </motion.div>
+                <p className="text-white/70 text-sm">
+                  Manage payments, view analytics, and configure integrations
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+                  onClick={() => navigate('/business-dashboard')}
+                >
+                  <BarChart3 className="h-4 w-4 mr-1.5" />
+                  Analytics
+                </Button>
+                <Button 
+                  size="sm" 
+                  className="bg-white text-primary hover:bg-white/90"
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <Settings className="h-4 w-4 mr-1.5" />
+                  Settings
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        {/* Setup Progress (show only if not fully set up) */}
-        {completedSteps < 4 && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.15 }}
-          >
-            <Card className="mb-8 border-dashed border-2 border-primary/20 bg-primary/5">
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-6">
+          {/* Stat Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[
+              {
+                label: 'Total Revenue',
+                value: formatAmount(metrics?.revenue || 0),
+                sub: 'From completed transactions',
+                icon: TrendingUp,
+                iconColor: 'text-success',
+                iconBg: 'bg-success/10',
+                onClick: () => navigate('/business-dashboard'),
+              },
+              {
+                label: 'Transactions',
+                value: (metrics?.txCount || 0).toLocaleString(),
+                sub: 'All time',
+                icon: Activity,
+                iconColor: 'text-primary',
+                iconBg: 'bg-primary/10',
+                onClick: () => navigate('/transactions'),
+              },
+              {
+                label: 'Success Rate',
+                value: `${metrics?.successRate || 0}%`,
+                sub: 'Completed vs total',
+                icon: CheckCircle,
+                iconColor: 'text-success',
+                iconBg: 'bg-success/10',
+                onClick: () => navigate('/business-dashboard'),
+              },
+              {
+                label: 'Account Status',
+                value: merchantAccount?.status === 'active' ? 'Verified' : 'Setup',
+                sub: merchantAccount?.status === 'active' ? 'Account verified' : `${completedSteps}/4 steps done`,
+                icon: Store,
+                iconColor: merchantAccount?.status === 'active' ? 'text-success' : 'text-warning',
+                iconBg: merchantAccount?.status === 'active' ? 'bg-success/10' : 'bg-warning/10',
+                onClick: merchantAccount?.status === 'active' ? undefined : () => setSettingsOpen(true),
+              },
+            ].map((stat) => (
+              <Card 
+                key={stat.label} 
+                className={`card-hover ${stat.onClick ? 'cursor-pointer' : ''}`}
+                onClick={stat.onClick}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{stat.label}</p>
+                    <div className={`w-8 h-8 rounded-lg ${stat.iconBg} flex items-center justify-center`}>
+                      <stat.icon className={`h-4 w-4 ${stat.iconColor}`} />
+                    </div>
+                  </div>
+                  <p className="text-xl font-bold text-foreground">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{stat.sub}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Setup Banner */}
+          {completedSteps < 4 && (
+            <Card className="mb-6 border-primary/20 bg-primary/[0.03]">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="font-semibold text-foreground">Complete Your Setup</h3>
-                    <p className="text-sm text-muted-foreground">{completedSteps} of 4 steps completed</p>
+                    <h3 className="text-sm font-semibold text-foreground">Complete Your Setup</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">{completedSteps} of 4 steps completed</p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-bold text-primary">{Math.round((completedSteps / 4) * 100)}%</span>
-                  </div>
+                  <span className="text-lg font-bold text-primary">{Math.round((completedSteps / 4) * 100)}%</span>
                 </div>
-                <div className="w-full bg-muted rounded-full h-2 mb-4">
-                  <div 
-                    className="bg-primary h-2 rounded-full transition-all duration-500" 
-                    style={{ width: `${(completedSteps / 4) * 100}%` }} 
-                  />
+                <div className="w-full bg-muted rounded-full h-1.5 mb-4">
+                  <div className="bg-primary h-1.5 rounded-full transition-all duration-500" style={{ width: `${(completedSteps / 4) * 100}%` }} />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                   {setupProgress.map((step) => (
                     <button 
                       key={step.label}
                       onClick={!step.done ? step.action : undefined}
-                      className={`flex items-center gap-2 text-sm p-2 rounded-lg transition-all text-left ${
+                      disabled={step.done}
+                      className={`flex items-center gap-3 text-left p-3 rounded-lg border transition-all ${
                         step.done 
-                          ? 'text-primary bg-primary/10' 
-                          : 'text-muted-foreground bg-muted hover:bg-muted/80 hover:text-foreground cursor-pointer'
+                          ? 'bg-success/5 border-success/20 text-success' 
+                          : 'bg-card border-border hover:border-primary/40 hover:bg-primary/5 cursor-pointer'
                       }`}
                     >
                       {step.done ? (
                         <CheckCircle className="h-4 w-4 shrink-0" />
                       ) : (
-                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
                       )}
-                      <span className="truncate">{step.label}</span>
-                      {!step.done && <ArrowRight className="h-3 w-3 ml-auto shrink-0" />}
+                      <div className="min-w-0">
+                        <p className={`text-sm font-medium ${step.done ? 'text-success' : 'text-foreground'}`}>{step.label}</p>
+                        <p className="text-xs text-muted-foreground">{step.desc}</p>
+                      </div>
+                      {!step.done && <ChevronRight className="h-3.5 w-3.5 ml-auto text-muted-foreground shrink-0" />}
                     </button>
                   ))}
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
-        )}
+          )}
 
-        {/* Tabs */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-        >
+          {/* Tabs Navigation */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="w-full flex overflow-x-auto bg-muted/50 p-1 rounded-xl">
-              <TabsTrigger value="overview" className="flex-1 min-w-0 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                <Store className="h-4 w-4 mr-1.5 shrink-0" />
-                <span className="truncate">Overview</span>
-              </TabsTrigger>
-              <TabsTrigger value="banking" className="flex-1 min-w-0 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                <Wallet className="h-4 w-4 mr-1.5 shrink-0" />
-                <span className="truncate">Banking</span>
-              </TabsTrigger>
-              <TabsTrigger value="compliance" className="flex-1 min-w-0 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                <Shield className="h-4 w-4 mr-1.5 shrink-0" />
-                <span className="truncate">Compliance</span>
-              </TabsTrigger>
-              <TabsTrigger value="api" className="flex-1 min-w-0 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                <FileText className="h-4 w-4 mr-1.5 shrink-0" />
-                <span className="truncate">API</span>
-              </TabsTrigger>
-              <TabsTrigger value="webhooks" className="flex-1 min-w-0 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                <Webhook className="h-4 w-4 mr-1.5 shrink-0" />
-                <span className="truncate">Webhooks</span>
-              </TabsTrigger>
-            </TabsList>
+            <div className="border-b border-border">
+              <TabsList className="bg-transparent h-auto p-0 gap-0 rounded-none">
+                {[
+                  { value: 'overview', label: 'Overview', icon: Store },
+                  { value: 'banking', label: 'Banking', icon: Wallet },
+                  { value: 'compliance', label: 'Compliance', icon: Shield },
+                  { value: 'api', label: 'API Keys', icon: Code2 },
+                  { value: 'webhooks', label: 'Webhooks', icon: Webhook },
+                ].map((tab) => (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 pt-2 text-sm font-medium text-muted-foreground data-[state=active]:text-primary"
+                  >
+                    <tab.icon className="h-4 w-4 mr-1.5" />
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
             {/* Overview Tab */}
-            <TabsContent value="overview">
+            <TabsContent value="overview" className="mt-0 pt-6">
               <div className="space-y-6">
-                {/* Revenue Chart + Payment Methods */}
+                {/* Revenue + Payment Methods */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Revenue Area Chart */}
                   <Card className="lg:col-span-2">
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-primary" />
-                            Revenue Overview
-                          </CardTitle>
-                          <CardDescription>Monthly incoming transaction volume</CardDescription>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => navigate('/business-dashboard')}>
-                          Full Report <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                        <CardTitle className="text-base font-semibold">Revenue Overview</CardTitle>
+                        <Button variant="ghost" size="sm" className="text-primary text-xs font-medium" onClick={() => navigate('/business-dashboard')}>
+                          Full Report <ExternalLink className="h-3 w-3 ml-1" />
                         </Button>
                       </div>
                     </CardHeader>
@@ -269,92 +253,59 @@ const Business = () => {
                         <ResponsiveContainer width="100%" height={260}>
                           <AreaChart data={monthlyChart}>
                             <defs>
-                              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                              <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="hsl(213, 100%, 36%)" stopOpacity={0.12} />
+                                <stop offset="95%" stopColor="hsl(213, 100%, 36%)" stopOpacity={0} />
                               </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                            <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                            <Tooltip 
-                              contentStyle={{ 
-                                backgroundColor: 'hsl(var(--card))', 
-                                border: '1px solid hsl(var(--border))',
-                                borderRadius: '8px',
-                                color: 'hsl(var(--foreground))',
-                                fontSize: '13px'
-                              }} 
-                            />
-                            <Area type="monotone" dataKey="amount" stroke="hsl(var(--primary))" fill="url(#revenueGradient)" strokeWidth={2} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" vertical={false} />
+                            <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                            <Tooltip />
+                            <Area type="monotone" dataKey="amount" stroke="hsl(213, 100%, 36%)" fill="url(#revenueGrad)" strokeWidth={2} />
                           </AreaChart>
                         </ResponsiveContainer>
                       ) : (
                         <div className="flex flex-col items-center justify-center h-[260px] text-muted-foreground">
-                          <BarChart3 className="h-12 w-12 mb-3 text-muted-foreground/30" />
-                          <p className="font-medium">No revenue data yet</p>
-                          <p className="text-sm">Completed incoming transactions will appear here</p>
+                          <BarChart3 className="h-10 w-10 mb-3 text-muted-foreground/20" />
+                          <p className="text-sm font-medium">No revenue data yet</p>
+                          <p className="text-xs">Completed transactions will appear here</p>
                         </div>
                       )}
                     </CardContent>
                   </Card>
 
-                  {/* Payment Method Breakdown */}
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <CreditCard className="h-4 w-4 text-primary" />
-                        Payment Methods
-                      </CardTitle>
-                      <CardDescription>Transaction distribution</CardDescription>
+                      <CardTitle className="text-base font-semibold">Payment Methods</CardTitle>
                     </CardHeader>
                     <CardContent>
                       {paymentMethodBreakdown.length > 0 ? (
                         <div className="space-y-4">
-                          <ResponsiveContainer width="100%" height={160}>
+                          <ResponsiveContainer width="100%" height={150}>
                             <PieChart>
-                              <Pie
-                                data={paymentMethodBreakdown}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={45}
-                                outerRadius={70}
-                                paddingAngle={3}
-                                dataKey="value"
-                              >
-                                {paymentMethodBreakdown.map((entry, i) => (
-                                  <Cell key={i} fill={['hsl(var(--primary))', 'hsl(142 71% 45%)', 'hsl(262 83% 58%)', 'hsl(38 92% 50%)'][i % 4]} />
+                              <Pie data={paymentMethodBreakdown} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
+                                {paymentMethodBreakdown.map((_, i) => (
+                                  <Cell key={i} fill={['hsl(213, 100%, 36%)', 'hsl(152, 69%, 31%)', 'hsl(38, 92%, 50%)', 'hsl(262, 83%, 58%)'][i % 4]} />
                                 ))}
                               </Pie>
-                              <Tooltip 
-                                contentStyle={{ 
-                                  backgroundColor: 'hsl(var(--card))', 
-                                  border: '1px solid hsl(var(--border))',
-                                  borderRadius: '8px',
-                                  color: 'hsl(var(--foreground))',
-                                  fontSize: '13px'
-                                }} 
-                              />
                             </PieChart>
                           </ResponsiveContainer>
                           <div className="space-y-2">
                             {paymentMethodBreakdown.map((method, i) => (
                               <div key={method.name} className="flex items-center justify-between text-sm">
                                 <div className="flex items-center gap-2">
-                                  <div 
-                                    className="w-2.5 h-2.5 rounded-full" 
-                                    style={{ backgroundColor: ['hsl(var(--primary))', 'hsl(142 71% 45%)', 'hsl(262 83% 58%)', 'hsl(38 92% 50%)'][i % 4] }}
-                                  />
+                                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ['hsl(213, 100%, 36%)', 'hsl(152, 69%, 31%)', 'hsl(38, 92%, 50%)', 'hsl(262, 83%, 58%)'][i % 4] }} />
                                   <span className="text-muted-foreground capitalize">{method.name.replace('_', ' ')}</span>
                                 </div>
-                                <span className="font-medium">{method.value}%</span>
+                                <span className="font-medium text-foreground">{method.value}%</span>
                               </div>
                             ))}
                           </div>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center h-[260px] text-muted-foreground">
-                          <CreditCard className="h-10 w-10 mb-3 text-muted-foreground/30" />
+                          <CreditCard className="h-10 w-10 mb-3 text-muted-foreground/20" />
                           <p className="text-sm">No payment data</p>
                         </div>
                       )}
@@ -362,116 +313,106 @@ const Business = () => {
                   </Card>
                 </div>
 
-                {/* Recent Transactions + Quick Actions + Integration */}
+                {/* Transactions + Sidebar */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Recent Transactions */}
                   <Card className="lg:col-span-2">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <Activity className="h-4 w-4 text-primary" />
-                            Recent Transactions
-                          </CardTitle>
-                          <CardDescription>Latest payment activity</CardDescription>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={() => navigate('/transactions')}>
-                          View All <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                        <CardTitle className="text-base font-semibold">Recent Transactions</CardTitle>
+                        <Button variant="ghost" size="sm" className="text-primary text-xs font-medium" onClick={() => navigate('/transactions')}>
+                          View All
                         </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
                       {businessTransactions && businessTransactions.length > 0 ? (
-                        <div className="space-y-1">
+                        <div className="divide-y divide-border">
                           {businessTransactions.slice(0, 6).map((tx) => (
-                            <div key={tx.uuid_id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                                  tx.direction === 'incoming' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'
+                            <div key={tx.uuid_id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                  tx.direction === 'incoming' ? 'bg-success/10' : 'bg-destructive/10'
                                 }`}>
-                                  <ArrowUpRight className={`h-4 w-4 ${tx.direction === 'incoming' ? '' : 'rotate-180'}`} />
+                                  {tx.direction === 'incoming' ? (
+                                    <ArrowDownLeft className="h-4 w-4 text-success" />
+                                  ) : (
+                                    <ArrowUpRight className="h-4 w-4 text-destructive" />
+                                  )}
                                 </div>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium truncate">
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">
                                     {tx.recipient_name || tx.description || tx.payment_method}
                                   </p>
                                   <p className="text-xs text-muted-foreground capitalize">
-                                    {tx.payment_method?.replace('_', ' ')} • {tx.status}
+                                    {tx.payment_method?.replace('_', ' ')} · {new Date(tx.created_at || '').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                   </p>
                                 </div>
                               </div>
-                              <div className="text-right shrink-0">
-                                <p className={`text-sm font-semibold ${tx.direction === 'incoming' ? 'text-emerald-500' : 'text-foreground'}`}>
+                              <div className="text-right">
+                                <p className={`text-sm font-semibold ${tx.direction === 'incoming' ? 'text-success' : 'text-foreground'}`}>
                                   {tx.direction === 'incoming' ? '+' : '-'}{formatAmount(tx.amount)}
                                 </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(tx.created_at || '').toLocaleDateString()}
-                                </p>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal">
+                                  {tx.status}
+                                </Badge>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                          <Activity className="h-10 w-10 mb-3 text-muted-foreground/30" />
-                          <p className="font-medium">No transactions yet</p>
-                          <p className="text-sm">Your payment activity will appear here</p>
+                        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                          <Activity className="h-10 w-10 mb-3 text-muted-foreground/20" />
+                          <p className="text-sm font-medium">No transactions yet</p>
+                          <p className="text-xs">Payment activity will appear here</p>
                         </div>
                       )}
                     </CardContent>
                   </Card>
 
-                  {/* Sidebar: Quick Actions + Integration */}
+                  {/* Quick Links */}
                   <div className="space-y-4">
                     <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <Zap className="h-4 w-4 text-primary" />
-                          Quick Actions
-                        </CardTitle>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-semibold">Quick Links</CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-1.5">
+                      <CardContent className="space-y-1">
                         {[
-                          { label: 'Analytics Dashboard', icon: BarChart3, href: '/business-dashboard', color: 'text-blue-500' },
-                          { label: 'Process Payments', icon: CreditCard, href: '/payment-processor', color: 'text-emerald-500' },
-                          { label: 'View Disputes', icon: FileText, href: '/disputes', color: 'text-amber-500' },
-                          { label: 'Compliance', icon: Shield, href: '/compliance', color: 'text-violet-500' },
-                          { label: 'Developer Portal', icon: Globe, href: '/developers', color: 'text-cyan-500' },
+                          { label: 'Analytics Dashboard', icon: BarChart3, href: '/business-dashboard' },
+                          { label: 'Payment Processor', icon: CreditCard, href: '/payment-processor' },
+                          { label: 'Disputes', icon: FileText, href: '/disputes' },
+                          { label: 'Compliance', icon: Shield, href: '/compliance' },
+                          { label: 'Developer Portal', icon: Code2, href: '/developers' },
                         ].map((action) => (
-                          <Button
+                          <button
                             key={action.label}
-                            variant="ghost"
-                            className="w-full justify-between h-11 px-3 hover:bg-muted/80"
                             onClick={() => navigate(action.href)}
+                            className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-muted transition-colors group text-left"
                           >
                             <span className="flex items-center gap-2.5">
-                              <action.icon className={`h-4 w-4 ${action.color}`} />
-                              <span className="text-sm font-medium">{action.label}</span>
+                              <action.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                              <span className="text-sm font-medium text-foreground">{action.label}</span>
                             </span>
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-                          </Button>
+                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                          </button>
                         ))}
                       </CardContent>
                     </Card>
 
                     <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <Activity className="h-4 w-4 text-primary" />
-                          Integration Status
-                        </CardTitle>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-semibold">Integration</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         {[
-                          { label: 'API Key', status: merchantAccount?.api_key_masked ? 'Configured' : 'Not set', active: !!merchantAccount?.api_key_masked },
+                          { label: 'API Key', status: merchantAccount?.api_key_masked ? 'Active' : 'Not set', active: !!merchantAccount?.api_key_masked },
                           { label: 'Webhook', status: merchantAccount?.webhook_url ? 'Active' : 'Not set', active: !!merchantAccount?.webhook_url },
                           { label: 'Settlement', status: (merchantAccount?.contact_info as any)?.banking?.accountName ? 'Ready' : 'Pending', active: !!(merchantAccount?.contact_info as any)?.banking?.accountName },
                         ].map((item) => (
-                          <div key={item.label} className="flex items-center justify-between py-1">
+                          <div key={item.label} className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground">{item.label}</span>
                             <div className="flex items-center gap-1.5">
-                              <div className={`w-2 h-2 rounded-full ${item.active ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`} />
-                              <span className={`text-xs font-medium ${item.active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              <div className={`w-1.5 h-1.5 rounded-full ${item.active ? 'bg-success' : 'bg-muted-foreground/30'}`} />
+                              <span className={`text-xs font-medium ${item.active ? 'text-success' : 'text-muted-foreground'}`}>
                                 {item.status}
                               </span>
                             </div>
@@ -482,56 +423,47 @@ const Business = () => {
                   </div>
                 </div>
 
-                {/* Business Profile Card */}
+                {/* Business Profile */}
                 <Card>
-                  <CardHeader className="pb-4">
+                  <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          <Store className="h-5 w-5 text-primary" />
-                          Business Profile
-                        </CardTitle>
-                        <CardDescription className="mt-1">Your merchant account details</CardDescription>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
-                        <Settings className="h-4 w-4 mr-1.5" />
-                        Edit
+                      <CardTitle className="text-base font-semibold">Business Profile</CardTitle>
+                      <Button variant="ghost" size="sm" className="text-primary text-xs font-medium" onClick={() => setSettingsOpen(true)}>
+                        Edit Profile
                       </Button>
                     </div>
                   </CardHeader>
                   <CardContent>
                     {merchantAccount ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Business Name</p>
-                          <p className="font-semibold text-foreground mt-0.5">{merchantAccount.business_name}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Business Type</p>
-                          <p className="font-medium text-foreground mt-0.5 capitalize">{merchantAccount.business_type}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Contact Email</p>
-                          <p className="font-medium text-foreground mt-0.5">{(merchantAccount.contact_info as any)?.email || '—'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Account Status</p>
-                          <Badge variant={merchantAccount.status === 'active' ? 'default' : 'secondary'} className="mt-1">
-                            {merchantAccount.status}
-                          </Badge>
-                        </div>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[
+                          { label: 'Business Name', value: merchantAccount.business_name },
+                          { label: 'Business Type', value: merchantAccount.business_type },
+                          { label: 'Contact Email', value: (merchantAccount.contact_info as any)?.email || '—' },
+                          { label: 'Status', value: merchantAccount.status, isBadge: true },
+                        ].map((field) => (
+                          <div key={field.label}>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">{field.label}</p>
+                            {field.isBadge ? (
+                              <Badge variant={field.value === 'active' ? 'default' : 'secondary'} className="capitalize">
+                                {field.value}
+                              </Badge>
+                            ) : (
+                              <p className="text-sm font-medium text-foreground capitalize">{field.value}</p>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       <div className="text-center py-10">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
-                          <Store className="h-8 w-8 text-primary" />
+                        <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <Store className="h-7 w-7 text-primary" />
                         </div>
-                        <h3 className="font-semibold text-foreground mb-2">No Merchant Account</h3>
-                        <p className="text-muted-foreground text-sm mb-6 max-w-sm mx-auto">
-                          Set up your business profile to start accepting payments.
+                        <h3 className="font-semibold text-foreground mb-1">No Merchant Account</h3>
+                        <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
+                          Set up your business profile to start accepting payments
                         </p>
-                        <Button onClick={() => setSettingsOpen(true)} size="lg">
-                          <Store className="h-4 w-4 mr-2" />
+                        <Button onClick={() => setSettingsOpen(true)} className="rounded-full px-6">
                           Set Up Business Account
                         </Button>
                       </div>
@@ -542,22 +474,22 @@ const Business = () => {
             </TabsContent>
 
             {/* Banking Tab */}
-            <TabsContent value="banking">
+            <TabsContent value="banking" className="mt-0 pt-6">
               <BusinessBankingInfo />
             </TabsContent>
 
             {/* Compliance Tab */}
-            <TabsContent value="compliance">
+            <TabsContent value="compliance" className="mt-0 pt-6">
               <BusinessCompliance />
             </TabsContent>
 
             {/* API Tab */}
-            <TabsContent value="api">
+            <TabsContent value="api" className="mt-0 pt-6">
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Code2 className="h-4 w-4 text-primary" />
                       API Key Management
                     </CardTitle>
                     <CardDescription>Generate and manage your API keys for integration</CardDescription>
@@ -571,11 +503,11 @@ const Business = () => {
             </TabsContent>
 
             {/* Webhooks Tab */}
-            <TabsContent value="webhooks">
+            <TabsContent value="webhooks" className="mt-0 pt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Webhook className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Webhook className="h-4 w-4 text-primary" />
                     Webhook Configuration
                   </CardTitle>
                   <CardDescription>Set up webhook endpoints to receive real-time event notifications</CardDescription>
@@ -586,7 +518,7 @@ const Business = () => {
               </Card>
             </TabsContent>
           </Tabs>
-        </motion.div>
+        </div>
 
         <BusinessSettings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       </main>
