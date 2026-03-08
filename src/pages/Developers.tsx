@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Code2, Book, Webhook, CreditCard, Globe, Copy, Check, 
   ArrowRight, Zap, Shield, Terminal, Package, 
-  ShoppingCart, Store, Blocks, Plug, Download, ExternalLink, Play
+  ShoppingCart, Store, Blocks, Plug, Download, ExternalLink, Play,
+  Clock, Star
 } from "lucide-react";
 import { ApiPlayground } from "@/components/developers/ApiPlayground";
 import { useToast } from "@/hooks/use-toast";
@@ -386,15 +387,47 @@ console.log(payment.checkout_url); // redirect user here`} />
             </TabsContent>
 
             {/* SDKs */}
-            <TabsContent value="sdks" className="space-y-6">
+            <TabsContent value="sdks" className="space-y-8">
+              {/* SDK Stats Banner */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "Total Downloads", value: "100K+", icon: Download },
+                  { label: "Languages", value: "4 SDKs", icon: Package },
+                  { label: "Latest Release", value: "2 days ago", icon: Clock },
+                  { label: "License", value: "MIT", icon: Shield },
+                ].map((stat) => (
+                  <Card key={stat.label} className="border-border/60">
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-muted">
+                        <stat.icon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">{stat.label}</p>
+                        <p className="font-semibold text-sm">{stat.value}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* SDK Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[
                   {
                     lang: "JavaScript / Node.js",
+                    icon: "JS",
                     version: "v2.1.0",
+                    downloads: "45.2K",
+                    stars: 328,
+                    color: "from-yellow-500/20 to-yellow-600/10",
                     install: "npm install @bmaglass/payments-js",
-                    example: `const bmaglass = require('@bmaglass/payments-js');
-const client = new bmaglass('pk_live_...');
+                    altInstalls: [
+                      "yarn add @bmaglass/payments-js",
+                      "pnpm add @bmaglass/payments-js",
+                    ],
+                    example: `import BMaGlass from '@bmaglass/payments-js';
+
+const client = new BMaGlass({ apiKey: 'pk_live_...' });
 
 const payment = await client.payments.create({
   amount: 500,
@@ -402,11 +435,17 @@ const payment = await client.payments.create({
   payment_method: 'mobile_money',
   customer: { phone: '+260971234567' }
 });`,
+                    features: ["TypeScript support", "Browser & Node.js", "Webhook helpers", "Retry logic"],
                   },
                   {
                     lang: "Python",
+                    icon: "PY",
                     version: "v1.8.0",
+                    downloads: "28.7K",
+                    stars: 215,
+                    color: "from-blue-500/20 to-blue-600/10",
                     install: "pip install bmaglass-payments",
+                    altInstalls: ["poetry add bmaglass-payments"],
                     example: `import bmaglass
 
 client = bmaglass.Client(api_key="pk_live_...")
@@ -417,11 +456,17 @@ payment = client.payments.create(
     payment_method="mobile_money",
     customer={"phone": "+260971234567"}
 )`,
+                    features: ["Async support", "Type hints", "Django/Flask plugins", "Auto-retries"],
                   },
                   {
                     lang: "PHP",
+                    icon: "PHP",
                     version: "v1.5.0",
+                    downloads: "18.3K",
+                    stars: 142,
+                    color: "from-indigo-500/20 to-indigo-600/10",
                     install: "composer require bmaglass/payments-php",
+                    altInstalls: [],
                     example: `use BMaGlass\\Payments\\Client;
 
 $client = new Client('pk_live_...');
@@ -432,11 +477,17 @@ $payment = $client->payments->create([
     'payment_method' => 'mobile_money',
     'customer' => ['phone' => '+260971234567']
 ]);`,
+                    features: ["PHP 8.1+", "Laravel support", "PSR-18 HTTP", "Webhook middleware"],
                   },
                   {
                     lang: "Go",
+                    icon: "GO",
                     version: "v1.2.0",
+                    downloads: "8.1K",
+                    stars: 89,
+                    color: "from-cyan-500/20 to-cyan-600/10",
                     install: "go get github.com/bmaglass/payments-go",
+                    altInstalls: [],
                     example: `import bmaglass "github.com/bmaglass/payments-go"
 
 client := bmaglass.NewClient("pk_live_...")
@@ -447,32 +498,84 @@ payment, err := client.Payments.Create(&bmaglass.PaymentParams{
     PaymentMethod: "mobile_money",
     Customer:      &bmaglass.Customer{Phone: "+260971234567"},
 })`,
+                    features: ["Context support", "Connection pooling", "Idiomatic Go", "Zero dependencies"],
                   },
                 ].map((sdk) => (
-                  <Card key={sdk.lang}>
-                    <CardHeader>
+                  <Card key={sdk.lang} className="overflow-hidden hover:shadow-md transition-shadow">
+                    <div className={`h-1.5 bg-gradient-to-r ${sdk.color}`} />
+                    <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{sdk.lang}</CardTitle>
-                        <Badge variant="outline">{sdk.version}</Badge>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${sdk.color} flex items-center justify-center font-bold text-xs border border-border/40`}>
+                            {sdk.icon}
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg">{sdk.lang}</CardTitle>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                              <span className="flex items-center gap-1"><Download className="h-3 w-3" />{sdk.downloads}</span>
+                              <span className="flex items-center gap-1"><Star className="h-3 w-3" />{sdk.stars}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="font-mono">{sdk.version}</Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <CodeBlock code={sdk.install} />
+                    <CardContent className="space-y-4">
+                      {/* Features */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {sdk.features.map((f) => (
+                          <Badge key={f} variant="secondary" className="text-[10px] font-normal">
+                            {f}
+                          </Badge>
+                        ))}
+                      </div>
+
+                      {/* Install */}
+                      <div className="space-y-1.5">
+                        <CodeBlock code={sdk.install} />
+                        {sdk.altInstalls.map((alt) => (
+                          <CodeBlock key={alt} code={alt} />
+                        ))}
+                      </div>
+
+                      {/* Example */}
                       <details>
-                        <summary className="text-sm text-primary cursor-pointer font-medium">View Example</summary>
+                        <summary className="text-sm text-primary cursor-pointer font-medium flex items-center gap-1">
+                          <Code2 className="h-3.5 w-3.5" /> View Code Example
+                        </summary>
                         <div className="mt-2">
                           <CodeBlock code={sdk.example} language={sdk.lang.toLowerCase()} />
                         </div>
                       </details>
+
+                      {/* Actions */}
+                      <div className="flex gap-2 pt-1">
+                        <Button variant="outline" size="sm" className="flex-1" asChild>
+                          <a href={`https://github.com/bmaglass/payments-${sdk.icon.toLowerCase()}`} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> GitHub
+                          </a>
+                        </Button>
+                        <Button size="sm" className="flex-1">
+                          <Download className="h-3.5 w-3.5 mr-1.5" /> Download
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
 
-              <Card>
+              {/* Frontend Drop-in */}
+              <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
                 <CardHeader>
-                  <CardTitle>Frontend Drop-in UI</CardTitle>
-                  <CardDescription>Embed a pre-built payment form — no backend required</CardDescription>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-primary/10">
+                      <Zap className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle>Frontend Drop-in UI</CardTitle>
+                      <CardDescription>Embed a pre-built payment form — no backend required</CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <CodeBlock code={`<!-- Add to your HTML -->
