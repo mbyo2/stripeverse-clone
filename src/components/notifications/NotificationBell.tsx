@@ -148,7 +148,7 @@ const NotificationBell = () => {
       case "system":
         return <div className="bg-green-100 text-green-600 p-2 rounded-full">🔔</div>;
       default:
-        return <div className="bg-gray-100 text-gray-600 p-2 rounded-full">📣</div>;
+        return <div className="bg-muted text-muted-foreground p-2 rounded-full">📣</div>;
     }
   };
   

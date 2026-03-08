@@ -32,7 +32,7 @@ const statusConfig = {
   cancelled: {
     label: 'Cancelled',
     icon: AlertCircle,
-    className: 'bg-gray-100 text-gray-800 border-gray-200',
+    className: 'bg-muted text-muted-foreground border-border',
   },
 };
 

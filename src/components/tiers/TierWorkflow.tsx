@@ -166,7 +166,7 @@ const TierWorkflow = () => {
                 )}
               </div>
               {index < steps.length - 1 && (
-                <div className="absolute left-5 mt-10 w-0.5 h-8 bg-gray-200" />
+                <div className="absolute left-5 mt-10 w-0.5 h-8 bg-border" />
               )}
             </div>
           ))}
