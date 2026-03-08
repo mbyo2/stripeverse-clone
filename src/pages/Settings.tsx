@@ -315,7 +315,7 @@ const Settings = () => {
                     <Badge variant={twoFactorEnabled ? "default" : "secondary"}>
                       {twoFactorEnabled ? "Enabled" : "Disabled"}
                     </Badge>
-                    <Button variant="outline" size="sm" onClick={() => window.location.href = '/two-factor-auth'}>
+                    <Button variant="outline" size="sm" onClick={() => navigate('/two-factor-auth')}>
                       {twoFactorEnabled ? "Manage" : "Set Up"}
                     </Button>
                   </div>
