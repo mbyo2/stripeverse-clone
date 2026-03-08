@@ -132,7 +132,7 @@ const TransactionList = () => {
       case 'deposit':
         return 'text-green-600';
       default:
-        return 'text-gray-900';
+        return 'text-foreground';
     }
   };
 
