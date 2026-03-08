@@ -35,7 +35,7 @@ const SubscriptionManager = () => {
       case 'enterprise': return <Crown className="h-5 w-5 text-purple-500" />;
       case 'premium': return <Crown className="h-5 w-5 text-blue-500" />;
       case 'basic': return <Crown className="h-5 w-5 text-green-500" />;
-      default: return <Crown className="h-5 w-5 text-gray-500" />;
+      default: return <Crown className="h-5 w-5 text-muted-foreground" />;
     }
   };
 

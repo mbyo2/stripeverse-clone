@@ -51,7 +51,7 @@ const PaymentMethodValidator: React.FC<PaymentMethodValidatorProps> = ({
   };
 
   const getValidationIcon = (result?: PaymentMethodValidationResult) => {
-    if (!result) return <AlertCircle className="h-4 w-4 text-gray-400" />;
+    if (!result) return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
     
     return result.isValid 
       ? <CheckCircle className="h-4 w-4 text-green-500" />

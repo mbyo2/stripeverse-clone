@@ -25,7 +25,7 @@ const RewardsCard = () => {
     switch (tier) {
       case 'platinum': return <Trophy className="h-5 w-5 text-purple-600" />;
       case 'gold': return <Award className="h-5 w-5 text-yellow-600" />;
-      case 'silver': return <Medal className="h-5 w-5 text-gray-600" />;
+      case 'silver': return <Medal className="h-5 w-5 text-muted-foreground" />;
       default: return <Star className="h-5 w-5 text-amber-600" />;
     }
   };
@@ -44,7 +44,7 @@ const RewardsCard = () => {
     : 100;
 
   return (
-    <Card className="bg-gradient-to-br from-blue-50 to-purple-50">
+    <Card className="bg-card">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center justify-between">
           <span className="text-lg">Rewards</span>

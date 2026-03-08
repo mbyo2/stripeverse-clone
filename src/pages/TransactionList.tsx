@@ -132,7 +132,7 @@ const TransactionList = () => {
       case 'deposit':
         return 'text-green-600';
       default:
-        return 'text-gray-900';
+        return 'text-foreground';
     }
   };
 
@@ -160,7 +160,7 @@ const TransactionList = () => {
   });
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
         <div className="flex justify-between items-center mb-6">
@@ -187,7 +187,7 @@ const TransactionList = () => {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Search</label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search transactions..."
                     value={searchTerm}
