@@ -70,6 +70,7 @@ const Business = () => {
       icon: TrendingUp,
       gradient: "from-emerald-500 to-emerald-600",
       change: "From completed transactions",
+      onClick: () => navigate('/business-dashboard'),
     },
     {
       title: "Transactions",
@@ -77,6 +78,7 @@ const Business = () => {
       icon: Activity,
       gradient: "from-blue-500 to-blue-600",
       change: "All time",
+      onClick: () => navigate('/transactions'),
     },
     {
       title: "Success Rate",
@@ -84,13 +86,15 @@ const Business = () => {
       icon: CheckCircle,
       gradient: "from-violet-500 to-violet-600",
       change: "Completed vs total",
+      onClick: () => navigate('/business-dashboard'),
     },
     {
       title: "Status",
       value: merchantAccount?.status === 'active' ? 'Active' : 'Setup',
       icon: Store,
       gradient: merchantAccount?.status === 'active' ? "from-emerald-500 to-teal-600" : "from-amber-500 to-orange-600",
-      change: merchantAccount?.status === 'active' ? 'Account verified' : 'Complete setup',
+      change: merchantAccount?.status === 'active' ? 'Account verified' : 'Complete setup →',
+      onClick: merchantAccount?.status === 'active' ? undefined : () => setSettingsOpen(true),
     },
   ];
 
