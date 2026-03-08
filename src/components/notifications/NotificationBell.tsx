@@ -29,6 +29,7 @@ const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Fetch notifications
   useEffect(() => {
