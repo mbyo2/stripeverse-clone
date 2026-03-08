@@ -232,9 +232,245 @@ const Business = () => {
 
             {/* Overview Tab */}
             <TabsContent value="overview">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Business Profile */}
-                <Card className="lg:col-span-2">
+              <div className="space-y-6">
+                {/* Revenue Chart + Payment Methods */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Revenue Area Chart */}
+                  <Card className="lg:col-span-2">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-primary" />
+                            Revenue Overview
+                          </CardTitle>
+                          <CardDescription>Monthly incoming transaction volume</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => navigate('/business-dashboard')}>
+                          Full Report <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {monthlyChart.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={260}>
+                          <AreaChart data={monthlyChart}>
+                            <defs>
+                              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                            <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: 'hsl(var(--card))', 
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: '8px',
+                                color: 'hsl(var(--foreground))',
+                                fontSize: '13px'
+                              }} 
+                            />
+                            <Area type="monotone" dataKey="amount" stroke="hsl(var(--primary))" fill="url(#revenueGradient)" strokeWidth={2} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-[260px] text-muted-foreground">
+                          <BarChart3 className="h-12 w-12 mb-3 text-muted-foreground/30" />
+                          <p className="font-medium">No revenue data yet</p>
+                          <p className="text-sm">Completed incoming transactions will appear here</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Payment Method Breakdown */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-primary" />
+                        Payment Methods
+                      </CardTitle>
+                      <CardDescription>Transaction distribution</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {paymentMethodBreakdown.length > 0 ? (
+                        <div className="space-y-4">
+                          <ResponsiveContainer width="100%" height={160}>
+                            <PieChart>
+                              <Pie
+                                data={paymentMethodBreakdown}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={45}
+                                outerRadius={70}
+                                paddingAngle={3}
+                                dataKey="value"
+                              >
+                                {paymentMethodBreakdown.map((entry, i) => (
+                                  <Cell key={i} fill={['hsl(var(--primary))', 'hsl(142 71% 45%)', 'hsl(262 83% 58%)', 'hsl(38 92% 50%)'][i % 4]} />
+                                ))}
+                              </Pie>
+                              <Tooltip 
+                                contentStyle={{ 
+                                  backgroundColor: 'hsl(var(--card))', 
+                                  border: '1px solid hsl(var(--border))',
+                                  borderRadius: '8px',
+                                  color: 'hsl(var(--foreground))',
+                                  fontSize: '13px'
+                                }} 
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="space-y-2">
+                            {paymentMethodBreakdown.map((method, i) => (
+                              <div key={method.name} className="flex items-center justify-between text-sm">
+                                <div className="flex items-center gap-2">
+                                  <div 
+                                    className="w-2.5 h-2.5 rounded-full" 
+                                    style={{ backgroundColor: ['hsl(var(--primary))', 'hsl(142 71% 45%)', 'hsl(262 83% 58%)', 'hsl(38 92% 50%)'][i % 4] }}
+                                  />
+                                  <span className="text-muted-foreground capitalize">{method.name.replace('_', ' ')}</span>
+                                </div>
+                                <span className="font-medium">{method.value}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-[260px] text-muted-foreground">
+                          <CreditCard className="h-10 w-10 mb-3 text-muted-foreground/30" />
+                          <p className="text-sm">No payment data</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Recent Transactions + Quick Actions + Integration */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Recent Transactions */}
+                  <Card className="lg:col-span-2">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Activity className="h-4 w-4 text-primary" />
+                            Recent Transactions
+                          </CardTitle>
+                          <CardDescription>Latest payment activity</CardDescription>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => navigate('/transactions')}>
+                          View All <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {businessTransactions && businessTransactions.length > 0 ? (
+                        <div className="space-y-1">
+                          {businessTransactions.slice(0, 6).map((tx) => (
+                            <div key={tx.uuid_id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                                  tx.direction === 'incoming' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'
+                                }`}>
+                                  <ArrowUpRight className={`h-4 w-4 ${tx.direction === 'incoming' ? '' : 'rotate-180'}`} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium truncate">
+                                    {tx.recipient_name || tx.description || tx.payment_method}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground capitalize">
+                                    {tx.payment_method?.replace('_', ' ')} • {tx.status}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className={`text-sm font-semibold ${tx.direction === 'incoming' ? 'text-emerald-500' : 'text-foreground'}`}>
+                                  {tx.direction === 'incoming' ? '+' : '-'}{formatAmount(tx.amount)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(tx.created_at || '').toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                          <Activity className="h-10 w-10 mb-3 text-muted-foreground/30" />
+                          <p className="font-medium">No transactions yet</p>
+                          <p className="text-sm">Your payment activity will appear here</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Sidebar: Quick Actions + Integration */}
+                  <div className="space-y-4">
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Zap className="h-4 w-4 text-primary" />
+                          Quick Actions
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-1.5">
+                        {[
+                          { label: 'Analytics Dashboard', icon: BarChart3, href: '/business-dashboard', color: 'text-blue-500' },
+                          { label: 'Process Payments', icon: CreditCard, href: '/payment-processor', color: 'text-emerald-500' },
+                          { label: 'View Disputes', icon: FileText, href: '/disputes', color: 'text-amber-500' },
+                          { label: 'Compliance', icon: Shield, href: '/compliance', color: 'text-violet-500' },
+                          { label: 'Developer Portal', icon: Globe, href: '/developers', color: 'text-cyan-500' },
+                        ].map((action) => (
+                          <Button
+                            key={action.label}
+                            variant="ghost"
+                            className="w-full justify-between h-11 px-3 hover:bg-muted/80"
+                            onClick={() => navigate(action.href)}
+                          >
+                            <span className="flex items-center gap-2.5">
+                              <action.icon className={`h-4 w-4 ${action.color}`} />
+                              <span className="text-sm font-medium">{action.label}</span>
+                            </span>
+                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        ))}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Activity className="h-4 w-4 text-primary" />
+                          Integration Status
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {[
+                          { label: 'API Key', status: merchantAccount?.api_key_masked ? 'Configured' : 'Not set', active: !!merchantAccount?.api_key_masked },
+                          { label: 'Webhook', status: merchantAccount?.webhook_url ? 'Active' : 'Not set', active: !!merchantAccount?.webhook_url },
+                          { label: 'Settlement', status: (merchantAccount?.contact_info as any)?.banking?.accountName ? 'Ready' : 'Pending', active: !!(merchantAccount?.contact_info as any)?.banking?.accountName },
+                        ].map((item) => (
+                          <div key={item.label} className="flex items-center justify-between py-1">
+                            <span className="text-sm text-muted-foreground">{item.label}</span>
+                            <div className="flex items-center gap-1.5">
+                              <div className={`w-2 h-2 rounded-full ${item.active ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`} />
+                              <span className={`text-xs font-medium ${item.active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                {item.status}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+
+                {/* Business Profile Card */}
+                <Card>
                   <CardHeader className="pb-4">
                     <div className="flex items-center justify-between">
                       <div>
@@ -252,36 +488,24 @@ const Business = () => {
                   </CardHeader>
                   <CardContent>
                     {merchantAccount ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Business Name</p>
-                            <p className="font-semibold text-foreground mt-0.5">{merchantAccount.business_name}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Business Type</p>
-                            <p className="font-medium text-foreground mt-0.5 capitalize">{merchantAccount.business_type}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Registration Number</p>
-                            <p className="font-medium text-foreground mt-0.5">{merchantAccount.registration_number || '—'}</p>
-                          </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Business Name</p>
+                          <p className="font-semibold text-foreground mt-0.5">{merchantAccount.business_name}</p>
                         </div>
-                        <div className="space-y-4">
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Account Status</p>
-                            <Badge variant={merchantAccount.status === 'active' ? 'default' : 'secondary'} className="mt-1">
-                              {merchantAccount.status}
-                            </Badge>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Contact Email</p>
-                            <p className="font-medium text-foreground mt-0.5">{(merchantAccount.contact_info as any)?.email || '—'}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Contact Phone</p>
-                            <p className="font-medium text-foreground mt-0.5">{(merchantAccount.contact_info as any)?.phone || '—'}</p>
-                          </div>
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Business Type</p>
+                          <p className="font-medium text-foreground mt-0.5 capitalize">{merchantAccount.business_type}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Contact Email</p>
+                          <p className="font-medium text-foreground mt-0.5">{(merchantAccount.contact_info as any)?.email || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Account Status</p>
+                          <Badge variant={merchantAccount.status === 'active' ? 'default' : 'secondary'} className="mt-1">
+                            {merchantAccount.status}
+                          </Badge>
                         </div>
                       </div>
                     ) : (
@@ -291,7 +515,7 @@ const Business = () => {
                         </div>
                         <h3 className="font-semibold text-foreground mb-2">No Merchant Account</h3>
                         <p className="text-muted-foreground text-sm mb-6 max-w-sm mx-auto">
-                          Set up your business profile to start accepting payments and managing your merchant account.
+                          Set up your business profile to start accepting payments.
                         </p>
                         <Button onClick={() => setSettingsOpen(true)} size="lg">
                           <Store className="h-4 w-4 mr-2" />
@@ -301,62 +525,7 @@ const Business = () => {
                     )}
                   </CardContent>
                 </Card>
-
-                {/* Quick Actions */}
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Quick Actions</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {[
-                        { label: 'View Analytics', icon: BarChart3, href: '/business-dashboard', color: 'text-blue-500' },
-                        { label: 'Process Payments', icon: CreditCard, href: '/payment-processor', color: 'text-emerald-500' },
-                        { label: 'View Disputes', icon: FileText, href: '/disputes', color: 'text-amber-500' },
-                        { label: 'Compliance', icon: Shield, href: '/compliance', color: 'text-violet-500' },
-                      ].map((action) => (
-                        <Button
-                          key={action.label}
-                          variant="ghost"
-                          className="w-full justify-between h-12 px-4 hover:bg-muted/80"
-                          onClick={() => navigate(action.href)}
-                        >
-                          <span className="flex items-center gap-3">
-                            <action.icon className={`h-4 w-4 ${action.color}`} />
-                            <span className="font-medium">{action.label}</span>
-                          </span>
-                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                        </Button>
-                      ))}
-                    </CardContent>
-                  </Card>
-
-                  {/* Integration Status */}
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Integration Status</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {[
-                        { label: 'API Key', status: merchantAccount?.api_key_masked ? 'Configured' : 'Not set', active: !!merchantAccount?.api_key_masked },
-                        { label: 'Webhook', status: merchantAccount?.webhook_url ? 'Active' : 'Not set', active: !!merchantAccount?.webhook_url },
-                        { label: 'Settlement', status: (merchantAccount?.contact_info as any)?.banking?.accountName ? 'Ready' : 'Pending', active: !!(merchantAccount?.contact_info as any)?.banking?.accountName },
-                      ].map((item) => (
-                        <div key={item.label} className="flex items-center justify-between py-1.5">
-                          <span className="text-sm text-muted-foreground">{item.label}</span>
-                          <div className="flex items-center gap-1.5">
-                            <div className={`w-2 h-2 rounded-full ${item.active ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`} />
-                            <span className={`text-sm font-medium ${item.active ? 'text-foreground' : 'text-muted-foreground'}`}>
-                              {item.status}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                </div>
               </div>
-            </TabsContent>
 
             {/* Banking Tab */}
             <TabsContent value="banking">
