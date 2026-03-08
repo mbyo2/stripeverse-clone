@@ -56,10 +56,10 @@ const Business = () => {
   }
 
   const setupProgress = [
-    { label: 'Business Profile', done: !!merchantAccount?.business_name, link: 'settings' },
-    { label: 'Bank Account', done: !!(merchantAccount?.contact_info as any)?.banking?.accountName, link: 'banking' },
-    { label: 'API Key', done: !!merchantAccount?.api_key_masked, link: 'api' },
-    { label: 'Webhook', done: !!merchantAccount?.webhook_url, link: 'webhooks' },
+    { label: 'Business Profile', done: !!merchantAccount?.business_name, action: () => setSettingsOpen(true) },
+    { label: 'Bank Account', done: !!(merchantAccount?.contact_info as any)?.banking?.accountName, action: () => setActiveTab('banking') },
+    { label: 'API Key', done: !!merchantAccount?.api_key_masked, action: () => setActiveTab('api') },
+    { label: 'Webhook', done: !!merchantAccount?.webhook_url, action: () => setActiveTab('webhooks') },
   ];
   const completedSteps = setupProgress.filter(s => s.done).length;
 
