@@ -172,7 +172,7 @@ const Wallet = () => {
                 <CardDescription>Your linked accounts</CardDescription>
               </CardHeader>
               <CardContent>
-                <PaymentMethodList paymentMethods={paymentMethods} compact />
+                <PaymentMethodList paymentMethods={paymentMethods} />
               </CardContent>
             </Card>
           </div>
