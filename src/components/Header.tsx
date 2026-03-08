@@ -56,7 +56,11 @@ import {
   Coins,
   FileSpreadsheet,
   RotateCcw,
-  Banknote
+  Banknote,
+  Zap,
+  Package,
+  Shield as ShieldIcon,
+  Receipt
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 
