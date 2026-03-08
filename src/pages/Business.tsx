@@ -27,7 +27,7 @@ import { motion } from "framer-motion";
 
 const Business = () => {
   const { user } = useAuth();
-  const { merchantAccount, metrics, isLoading } = useBusinessData();
+  const { merchantAccount, metrics, monthlyChart, paymentMethodBreakdown, businessTransactions, isLoading } = useBusinessData();
   const { formatAmount } = useCurrency();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const navigate = useNavigate();
