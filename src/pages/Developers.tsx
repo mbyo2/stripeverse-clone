@@ -8,8 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Code2, Book, Webhook, CreditCard, Globe, Copy, Check, 
   ArrowRight, Zap, Shield, Terminal, Package, 
-  ShoppingCart, Store, Blocks, Plug, Download, ExternalLink
+  ShoppingCart, Store, Blocks, Plug, Download, ExternalLink, Play
 } from "lucide-react";
+import { ApiPlayground } from "@/components/developers/ApiPlayground";
 import { useToast } from "@/hooks/use-toast";
 
 const CodeBlock = ({ code, language = "bash" }: { code: string; language?: string }) => {
@@ -171,6 +172,9 @@ const Developers = () => {
               </TabsTrigger>
               <TabsTrigger value="testing" className="flex items-center gap-1.5">
                 <CreditCard className="h-4 w-4" /> Testing
+              </TabsTrigger>
+              <TabsTrigger value="playground" className="flex items-center gap-1.5">
+                <Play className="h-4 w-4" /> Playground
               </TabsTrigger>
             </TabsList>
 
@@ -865,6 +869,11 @@ app.post('/webhook', (req, res) => {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* PLAYGROUND */}
+            <TabsContent value="playground">
+              <ApiPlayground />
             </TabsContent>
           </Tabs>
         </section>
