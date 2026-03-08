@@ -8,8 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Code2, Book, Webhook, CreditCard, Globe, Copy, Check, 
   ArrowRight, Zap, Shield, Terminal, Package, 
-  ShoppingCart, Store, Blocks, Plug, Download, ExternalLink
+  ShoppingCart, Store, Blocks, Plug, Download, ExternalLink, Play
 } from "lucide-react";
+import { ApiPlayground } from "@/components/developers/ApiPlayground";
 import { useToast } from "@/hooks/use-toast";
 
 const CodeBlock = ({ code, language = "bash" }: { code: string; language?: string }) => {
