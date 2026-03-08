@@ -77,8 +77,8 @@
 
   /* Global clickable element styles */
   a, button, [role="button"], [type="button"], [type="submit"], 
-  .cursor-pointer, [onclick], label[for], summary {
-    @apply cursor-pointer;
+  [onclick], label[for], summary {
+    cursor: pointer;
   }
 
   a:hover, button:not(:disabled):hover, [role="button"]:hover {
