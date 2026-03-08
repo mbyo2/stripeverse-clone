@@ -750,7 +750,7 @@ export function ApiPlayground() {
 
           {/* History */}
           {history.length > 0 && (
-            <Card>
+            <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Recent Requests</CardTitle>
               </CardHeader>
