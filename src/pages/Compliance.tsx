@@ -148,7 +148,7 @@ const Compliance = () => {
   };
   
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-background">
       <Header />
       
       <main className="flex-grow pt-24 pb-16">
@@ -160,7 +160,7 @@ const Compliance = () => {
             <h1 className="text-3xl font-bold mb-8 text-center">Compliance & Security</h1>
             
             {user ? (
-              <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
+              <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
                 <Tabs defaultValue="status">
                   <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="status">Compliance Status</TabsTrigger>
@@ -170,10 +170,10 @@ const Compliance = () => {
                   
                   <TabsContent value="status" className="mt-6">
                     <div className="space-y-8">
-                      <div className="bg-white border border-gray-100 rounded-lg p-6">
+                       <div className="bg-card border border-border rounded-lg p-6">
                         <h2 className="text-lg font-semibold mb-4">Your Compliance Score</h2>
                         <div className="mb-2 flex justify-between">
-                          <span className="text-sm text-gray-600">Compliance Level: {complianceScore}%</span>
+                          <span className="text-sm text-muted-foreground">Compliance Level: {complianceScore}%</span>
                           <span className="text-sm font-medium">
                             {complianceScore < 40 ? 'Non-Compliant' : 
                              complianceScore < 70 ? 'Partially Compliant' : 
@@ -221,9 +221,9 @@ const Compliance = () => {
                   <TabsContent value="documents" className="mt-6">
                     <div className="space-y-6">
                       {documentList.map((doc) => (
-                        <div key={doc.id} className="flex items-center justify-between border-b border-gray-100 pb-4">
+                        <div key={doc.id} className="flex items-center justify-between border-b border-border pb-4">
                           <div className="flex items-center">
-                            <FileBadge className="h-5 w-5 text-blue-500 mr-3" />
+                            <FileBadge className="h-5 w-5 text-primary mr-3" />
                             <span>{doc.name}</span>
                           </div>
                           <div className="flex items-center space-x-3">
@@ -247,8 +247,8 @@ const Compliance = () => {
                       ))}
                     </div>
                     
-                    <div className="bg-blue-50 p-4 rounded-lg mt-6">
-                      <p className="text-sm text-blue-700">
+                    <div className="bg-accent/50 p-4 rounded-lg mt-6 border border-accent">
+                      <p className="text-sm text-muted-foreground">
                         You need to review and accept all policy documents to achieve full compliance status.
                         This will ensure that you understand our terms, privacy policies, and anti-money laundering requirements.
                       </p>
@@ -318,7 +318,7 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-white rounded-lg shadow-sm p-8 mb-8 mt-8">
+                    <div className="bg-card rounded-lg shadow-sm p-8 mb-8 mt-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6 flex items-center">
                         <CreditCard className="h-5 w-5 mr-2 text-primary" />
                         PCI DSS Compliance
@@ -386,7 +386,7 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
+                    <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6">Bank of Zambia Approval</h2>
                       
                       <p className="mb-6">
@@ -417,7 +417,7 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-white rounded-lg shadow-sm p-8">
+                    <div className="bg-card rounded-lg shadow-sm p-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6">Our Compliance Commitments</h2>
                       
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -444,14 +444,14 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-white rounded-lg shadow-sm p-8">
+                    <div className="bg-card rounded-lg shadow-sm p-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6">Merchant Compliance Requirements</h2>
                       
                       <div className="mb-8">
-                        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6">
+                        <div className="bg-accent/50 border-l-4 border-amber-500 p-4 mb-6">
                           <div className="flex">
                             <AlertTriangle className="h-6 w-6 text-amber-500 mr-3 flex-shrink-0" />
-                            <p className="text-amber-700">
+                            <p className="text-muted-foreground">
                               As a merchant using BMaGlass Pay, you are required to comply with certain standards to maintain a secure payment environment.
                             </p>
                           </div>
@@ -484,7 +484,7 @@ const Compliance = () => {
                 </Tabs>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm p-8 mb-8 text-center">
+              <div className="bg-card rounded-lg shadow-sm p-8 mb-8 text-center border border-border">
                 <Shield className="h-12 w-12 mx-auto text-primary mb-4" />
                 <h2 className="text-xl font-semibold mb-3">Authentication Required</h2>
                 <p className="mb-6">Please log in to view your compliance status and required actions.</p>
@@ -494,7 +494,7 @@ const Compliance = () => {
               </div>
             )}
             
-            <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
+            <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
               <div className="flex items-center justify-center mb-6">
                 <Shield className="h-16 w-16 text-primary" />
               </div>

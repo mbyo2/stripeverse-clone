@@ -122,8 +122,8 @@ const TierWorkflow = () => {
     switch (status) {
       case 'completed': return 'bg-green-500';
       case 'current': return 'bg-blue-500';
-      case 'pending': return 'bg-gray-300';
-      default: return 'bg-gray-300';
+      case 'pending': return 'bg-muted-foreground/30';
+      default: return 'bg-muted-foreground/30';
     }
   };
 
@@ -166,7 +166,7 @@ const TierWorkflow = () => {
                 )}
               </div>
               {index < steps.length - 1 && (
-                <div className="absolute left-5 mt-10 w-0.5 h-8 bg-gray-200" />
+                <div className="absolute left-5 mt-10 w-0.5 h-8 bg-border" />
               )}
             </div>
           ))}

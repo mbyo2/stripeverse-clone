@@ -214,7 +214,7 @@ const TierFeatureMatrix = () => {
                 {categories.map((category) => (
                   <React.Fragment key={category}>
                     <tr>
-                      <td colSpan={5} className="py-2 px-4 bg-gray-50 font-medium text-sm">
+                      <td colSpan={5} className="py-2 px-4 bg-muted font-medium text-sm">
                         {category} Features
                       </td>
                     </tr>

@@ -17,7 +17,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
       <Header />
       <main>
         <Hero isAuthenticated={false} />

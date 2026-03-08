@@ -43,7 +43,7 @@ const FeatureLimitChecker = ({
   }, [feature, limitType, amount, hasFeatureAccess, checkUsageLimit]);
 
   if (canProceed === null) {
-    return <div className="animate-pulse h-8 bg-gray-200 rounded"></div>;
+    return <div className="animate-pulse h-8 bg-muted rounded"></div>;
   }
 
   if (!canProceed) {

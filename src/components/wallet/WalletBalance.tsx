@@ -86,7 +86,7 @@ const WalletBalance = ({ onSendMoney }: WalletBalanceProps) => {
             <DialogTitle>Receive Money</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center space-y-4 py-4">
-            <div className="bg-white p-4 rounded-lg">
+            <div className="bg-card p-4 rounded-lg border border-border">
               <QRCodeSVG value={walletAddress} size={180} />
             </div>
             <p className="text-sm text-muted-foreground text-center">

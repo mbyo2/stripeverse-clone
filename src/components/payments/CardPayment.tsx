@@ -233,13 +233,13 @@ const CardPayment = ({ amount, onSuccess, onCancel }: CardPaymentProps) => {
       </div>
       
       <div className="flex justify-center gap-2">
-        <div className="bg-white p-1 rounded shadow-sm w-10 h-6 flex items-center justify-center">
-          <span className="font-bold text-sm text-blue-700">Visa</span>
+        <div className="bg-card border border-border p-1 rounded shadow-sm w-10 h-6 flex items-center justify-center">
+          <span className="font-bold text-sm text-primary">Visa</span>
         </div>
-        <div className="bg-white p-1 rounded shadow-sm w-10 h-6 flex items-center justify-center">
+        <div className="bg-card border border-border p-1 rounded shadow-sm w-10 h-6 flex items-center justify-center">
           <div className="flex">
-            <div className="h-3 w-3 bg-red-500 rounded-full"></div>
-            <div className="h-3 w-3 bg-yellow-500 rounded-full -ml-1"></div>
+            <div className="h-3 w-3 bg-destructive rounded-full"></div>
+            <div className="h-3 w-3 bg-amber-500 rounded-full -ml-1"></div>
           </div>
         </div>
       </div>

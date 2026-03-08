@@ -180,17 +180,17 @@ const PaymentServices = () => {
                       <div className="bg-secondary/20 rounded-lg p-4">
                         <h3 className="text-lg font-medium mb-2">Supported Cards</h3>
                         <div className="flex flex-wrap gap-3 mt-3">
-                          <div className="bg-white p-2 rounded shadow-sm w-16 h-12 flex items-center justify-center">
-                            <span className="font-bold text-blue-700">Visa</span>
+                          <div className="bg-card border border-border p-2 rounded shadow-sm w-16 h-12 flex items-center justify-center">
+                            <span className="font-bold text-primary">Visa</span>
                           </div>
-                          <div className="bg-white p-2 rounded shadow-sm w-16 h-12 flex items-center justify-center">
+                          <div className="bg-card border border-border p-2 rounded shadow-sm w-16 h-12 flex items-center justify-center">
                             <div className="flex">
-                              <div className="h-4 w-4 bg-red-500 rounded-full"></div>
-                              <div className="h-4 w-4 bg-yellow-500 rounded-full -ml-2"></div>
+                              <div className="h-4 w-4 bg-destructive rounded-full"></div>
+                              <div className="h-4 w-4 bg-amber-500 rounded-full -ml-2"></div>
                             </div>
                           </div>
-                          <div className="bg-white p-2 rounded shadow-sm w-16 h-12 flex items-center justify-center">
-                            <span className="font-bold text-blue-500">UPI</span>
+                          <div className="bg-card border border-border p-2 rounded shadow-sm w-16 h-12 flex items-center justify-center">
+                            <span className="font-bold text-primary">UPI</span>
                           </div>
                         </div>
                         
