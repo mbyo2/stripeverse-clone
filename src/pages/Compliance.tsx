@@ -490,7 +490,7 @@ const Compliance = () => {
                 <Shield className="h-12 w-12 mx-auto text-primary mb-4" />
                 <h2 className="text-xl font-semibold mb-3">Authentication Required</h2>
                 <p className="mb-6">Please log in to view your compliance status and required actions.</p>
-                <Button onClick={() => window.location.href = '/login'}>
+                <Button onClick={() => navigate('/login')}>
                   Log In to Continue
                 </Button>
               </div>
