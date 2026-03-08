@@ -53,6 +53,63 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_accounts: {
+        Row: {
+          account_name: string
+          account_number: string
+          account_type: string
+          bank_code: string | null
+          bank_name: string
+          country: string
+          created_at: string
+          currency: string
+          id: string
+          is_primary: boolean | null
+          is_verified: boolean | null
+          metadata: Json | null
+          routing_number: string | null
+          swift_code: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          account_type?: string
+          bank_code?: string | null
+          bank_name: string
+          country?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          is_primary?: boolean | null
+          is_verified?: boolean | null
+          metadata?: Json | null
+          routing_number?: string | null
+          swift_code?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          account_type?: string
+          bank_code?: string | null
+          bank_name?: string
+          country?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          is_primary?: boolean | null
+          is_verified?: boolean | null
+          metadata?: Json | null
+          routing_number?: string | null
+          swift_code?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       beta_feedback: {
         Row: {
           app_version: string
@@ -244,6 +301,116 @@ export type Database = {
         }
         Relationships: []
       }
+      bulk_payment_items: {
+        Row: {
+          amount: number
+          bulk_payment_id: string
+          created_at: string
+          currency: string
+          error_message: string | null
+          id: string
+          payment_method: string
+          processed_at: string | null
+          recipient_account: string | null
+          recipient_bank: string | null
+          recipient_email: string | null
+          recipient_name: string
+          recipient_phone: string | null
+          status: string
+          transaction_id: string | null
+        }
+        Insert: {
+          amount: number
+          bulk_payment_id: string
+          created_at?: string
+          currency?: string
+          error_message?: string | null
+          id?: string
+          payment_method?: string
+          processed_at?: string | null
+          recipient_account?: string | null
+          recipient_bank?: string | null
+          recipient_email?: string | null
+          recipient_name: string
+          recipient_phone?: string | null
+          status?: string
+          transaction_id?: string | null
+        }
+        Update: {
+          amount?: number
+          bulk_payment_id?: string
+          created_at?: string
+          currency?: string
+          error_message?: string | null
+          id?: string
+          payment_method?: string
+          processed_at?: string | null
+          recipient_account?: string | null
+          recipient_bank?: string | null
+          recipient_email?: string | null
+          recipient_name?: string
+          recipient_phone?: string | null
+          status?: string
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_payment_items_bulk_payment_id_fkey"
+            columns: ["bulk_payment_id"]
+            isOneToOne: false
+            referencedRelation: "bulk_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bulk_payments: {
+        Row: {
+          completed_items: number
+          created_at: string
+          currency: string
+          failed_items: number
+          id: string
+          metadata: Json | null
+          name: string
+          processed_at: string | null
+          status: string
+          total_amount: number
+          total_items: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_items?: number
+          created_at?: string
+          currency?: string
+          failed_items?: number
+          id?: string
+          metadata?: Json | null
+          name: string
+          processed_at?: string | null
+          status?: string
+          total_amount?: number
+          total_items?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_items?: number
+          created_at?: string
+          currency?: string
+          failed_items?: number
+          id?: string
+          metadata?: Json | null
+          name?: string
+          processed_at?: string | null
+          status?: string
+          total_amount?: number
+          total_items?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       compliance_checks: {
         Row: {
           check_type: string
@@ -392,6 +559,66 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      currency_conversions: {
+        Row: {
+          created_at: string
+          exchange_rate: number
+          fee_amount: number | null
+          from_amount: number
+          from_currency: string
+          from_wallet_id: string | null
+          id: string
+          status: string
+          to_amount: number
+          to_currency: string
+          to_wallet_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          exchange_rate: number
+          fee_amount?: number | null
+          from_amount: number
+          from_currency: string
+          from_wallet_id?: string | null
+          id?: string
+          status?: string
+          to_amount: number
+          to_currency: string
+          to_wallet_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          exchange_rate?: number
+          fee_amount?: number | null
+          from_amount?: number
+          from_currency?: string
+          from_wallet_id?: string | null
+          id?: string
+          status?: string
+          to_amount?: number
+          to_currency?: string
+          to_wallet_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "currency_conversions_from_wallet_id_fkey"
+            columns: ["from_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "currency_conversions_to_wallet_id_fkey"
+            columns: ["to_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dispute_messages: {
         Row: {
@@ -865,6 +1092,63 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_links: {
+        Row: {
+          amount: number | null
+          created_at: string
+          currency: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          link_code: string
+          max_payments: number | null
+          metadata: Json | null
+          payment_count: number | null
+          redirect_url: string | null
+          status: string
+          title: string
+          total_collected: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          link_code?: string
+          max_payments?: number | null
+          metadata?: Json | null
+          payment_count?: number | null
+          redirect_url?: string | null
+          status?: string
+          title: string
+          total_collected?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          link_code?: string
+          max_payments?: number | null
+          metadata?: Json | null
+          payment_count?: number | null
+          redirect_url?: string | null
+          status?: string
+          title?: string
+          total_collected?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       payment_methods: {
         Row: {
           account_name: string | null
@@ -1072,6 +1356,57 @@ export type Database = {
           id?: string
           identifier?: string
           window_start?: string
+        }
+        Relationships: []
+      }
+      refunds: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          currency: string
+          id: string
+          metadata: Json | null
+          notes: string | null
+          reason: string
+          refund_type: string
+          status: string
+          transaction_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          reason: string
+          refund_type?: string
+          status?: string
+          transaction_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          reason?: string
+          refund_type?: string
+          status?: string
+          transaction_id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1364,6 +1699,106 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      split_rules: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          owner_id: string
+          split_type: string
+          split_value: number
+          subaccount_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          owner_id: string
+          split_type?: string
+          split_value: number
+          subaccount_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          owner_id?: string
+          split_type?: string
+          split_value?: number
+          subaccount_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "split_rules_subaccount_id_fkey"
+            columns: ["subaccount_id"]
+            isOneToOne: false
+            referencedRelation: "subaccounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subaccounts: {
+        Row: {
+          account_email: string | null
+          account_name: string
+          bank_account_id: string | null
+          created_at: string
+          currency: string
+          id: string
+          metadata: Json | null
+          owner_id: string
+          split_type: string
+          split_value: number
+          status: string
+          total_received: number | null
+          updated_at: string
+        }
+        Insert: {
+          account_email?: string | null
+          account_name: string
+          bank_account_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          owner_id: string
+          split_type?: string
+          split_value?: number
+          status?: string
+          total_received?: number | null
+          updated_at?: string
+        }
+        Update: {
+          account_email?: string | null
+          account_name?: string
+          bank_account_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          owner_id?: string
+          split_type?: string
+          split_value?: number
+          status?: string
+          total_received?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subaccounts_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscribers: {
         Row: {
