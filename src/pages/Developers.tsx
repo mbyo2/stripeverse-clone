@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Code2, Book, Webhook, CreditCard, Globe, Copy, Check, 
   ArrowRight, Zap, Shield, Terminal, Package, 
-  ShoppingCart, Store, Blocks, Plug, Download, ExternalLink, Play
+  ShoppingCart, Store, Blocks, Plug, Download, ExternalLink, Play,
+  Clock, Star
 } from "lucide-react";
 import { ApiPlayground } from "@/components/developers/ApiPlayground";
 import { useToast } from "@/hooks/use-toast";
