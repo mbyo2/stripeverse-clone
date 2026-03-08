@@ -75,6 +75,11 @@ import SubAccounts from '@/pages/SubAccounts';
 import MultiCurrencyWallet from '@/pages/MultiCurrencyWallet';
 import BulkPayments from '@/pages/BulkPayments';
 import Refunds from '@/pages/Refunds';
+import PublicCheckout from '@/pages/PublicCheckout';
+import Settlements from '@/pages/Settlements';
+import SdkDocs from '@/pages/SdkDocs';
+import WebhookLogs from '@/pages/WebhookLogs';
+import CardVault from '@/pages/CardVault';
 
 const AnimatedRoutes = () => {
   const location = useLocation();
