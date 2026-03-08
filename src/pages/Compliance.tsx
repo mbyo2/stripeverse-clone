@@ -221,9 +221,9 @@ const Compliance = () => {
                   <TabsContent value="documents" className="mt-6">
                     <div className="space-y-6">
                       {documentList.map((doc) => (
-                        <div key={doc.id} className="flex items-center justify-between border-b border-gray-100 pb-4">
+                        <div key={doc.id} className="flex items-center justify-between border-b border-border pb-4">
                           <div className="flex items-center">
-                            <FileBadge className="h-5 w-5 text-blue-500 mr-3" />
+                            <FileBadge className="h-5 w-5 text-primary mr-3" />
                             <span>{doc.name}</span>
                           </div>
                           <div className="flex items-center space-x-3">
