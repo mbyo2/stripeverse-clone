@@ -423,6 +423,24 @@ const AnimatedRoutes = () => {
           </ProtectedRoute>
         } />
 
+        <Route path="/settlements" element={
+          <ProtectedRoute>
+            <PageTransition><Settlements /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/webhook-logs" element={
+          <ProtectedRoute>
+            <PageTransition><WebhookLogs /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/card-vault" element={
+          <ProtectedRoute>
+            <PageTransition><CardVault /></PageTransition>
+          </ProtectedRoute>
+        } />
+
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
