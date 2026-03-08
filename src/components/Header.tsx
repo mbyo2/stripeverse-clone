@@ -316,7 +316,7 @@ const Header = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/ip-whitelist" className="flex items-center gap-2">
-                      <ShieldIcon className="h-4 w-4" /> IP Whitelist
+                      <ShieldCheck className="h-4 w-4" /> IP Whitelist
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
