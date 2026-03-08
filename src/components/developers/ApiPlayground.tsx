@@ -521,26 +521,13 @@ export function ApiPlayground() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <Card className="border-primary/20">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Play className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle>API Playground</CardTitle>
-              <CardDescription>Make test API calls directly from your browser — no code required</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 p-3 bg-accent/30 rounded-lg border border-accent text-sm">
-            <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/30">Sandbox</Badge>
-            <span className="text-muted-foreground">All requests are simulated — no real payments are processed.</span>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Sandbox Notice */}
+      <div className="flex items-center gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+        <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/30">
+          Sandbox Mode
+        </Badge>
+        <span className="text-sm text-muted-foreground">All requests are simulated — no real payments are processed.</span>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left: Request Builder */}
