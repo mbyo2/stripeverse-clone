@@ -448,10 +448,10 @@ const Compliance = () => {
                       <h2 className="text-xl font-semibold mb-6">Merchant Compliance Requirements</h2>
                       
                       <div className="mb-8">
-                        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6">
+                        <div className="bg-accent/50 border-l-4 border-amber-500 p-4 mb-6">
                           <div className="flex">
                             <AlertTriangle className="h-6 w-6 text-amber-500 mr-3 flex-shrink-0" />
-                            <p className="text-amber-700">
+                            <p className="text-muted-foreground">
                               As a merchant using BMaGlass Pay, you are required to comply with certain standards to maintain a secure payment environment.
                             </p>
                           </div>
