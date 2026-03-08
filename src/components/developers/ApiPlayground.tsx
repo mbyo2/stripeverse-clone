@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Play, Copy, Check, Loader2, Clock, ChevronDown, ChevronRight } from "lucide-react";
+import { Play, Copy, Check, Loader2, Clock, ChevronDown, ChevronRight, Code2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Endpoint {
@@ -287,6 +287,169 @@ const methodColors: Record<string, string> = {
   DELETE: "bg-red-500/15 text-red-400 border-red-500/30",
 };
 
+type CodeLang = "curl" | "javascript" | "python" | "php" | "java" | "go" | "ruby" | "csharp";
+
+const CODE_LANGS: { id: CodeLang; label: string }[] = [
+  { id: "curl", label: "cURL" },
+  { id: "javascript", label: "JavaScript" },
+  { id: "python", label: "Python" },
+  { id: "php", label: "PHP" },
+  { id: "java", label: "Java" },
+  { id: "go", label: "Go" },
+  { id: "ruby", label: "Ruby" },
+  { id: "csharp", label: "C#" },
+];
+
+function generateCode(
+  lang: CodeLang,
+  method: string,
+  url: string,
+  apiKey: string,
+  body?: string
+): string {
+  let parsedBody: any = null;
+  try { if (body) parsedBody = JSON.parse(body); } catch { /* skip */ }
+  const hasBody = parsedBody && method !== "GET" && Object.keys(parsedBody).length > 0;
+  const bodyJson = hasBody ? JSON.stringify(parsedBody, null, 2) : "";
+  const bodyJsonOneline = hasBody ? JSON.stringify(parsedBody) : "";
+
+  switch (lang) {
+    case "curl": {
+      let cmd = `curl -X ${method} "${url}" \\\n  -H "Authorization: Bearer ${apiKey}" \\\n  -H "Content-Type: application/json"`;
+      if (hasBody) cmd += ` \\\n  -d '${bodyJsonOneline}'`;
+      return cmd;
+    }
+    case "javascript":
+      return `const response = await fetch("${url}", {
+  method: "${method}",
+  headers: {
+    "Authorization": "Bearer ${apiKey}",
+    "Content-Type": "application/json",
+  },${hasBody ? `\n  body: JSON.stringify(${bodyJson}),` : ""}
+});
+
+const data = await response.json();
+console.log(data);`;
+
+    case "python":
+      return `import requests
+
+response = requests.${method.toLowerCase()}(
+    "${url}",
+    headers={
+        "Authorization": "Bearer ${apiKey}",
+        "Content-Type": "application/json",
+    },${hasBody ? `\n    json=${bodyJson.replace(/"/g, '"').replace(/null/g, 'None').replace(/true/g, 'True').replace(/false/g, 'False')},` : ""}
+)
+
+data = response.json()
+print(data)`;
+
+    case "php":
+      return `<?php
+$ch = curl_init();
+
+curl_setopt_array($ch, [
+    CURLOPT_URL => "${url}",
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_CUSTOMREQUEST => "${method}",
+    CURLOPT_HTTPHEADER => [
+        "Authorization: Bearer ${apiKey}",
+        "Content-Type: application/json",
+    ],${hasBody ? `\n    CURLOPT_POSTFIELDS => json_encode(${bodyJson.replace(/"/g, "'")}),` : ""}
+]);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+$data = json_decode($response, true);
+print_r($data);`;
+
+    case "java":
+      return `import java.net.http.*;
+import java.net.URI;
+
+HttpClient client = HttpClient.newHttpClient();
+
+HttpRequest request = HttpRequest.newBuilder()
+    .uri(URI.create("${url}"))
+    .header("Authorization", "Bearer ${apiKey}")
+    .header("Content-Type", "application/json")
+    .method("${method}", ${hasBody
+      ? `HttpRequest.BodyPublishers.ofString("${bodyJsonOneline.replace(/"/g, '\\"')}")`
+      : `HttpRequest.BodyPublishers.noBody()`})
+    .build();
+
+HttpResponse<String> response = client.send(
+    request, HttpResponse.BodyHandlers.ofString()
+);
+
+System.out.println(response.body());`;
+
+    case "go":
+      return `package main
+
+import (
+    "fmt"
+    "io"
+    "net/http"${hasBody ? '\n    "strings"' : ""}
+)
+
+func main() {
+    ${hasBody ? `body := strings.NewReader(\`${bodyJsonOneline}\`)
+    req, _ := http.NewRequest("${method}", "${url}", body)` : `req, _ := http.NewRequest("${method}", "${url}", nil)`}
+    req.Header.Set("Authorization", "Bearer ${apiKey}")
+    req.Header.Set("Content-Type", "application/json")
+
+    resp, _ := http.DefaultClient.Do(req)
+    defer resp.Body.Close()
+
+    data, _ := io.ReadAll(resp.Body)
+    fmt.Println(string(data))
+}`;
+
+    case "ruby":
+      return `require "net/http"
+require "json"
+require "uri"
+
+uri = URI.parse("${url}")
+http = Net::HTTP.new(uri.host, uri.port)
+http.use_ssl = true
+
+request = Net::HTTP::${method === "GET" ? "Get" : method === "POST" ? "Post" : method === "PUT" ? "Put" : "Delete"}.new(uri.request_uri)
+request["Authorization"] = "Bearer ${apiKey}"
+request["Content-Type"] = "application/json"${hasBody ? `\nrequest.body = '${bodyJsonOneline}'` : ""}
+
+response = http.request(request)
+puts JSON.parse(response.body)`;
+
+    case "csharp":
+      return `using System.Net.Http;
+using System.Text;
+
+var client = new HttpClient();
+client.DefaultRequestHeaders.Add("Authorization", "Bearer ${apiKey}");
+
+${hasBody
+  ? `var content = new StringContent(
+    @"${bodyJsonOneline.replace(/"/g, '""')}",
+    Encoding.UTF8, "application/json"
+);
+
+var response = await client.${method === "POST" ? "PostAsync" : method === "PUT" ? "PutAsync" : "SendAsync"}(
+    "${url}", content
+);`
+  : `var response = await client.${method === "GET" ? "GetAsync" : "DeleteAsync"}("${url}");`}
+
+var data = await response.Content.ReadAsStringAsync();
+Console.WriteLine(data);`;
+
+    default:
+      return "";
+  }
+}
+
 export function ApiPlayground() {
   const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint>(ENDPOINTS[0]);
   const [apiKey, setApiKey] = useState("pk_test_sandbox_demo_key");
@@ -296,6 +459,9 @@ export function ApiPlayground() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<Array<{ endpoint: Endpoint; response: { status: number; body: any; latency: number }; timestamp: Date }>>([]);
   const [copied, setCopied] = useState(false);
+  const [codeLang, setCodeLang] = useState<CodeLang>("javascript");
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [showCodeGen, setShowCodeGen] = useState(false);
   const { toast } = useToast();
 
   const handleEndpointChange = useCallback((value: string) => {
@@ -484,6 +650,69 @@ export function ApiPlayground() {
               cURL
             </Button>
           </div>
+
+          {/* Code Generation */}
+          <Card>
+            <CardHeader className="pb-2">
+              <button
+                onClick={() => setShowCodeGen(!showCodeGen)}
+                className="flex items-center justify-between w-full"
+              >
+                <div className="flex items-center gap-2">
+                  <Code2 className="h-4 w-4 text-primary" />
+                  <CardTitle className="text-sm">Generated Code</CardTitle>
+                </div>
+                {showCodeGen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+              </button>
+            </CardHeader>
+            {showCodeGen && (
+              <CardContent>
+                <Tabs value={codeLang} onValueChange={(v) => setCodeLang(v as CodeLang)}>
+                  <TabsList className="w-full flex flex-wrap h-auto gap-0.5 bg-muted/50 p-0.5 mb-3">
+                    {CODE_LANGS.map(l => (
+                      <TabsTrigger key={l.id} value={l.id} className="text-xs px-2 py-1">
+                        {l.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  {CODE_LANGS.map(l => (
+                    <TabsContent key={l.id} value={l.id}>
+                      <div className="relative group">
+                        <pre className="bg-secondary/20 border rounded-lg p-4 overflow-x-auto text-xs font-mono text-foreground max-h-[400px]">
+                          <code>{generateCode(
+                            l.id,
+                            selectedEndpoint.method,
+                            `https://api.sandbox.bmaglasspay.com${resolvedPath}`,
+                            apiKey,
+                            requestBody
+                          )}</code>
+                        </pre>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => {
+                            navigator.clipboard.writeText(generateCode(
+                              l.id,
+                              selectedEndpoint.method,
+                              `https://api.sandbox.bmaglasspay.com${resolvedPath}`,
+                              apiKey,
+                              requestBody
+                            ));
+                            setCodeCopied(true);
+                            toast({ title: `${l.label} code copied` });
+                            setTimeout(() => setCodeCopied(false), 2000);
+                          }}
+                        >
+                          {codeCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              </CardContent>
+            )}
+          </Card>
         </div>
 
         {/* Right: Response + History */}
