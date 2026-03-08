@@ -4,15 +4,16 @@ import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { 
   Code2, Book, Webhook, CreditCard, Globe, Copy, Check, 
   ArrowRight, Zap, Shield, Terminal, Package, 
   ShoppingCart, Store, Blocks, Plug, Download, ExternalLink, Play,
-  Clock, Star
+  Clock, Star, ChevronRight, Search, FileCode, Key, Users, Repeat
 } from "lucide-react";
 import { ApiPlayground } from "@/components/developers/ApiPlayground";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 
 const CodeBlock = ({ code, language = "bash" }: { code: string; language?: string }) => {
   const [copied, setCopied] = useState(false);
@@ -27,13 +28,13 @@ const CodeBlock = ({ code, language = "bash" }: { code: string; language?: strin
 
   return (
     <div className="relative group">
-      <pre className="bg-secondary/30 border rounded-lg p-4 overflow-x-auto text-sm font-mono text-foreground">
+      <pre className="bg-slate-900 text-slate-100 dark:bg-slate-950 border border-slate-800 rounded-lg p-4 overflow-x-auto text-sm font-mono">
         <code>{code}</code>
       </pre>
       <Button
         variant="ghost"
         size="sm"
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-white hover:bg-slate-800"
         onClick={copy}
       >
         {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -42,15 +43,25 @@ const CodeBlock = ({ code, language = "bash" }: { code: string; language?: strin
   );
 };
 
-const EndpointRow = ({ method, path, description }: { method: string; path: string; description: string }) => (
-  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 border rounded-lg hover:bg-accent/30 transition-colors">
-    <Badge variant={method === "GET" ? "secondary" : method === "POST" ? "default" : "outline"} className="w-fit font-mono text-xs">
-      {method}
-    </Badge>
-    <code className="text-sm font-mono text-foreground flex-1">{path}</code>
-    <span className="text-sm text-muted-foreground">{description}</span>
-  </div>
-);
+const EndpointRow = ({ method, path, description }: { method: string; path: string; description: string }) => {
+  const methodColors: Record<string, string> = {
+    GET: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    POST: "bg-primary/15 text-primary border-primary/30",
+    PUT: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    DELETE: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30",
+  };
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer border border-transparent hover:border-border">
+      <Badge className={`w-fit font-mono text-xs px-2 py-0.5 border ${methodColors[method] || ""}`}>
+        {method}
+      </Badge>
+      <code className="text-sm font-mono text-foreground flex-1 group-hover:text-primary transition-colors">{path}</code>
+      <span className="text-sm text-muted-foreground">{description}</span>
+      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block" />
+    </div>
+  );
+};
 
 const PlatformCard = ({ name, icon: Icon, description, status, installCmd, features }: {
   name: string;
@@ -60,41 +71,46 @@ const PlatformCard = ({ name, icon: Icon, description, status, installCmd, featu
   installCmd?: string;
   features: string[];
 }) => (
-  <Card className="flex flex-col">
-    <CardHeader>
+  <Card className="flex flex-col border-0 shadow-sm hover:shadow-md transition-shadow">
+    <CardHeader className="pb-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Icon className="h-6 w-6 text-primary" />
+          <div className="p-2.5 rounded-xl bg-primary/10">
+            <Icon className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-lg">{name}</CardTitle>
-            <CardDescription>{description}</CardDescription>
+            <CardTitle className="text-base">{name}</CardTitle>
+            <CardDescription className="text-xs">{description}</CardDescription>
           </div>
         </div>
-        <Badge variant={status === "stable" ? "default" : status === "beta" ? "secondary" : "outline"}>
-          {status === "coming-soon" ? "Coming Soon" : status === "beta" ? "Beta" : "Stable"}
+        <Badge 
+          variant={status === "stable" ? "default" : status === "beta" ? "secondary" : "outline"}
+          className="text-[10px]"
+        >
+          {status === "coming-soon" ? "Soon" : status === "beta" ? "Beta" : "Stable"}
         </Badge>
       </div>
     </CardHeader>
-    <CardContent className="flex-1 flex flex-col justify-between gap-4">
-      <ul className="space-y-1">
-        {features.map((f, i) => (
-          <li key={i} className="text-sm text-muted-foreground flex items-center gap-2">
-            <Check className="h-3 w-3 text-primary flex-shrink-0" /> {f}
+    <CardContent className="flex-1 flex flex-col justify-between gap-4 pt-0">
+      <ul className="space-y-1.5">
+        {features.slice(0, 4).map((f, i) => (
+          <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+            <Check className="h-3 w-3 text-primary flex-shrink-0 mt-0.5" /> {f}
           </li>
         ))}
       </ul>
       {installCmd && (
-        <CodeBlock code={installCmd} />
+        <div className="text-xs">
+          <CodeBlock code={installCmd} />
+        </div>
       )}
       <div className="flex gap-2 mt-auto">
-        <Button variant="outline" size="sm" className="flex-1">
-          <Book className="h-4 w-4 mr-1" /> Docs
+        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs">
+          <Book className="h-3 w-3 mr-1" /> Docs
         </Button>
         {status !== "coming-soon" && (
-          <Button size="sm" className="flex-1">
-            <Download className="h-4 w-4 mr-1" /> Install
+          <Button size="sm" className="flex-1 h-8 text-xs">
+            <Download className="h-3 w-3 mr-1" /> Install
           </Button>
         )}
       </div>
@@ -102,126 +118,157 @@ const PlatformCard = ({ name, icon: Icon, description, status, installCmd, featu
   </Card>
 );
 
-const Developers = () => {
-  return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      <main className="flex-1 pt-24 pb-16">
-        {/* Hero Section */}
-        <section className="px-4 max-w-7xl mx-auto mb-16">
-          <div className="text-center mb-12">
-            <Badge variant="secondary" className="mb-4">Developer Portal</Badge>
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              Build with <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">BMaGlass Pay</span>
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Accept payments in minutes. Our SDKs, plugins, and APIs make integration effortless — 
-              whether you're building custom or using platforms like WordPress, Odoo, or Shopify.
-            </p>
-          </div>
+const navItems = [
+  { id: "quickstart", label: "Quick Start", icon: Zap },
+  { id: "api", label: "API Reference", icon: Terminal },
+  { id: "sdks", label: "SDKs & Libraries", icon: Package },
+  { id: "plugins", label: "Plugins", icon: Blocks },
+  { id: "webhooks", label: "Webhooks", icon: Webhook },
+  { id: "testing", label: "Testing", icon: CreditCard },
+  { id: "playground", label: "API Playground", icon: Play },
+];
 
-          {/* Quick Start Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <Card className="border-primary/20 hover:border-primary/50 transition-colors cursor-pointer">
-              <CardContent className="pt-6 text-center">
-                <div className="p-3 rounded-full bg-primary/10 w-fit mx-auto mb-3">
-                  <Zap className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-semibold mb-1">Quick Start</h3>
-                <p className="text-sm text-muted-foreground">Accept your first payment in under 5 minutes</p>
-              </CardContent>
-            </Card>
-            <Card className="border-primary/20 hover:border-primary/50 transition-colors cursor-pointer">
-              <CardContent className="pt-6 text-center">
-                <div className="p-3 rounded-full bg-primary/10 w-fit mx-auto mb-3">
-                  <Plug className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-semibold mb-1">No-Code Plugins</h3>
-                <p className="text-sm text-muted-foreground">WordPress, Odoo, WooCommerce — zero code required</p>
-              </CardContent>
-            </Card>
-            <Card className="border-primary/20 hover:border-primary/50 transition-colors cursor-pointer">
-              <CardContent className="pt-6 text-center">
-                <div className="p-3 rounded-full bg-primary/10 w-fit mx-auto mb-3">
-                  <Shield className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-semibold mb-1">Enterprise Ready</h3>
-                <p className="text-sm text-muted-foreground">PCI DSS compliant with webhook signature verification</p>
-              </CardContent>
-            </Card>
+const Developers = () => {
+  const [activeSection, setActiveSection] = useState("quickstart");
+
+  return (
+    <div className="min-h-screen flex flex-col bg-muted/30">
+      <Header />
+      <main className="flex-1 pt-20">
+        {/* Hero Section */}
+        <section className="bg-gradient-to-b from-primary/5 via-primary/[0.02] to-transparent border-b border-border/50">
+          <div className="px-4 max-w-7xl mx-auto py-12 md:py-16">
+            <div className="max-w-3xl">
+              <Badge className="mb-4 bg-primary/10 text-primary border-primary/20 hover:bg-primary/15">
+                Developer Portal
+              </Badge>
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4 leading-tight">
+                Build powerful payment experiences
+              </h1>
+              <p className="text-lg text-muted-foreground mb-6 max-w-2xl">
+                Accept Mobile Money, cards, and bank transfers with our modern APIs. 
+                Get started in minutes with comprehensive SDKs and no-code plugins.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button size="lg" className="h-12 px-6 rounded-lg" onClick={() => setActiveSection("quickstart")}>
+                  <Zap className="h-4 w-4 mr-2" /> Get Started
+                </Button>
+                <Button size="lg" variant="outline" className="h-12 px-6 rounded-lg" onClick={() => setActiveSection("api")}>
+                  <Book className="h-4 w-4 mr-2" /> API Reference
+                </Button>
+              </div>
+            </div>
+
+            {/* Search bar */}
+            <div className="mt-8 max-w-xl">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search documentation..." 
+                  className="pl-10 h-11 bg-background border-border rounded-lg"
+                />
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* Main Docs Area */}
-        <section className="px-4 max-w-7xl mx-auto">
-          <Tabs defaultValue="quickstart" className="space-y-8">
-            <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
-              <TabsTrigger value="quickstart" className="flex items-center gap-1.5">
-                <Zap className="h-4 w-4" /> Quick Start
-              </TabsTrigger>
-              <TabsTrigger value="api" className="flex items-center gap-1.5">
-                <Terminal className="h-4 w-4" /> API Reference
-              </TabsTrigger>
-              <TabsTrigger value="sdks" className="flex items-center gap-1.5">
-                <Package className="h-4 w-4" /> SDKs
-              </TabsTrigger>
-              <TabsTrigger value="plugins" className="flex items-center gap-1.5">
-                <Blocks className="h-4 w-4" /> Plugins & Modules
-              </TabsTrigger>
-              <TabsTrigger value="webhooks" className="flex items-center gap-1.5">
-                <Webhook className="h-4 w-4" /> Webhooks
-              </TabsTrigger>
-              <TabsTrigger value="testing" className="flex items-center gap-1.5">
-                <CreditCard className="h-4 w-4" /> Testing
-              </TabsTrigger>
-              <TabsTrigger value="playground" className="flex items-center gap-1.5">
-                <Play className="h-4 w-4" /> Playground
-              </TabsTrigger>
-            </TabsList>
-
-            {/* QUICK START */}
-            <TabsContent value="quickstart" className="space-y-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Get Started in 3 Steps</CardTitle>
-                  <CardDescription>Start accepting payments on your website or app in minutes</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-8">
-                  {/* Step 1 */}
+        {/* Stats bar */}
+        <section className="border-b border-border/50 bg-background">
+          <div className="px-4 max-w-7xl mx-auto py-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+              {[
+                { label: "API Uptime", value: "99.99%", icon: Shield },
+                { label: "Avg Response", value: "89ms", icon: Clock },
+                { label: "SDKs", value: "4 Languages", icon: Package },
+                { label: "Plugins", value: "8+ Platforms", icon: Plug },
+              ].map((stat) => (
+                <div key={stat.label} className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-muted">
+                    <stat.icon className="h-4 w-4 text-primary" />
+                  </div>
                   <div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">1</div>
-                      <h3 className="font-semibold text-lg">Install the SDK</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">Choose your preferred package manager:</p>
-                    <div className="space-y-2">
-                      <CodeBlock code="npm install @bmaglass/payments-js" />
-                      <CodeBlock code="yarn add @bmaglass/payments-js" />
-                      <CodeBlock code="pip install bmaglass-payments" />
-                    </div>
+                    <p className="text-sm font-semibold text-foreground">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Main Content with Sidebar */}
+        <section className="px-4 max-w-7xl mx-auto py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8">
+            {/* Sidebar Navigation */}
+            <nav className="space-y-1 lg:sticky lg:top-24 lg:self-start">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Documentation</p>
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveSection(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors text-sm ${
+                    activeSection === item.id
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+
+              <Separator className="my-4" />
+
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Resources</p>
+              <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                <ExternalLink className="h-4 w-4" /> API Status
+              </a>
+              <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                <ExternalLink className="h-4 w-4" /> Changelog
+              </a>
+              <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                <ExternalLink className="h-4 w-4" /> GitHub
+              </a>
+            </nav>
+
+            {/* Content Area */}
+            <div className="min-w-0">
+              {/* QUICK START */}
+              {activeSection === "quickstart" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Quick Start Guide</h2>
+                    <p className="text-muted-foreground">Accept your first payment in under 5 minutes</p>
                   </div>
 
-                  {/* Step 2 */}
-                  <div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">2</div>
-                      <h3 className="font-semibold text-lg">Initialize with your API Key</h3>
-                    </div>
-                    <CodeBlock language="javascript" code={`import BMaGlass from '@bmaglass/payments-js';
+                  {/* Quick Start Steps */}
+                  <div className="space-y-6">
+                    {[
+                      {
+                        step: 1,
+                        title: "Install the SDK",
+                        desc: "Choose your preferred package manager:",
+                        codes: [
+                          "npm install @bmaglass/payments-js",
+                          "pip install bmaglass-payments",
+                        ]
+                      },
+                      {
+                        step: 2,
+                        title: "Initialize with your API Key",
+                        desc: "Get your API key from the Business Dashboard",
+                        codes: [`import BMaGlass from '@bmaglass/payments-js';
 
 const bmaglass = new BMaGlass({
   apiKey: 'pk_live_YOUR_API_KEY',
   environment: 'production' // or 'sandbox'
-});`} />
-                  </div>
-
-                  {/* Step 3 */}
-                  <div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">3</div>
-                      <h3 className="font-semibold text-lg">Create a Payment</h3>
-                    </div>
-                    <CodeBlock language="javascript" code={`const payment = await bmaglass.payments.create({
+});`]
+                      },
+                      {
+                        step: 3,
+                        title: "Create a Payment",
+                        desc: "Start accepting Mobile Money, cards, or bank transfers",
+                        codes: [`const payment = await bmaglass.payments.create({
   amount: 150.00,
   currency: 'ZMW',
   payment_method: 'mobile_money',
@@ -233,353 +280,339 @@ const bmaglass = new BMaGlass({
   callback_url: 'https://yoursite.com/webhook'
 });
 
-console.log(payment.id);       // "pay_abc123..."
-console.log(payment.status);   // "pending"
-console.log(payment.checkout_url); // redirect user here`} />
-                  </div>
-
-                  <div className="p-4 bg-accent/50 rounded-lg border border-accent">
-                    <p className="text-sm font-medium mb-1">💡 Using a CMS or e-commerce platform?</p>
-                    <p className="text-sm text-muted-foreground">
-                      Skip the code — install our <button className="text-primary underline" onClick={() => document.querySelector('[data-value="plugins"]')?.dispatchEvent(new Event('click'))}>ready-made plugins</button> for WordPress, WooCommerce, Odoo, Shopify, and more.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* API REFERENCE */}
-            <TabsContent value="api" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Authentication</CardTitle>
-                  <CardDescription>All API requests require Bearer token authentication</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <CodeBlock code={`curl -X POST https://api.bmaglasspay.com/v1/payments \\
-  -H "Authorization: Bearer pk_live_YOUR_API_KEY" \\
-  -H "Content-Type: application/json"`} />
-                  <p className="text-sm text-muted-foreground mt-3">
-                    Use <code className="bg-secondary/30 px-1.5 py-0.5 rounded">pk_test_</code> keys in sandbox and <code className="bg-secondary/30 px-1.5 py-0.5 rounded">pk_live_</code> keys in production.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payments</CardTitle>
-                  <CardDescription>Create, retrieve, and manage payments</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <EndpointRow method="POST" path="/v1/payments" description="Create a payment" />
-                  <EndpointRow method="GET" path="/v1/payments/:id" description="Get payment details" />
-                  <EndpointRow method="GET" path="/v1/payments" description="List all payments" />
-                  <EndpointRow method="POST" path="/v1/payments/:id/refund" description="Refund a payment" />
-                  <EndpointRow method="POST" path="/v1/payments/:id/capture" description="Capture authorized payment" />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Transfers</CardTitle>
-                  <CardDescription>Send money to bank accounts or mobile wallets</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <EndpointRow method="POST" path="/v1/transfers" description="Create a transfer" />
-                  <EndpointRow method="GET" path="/v1/transfers/:id" description="Get transfer status" />
-                  <EndpointRow method="GET" path="/v1/transfers" description="List transfers" />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Customers</CardTitle>
-                  <CardDescription>Manage customer records and saved payment methods</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <EndpointRow method="POST" path="/v1/customers" description="Create a customer" />
-                  <EndpointRow method="GET" path="/v1/customers/:id" description="Retrieve customer" />
-                  <EndpointRow method="PUT" path="/v1/customers/:id" description="Update customer" />
-                  <EndpointRow method="GET" path="/v1/customers/:id/transactions" description="Customer transactions" />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Virtual Cards</CardTitle>
-                  <CardDescription>Issue and manage virtual payment cards</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <EndpointRow method="POST" path="/v1/cards" description="Create virtual card" />
-                  <EndpointRow method="GET" path="/v1/cards/:id" description="Get card details" />
-                  <EndpointRow method="POST" path="/v1/cards/:id/fund" description="Fund a card" />
-                  <EndpointRow method="POST" path="/v1/cards/:id/freeze" description="Freeze/unfreeze card" />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Subscriptions</CardTitle>
-                  <CardDescription>Recurring billing and subscription management</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <EndpointRow method="POST" path="/v1/subscriptions" description="Create subscription" />
-                  <EndpointRow method="GET" path="/v1/subscriptions/:id" description="Get subscription" />
-                  <EndpointRow method="POST" path="/v1/subscriptions/:id/cancel" description="Cancel subscription" />
-                  <EndpointRow method="POST" path="/v1/plans" description="Create billing plan" />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payment Methods</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[
-                      { method: "mobile_money", label: "Mobile Money", providers: "MTN, Airtel, Zamtel" },
-                      { method: "card", label: "Card Payments", providers: "Visa, Mastercard" },
-                      { method: "bank_transfer", label: "Bank Transfer", providers: "All Zambian banks" },
-                      { method: "ussd", label: "USSD", providers: "Feature phone support" },
-                      { method: "bitcoin", label: "Bitcoin", providers: "Lightning Network" },
-                      { method: "paypal", label: "PayPal", providers: "International payments" },
-                    ].map((pm) => (
-                      <div key={pm.method} className="p-3 border rounded-lg">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-sm">{pm.label}</span>
-                          <code className="text-xs bg-secondary/30 px-1.5 py-0.5 rounded">{pm.method}</code>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{pm.providers}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Response Codes</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    {[
-                      { code: "200", desc: "Success" },
-                      { code: "201", desc: "Created" },
-                      { code: "400", desc: "Bad Request — invalid parameters" },
-                      { code: "401", desc: "Unauthorized — invalid or missing API key" },
-                      { code: "403", desc: "Forbidden — insufficient permissions" },
-                      { code: "404", desc: "Not Found" },
-                      { code: "409", desc: "Conflict — duplicate idempotency key" },
-                      { code: "422", desc: "Unprocessable — validation failed" },
-                      { code: "429", desc: "Rate Limited — too many requests" },
-                      { code: "500", desc: "Server Error" },
-                    ].map((r) => (
-                      <div key={r.code} className="flex items-center gap-3 p-2 rounded hover:bg-accent/30">
-                        <Badge variant={r.code.startsWith("2") ? "default" : r.code.startsWith("4") ? "secondary" : "destructive"} className="font-mono w-12 justify-center">
-                          {r.code}
-                        </Badge>
-                        <span className="text-muted-foreground">{r.desc}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* SDKs */}
-            <TabsContent value="sdks" className="space-y-8">
-              {/* SDK Stats Banner */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label: "Total Downloads", value: "100K+", icon: Download },
-                  { label: "Languages", value: "4 SDKs", icon: Package },
-                  { label: "Latest Release", value: "2 days ago", icon: Clock },
-                  { label: "License", value: "MIT", icon: Shield },
-                ].map((stat) => (
-                  <Card key={stat.label} className="border-border/60">
-                    <CardContent className="p-4 flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-muted">
-                        <stat.icon className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">{stat.label}</p>
-                        <p className="font-semibold text-sm">{stat.value}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* SDK Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[
-                  {
-                    lang: "JavaScript / Node.js",
-                    icon: "JS",
-                    version: "v2.1.0",
-                    downloads: "45.2K",
-                    stars: 328,
-                    color: "from-yellow-500/20 to-yellow-600/10",
-                    install: "npm install @bmaglass/payments-js",
-                    altInstalls: [
-                      "yarn add @bmaglass/payments-js",
-                      "pnpm add @bmaglass/payments-js",
-                    ],
-                    example: `import BMaGlass from '@bmaglass/payments-js';
-
-const client = new BMaGlass({ apiKey: 'pk_live_...' });
-
-const payment = await client.payments.create({
-  amount: 500,
-  currency: 'ZMW',
-  payment_method: 'mobile_money',
-  customer: { phone: '+260971234567' }
-});`,
-                    features: ["TypeScript support", "Browser & Node.js", "Webhook helpers", "Retry logic"],
-                  },
-                  {
-                    lang: "Python",
-                    icon: "PY",
-                    version: "v1.8.0",
-                    downloads: "28.7K",
-                    stars: 215,
-                    color: "from-blue-500/20 to-blue-600/10",
-                    install: "pip install bmaglass-payments",
-                    altInstalls: ["poetry add bmaglass-payments"],
-                    example: `import bmaglass
-
-client = bmaglass.Client(api_key="pk_live_...")
-
-payment = client.payments.create(
-    amount=500,
-    currency="ZMW",
-    payment_method="mobile_money",
-    customer={"phone": "+260971234567"}
-)`,
-                    features: ["Async support", "Type hints", "Django/Flask plugins", "Auto-retries"],
-                  },
-                  {
-                    lang: "PHP",
-                    icon: "PHP",
-                    version: "v1.5.0",
-                    downloads: "18.3K",
-                    stars: 142,
-                    color: "from-indigo-500/20 to-indigo-600/10",
-                    install: "composer require bmaglass/payments-php",
-                    altInstalls: [],
-                    example: `use BMaGlass\\Payments\\Client;
-
-$client = new Client('pk_live_...');
-
-$payment = $client->payments->create([
-    'amount' => 500,
-    'currency' => 'ZMW',
-    'payment_method' => 'mobile_money',
-    'customer' => ['phone' => '+260971234567']
-]);`,
-                    features: ["PHP 8.1+", "Laravel support", "PSR-18 HTTP", "Webhook middleware"],
-                  },
-                  {
-                    lang: "Go",
-                    icon: "GO",
-                    version: "v1.2.0",
-                    downloads: "8.1K",
-                    stars: 89,
-                    color: "from-cyan-500/20 to-cyan-600/10",
-                    install: "go get github.com/bmaglass/payments-go",
-                    altInstalls: [],
-                    example: `import bmaglass "github.com/bmaglass/payments-go"
-
-client := bmaglass.NewClient("pk_live_...")
-
-payment, err := client.Payments.Create(&bmaglass.PaymentParams{
-    Amount:        500,
-    Currency:      "ZMW",
-    PaymentMethod: "mobile_money",
-    Customer:      &bmaglass.Customer{Phone: "+260971234567"},
-})`,
-                    features: ["Context support", "Connection pooling", "Idiomatic Go", "Zero dependencies"],
-                  },
-                ].map((sdk) => (
-                  <Card key={sdk.lang} className="overflow-hidden hover:shadow-md transition-shadow">
-                    <div className={`h-1.5 bg-gradient-to-r ${sdk.color}`} />
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${sdk.color} flex items-center justify-center font-bold text-xs border border-border/40`}>
-                            {sdk.icon}
-                          </div>
-                          <div>
-                            <CardTitle className="text-lg">{sdk.lang}</CardTitle>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                              <span className="flex items-center gap-1"><Download className="h-3 w-3" />{sdk.downloads}</span>
-                              <span className="flex items-center gap-1"><Star className="h-3 w-3" />{sdk.stars}</span>
+console.log(payment.checkout_url); // redirect user here`]
+                      }
+                    ].map((item) => (
+                      <Card key={item.step} className="border-0 shadow-sm">
+                        <CardContent className="p-6">
+                          <div className="flex items-start gap-4">
+                            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm shrink-0">
+                              {item.step}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-foreground text-lg mb-1">{item.title}</h3>
+                              <p className="text-sm text-muted-foreground mb-4">{item.desc}</p>
+                              <div className="space-y-2">
+                                {item.codes.map((code, i) => (
+                                  <CodeBlock key={i} code={code} />
+                                ))}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <Badge variant="outline" className="font-mono">{sdk.version}</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Features */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {sdk.features.map((f) => (
-                          <Badge key={f} variant="secondary" className="text-[10px] font-normal">
-                            {f}
-                          </Badge>
-                        ))}
-                      </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
 
-                      {/* Install */}
-                      <div className="space-y-1.5">
-                        <CodeBlock code={sdk.install} />
-                        {sdk.altInstalls.map((alt) => (
-                          <CodeBlock key={alt} code={alt} />
-                        ))}
-                      </div>
-
-                      {/* Example */}
-                      <details>
-                        <summary className="text-sm text-primary cursor-pointer font-medium flex items-center gap-1">
-                          <Code2 className="h-3.5 w-3.5" /> View Code Example
-                        </summary>
-                        <div className="mt-2">
-                          <CodeBlock code={sdk.example} language={sdk.lang.toLowerCase()} />
-                        </div>
-                      </details>
-
-                      {/* Actions */}
-                      <div className="flex gap-2 pt-1">
-                        <Button variant="outline" size="sm" className="flex-1" asChild>
-                          <a href={`https://github.com/bmaglass/payments-${sdk.icon.toLowerCase()}`} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> GitHub
-                          </a>
-                        </Button>
-                        <Button size="sm" className="flex-1">
-                          <Download className="h-3.5 w-3.5 mr-1.5" /> Download
-                        </Button>
+                  {/* CMS Tip */}
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="p-4 flex items-start gap-3">
+                      <Plug className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground mb-1">Using a CMS or e-commerce platform?</p>
+                        <p className="text-sm text-muted-foreground">
+                          Skip the code — install our ready-made plugins for{" "}
+                          <button onClick={() => setActiveSection("plugins")} className="text-primary hover:underline">
+                            WordPress, WooCommerce, Odoo, Shopify
+                          </button>, and more.
+                        </p>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
+                </div>
+              )}
 
-              {/* Frontend Drop-in */}
-              <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-primary/10">
-                      <Zap className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle>Frontend Drop-in UI</CardTitle>
-                      <CardDescription>Embed a pre-built payment form — no backend required</CardDescription>
-                    </div>
+              {/* API REFERENCE */}
+              {activeSection === "api" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">API Reference</h2>
+                    <p className="text-muted-foreground">Complete reference for the BMaGlass Pay REST API</p>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <CodeBlock code={`<!-- Add to your HTML -->
-<script src="https://js.bmaglasspay.com/v2/checkout.js"></script>
+
+                  {/* Authentication */}
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <Key className="h-5 w-5 text-primary" />
+                        <CardTitle className="text-lg">Authentication</CardTitle>
+                      </div>
+                      <CardDescription>All API requests require Bearer token authentication</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <CodeBlock code={`curl -X POST https://api.bmaglasspay.com/v1/payments \\
+  -H "Authorization: Bearer pk_live_YOUR_API_KEY" \\
+  -H "Content-Type: application/json"`} />
+                      <p className="text-sm text-muted-foreground mt-3">
+                        Use <code className="bg-muted px-1.5 py-0.5 rounded text-xs">pk_test_</code> keys in sandbox and{" "}
+                        <code className="bg-muted px-1.5 py-0.5 rounded text-xs">pk_live_</code> keys in production.
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Endpoints */}
+                  {[
+                    {
+                      title: "Payments",
+                      icon: CreditCard,
+                      desc: "Create, retrieve, and manage payments",
+                      endpoints: [
+                        { method: "POST", path: "/v1/payments", desc: "Create a payment" },
+                        { method: "GET", path: "/v1/payments/:id", desc: "Get payment details" },
+                        { method: "GET", path: "/v1/payments", desc: "List all payments" },
+                        { method: "POST", path: "/v1/payments/:id/refund", desc: "Refund a payment" },
+                      ]
+                    },
+                    {
+                      title: "Transfers",
+                      icon: ArrowRight,
+                      desc: "Send money to bank accounts or mobile wallets",
+                      endpoints: [
+                        { method: "POST", path: "/v1/transfers", desc: "Create a transfer" },
+                        { method: "GET", path: "/v1/transfers/:id", desc: "Get transfer status" },
+                        { method: "GET", path: "/v1/transfers", desc: "List transfers" },
+                      ]
+                    },
+                    {
+                      title: "Customers",
+                      icon: Users,
+                      desc: "Manage customer records and saved payment methods",
+                      endpoints: [
+                        { method: "POST", path: "/v1/customers", desc: "Create a customer" },
+                        { method: "GET", path: "/v1/customers/:id", desc: "Retrieve customer" },
+                        { method: "PUT", path: "/v1/customers/:id", desc: "Update customer" },
+                      ]
+                    },
+                    {
+                      title: "Virtual Cards",
+                      icon: CreditCard,
+                      desc: "Issue and manage virtual payment cards",
+                      endpoints: [
+                        { method: "POST", path: "/v1/cards", desc: "Create virtual card" },
+                        { method: "GET", path: "/v1/cards/:id", desc: "Get card details" },
+                        { method: "POST", path: "/v1/cards/:id/fund", desc: "Fund a card" },
+                      ]
+                    },
+                    {
+                      title: "Subscriptions",
+                      icon: Repeat,
+                      desc: "Recurring billing and subscription management",
+                      endpoints: [
+                        { method: "POST", path: "/v1/subscriptions", desc: "Create subscription" },
+                        { method: "GET", path: "/v1/subscriptions/:id", desc: "Get subscription" },
+                        { method: "POST", path: "/v1/subscriptions/:id/cancel", desc: "Cancel subscription" },
+                      ]
+                    },
+                  ].map((section) => (
+                    <Card key={section.title} className="border-0 shadow-sm">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center gap-2">
+                          <section.icon className="h-5 w-5 text-primary" />
+                          <div>
+                            <CardTitle className="text-lg">{section.title}</CardTitle>
+                            <CardDescription className="text-sm">{section.desc}</CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-1 pt-0">
+                        {section.endpoints.map((ep, i) => (
+                          <EndpointRow key={i} method={ep.method} path={ep.path} description={ep.desc} />
+                        ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+
+                  {/* Payment Methods */}
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Payment Methods</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {[
+                          { method: "mobile_money", label: "Mobile Money", providers: "MTN, Airtel, Zamtel" },
+                          { method: "card", label: "Card Payments", providers: "Visa, Mastercard" },
+                          { method: "bank_transfer", label: "Bank Transfer", providers: "All Zambian banks" },
+                          { method: "ussd", label: "USSD", providers: "Feature phone support" },
+                          { method: "bitcoin", label: "Bitcoin", providers: "Lightning Network" },
+                          { method: "paypal", label: "PayPal", providers: "International payments" },
+                        ].map((pm) => (
+                          <div key={pm.method} className="p-3 rounded-lg bg-muted/50 border border-border/50">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-medium text-sm text-foreground">{pm.label}</span>
+                              <code className="text-[10px] bg-background px-1.5 py-0.5 rounded border">{pm.method}</code>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{pm.providers}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Response Codes */}
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Response Codes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {[
+                          { code: "200", desc: "Success" },
+                          { code: "201", desc: "Created" },
+                          { code: "400", desc: "Bad Request" },
+                          { code: "401", desc: "Unauthorized" },
+                          { code: "403", desc: "Forbidden" },
+                          { code: "404", desc: "Not Found" },
+                          { code: "422", desc: "Validation Error" },
+                          { code: "429", desc: "Rate Limited" },
+                          { code: "500", desc: "Server Error" },
+                        ].map((r) => (
+                          <div key={r.code} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                            <Badge 
+                              variant={r.code.startsWith("2") ? "default" : r.code.startsWith("4") ? "secondary" : "destructive"} 
+                              className="font-mono w-12 justify-center text-xs"
+                            >
+                              {r.code}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">{r.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* SDKs */}
+              {activeSection === "sdks" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">SDKs & Libraries</h2>
+                    <p className="text-muted-foreground">Official client libraries for popular programming languages</p>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      { label: "Total Downloads", value: "100K+", icon: Download },
+                      { label: "Languages", value: "4 SDKs", icon: Package },
+                      { label: "Latest Release", value: "2 days ago", icon: Clock },
+                      { label: "License", value: "MIT", icon: Shield },
+                    ].map((stat) => (
+                      <Card key={stat.label} className="border-0 shadow-sm">
+                        <CardContent className="p-4 flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <stat.icon className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">{stat.label}</p>
+                            <p className="font-semibold text-sm">{stat.value}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* SDK Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {[
+                      {
+                        lang: "JavaScript / Node.js",
+                        icon: "JS",
+                        version: "v2.1.0",
+                        downloads: "45.2K",
+                        stars: 328,
+                        color: "from-yellow-500/20 to-yellow-600/10",
+                        install: "npm install @bmaglass/payments-js",
+                        features: ["TypeScript support", "Browser & Node.js", "Webhook helpers", "Retry logic"],
+                      },
+                      {
+                        lang: "Python",
+                        icon: "PY",
+                        version: "v1.8.0",
+                        downloads: "28.7K",
+                        stars: 215,
+                        color: "from-blue-500/20 to-blue-600/10",
+                        install: "pip install bmaglass-payments",
+                        features: ["Async support", "Type hints", "Django/Flask plugins", "Auto-retries"],
+                      },
+                      {
+                        lang: "PHP",
+                        icon: "PHP",
+                        version: "v1.5.0",
+                        downloads: "18.3K",
+                        stars: 142,
+                        color: "from-indigo-500/20 to-indigo-600/10",
+                        install: "composer require bmaglass/payments-php",
+                        features: ["PHP 8.1+", "Laravel support", "PSR-18 HTTP", "Webhook middleware"],
+                      },
+                      {
+                        lang: "Go",
+                        icon: "GO",
+                        version: "v1.2.0",
+                        downloads: "8.1K",
+                        stars: 89,
+                        color: "from-cyan-500/20 to-cyan-600/10",
+                        install: "go get github.com/bmaglass/payments-go",
+                        features: ["Context support", "Connection pooling", "Idiomatic Go", "Zero dependencies"],
+                      },
+                    ].map((sdk) => (
+                      <Card key={sdk.lang} className="overflow-hidden border-0 shadow-sm hover:shadow-md transition-shadow">
+                        <div className={`h-1 bg-gradient-to-r ${sdk.color}`} />
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${sdk.color} flex items-center justify-center font-bold text-xs border border-border/40`}>
+                                {sdk.icon}
+                              </div>
+                              <div>
+                                <CardTitle className="text-base">{sdk.lang}</CardTitle>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                                  <span className="flex items-center gap-1"><Download className="h-3 w-3" />{sdk.downloads}</span>
+                                  <span className="flex items-center gap-1"><Star className="h-3 w-3" />{sdk.stars}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <Badge variant="outline" className="font-mono text-xs">{sdk.version}</Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4 pt-0">
+                          <div className="flex flex-wrap gap-1.5">
+                            {sdk.features.map((f) => (
+                              <Badge key={f} variant="secondary" className="text-[10px] font-normal">
+                                {f}
+                              </Badge>
+                            ))}
+                          </div>
+                          <CodeBlock code={sdk.install} />
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" className="flex-1 h-8 text-xs">
+                              <ExternalLink className="h-3 w-3 mr-1" /> GitHub
+                            </Button>
+                            <Button size="sm" className="flex-1 h-8 text-xs">
+                              <Book className="h-3 w-3 mr-1" /> Docs
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* Drop-in UI */}
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-primary/10">
+                          <Zap className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">Frontend Drop-in UI</CardTitle>
+                          <CardDescription>Embed a pre-built payment form — no backend required</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <CodeBlock code={`<script src="https://js.bmaglasspay.com/v2/checkout.js"></script>
 
 <div id="bmaglass-checkout"></div>
 
@@ -588,417 +621,190 @@ payment, err := client.Payments.Create(&bmaglass.PaymentParams{
     publicKey: 'pk_live_YOUR_KEY',
     amount: 150.00,
     currency: 'ZMW',
-    onSuccess: (payment) => {
-      console.log('Payment successful:', payment.id);
-    },
-    onError: (error) => {
-      console.error('Payment failed:', error.message);
-    }
+    onSuccess: (payment) => console.log('Paid:', payment.id)
   });
 </script>`} />
-                </CardContent>
-              </Card>
-            </TabsContent>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
-            {/* PLUGINS & MODULES */}
-            <TabsContent value="plugins" className="space-y-8">
-              <div className="text-center mb-4">
-                <h2 className="text-2xl font-bold mb-2">Platform Integrations</h2>
-                <p className="text-muted-foreground">Install once, accept payments forever. No coding required.</p>
-              </div>
+              {/* PLUGINS */}
+              {activeSection === "plugins" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Plugins & Integrations</h2>
+                    <p className="text-muted-foreground">Install once, accept payments forever. No coding required.</p>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <PlatformCard
-                  name="WordPress"
-                  icon={Globe}
-                  description="Payment gateway for WordPress sites"
-                  status="stable"
-                  installCmd="Upload bmaglass-pay.zip via Plugins → Add New"
-                  features={[
-                    "One-click install from WordPress admin",
-                    "Donation & payment forms via shortcode",
-                    "Gutenberg block for inline checkout",
-                    "Supports Mobile Money, Cards & USSD",
-                  ]}
-                />
-                <PlatformCard
-                  name="WooCommerce"
-                  icon={ShoppingCart}
-                  description="Full checkout integration for WooCommerce"
-                  status="stable"
-                  installCmd="Upload bmaglass-woocommerce.zip via Plugins → Add New"
-                  features={[
-                    "Checkout gateway with all payment methods",
-                    "Automatic order status updates via webhook",
-                    "Multi-currency with ZMW as default",
-                    "Refunds directly from WooCommerce admin",
-                    "Subscriptions & recurring payments",
-                  ]}
-                />
-                <PlatformCard
-                  name="Odoo"
-                  icon={Blocks}
-                  description="Payment acquirer module for Odoo ERP"
-                  status="stable"
-                  installCmd="odoo-bin -i bmaglass_payment"
-                  features={[
-                    "Odoo 16 & 17 compatible",
-                    "Payment acquirer with tokenization",
-                    "POS integration for in-store payments",
-                    "Invoice payment links via Mobile Money",
-                    "Automatic journal entries & reconciliation",
-                  ]}
-                />
-                <PlatformCard
-                  name="Shopify"
-                  icon={Store}
-                  description="Shopify payment app"
-                  status="beta"
-                  features={[
-                    "Shopify Payments API integration",
-                    "Mobile Money at Shopify checkout",
-                    "Automatic order fulfillment triggers",
-                    "Multi-currency support",
-                  ]}
-                />
-                <PlatformCard
-                  name="PrestaShop"
-                  icon={ShoppingCart}
-                  description="Payment module for PrestaShop"
-                  status="stable"
-                  installCmd="Upload bmaglass_prestashop.zip via Modules → Upload"
-                  features={[
-                    "PrestaShop 1.7+ & 8.x compatible",
-                    "Embedded checkout in order flow",
-                    "Multi-shop support",
-                    "Automatic refund processing",
-                  ]}
-                />
-                <PlatformCard
-                  name="Magento"
-                  icon={ShoppingCart}
-                  description="Adobe Commerce / Magento 2 extension"
-                  status="coming-soon"
-                  features={[
-                    "Magento 2.4+ compatible",
-                    "Vault payment tokenization",
-                    "Admin panel transaction management",
-                    "GraphQL & REST API support",
-                  ]}
-                />
-                <PlatformCard
-                  name="Laravel"
-                  icon={Code2}
-                  description="First-party PHP package for Laravel"
-                  status="stable"
-                  installCmd="composer require bmaglass/laravel-payments"
-                  features={[
-                    "Cashier-style API for subscriptions",
-                    "Blade components for checkout forms",
-                    "Webhook handling with signature verification",
-                    "Artisan commands for testing & setup",
-                  ]}
-                />
-                <PlatformCard
-                  name="Django"
-                  icon={Code2}
-                  description="Django app for Python web projects"
-                  status="beta"
-                  installCmd="pip install django-bmaglass"
-                  features={[
-                    "Django 4.2+ & 5.x support",
-                    "Model mixins for payable objects",
-                    "Admin integration for transaction viewing",
-                    "Celery task for async webhook processing",
-                  ]}
-                />
-                <PlatformCard
-                  name="React / Next.js"
-                  icon={Code2}
-                  description="React components and hooks"
-                  status="stable"
-                  installCmd="npm install @bmaglass/react"
-                  features={[
-                    "<PaymentForm /> drop-in component",
-                    "usePayment() hook for custom UIs",
-                    "Server-side support for Next.js",
-                    "TypeScript definitions included",
-                  ]}
-                />
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <PlatformCard
+                      name="WordPress"
+                      icon={Globe}
+                      description="Payment gateway for WordPress"
+                      status="stable"
+                      installCmd="Upload bmaglass-pay.zip via Plugins"
+                      features={["One-click install", "Donation forms via shortcode", "Gutenberg block", "All payment methods"]}
+                    />
+                    <PlatformCard
+                      name="WooCommerce"
+                      icon={ShoppingCart}
+                      description="Full checkout integration"
+                      status="stable"
+                      installCmd="Upload bmaglass-woocommerce.zip"
+                      features={["All payment methods at checkout", "Auto order status updates", "Multi-currency support", "Refunds from admin"]}
+                    />
+                    <PlatformCard
+                      name="Odoo"
+                      icon={Blocks}
+                      description="Payment acquirer for Odoo ERP"
+                      status="stable"
+                      installCmd="odoo-bin -i bmaglass_payment"
+                      features={["Odoo 16 & 17 compatible", "POS integration", "Invoice payment links", "Auto reconciliation"]}
+                    />
+                    <PlatformCard
+                      name="Shopify"
+                      icon={Store}
+                      description="Shopify payment app"
+                      status="beta"
+                      features={["Shopify Payments API", "Mobile Money at checkout", "Auto order fulfillment", "Multi-currency"]}
+                    />
+                    <PlatformCard
+                      name="Laravel"
+                      icon={Code2}
+                      description="First-party PHP package"
+                      status="stable"
+                      installCmd="composer require bmaglass/laravel-payments"
+                      features={["Cashier-style API", "Blade components", "Webhook verification", "Artisan commands"]}
+                    />
+                    <PlatformCard
+                      name="Django"
+                      icon={Code2}
+                      description="Python Django integration"
+                      status="stable"
+                      installCmd="pip install bmaglass-django"
+                      features={["Django 4.x+", "Template tags", "Signals for events", "Admin dashboard"]}
+                    />
+                  </div>
+                </div>
+              )}
 
-              {/* Integration comparison */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Choose Your Integration</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 pr-4">Feature</th>
-                          <th className="text-center py-3 px-4">REST API</th>
-                          <th className="text-center py-3 px-4">SDK</th>
-                          <th className="text-center py-3 px-4">Plugin</th>
-                          <th className="text-center py-3 px-4">Drop-in UI</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-muted-foreground">
+              {/* WEBHOOKS */}
+              {activeSection === "webhooks" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Webhooks</h2>
+                    <p className="text-muted-foreground">Receive real-time notifications for payment events</p>
+                  </div>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Webhook Events</CardTitle>
+                      <CardDescription>Subscribe to events that matter to your application</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {[
-                          ["Coding required", "Full", "Minimal", "None", "HTML only"],
-                          ["Setup time", "1-2 days", "30 min", "5 min", "10 min"],
-                          ["Customization", "Full", "Full", "Limited", "Theme only"],
-                          ["PCI compliance", "You handle", "SDK handles", "Plugin handles", "We handle"],
-                          ["Webhook support", "Manual", "Built-in", "Automatic", "Automatic"],
-                          ["Mobile Money", "✓", "✓", "✓", "✓"],
-                          ["Card payments", "✓", "✓", "✓", "✓"],
-                          ["USSD", "✓", "✓", "✓", "—"],
-                          ["Bitcoin", "✓", "✓", "—", "—"],
-                        ].map(([feature, ...values], i) => (
-                          <tr key={i} className="border-b last:border-0">
-                            <td className="py-2.5 pr-4 font-medium text-foreground">{feature}</td>
-                            {values.map((v, j) => (
-                              <td key={j} className="text-center py-2.5 px-4">{v}</td>
-                            ))}
-                          </tr>
+                          "payment.created", "payment.completed", "payment.failed", "payment.refunded",
+                          "transfer.created", "transfer.completed", "transfer.failed",
+                          "subscription.created", "subscription.renewed", "subscription.cancelled",
+                          "card.created", "card.funded", "card.transaction"
+                        ].map((event) => (
+                          <div key={event} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                            <Webhook className="h-3.5 w-3.5 text-primary" />
+                            <code className="text-xs font-mono">{event}</code>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* WEBHOOKS */}
-            <TabsContent value="webhooks" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Webhook Events</CardTitle>
-                  <CardDescription>Receive real-time notifications when events occur in your account</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    {[
-                      { category: "Payments", events: ["payment.created", "payment.completed", "payment.failed", "payment.refunded", "payment.expired"] },
-                      { category: "Transfers", events: ["transfer.created", "transfer.completed", "transfer.failed"] },
-                      { category: "Customers", events: ["customer.created", "customer.updated"] },
-                      { category: "Disputes", events: ["dispute.created", "dispute.resolved", "dispute.escalated"] },
-                      { category: "Subscriptions", events: ["subscription.created", "subscription.renewed", "subscription.cancelled", "subscription.payment_failed"] },
-                    ].map((group) => (
-                      <div key={group.category}>
-                        <h4 className="font-medium mb-2">{group.category}</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {group.events.map((e) => (
-                            <Badge key={e} variant="outline" className="font-mono text-xs">{e}</Badge>
-                          ))}
-                        </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Webhook Payload</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CodeBlock code={`{
-  "event_type": "payment.completed",
-  "event_id": "evt_abc123def456",
-  "timestamp": "2026-03-07T14:30:45Z",
-  "api_version": "2026-01-01",
-  "data": {
-    "id": "pay_xyz789",
-    "amount": 150.00,
-    "currency": "ZMW",
-    "status": "completed",
-    "payment_method": "mobile_money",
-    "customer": {
-      "phone": "+260971234567",
-      "name": "John Banda"
-    },
-    "metadata": {
-      "order_id": "1234"
-    }
-  }
-}`} />
-                </CardContent>
-              </Card>
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Signature Verification</CardTitle>
+                      <CardDescription>Always verify webhook signatures to ensure authenticity</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <CodeBlock code={`import crypto from 'crypto';
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Signature Verification</CardTitle>
-                  <CardDescription>Always verify webhook signatures to prevent spoofing</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <CodeBlock code={`// Node.js example
-const crypto = require('crypto');
-
-function verifyWebhookSignature(payload, signature, secret) {
+function verifyWebhook(payload, signature, secret) {
   const hmac = crypto.createHmac('sha256', secret);
-  const digest = hmac.update(payload, 'utf8').digest('hex');
-  
+  const digest = hmac.update(payload).digest('hex');
   return crypto.timingSafeEqual(
-    Buffer.from(digest, 'hex'),
-    Buffer.from(signature, 'hex')
+    Buffer.from(signature),
+    Buffer.from(digest)
   );
-}
+}`} />
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
-// In your webhook handler
-app.post('/webhook', (req, res) => {
-  const signature = req.headers['x-bmaglass-signature'];
-  const isValid = verifyWebhookSignature(
-    JSON.stringify(req.body),
-    signature,
-    process.env.BMAGLASS_WEBHOOK_SECRET
-  );
-  
-  if (!isValid) return res.status(401).send('Invalid signature');
-  
-  // Process the event
-  const event = req.body;
-  switch (event.event_type) {
-    case 'payment.completed':
-      // Fulfill the order
-      break;
-    case 'payment.failed':
-      // Notify the customer
-      break;
-  }
-  
-  res.status(200).send('OK');
-});`} />
-                  <div className="p-4 bg-accent/50 rounded-lg border border-accent">
-                    <p className="text-sm"><strong>Security tip:</strong> Always use <code className="bg-secondary/30 px-1 rounded">timingSafeEqual</code> to prevent timing attacks. Never compare signatures with <code className="bg-secondary/30 px-1 rounded">===</code>.</p>
+              {/* TESTING */}
+              {activeSection === "testing" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Testing & Sandbox</h2>
+                    <p className="text-muted-foreground">Test your integration with our sandbox environment</p>
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
 
-            {/* TESTING */}
-            <TabsContent value="testing" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Sandbox Environment</CardTitle>
-                  <CardDescription>Test your integration without processing real payments</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 border rounded-lg">
-                      <h4 className="font-medium mb-1">Sandbox Base URL</h4>
-                      <CodeBlock code="https://api.sandbox.bmaglasspay.com" />
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <h4 className="font-medium mb-1">Production Base URL</h4>
-                      <CodeBlock code="https://api.bmaglasspay.com" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Test Credentials</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                          { label: "MTN Mobile Money", number: "+260970000001", pin: "1234" },
+                          { label: "Airtel Money", number: "+260960000001", pin: "1234" },
+                          { label: "Zamtel Kwacha", number: "+260950000001", pin: "1234" },
+                        ].map((cred) => (
+                          <div key={cred.label} className="p-4 rounded-lg bg-muted/50 border border-border/50">
+                            <p className="font-medium text-sm mb-2">{cred.label}</p>
+                            <p className="text-xs text-muted-foreground">Phone: <code className="text-foreground">{cred.number}</code></p>
+                            <p className="text-xs text-muted-foreground">PIN: <code className="text-foreground">{cred.pin}</code></p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Test Cards & Phone Numbers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-medium mb-2">Card Numbers</h4>
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Test Cards</CardTitle>
+                    </CardHeader>
+                    <CardContent>
                       <div className="space-y-2">
                         {[
-                          { number: "4242 4242 4242 4242", result: "Always succeeds", type: "Visa" },
-                          { number: "5555 5555 5555 4444", result: "Always succeeds", type: "Mastercard" },
-                          { number: "4000 0000 0000 0002", result: "Always declined", type: "Visa" },
-                          { number: "4000 0027 6000 3184", result: "Requires 3D Secure", type: "Visa" },
-                          { number: "4000 0000 0000 9995", result: "Insufficient funds", type: "Visa" },
+                          { number: "4242 4242 4242 4242", result: "Success" },
+                          { number: "4000 0000 0000 0002", result: "Declined" },
+                          { number: "4000 0000 0000 9995", result: "Insufficient funds" },
                         ].map((card) => (
-                          <div key={card.number} className="flex items-center gap-4 p-2.5 border rounded-lg text-sm">
-                            <code className="font-mono flex-1">{card.number}</code>
-                            <Badge variant="outline">{card.type}</Badge>
-                            <span className="text-muted-foreground">{card.result}</span>
+                          <div key={card.number} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                            <code className="text-sm font-mono">{card.number}</code>
+                            <Badge variant={card.result === "Success" ? "default" : "secondary"} className="text-xs">
+                              {card.result}
+                            </Badge>
                           </div>
                         ))}
                       </div>
-                    </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
-                    <div>
-                      <h4 className="font-medium mb-2">Mobile Money Test Numbers</h4>
-                      <div className="space-y-2">
-                        {[
-                          { number: "+260970000001", result: "Always succeeds", provider: "MTN" },
-                          { number: "+260960000001", result: "Always succeeds", provider: "Airtel" },
-                          { number: "+260950000001", result: "Always succeeds", provider: "Zamtel" },
-                          { number: "+260970000099", result: "Always fails", provider: "MTN" },
-                          { number: "+260970000050", result: "Timeout (30s)", provider: "MTN" },
-                        ].map((phone) => (
-                          <div key={phone.number} className="flex items-center gap-4 p-2.5 border rounded-lg text-sm">
-                            <code className="font-mono flex-1">{phone.number}</code>
-                            <Badge variant="outline">{phone.provider}</Badge>
-                            <span className="text-muted-foreground">{phone.result}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-accent/50 rounded-lg border border-accent">
-                      <p className="text-sm">
-                        <strong>Note:</strong> Use any future expiry date and any 3-digit CVC for test cards. 
-                        Test transactions appear in your dashboard but no real money is processed.
-                      </p>
-                    </div>
+              {/* PLAYGROUND */}
+              {activeSection === "playground" && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">API Playground</h2>
+                    <p className="text-muted-foreground">Test API endpoints interactively with live responses</p>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>API Rate Limits</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    {[
-                      { tier: "Free", limit: "100 req/hour" },
-                      { tier: "Starter", limit: "1,000 req/hour" },
-                      { tier: "Business", limit: "10,000 req/hour" },
-                      { tier: "Enterprise", limit: "Unlimited" },
-                    ].map((r) => (
-                      <div key={r.tier} className="flex items-center justify-between p-3 border rounded-lg">
-                        <span className="font-medium">{r.tier}</span>
-                        <Badge variant="outline">{r.limit}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* PLAYGROUND */}
-            <TabsContent value="playground">
-              <ApiPlayground />
-            </TabsContent>
-          </Tabs>
-        </section>
-
-        {/* CTA */}
-        <section className="px-4 max-w-3xl mx-auto mt-16 text-center">
-          <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
-            <CardContent className="pt-8 pb-8">
-              <h2 className="text-2xl font-bold mb-2">Ready to integrate?</h2>
-              <p className="text-muted-foreground mb-6">
-                Create a free account to get your API keys and start building.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button size="lg" asChild>
-                  <a href="/register">Get API Keys <ArrowRight className="h-4 w-4 ml-2" /></a>
-                </Button>
-                <Button variant="outline" size="lg" asChild>
-                  <a href="/contact">Talk to Sales</a>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  <ApiPlayground />
+                </div>
+              )}
+            </div>
+          </div>
         </section>
       </main>
       <Footer />
