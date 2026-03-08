@@ -209,7 +209,7 @@ const Compliance = () => {
                           
                           <div className="mt-6">
                             <Button 
-                              onClick={() => window.location.href = '/wallet'}
+                              onClick={() => navigate('/wallet')}
                               variant="outline"
                             >
                               Update KYC Verification
