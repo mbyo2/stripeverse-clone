@@ -68,6 +68,14 @@ import SpendingInsights from '@/pages/SpendingInsights';
 import InvoicesPage from '@/pages/Invoices';
 import BuyNowPayLater from '@/pages/BuyNowPayLater';
 import ScheduledPayments from '@/pages/ScheduledPayments';
+import BankTransfers from '@/pages/BankTransfers';
+import CollectPayments from '@/pages/CollectPayments';
+import PaymentLinks from '@/pages/PaymentLinks';
+import SubAccounts from '@/pages/SubAccounts';
+import MultiCurrencyWallet from '@/pages/MultiCurrencyWallet';
+import BulkPayments from '@/pages/BulkPayments';
+import Refunds from '@/pages/Refunds';
+
 const AnimatedRoutes = () => {
   const location = useLocation();
 
