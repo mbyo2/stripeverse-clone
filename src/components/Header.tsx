@@ -475,6 +475,12 @@ const Header = () => {
                     <MobileNavLink to="/api" icon={Code2}>API</MobileNavLink>
                     <MobileNavLink to="/sdk-docs" icon={Package}>SDK Docs</MobileNavLink>
                     <MobileNavLink to="/billing" icon={DollarSign}>Billing</MobileNavLink>
+                    <MobileNavLink to="/payment-plans" icon={CalendarClock}>Payment Plans</MobileNavLink>
+                    <MobileNavLink to="/escrow" icon={Lock}>Escrow</MobileNavLink>
+                    <MobileNavLink to="/bill-payments" icon={Zap}>Bill Payments</MobileNavLink>
+                    <MobileNavLink to="/agent-network" icon={MapPin}>Agent Network</MobileNavLink>
+                    <MobileNavLink to="/fraud-rules" icon={Shield}>Fraud Rules</MobileNavLink>
+                    <MobileNavLink to="/ip-whitelist" icon={ShieldIcon}>IP Whitelist</MobileNavLink>
                     <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
                     
                     <Separator className="my-2" />

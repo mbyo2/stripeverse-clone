@@ -81,6 +81,21 @@ import SdkDocs from '@/pages/SdkDocs';
 import WebhookLogs from '@/pages/WebhookLogs';
 import CardVault from '@/pages/CardVault';
 
+// New feature pages
+import PaymentPlans from '@/pages/PaymentPlans';
+import Escrow from '@/pages/Escrow';
+import Savings from '@/pages/Savings';
+import BillPayments from '@/pages/BillPayments';
+import AgentNetwork from '@/pages/AgentNetwork';
+import FraudRules from '@/pages/FraudRules';
+import Statements from '@/pages/Statements';
+import TransactionSearch from '@/pages/TransactionSearch';
+import IpWhitelist from '@/pages/IpWhitelist';
+
+const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
+);
+
 const AnimatedRoutes = () => {
   const location = useLocation();
 
@@ -109,337 +124,78 @@ const AnimatedRoutes = () => {
         <Route path="/payment-failed" element={<PageTransition><PaymentFailed /></PageTransition>} />
         
         {/* Protected routes */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <PageTransition><Dashboard /></PageTransition>
-          </ProtectedRoute>
-        } />
-        
-        {/* Role-specific dashboards */}
-        <Route path="/user-dashboard" element={
-          <ProtectedRoute>
-            <PageTransition><UserDashboard /></PageTransition>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/admin-dashboard" element={
-          <ProtectedRoute>
-            <PageTransition><AdminDashboard /></PageTransition>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/beta-dashboard" element={
-          <ProtectedRoute>
-            <PageTransition><BetaTesterDashboard /></PageTransition>
-          </ProtectedRoute>
-        } />
+        <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
+        <Route path="/user-dashboard" element={<ProtectedPage><UserDashboard /></ProtectedPage>} />
+        <Route path="/admin-dashboard" element={<ProtectedPage><AdminDashboard /></ProtectedPage>} />
+        <Route path="/beta-dashboard" element={<ProtectedPage><BetaTesterDashboard /></ProtectedPage>} />
 
         <Route path="/business-dashboard" element={
-          <ProtectedRoute>
-            <BusinessRouteGuard>
-              <PageTransition><BusinessDashboard /></PageTransition>
-            </BusinessRouteGuard>
-          </ProtectedRoute>
+          <ProtectedRoute><BusinessRouteGuard><PageTransition><BusinessDashboard /></PageTransition></BusinessRouteGuard></ProtectedRoute>
         } />
-
         <Route path="/business" element={
-          <ProtectedRoute>
-            <BusinessRouteGuard>
-              <PageTransition><Business /></PageTransition>
-            </BusinessRouteGuard>
-          </ProtectedRoute>
+          <ProtectedRoute><BusinessRouteGuard><PageTransition><Business /></PageTransition></BusinessRouteGuard></ProtectedRoute>
         } />
         
-        <Route path="/role-management" element={
-          <ProtectedRoute>
-            <PageTransition><RoleManagement /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/tier-management" element={
-          <ProtectedRoute>
-            <PageTransition><TierManagement /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <PageTransition><Settings /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/security-settings" element={
-          <ProtectedRoute>
-            <PageTransition><SecuritySettings /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/two-factor-auth" element={
-          <ProtectedRoute>
-            <PageTransition><TwoFactorAuth /></PageTransition>
-          </ProtectedRoute>
-        } />
-
+        <Route path="/role-management" element={<ProtectedPage><RoleManagement /></ProtectedPage>} />
+        <Route path="/tier-management" element={<ProtectedPage><TierManagement /></ProtectedPage>} />
+        <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
+        <Route path="/security-settings" element={<ProtectedPage><SecuritySettings /></ProtectedPage>} />
+        <Route path="/two-factor-auth" element={<ProtectedPage><TwoFactorAuth /></ProtectedPage>} />
         <Route path="/profile" element={<Navigate to="/settings" replace />} />
+        <Route path="/wallet" element={<ProtectedPage><Wallet /></ProtectedPage>} />
+        <Route path="/bitcoin-wallet" element={<ProtectedPage><BitcoinWallet /></ProtectedPage>} />
+        <Route path="/wallet-reconciliation" element={<ProtectedPage><WalletReconciliationPage /></ProtectedPage>} />
+        <Route path="/transactions" element={<ProtectedPage><Transactions /></ProtectedPage>} />
+        <Route path="/transaction-list" element={<ProtectedPage><TransactionList /></ProtectedPage>} />
+        <Route path="/transaction-search" element={<ProtectedPage><TransactionSearch /></ProtectedPage>} />
+        <Route path="/billing" element={<ProtectedPage><Billing /></ProtectedPage>} />
+        <Route path="/analytics" element={<ProtectedRoute requiredFeature="analytics"><PageTransition><Analytics /></PageTransition></ProtectedRoute>} />
+        <Route path="/api" element={<ProtectedRoute requiredFeature="business_tools"><PageTransition><API /></PageTransition></ProtectedRoute>} />
+        <Route path="/support" element={<ProtectedPage><Support /></ProtectedPage>} />
+        <Route path="/card/new" element={<ProtectedPage><VirtualCardNew /></ProtectedPage>} />
+        <Route path="/card/:id" element={<ProtectedPage><VirtualCardDetails /></ProtectedPage>} />
+        <Route path="/card/:id/fund" element={<ProtectedPage><VirtualCardFund /></ProtectedPage>} />
+        <Route path="/transfer" element={<ProtectedRoute requiredFeature="transfers"><PageTransition><Transfer /></PageTransition></ProtectedRoute>} />
+        <Route path="/send-money" element={<ProtectedPage><SendMoney /></ProtectedPage>} />
+        <Route path="/compliance" element={<ProtectedPage><Compliance /></ProtectedPage>} />
+        <Route path="/feedback-dashboard" element={<ProtectedRoute requiredFeature="feedback_dashboard"><PageTransition><FeedbackDashboard /></PageTransition></ProtectedRoute>} />
+        <Route path="/feedback" element={<ProtectedPage><Feedback /></ProtectedPage>} />
+        <Route path="/help" element={<ProtectedPage><Help /></ProtectedPage>} />
+        <Route path="/rewards" element={<ProtectedPage><Rewards /></ProtectedPage>} />
+        <Route path="/payment-processor" element={<ProtectedRoute requiredFeature="business_tools"><PageTransition><PaymentProcessor /></PageTransition></ProtectedRoute>} />
+        <Route path="/payment-services" element={<ProtectedPage><PaymentServices /></ProtectedPage>} />
+        <Route path="/disputes" element={<ProtectedPage><Disputes /></ProtectedPage>} />
+        <Route path="/notifications" element={<ProtectedPage><Notifications /></ProtectedPage>} />
+        <Route path="/kyc" element={<ProtectedPage><KycPage /></ProtectedPage>} />
+        <Route path="/ussd-access" element={<ProtectedPage><UssdAccess /></ProtectedPage>} />
+        <Route path="/admin/users" element={<ProtectedRoute requiredFeature="feedback_dashboard"><PageTransition><AdminUsers /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/transactions" element={<ProtectedRoute requiredFeature="feedback_dashboard"><PageTransition><AdminTransactions /></PageTransition></ProtectedRoute>} />
+        <Route path="/request-money" element={<ProtectedPage><RequestMoney /></ProtectedPage>} />
+        <Route path="/contacts" element={<ProtectedPage><Contacts /></ProtectedPage>} />
+        <Route path="/spending-insights" element={<ProtectedPage><SpendingInsights /></ProtectedPage>} />
+        <Route path="/invoices" element={<ProtectedPage><InvoicesPage /></ProtectedPage>} />
+        <Route path="/pay-later" element={<ProtectedPage><BuyNowPayLater /></ProtectedPage>} />
+        <Route path="/scheduled-payments" element={<ProtectedPage><ScheduledPayments /></ProtectedPage>} />
+        <Route path="/bank-transfers" element={<ProtectedPage><BankTransfers /></ProtectedPage>} />
+        <Route path="/collect-payments" element={<ProtectedPage><CollectPayments /></ProtectedPage>} />
+        <Route path="/payment-links" element={<ProtectedPage><PaymentLinks /></ProtectedPage>} />
+        <Route path="/sub-accounts" element={<ProtectedPage><SubAccounts /></ProtectedPage>} />
+        <Route path="/multi-currency" element={<ProtectedPage><MultiCurrencyWallet /></ProtectedPage>} />
+        <Route path="/bulk-payments" element={<ProtectedPage><BulkPayments /></ProtectedPage>} />
+        <Route path="/refunds" element={<ProtectedPage><Refunds /></ProtectedPage>} />
+        <Route path="/settlements" element={<ProtectedPage><Settlements /></ProtectedPage>} />
+        <Route path="/webhook-logs" element={<ProtectedPage><WebhookLogs /></ProtectedPage>} />
+        <Route path="/card-vault" element={<ProtectedPage><CardVault /></ProtectedPage>} />
 
-        <Route path="/wallet" element={
-          <ProtectedRoute>
-            <PageTransition><Wallet /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/bitcoin-wallet" element={
-          <ProtectedRoute>
-            <PageTransition><BitcoinWallet /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/wallet-reconciliation" element={
-          <ProtectedRoute>
-            <PageTransition><WalletReconciliationPage /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/transactions" element={
-          <ProtectedRoute>
-            <PageTransition><Transactions /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/transaction-list" element={
-          <ProtectedRoute>
-            <PageTransition><TransactionList /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/billing" element={
-          <ProtectedRoute>
-            <PageTransition><Billing /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/analytics" element={
-          <ProtectedRoute requiredFeature="analytics">
-            <PageTransition><Analytics /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/api" element={
-          <ProtectedRoute requiredFeature="business_tools">
-            <PageTransition><API /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/support" element={
-          <ProtectedRoute>
-            <PageTransition><Support /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/card/new" element={
-          <ProtectedRoute>
-            <PageTransition><VirtualCardNew /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/card/:id" element={
-          <ProtectedRoute>
-            <PageTransition><VirtualCardDetails /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/card/:id/fund" element={
-          <ProtectedRoute>
-            <PageTransition><VirtualCardFund /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/transfer" element={
-          <ProtectedRoute requiredFeature="transfers">
-            <PageTransition><Transfer /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/send-money" element={
-          <ProtectedRoute>
-            <PageTransition><SendMoney /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/compliance" element={
-          <ProtectedRoute>
-            <PageTransition><Compliance /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/feedback-dashboard" element={
-          <ProtectedRoute requiredFeature="feedback_dashboard">
-            <PageTransition><FeedbackDashboard /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/feedback" element={
-          <ProtectedRoute>
-            <PageTransition><Feedback /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/help" element={
-          <ProtectedRoute>
-            <PageTransition><Help /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/rewards" element={
-          <ProtectedRoute>
-            <PageTransition><Rewards /></PageTransition>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/payment-processor" element={
-          <ProtectedRoute requiredFeature="business_tools">
-            <PageTransition><PaymentProcessor /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/payment-services" element={
-          <ProtectedRoute>
-            <PageTransition><PaymentServices /></PageTransition>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/disputes" element={
-          <ProtectedRoute>
-            <PageTransition><Disputes /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/notifications" element={
-          <ProtectedRoute>
-            <PageTransition><Notifications /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/kyc" element={
-          <ProtectedRoute>
-            <PageTransition><KycPage /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/ussd-access" element={
-          <ProtectedRoute>
-            <PageTransition><UssdAccess /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/admin/users" element={
-          <ProtectedRoute requiredFeature="feedback_dashboard">
-            <PageTransition><AdminUsers /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/admin/transactions" element={
-          <ProtectedRoute requiredFeature="feedback_dashboard">
-            <PageTransition><AdminTransactions /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        {/* New PayPal-competitive features */}
-        <Route path="/request-money" element={
-          <ProtectedRoute>
-            <PageTransition><RequestMoney /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/contacts" element={
-          <ProtectedRoute>
-            <PageTransition><Contacts /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/spending-insights" element={
-          <ProtectedRoute>
-            <PageTransition><SpendingInsights /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/invoices" element={
-          <ProtectedRoute>
-            <PageTransition><InvoicesPage /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/pay-later" element={
-          <ProtectedRoute>
-            <PageTransition><BuyNowPayLater /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/scheduled-payments" element={
-          <ProtectedRoute>
-            <PageTransition><ScheduledPayments /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/bank-transfers" element={
-          <ProtectedRoute>
-            <PageTransition><BankTransfers /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/collect-payments" element={
-          <ProtectedRoute>
-            <PageTransition><CollectPayments /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/payment-links" element={
-          <ProtectedRoute>
-            <PageTransition><PaymentLinks /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/sub-accounts" element={
-          <ProtectedRoute>
-            <PageTransition><SubAccounts /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/multi-currency" element={
-          <ProtectedRoute>
-            <PageTransition><MultiCurrencyWallet /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/bulk-payments" element={
-          <ProtectedRoute>
-            <PageTransition><BulkPayments /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/refunds" element={
-          <ProtectedRoute>
-            <PageTransition><Refunds /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/settlements" element={
-          <ProtectedRoute>
-            <PageTransition><Settlements /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/webhook-logs" element={
-          <ProtectedRoute>
-            <PageTransition><WebhookLogs /></PageTransition>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/card-vault" element={
-          <ProtectedRoute>
-            <PageTransition><CardVault /></PageTransition>
-          </ProtectedRoute>
-        } />
+        {/* New feature routes */}
+        <Route path="/payment-plans" element={<ProtectedPage><PaymentPlans /></ProtectedPage>} />
+        <Route path="/escrow" element={<ProtectedPage><Escrow /></ProtectedPage>} />
+        <Route path="/savings" element={<ProtectedPage><Savings /></ProtectedPage>} />
+        <Route path="/bill-payments" element={<ProtectedPage><BillPayments /></ProtectedPage>} />
+        <Route path="/agent-network" element={<ProtectedPage><AgentNetwork /></ProtectedPage>} />
+        <Route path="/fraud-rules" element={<ProtectedPage><FraudRules /></ProtectedPage>} />
+        <Route path="/statements" element={<ProtectedPage><Statements /></ProtectedPage>} />
+        <Route path="/ip-whitelist" element={<ProtectedPage><IpWhitelist /></ProtectedPage>} />
 
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
