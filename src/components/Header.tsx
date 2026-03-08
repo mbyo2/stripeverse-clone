@@ -178,6 +178,11 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/invoices" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Invoices
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/analytics" className="flex items-center gap-2">
                       <BarChart3 className="h-4 w-4" /> Analytics
                     </Link>
