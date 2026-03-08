@@ -360,6 +360,12 @@ const AnimatedRoutes = () => {
           </ProtectedRoute>
         } />
 
+        <Route path="/scheduled-payments" element={
+          <ProtectedRoute>
+            <PageTransition><ScheduledPayments /></PageTransition>
+          </ProtectedRoute>
+        } />
+
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>

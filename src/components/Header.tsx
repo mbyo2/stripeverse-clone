@@ -127,6 +127,11 @@ const Header = () => {
                       <Users className="h-4 w-4" /> Contacts
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/scheduled-payments" className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" /> Scheduled Payments
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
