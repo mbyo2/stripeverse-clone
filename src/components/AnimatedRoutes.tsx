@@ -62,6 +62,11 @@ import NotFound from '@/pages/NotFound';
 import AdminUsers from '@/pages/AdminUsers';
 import AdminTransactions from '@/pages/AdminTransactions';
 import Developers from '@/pages/Developers';
+import RequestMoney from '@/pages/RequestMoney';
+import Contacts from '@/pages/Contacts';
+import SpendingInsights from '@/pages/SpendingInsights';
+import InvoicesPage from '@/pages/Invoices';
+import BuyNowPayLater from '@/pages/BuyNowPayLater';
 const AnimatedRoutes = () => {
   const location = useLocation();
 
