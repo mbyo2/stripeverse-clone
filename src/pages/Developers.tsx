@@ -9,7 +9,10 @@ import {
   Code2, Book, Webhook, CreditCard, Globe, Copy, Check, 
   ArrowRight, Zap, Shield, Terminal, Package, 
   ShoppingCart, Store, Blocks, Plug, Download, ExternalLink, Play,
-  Clock, Star, ChevronRight, Search, FileCode, Key, Users, Repeat
+  Clock, Star, ChevronRight, Search, FileCode, Key, Users, Repeat,
+  AlertTriangle, Gauge, Hash, GitBranch, Smartphone, FileText,
+  Receipt, Scale, Send, Link2, RefreshCw, Ban, ArrowLeftRight,
+  Database, Lock, Timer, Layers, Rocket, BookOpen
 } from "lucide-react";
 import { ApiPlayground } from "@/components/developers/ApiPlayground";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +52,7 @@ const EndpointRow = ({ method, path, description }: { method: string; path: stri
     POST: "bg-primary/15 text-primary border-primary/30",
     PUT: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
     DELETE: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30",
+    PATCH: "bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30",
   };
 
   return (
@@ -124,8 +128,14 @@ const navItems = [
   { id: "sdks", label: "SDKs & Libraries", icon: Package },
   { id: "plugins", label: "Plugins", icon: Blocks },
   { id: "webhooks", label: "Webhooks", icon: Webhook },
+  { id: "errors", label: "Error Handling", icon: AlertTriangle },
+  { id: "ratelimits", label: "Rate Limits", icon: Gauge },
+  { id: "idempotency", label: "Idempotency", icon: Hash },
+  { id: "pagination", label: "Pagination", icon: Layers },
   { id: "testing", label: "Testing", icon: CreditCard },
   { id: "playground", label: "API Playground", icon: Play },
+  { id: "migration", label: "Migration Guide", icon: ArrowLeftRight },
+  { id: "changelog", label: "Changelog", icon: GitBranch },
 ];
 
 const Developers = () => {
@@ -146,8 +156,8 @@ const Developers = () => {
                 Build powerful payment experiences
               </h1>
               <p className="text-lg text-muted-foreground mb-6 max-w-2xl">
-                Accept Mobile Money, cards, and bank transfers with our modern APIs. 
-                Get started in minutes with comprehensive SDKs and no-code plugins.
+                Accept Mobile Money, cards, bank transfers, Bitcoin, and more with our modern APIs. 
+                Get started in minutes with comprehensive SDKs, no-code plugins, and a live sandbox.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button size="lg" className="h-12 px-6 rounded-lg" onClick={() => setActiveSection("quickstart")}>
@@ -156,10 +166,12 @@ const Developers = () => {
                 <Button size="lg" variant="outline" className="h-12 px-6 rounded-lg" onClick={() => setActiveSection("api")}>
                   <Book className="h-4 w-4 mr-2" /> API Reference
                 </Button>
+                <Button size="lg" variant="outline" className="h-12 px-6 rounded-lg" onClick={() => setActiveSection("playground")}>
+                  <Play className="h-4 w-4 mr-2" /> Try Playground
+                </Button>
               </div>
             </div>
 
-            {/* Search bar */}
             <div className="mt-8 max-w-xl">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -175,12 +187,14 @@ const Developers = () => {
         {/* Stats bar */}
         <section className="border-b border-border/50 bg-background">
           <div className="px-4 max-w-7xl mx-auto py-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 md:gap-6">
               {[
                 { label: "API Uptime", value: "99.99%", icon: Shield },
                 { label: "Avg Response", value: "89ms", icon: Clock },
-                { label: "SDKs", value: "4 Languages", icon: Package },
-                { label: "Plugins", value: "8+ Platforms", icon: Plug },
+                { label: "SDKs", value: "7 Languages", icon: Package },
+                { label: "Plugins", value: "10+ Platforms", icon: Plug },
+                { label: "API Endpoints", value: "45+", icon: Terminal },
+                { label: "Webhook Events", value: "20+", icon: Webhook },
               ].map((stat) => (
                 <div key={stat.label} className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-muted">
@@ -201,8 +215,8 @@ const Developers = () => {
           <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8">
             {/* Sidebar Navigation */}
             <nav className="space-y-1 lg:sticky lg:top-24 lg:self-start">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Documentation</p>
-              {navItems.map((item) => (
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Getting Started</p>
+              {navItems.slice(0, 1).map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
@@ -217,14 +231,67 @@ const Developers = () => {
                 </button>
               ))}
 
-              <Separator className="my-4" />
+              <Separator className="my-3" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">API</p>
+              {navItems.slice(1, 5).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveSection(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors text-sm ${
+                    activeSection === item.id
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  <span>{item.label}</span>
+                </button>
+              ))}
 
+              <Separator className="my-3" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Guides</p>
+              {navItems.slice(5, 10).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveSection(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors text-sm ${
+                    activeSection === item.id
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+
+              <Separator className="my-3" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Tools & More</p>
+              {navItems.slice(10).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveSection(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors text-sm ${
+                    activeSection === item.id
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+
+              <Separator className="my-3" />
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Resources</p>
               <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
                 <ExternalLink className="h-4 w-4" /> API Status
               </a>
               <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-                <ExternalLink className="h-4 w-4" /> Changelog
+                <ExternalLink className="h-4 w-4" /> Postman Collection
+              </a>
+              <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                <ExternalLink className="h-4 w-4" /> OpenAPI Spec
               </a>
               <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
                 <ExternalLink className="h-4 w-4" /> GitHub
@@ -241,7 +308,6 @@ const Developers = () => {
                     <p className="text-muted-foreground">Accept your first payment in under 5 minutes</p>
                   </div>
 
-                  {/* Quick Start Steps */}
                   <div className="space-y-6">
                     {[
                       {
@@ -281,6 +347,24 @@ const bmaglass = new BMaGlass({
 });
 
 console.log(payment.checkout_url); // redirect user here`]
+                      },
+                      {
+                        step: 4,
+                        title: "Handle Webhooks",
+                        desc: "Get notified when payments complete",
+                        codes: [`// Express.js example
+app.post('/webhook', (req, res) => {
+  const signature = req.headers['x-bmaglass-signature'];
+  const isValid = bmaglass.webhooks.verify(
+    req.body, signature, webhookSecret
+  );
+  
+  if (isValid && req.body.event === 'payment.completed') {
+    // Fulfill the order
+    fulfillOrder(req.body.data.metadata.order_id);
+  }
+  res.sendStatus(200);
+});`]
                       }
                     ].map((item) => (
                       <Card key={item.step} className="border-0 shadow-sm">
@@ -304,18 +388,28 @@ console.log(payment.checkout_url); // redirect user here`]
                     ))}
                   </div>
 
-                  {/* CMS Tip */}
-                  <Card className="border-primary/20 bg-primary/5">
-                    <CardContent className="p-4 flex items-start gap-3">
-                      <Plug className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground mb-1">Using a CMS or e-commerce platform?</p>
-                        <p className="text-sm text-muted-foreground">
-                          Skip the code — install our ready-made plugins for{" "}
-                          <button onClick={() => setActiveSection("plugins")} className="text-primary hover:underline">
-                            WordPress, WooCommerce, Odoo, Shopify
-                          </button>, and more.
-                        </p>
+                  {/* Integration Methods */}
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Choose Your Integration Method</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[
+                          { title: "Drop-in Checkout", desc: "Pre-built UI, minimal code. Best for most merchants.", icon: Zap, action: "sdks" },
+                          { title: "Custom API Integration", desc: "Full control over the payment flow and UI.", icon: Code2, action: "api" },
+                          { title: "No-Code Plugins", desc: "WordPress, WooCommerce, Shopify, Odoo — zero code.", icon: Plug, action: "plugins" },
+                        ].map((method) => (
+                          <button
+                            key={method.title}
+                            onClick={() => setActiveSection(method.action)}
+                            className="p-4 rounded-xl border border-border/50 hover:border-primary/40 hover:bg-primary/5 transition-all text-left group"
+                          >
+                            <method.icon className="h-6 w-6 text-primary mb-3" />
+                            <h4 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">{method.title}</h4>
+                            <p className="text-xs text-muted-foreground">{method.desc}</p>
+                          </button>
+                        ))}
                       </div>
                     </CardContent>
                   </Card>
@@ -327,8 +421,27 @@ console.log(payment.checkout_url); // redirect user here`]
                 <div className="space-y-8">
                   <div>
                     <h2 className="text-2xl font-bold text-foreground mb-2">API Reference</h2>
-                    <p className="text-muted-foreground">Complete reference for the BMaGlass Pay REST API</p>
+                    <p className="text-muted-foreground">Complete reference for the BMaGlass Pay REST API v1</p>
                   </div>
+
+                  {/* Base URL */}
+                  <Card className="border-0 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Badge variant="outline" className="text-xs">Base URL</Badge>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div className="bg-muted/50 rounded-lg px-3 py-2">
+                          <p className="text-[10px] text-muted-foreground uppercase mb-0.5">Production</p>
+                          <code className="text-sm font-mono">https://api.bmaglasspay.com/v1</code>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg px-3 py-2">
+                          <p className="text-[10px] text-muted-foreground uppercase mb-0.5">Sandbox</p>
+                          <code className="text-sm font-mono">https://api.sandbox.bmaglasspay.com/v1</code>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   {/* Authentication */}
                   <Card className="border-0 shadow-sm">
@@ -342,35 +455,72 @@ console.log(payment.checkout_url); // redirect user here`]
                     <CardContent>
                       <CodeBlock code={`curl -X POST https://api.bmaglasspay.com/v1/payments \\
   -H "Authorization: Bearer pk_live_YOUR_API_KEY" \\
-  -H "Content-Type: application/json"`} />
-                      <p className="text-sm text-muted-foreground mt-3">
-                        Use <code className="bg-muted px-1.5 py-0.5 rounded text-xs">pk_test_</code> keys in sandbox and{" "}
-                        <code className="bg-muted px-1.5 py-0.5 rounded text-xs">pk_live_</code> keys in production.
-                      </p>
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: unique-request-id-123"`} />
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                        <div className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2">
+                          <code className="bg-muted px-1.5 py-0.5 rounded text-xs">pk_test_</code>
+                          <span className="text-muted-foreground text-xs">Sandbox keys</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2">
+                          <code className="bg-muted px-1.5 py-0.5 rounded text-xs">pk_live_</code>
+                          <span className="text-muted-foreground text-xs">Production keys</span>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
 
-                  {/* Endpoints */}
+                  {/* API Endpoints */}
                   {[
                     {
                       title: "Payments",
                       icon: CreditCard,
-                      desc: "Create, retrieve, and manage payments",
+                      desc: "Create, retrieve, capture, and refund payments",
                       endpoints: [
                         { method: "POST", path: "/v1/payments", desc: "Create a payment" },
                         { method: "GET", path: "/v1/payments/:id", desc: "Get payment details" },
                         { method: "GET", path: "/v1/payments", desc: "List all payments" },
+                        { method: "POST", path: "/v1/payments/:id/capture", desc: "Capture authorized payment" },
                         { method: "POST", path: "/v1/payments/:id/refund", desc: "Refund a payment" },
+                        { method: "POST", path: "/v1/payments/:id/void", desc: "Void a payment" },
                       ]
                     },
                     {
-                      title: "Transfers",
-                      icon: ArrowRight,
-                      desc: "Send money to bank accounts or mobile wallets",
+                      title: "Payment Links",
+                      icon: Link2,
+                      desc: "Create shareable payment links — no code needed",
+                      endpoints: [
+                        { method: "POST", path: "/v1/payment-links", desc: "Create payment link" },
+                        { method: "GET", path: "/v1/payment-links/:id", desc: "Get payment link" },
+                        { method: "GET", path: "/v1/payment-links", desc: "List payment links" },
+                        { method: "PATCH", path: "/v1/payment-links/:id", desc: "Update payment link" },
+                        { method: "DELETE", path: "/v1/payment-links/:id", desc: "Deactivate link" },
+                      ]
+                    },
+                    {
+                      title: "Transfers & Payouts",
+                      icon: Send,
+                      desc: "Send money to bank accounts, mobile wallets, or batch payouts",
                       endpoints: [
                         { method: "POST", path: "/v1/transfers", desc: "Create a transfer" },
                         { method: "GET", path: "/v1/transfers/:id", desc: "Get transfer status" },
                         { method: "GET", path: "/v1/transfers", desc: "List transfers" },
+                        { method: "POST", path: "/v1/payouts/batch", desc: "Create batch payout" },
+                        { method: "GET", path: "/v1/payouts/batch/:id", desc: "Get batch status" },
+                      ]
+                    },
+                    {
+                      title: "Invoices",
+                      icon: Receipt,
+                      desc: "Create, send, and manage invoices programmatically",
+                      endpoints: [
+                        { method: "POST", path: "/v1/invoices", desc: "Create invoice" },
+                        { method: "GET", path: "/v1/invoices/:id", desc: "Get invoice" },
+                        { method: "GET", path: "/v1/invoices", desc: "List invoices" },
+                        { method: "POST", path: "/v1/invoices/:id/send", desc: "Send invoice to customer" },
+                        { method: "POST", path: "/v1/invoices/:id/remind", desc: "Send payment reminder" },
+                        { method: "PUT", path: "/v1/invoices/:id", desc: "Update invoice" },
+                        { method: "DELETE", path: "/v1/invoices/:id", desc: "Delete draft invoice" },
                       ]
                     },
                     {
@@ -381,16 +531,22 @@ console.log(payment.checkout_url); // redirect user here`]
                         { method: "POST", path: "/v1/customers", desc: "Create a customer" },
                         { method: "GET", path: "/v1/customers/:id", desc: "Retrieve customer" },
                         { method: "PUT", path: "/v1/customers/:id", desc: "Update customer" },
+                        { method: "DELETE", path: "/v1/customers/:id", desc: "Delete customer" },
+                        { method: "GET", path: "/v1/customers/:id/payment-methods", desc: "List saved methods" },
                       ]
                     },
                     {
                       title: "Virtual Cards",
                       icon: CreditCard,
-                      desc: "Issue and manage virtual payment cards",
+                      desc: "Issue, fund, and manage virtual payment cards",
                       endpoints: [
                         { method: "POST", path: "/v1/cards", desc: "Create virtual card" },
                         { method: "GET", path: "/v1/cards/:id", desc: "Get card details" },
+                        { method: "GET", path: "/v1/cards", desc: "List cards" },
                         { method: "POST", path: "/v1/cards/:id/fund", desc: "Fund a card" },
+                        { method: "POST", path: "/v1/cards/:id/freeze", desc: "Freeze card" },
+                        { method: "POST", path: "/v1/cards/:id/unfreeze", desc: "Unfreeze card" },
+                        { method: "GET", path: "/v1/cards/:id/transactions", desc: "Card transactions" },
                       ]
                     },
                     {
@@ -400,7 +556,47 @@ console.log(payment.checkout_url); // redirect user here`]
                       endpoints: [
                         { method: "POST", path: "/v1/subscriptions", desc: "Create subscription" },
                         { method: "GET", path: "/v1/subscriptions/:id", desc: "Get subscription" },
+                        { method: "GET", path: "/v1/subscriptions", desc: "List subscriptions" },
+                        { method: "PATCH", path: "/v1/subscriptions/:id", desc: "Update subscription" },
                         { method: "POST", path: "/v1/subscriptions/:id/cancel", desc: "Cancel subscription" },
+                        { method: "POST", path: "/v1/subscriptions/:id/pause", desc: "Pause subscription" },
+                        { method: "POST", path: "/v1/subscriptions/:id/resume", desc: "Resume subscription" },
+                      ]
+                    },
+                    {
+                      title: "Disputes",
+                      icon: Scale,
+                      desc: "Manage payment disputes and chargebacks",
+                      endpoints: [
+                        { method: "GET", path: "/v1/disputes", desc: "List disputes" },
+                        { method: "GET", path: "/v1/disputes/:id", desc: "Get dispute details" },
+                        { method: "POST", path: "/v1/disputes/:id/accept", desc: "Accept dispute" },
+                        { method: "POST", path: "/v1/disputes/:id/contest", desc: "Contest dispute" },
+                        { method: "POST", path: "/v1/disputes/:id/evidence", desc: "Submit evidence" },
+                      ]
+                    },
+                    {
+                      title: "Webhooks",
+                      icon: Webhook,
+                      desc: "Manage webhook endpoints and subscriptions",
+                      endpoints: [
+                        { method: "POST", path: "/v1/webhooks", desc: "Create webhook endpoint" },
+                        { method: "GET", path: "/v1/webhooks", desc: "List webhooks" },
+                        { method: "DELETE", path: "/v1/webhooks/:id", desc: "Delete webhook" },
+                        { method: "GET", path: "/v1/webhooks/:id/deliveries", desc: "List deliveries" },
+                        { method: "POST", path: "/v1/webhooks/:id/test", desc: "Send test event" },
+                      ]
+                    },
+                    {
+                      title: "Reporting",
+                      icon: FileText,
+                      desc: "Generate reports and export transaction data",
+                      endpoints: [
+                        { method: "GET", path: "/v1/reports/transactions", desc: "Transaction report" },
+                        { method: "GET", path: "/v1/reports/settlements", desc: "Settlement report" },
+                        { method: "GET", path: "/v1/reports/payouts", desc: "Payout report" },
+                        { method: "POST", path: "/v1/reports/export", desc: "Export to CSV/PDF" },
+                        { method: "GET", path: "/v1/balance", desc: "Account balance" },
                       ]
                     },
                   ].map((section) => (
@@ -425,17 +621,20 @@ console.log(payment.checkout_url); // redirect user here`]
                   {/* Payment Methods */}
                   <Card className="border-0 shadow-sm">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">Payment Methods</CardTitle>
+                      <CardTitle className="text-lg">Supported Payment Methods</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {[
                           { method: "mobile_money", label: "Mobile Money", providers: "MTN, Airtel, Zamtel" },
-                          { method: "card", label: "Card Payments", providers: "Visa, Mastercard" },
+                          { method: "card", label: "Card Payments", providers: "Visa, Mastercard, Amex" },
                           { method: "bank_transfer", label: "Bank Transfer", providers: "All Zambian banks" },
                           { method: "ussd", label: "USSD", providers: "Feature phone support" },
-                          { method: "bitcoin", label: "Bitcoin", providers: "Lightning Network" },
+                          { method: "bitcoin", label: "Bitcoin", providers: "On-chain + Lightning" },
                           { method: "paypal", label: "PayPal", providers: "International payments" },
+                          { method: "qr_code", label: "QR Code", providers: "Scan & pay" },
+                          { method: "bnpl", label: "Pay in 4", providers: "Installment payments" },
+                          { method: "wallet", label: "BMaGlass Wallet", providers: "Instant transfers" },
                         ].map((pm) => (
                           <div key={pm.method} className="p-3 rounded-lg bg-muted/50 border border-border/50">
                             <div className="flex items-center justify-between mb-1">
@@ -459,13 +658,16 @@ console.log(payment.checkout_url); // redirect user here`]
                         {[
                           { code: "200", desc: "Success" },
                           { code: "201", desc: "Created" },
+                          { code: "202", desc: "Accepted (async processing)" },
                           { code: "400", desc: "Bad Request" },
                           { code: "401", desc: "Unauthorized" },
                           { code: "403", desc: "Forbidden" },
                           { code: "404", desc: "Not Found" },
+                          { code: "409", desc: "Conflict (idempotency)" },
                           { code: "422", desc: "Validation Error" },
                           { code: "429", desc: "Rate Limited" },
                           { code: "500", desc: "Server Error" },
+                          { code: "503", desc: "Service Unavailable" },
                         ].map((r) => (
                           <div key={r.code} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
                             <Badge 
@@ -491,11 +693,10 @@ console.log(payment.checkout_url); // redirect user here`]
                     <p className="text-muted-foreground">Official client libraries for popular programming languages</p>
                   </div>
 
-                  {/* Stats */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      { label: "Total Downloads", value: "100K+", icon: Download },
-                      { label: "Languages", value: "4 SDKs", icon: Package },
+                      { label: "Total Downloads", value: "200K+", icon: Download },
+                      { label: "Languages", value: "7 SDKs", icon: Package },
                       { label: "Latest Release", value: "2 days ago", icon: Clock },
                       { label: "License", value: "MIT", icon: Shield },
                     ].map((stat) => (
@@ -513,7 +714,6 @@ console.log(payment.checkout_url); // redirect user here`]
                     ))}
                   </div>
 
-                  {/* SDK Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {[
                       {
@@ -555,6 +755,36 @@ console.log(payment.checkout_url); // redirect user here`]
                         color: "from-cyan-500/20 to-cyan-600/10",
                         install: "go get github.com/bmaglass/payments-go",
                         features: ["Context support", "Connection pooling", "Idiomatic Go", "Zero dependencies"],
+                      },
+                      {
+                        lang: "Ruby",
+                        icon: "RB",
+                        version: "v1.3.0",
+                        downloads: "12.4K",
+                        stars: 97,
+                        color: "from-red-500/20 to-red-600/10",
+                        install: "gem install bmaglass-payments",
+                        features: ["Rails integration", "Webhook helpers", "Auto-retries", "Type checked"],
+                      },
+                      {
+                        lang: "C# / .NET",
+                        icon: "C#",
+                        version: "v1.1.0",
+                        downloads: "9.8K",
+                        stars: 64,
+                        color: "from-purple-500/20 to-purple-600/10",
+                        install: "dotnet add package BMaGlass.Payments",
+                        features: [".NET 6+", "Async/await", "DI support", "Strong typing"],
+                      },
+                      {
+                        lang: "React Native",
+                        icon: "RN",
+                        version: "v1.0.0",
+                        downloads: "5.2K",
+                        stars: 43,
+                        color: "from-sky-500/20 to-sky-600/10",
+                        install: "npm install @bmaglass/react-native-payments",
+                        features: ["iOS & Android", "Drop-in UI", "Biometric auth", "Mobile Money support"],
                       },
                     ].map((sdk) => (
                       <Card key={sdk.lang} className="overflow-hidden border-0 shadow-sm hover:shadow-md transition-shadow">
@@ -621,7 +851,10 @@ console.log(payment.checkout_url); // redirect user here`]
     publicKey: 'pk_live_YOUR_KEY',
     amount: 150.00,
     currency: 'ZMW',
-    onSuccess: (payment) => console.log('Paid:', payment.id)
+    methods: ['mobile_money', 'card', 'bitcoin'],
+    theme: { primary: '#2563eb' },
+    onSuccess: (payment) => console.log('Paid:', payment.id),
+    onError: (error) => console.error('Failed:', error.message)
   });
 </script>`} />
                     </CardContent>
@@ -638,53 +871,33 @@ console.log(payment.checkout_url); // redirect user here`]
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <PlatformCard
-                      name="WordPress"
-                      icon={Globe}
-                      description="Payment gateway for WordPress"
-                      status="stable"
+                    <PlatformCard name="WordPress" icon={Globe} description="Payment gateway for WordPress" status="stable"
                       installCmd="Upload bmaglass-pay.zip via Plugins"
-                      features={["One-click install", "Donation forms via shortcode", "Gutenberg block", "All payment methods"]}
-                    />
-                    <PlatformCard
-                      name="WooCommerce"
-                      icon={ShoppingCart}
-                      description="Full checkout integration"
-                      status="stable"
+                      features={["One-click install", "Donation forms", "Gutenberg block", "All payment methods"]} />
+                    <PlatformCard name="WooCommerce" icon={ShoppingCart} description="Full checkout integration" status="stable"
                       installCmd="Upload bmaglass-woocommerce.zip"
-                      features={["All payment methods at checkout", "Auto order status updates", "Multi-currency support", "Refunds from admin"]}
-                    />
-                    <PlatformCard
-                      name="Odoo"
-                      icon={Blocks}
-                      description="Payment acquirer for Odoo ERP"
-                      status="stable"
+                      features={["All payment methods", "Auto order updates", "Multi-currency", "Refunds from admin"]} />
+                    <PlatformCard name="Odoo" icon={Blocks} description="Payment acquirer for Odoo ERP" status="stable"
                       installCmd="odoo-bin -i bmaglass_payment"
-                      features={["Odoo 16 & 17 compatible", "POS integration", "Invoice payment links", "Auto reconciliation"]}
-                    />
-                    <PlatformCard
-                      name="Shopify"
-                      icon={Store}
-                      description="Shopify payment app"
-                      status="beta"
-                      features={["Shopify Payments API", "Mobile Money at checkout", "Auto order fulfillment", "Multi-currency"]}
-                    />
-                    <PlatformCard
-                      name="Laravel"
-                      icon={Code2}
-                      description="First-party PHP package"
-                      status="stable"
+                      features={["Odoo 16 & 17", "POS integration", "Invoice links", "Auto reconciliation"]} />
+                    <PlatformCard name="Shopify" icon={Store} description="Shopify payment app" status="stable"
+                      features={["Shopify Payments API", "Mobile Money checkout", "Auto fulfillment", "Multi-currency"]} />
+                    <PlatformCard name="Laravel" icon={Code2} description="First-party PHP package" status="stable"
                       installCmd="composer require bmaglass/laravel-payments"
-                      features={["Cashier-style API", "Blade components", "Webhook verification", "Artisan commands"]}
-                    />
-                    <PlatformCard
-                      name="Django"
-                      icon={Code2}
-                      description="Python Django integration"
-                      status="stable"
+                      features={["Cashier-style API", "Blade components", "Webhook verify", "Artisan commands"]} />
+                    <PlatformCard name="Django" icon={Code2} description="Python Django integration" status="stable"
                       installCmd="pip install bmaglass-django"
-                      features={["Django 4.x+", "Template tags", "Signals for events", "Admin dashboard"]}
-                    />
+                      features={["Django 4.x+", "Template tags", "Signals for events", "Admin dashboard"]} />
+                    <PlatformCard name="Magento" icon={ShoppingCart} description="Adobe Commerce plugin" status="beta"
+                      features={["Magento 2.4+", "Multi-store support", "Custom checkout", "API integration"]} />
+                    <PlatformCard name="PrestaShop" icon={Store} description="PrestaShop module" status="stable"
+                      installCmd="Upload via Modules Manager"
+                      features={["1-click install", "Multi-currency", "Order management", "Refund support"]} />
+                    <PlatformCard name="Zapier" icon={Zap} description="Connect 5000+ apps" status="stable"
+                      features={["Payment triggers", "Custom actions", "No-code automation", "Instant updates"]} />
+                    <PlatformCard name="React / Next.js" icon={Code2} description="React component library" status="stable"
+                      installCmd="npm install @bmaglass/react-checkout"
+                      features={["Drop-in components", "Server components", "Hooks API", "TypeScript"]} />
                   </div>
                 </div>
               )}
@@ -694,25 +907,36 @@ console.log(payment.checkout_url); // redirect user here`]
                 <div className="space-y-8">
                   <div>
                     <h2 className="text-2xl font-bold text-foreground mb-2">Webhooks</h2>
-                    <p className="text-muted-foreground">Receive real-time notifications for payment events</p>
+                    <p className="text-muted-foreground">Receive real-time notifications for all payment events</p>
                   </div>
 
                   <Card className="border-0 shadow-sm">
                     <CardHeader>
-                      <CardTitle className="text-lg">Webhook Events</CardTitle>
+                      <CardTitle className="text-lg">Available Events</CardTitle>
                       <CardDescription>Subscribe to events that matter to your application</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div className="space-y-6">
                         {[
-                          "payment.created", "payment.completed", "payment.failed", "payment.refunded",
-                          "transfer.created", "transfer.completed", "transfer.failed",
-                          "subscription.created", "subscription.renewed", "subscription.cancelled",
-                          "card.created", "card.funded", "card.transaction"
-                        ].map((event) => (
-                          <div key={event} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                            <Webhook className="h-3.5 w-3.5 text-primary" />
-                            <code className="text-xs font-mono">{event}</code>
+                          { group: "Payments", events: ["payment.created", "payment.completed", "payment.failed", "payment.refunded", "payment.captured", "payment.voided"] },
+                          { group: "Transfers", events: ["transfer.created", "transfer.completed", "transfer.failed", "transfer.reversed"] },
+                          { group: "Subscriptions", events: ["subscription.created", "subscription.renewed", "subscription.cancelled", "subscription.paused", "subscription.payment_failed"] },
+                          { group: "Invoices", events: ["invoice.created", "invoice.sent", "invoice.paid", "invoice.overdue", "invoice.cancelled"] },
+                          { group: "Disputes", events: ["dispute.created", "dispute.updated", "dispute.won", "dispute.lost"] },
+                          { group: "Cards", events: ["card.created", "card.funded", "card.transaction", "card.frozen", "card.closed"] },
+                          { group: "Customers", events: ["customer.created", "customer.updated", "customer.deleted"] },
+                          { group: "Payouts", events: ["payout.created", "payout.completed", "payout.failed"] },
+                        ].map((section) => (
+                          <div key={section.group}>
+                            <h4 className="font-medium text-sm mb-2 text-foreground">{section.group}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {section.events.map((event) => (
+                                <div key={event} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                                  <Webhook className="h-3.5 w-3.5 text-primary" />
+                                  <code className="text-xs font-mono">{event}</code>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -721,20 +945,390 @@ console.log(payment.checkout_url); // redirect user here`]
 
                   <Card className="border-0 shadow-sm">
                     <CardHeader>
+                      <CardTitle className="text-lg">Webhook Payload</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CodeBlock code={`{
+  "id": "evt_abc123def456",
+  "type": "payment.completed",
+  "created": "2026-03-08T14:30:45Z",
+  "livemode": true,
+  "data": {
+    "id": "pay_xyz789",
+    "amount": 150.00,
+    "currency": "ZMW",
+    "status": "completed",
+    "customer": { "phone": "+260971234567" },
+    "metadata": { "order_id": "ORD-1234" }
+  }
+}`} />
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
                       <CardTitle className="text-lg">Signature Verification</CardTitle>
                       <CardDescription>Always verify webhook signatures to ensure authenticity</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
                       <CodeBlock code={`import crypto from 'crypto';
 
 function verifyWebhook(payload, signature, secret) {
-  const hmac = crypto.createHmac('sha256', secret);
-  const digest = hmac.update(payload).digest('hex');
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(JSON.stringify(payload))
+    .digest('hex');
+  
+  // Use timing-safe comparison to prevent timing attacks
   return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(digest)
+    Buffer.from(expected),
+    Buffer.from(signature)
   );
+}
+
+// Express middleware
+app.post('/webhook', express.raw({type: 'application/json'}), (req, res) => {
+  const sig = req.headers['x-bmaglass-signature'];
+  const timestamp = req.headers['x-bmaglass-timestamp'];
+  
+  // Reject events older than 5 minutes (replay protection)
+  if (Date.now() / 1000 - parseInt(timestamp) > 300) {
+    return res.status(400).send('Event too old');
+  }
+  
+  if (!verifyWebhook(req.body, sig, process.env.WEBHOOK_SECRET)) {
+    return res.status(401).send('Invalid signature');
+  }
+  
+  // Process the event
+  const event = JSON.parse(req.body);
+  handleEvent(event);
+  
+  res.json({ received: true });
+});`} />
+
+                      <Card className="border-primary/20 bg-primary/5">
+                        <CardContent className="p-4">
+                          <h4 className="font-medium text-sm mb-2">Retry Policy</h4>
+                          <p className="text-xs text-muted-foreground mb-2">Failed webhook deliveries are retried with exponential backoff:</p>
+                          <div className="grid grid-cols-5 gap-2 text-center">
+                            {["1 min", "5 min", "30 min", "2 hrs", "24 hrs"].map((t, i) => (
+                              <div key={t} className="bg-background rounded-lg p-2 border">
+                                <p className="text-xs font-semibold">Retry {i + 1}</p>
+                                <p className="text-[10px] text-muted-foreground">{t}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* ERROR HANDLING */}
+              {activeSection === "errors" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Error Handling</h2>
+                    <p className="text-muted-foreground">Comprehensive error codes and troubleshooting guide</p>
+                  </div>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Error Response Format</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CodeBlock code={`{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "amount_too_small",
+    "message": "Amount must be at least 1.00 ZMW",
+    "param": "amount",
+    "doc_url": "https://docs.bmaglasspay.com/errors/amount_too_small",
+    "request_id": "req_abc123"
+  }
 }`} />
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Error Types</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {[
+                          { type: "invalid_request_error", desc: "Invalid parameters, missing fields, or malformed request", example: "Missing required field 'amount'" },
+                          { type: "authentication_error", desc: "API key is invalid, expired, or missing", example: "Invalid API key provided" },
+                          { type: "permission_error", desc: "API key doesn't have permission for this action", example: "Live key required for production" },
+                          { type: "rate_limit_error", desc: "Too many requests in a given time period", example: "Rate limit exceeded, retry after 30s" },
+                          { type: "payment_error", desc: "Payment-specific failure (declined, insufficient funds)", example: "Card was declined by the issuer" },
+                          { type: "idempotency_error", desc: "Idempotency key reused with different parameters", example: "Idempotency key already used" },
+                          { type: "api_error", desc: "Internal server error (rare)", example: "An unexpected error occurred" },
+                        ].map((err) => (
+                          <div key={err.type} className="p-4 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors">
+                            <div className="flex items-center gap-2 mb-1">
+                              <code className="text-sm font-mono font-semibold text-foreground">{err.type}</code>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-1">{err.desc}</p>
+                            <p className="text-xs text-muted-foreground italic">e.g. "{err.example}"</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Payment-Specific Error Codes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {[
+                          { code: "card_declined", desc: "Card was declined" },
+                          { code: "insufficient_funds", desc: "Not enough balance" },
+                          { code: "expired_card", desc: "Card has expired" },
+                          { code: "incorrect_cvc", desc: "CVC check failed" },
+                          { code: "processing_error", desc: "Processing error" },
+                          { code: "amount_too_small", desc: "Below minimum amount" },
+                          { code: "amount_too_large", desc: "Exceeds maximum amount" },
+                          { code: "duplicate_transaction", desc: "Possible duplicate" },
+                          { code: "mobile_money_timeout", desc: "USSD prompt expired" },
+                          { code: "mobile_money_cancelled", desc: "User cancelled" },
+                          { code: "currency_not_supported", desc: "Currency unavailable" },
+                          { code: "provider_unavailable", desc: "Provider is down" },
+                        ].map((err) => (
+                          <div key={err.code} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                            <code className="text-xs font-mono text-destructive">{err.code}</code>
+                            <span className="text-xs text-muted-foreground">{err.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Best Practices</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CodeBlock code={`try {
+  const payment = await bmaglass.payments.create({
+    amount: 150, currency: 'ZMW',
+    payment_method: 'mobile_money',
+    customer: { phone: '+260971234567' }
+  });
+} catch (error) {
+  switch (error.type) {
+    case 'invalid_request_error':
+      // Fix the request parameters
+      console.log('Param:', error.param, 'Message:', error.message);
+      break;
+    case 'payment_error':
+      // Show user-friendly message
+      showError(getUserMessage(error.code));
+      break;
+    case 'rate_limit_error':
+      // Retry after the specified time
+      await sleep(error.retryAfter * 1000);
+      return retry();
+    case 'api_error':
+      // Retry with exponential backoff
+      return retryWithBackoff();
+  }
+}`} />
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* RATE LIMITS */}
+              {activeSection === "ratelimits" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Rate Limits</h2>
+                    <p className="text-muted-foreground">Understand and handle API rate limits</p>
+                  </div>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Rate Limit Tiers</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-3 px-2 font-medium">Plan</th>
+                              <th className="text-left py-3 px-2 font-medium">Requests/min</th>
+                              <th className="text-left py-3 px-2 font-medium">Requests/hour</th>
+                              <th className="text-left py-3 px-2 font-medium">Burst</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[
+                              { plan: "Free", rpm: "60", rph: "1,000", burst: "10/sec" },
+                              { plan: "Starter", rpm: "300", rph: "10,000", burst: "50/sec" },
+                              { plan: "Professional", rpm: "1,000", rph: "50,000", burst: "100/sec" },
+                              { plan: "Enterprise", rpm: "5,000", rph: "Unlimited", burst: "500/sec" },
+                            ].map((tier) => (
+                              <tr key={tier.plan} className="border-b last:border-0">
+                                <td className="py-3 px-2 font-medium">{tier.plan}</td>
+                                <td className="py-3 px-2 text-muted-foreground">{tier.rpm}</td>
+                                <td className="py-3 px-2 text-muted-foreground">{tier.rph}</td>
+                                <td className="py-3 px-2 text-muted-foreground">{tier.burst}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Rate Limit Headers</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {[
+                          { header: "X-RateLimit-Limit", desc: "Maximum requests per window" },
+                          { header: "X-RateLimit-Remaining", desc: "Requests remaining in current window" },
+                          { header: "X-RateLimit-Reset", desc: "UTC timestamp when the window resets" },
+                          { header: "Retry-After", desc: "Seconds to wait (only on 429 responses)" },
+                        ].map((h) => (
+                          <div key={h.header} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                            <code className="text-xs font-mono font-semibold text-primary">{h.header}</code>
+                            <span className="text-xs text-muted-foreground">{h.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-4">
+                        <CodeBlock code={`// Handle rate limiting with exponential backoff
+async function apiCallWithRetry(fn, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error.status === 429) {
+        const retryAfter = error.headers['retry-after'] || Math.pow(2, i);
+        console.log(\`Rate limited. Retrying in \${retryAfter}s\`);
+        await new Promise(r => setTimeout(r, retryAfter * 1000));
+      } else throw error;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}`} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* IDEMPOTENCY */}
+              {activeSection === "idempotency" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Idempotency</h2>
+                    <p className="text-muted-foreground">Safely retry requests without creating duplicate charges</p>
+                  </div>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardContent className="p-6">
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Pass an <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">Idempotency-Key</code> header 
+                        with any POST request. If the same key is used again within 24 hours, the API returns the original 
+                        response instead of creating a duplicate resource.
+                      </p>
+                      <CodeBlock code={`// Always use idempotency keys for payment creation
+const payment = await bmaglass.payments.create({
+  amount: 150.00,
+  currency: 'ZMW',
+  payment_method: 'mobile_money',
+  customer: { phone: '+260971234567' }
+}, {
+  idempotencyKey: 'order_1234_payment_attempt_1'
+});
+
+// If the request is retried with the same key,
+// you get the same payment back (no duplicate charge)`} />
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Guidelines</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-3">
+                        {[
+                          "Use unique keys per distinct action (e.g., order_id + attempt_number)",
+                          "Keys expire after 24 hours — safe to reuse after that",
+                          "Only POST/PUT/PATCH requests support idempotency",
+                          "GET and DELETE are inherently idempotent",
+                          "A 409 Conflict is returned if the same key is used with different parameters",
+                          "Store the idempotency key with the order for debugging",
+                        ].map((tip, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                            {tip}
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* PAGINATION */}
+              {activeSection === "pagination" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Pagination</h2>
+                    <p className="text-muted-foreground">Efficiently navigate large result sets with cursor-based pagination</p>
+                  </div>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Cursor-Based Pagination</CardTitle>
+                      <CardDescription>More reliable than offset pagination for real-time data</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <CodeBlock code={`// First page
+GET /v1/payments?limit=25
+
+// Response includes pagination cursors
+{
+  "data": [...],
+  "has_more": true,
+  "next_cursor": "pay_xyz789",
+  "total_count": 1247
+}
+
+// Next page
+GET /v1/payments?limit=25&starting_after=pay_xyz789
+
+// Previous page  
+GET /v1/payments?limit=25&ending_before=pay_abc123`} />
+
+                      <h4 className="font-medium text-sm mt-4">Parameters</h4>
+                      <div className="space-y-2">
+                        {[
+                          { param: "limit", desc: "Number of items per page (1-100, default 25)" },
+                          { param: "starting_after", desc: "Cursor for next page (ID of last item)" },
+                          { param: "ending_before", desc: "Cursor for previous page (ID of first item)" },
+                          { param: "created[gte]", desc: "Filter by creation date (>=)" },
+                          { param: "created[lte]", desc: "Filter by creation date (<=)" },
+                          { param: "status", desc: "Filter by status (completed, pending, failed)" },
+                        ].map((p) => (
+                          <div key={p.param} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
+                            <code className="text-xs font-mono text-primary font-semibold">{p.param}</code>
+                            <span className="text-xs text-muted-foreground">{p.desc}</span>
+                          </div>
+                        ))}
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -744,28 +1338,29 @@ function verifyWebhook(payload, signature, secret) {
               {activeSection === "testing" && (
                 <div className="space-y-8">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground mb-2">Testing & Sandbox</h2>
-                    <p className="text-muted-foreground">Test your integration with our sandbox environment</p>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Testing Guide</h2>
+                    <p className="text-muted-foreground">Test your integration thoroughly before going live</p>
                   </div>
 
                   <Card className="border-0 shadow-sm">
                     <CardHeader>
-                      <CardTitle className="text-lg">Test Credentials</CardTitle>
+                      <CardTitle className="text-lg">Sandbox Environment</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[
-                          { label: "MTN Mobile Money", number: "+260970000001", pin: "1234" },
-                          { label: "Airtel Money", number: "+260960000001", pin: "1234" },
-                          { label: "Zamtel Kwacha", number: "+260950000001", pin: "1234" },
-                        ].map((cred) => (
-                          <div key={cred.label} className="p-4 rounded-lg bg-muted/50 border border-border/50">
-                            <p className="font-medium text-sm mb-2">{cred.label}</p>
-                            <p className="text-xs text-muted-foreground">Phone: <code className="text-foreground">{cred.number}</code></p>
-                            <p className="text-xs text-muted-foreground">PIN: <code className="text-foreground">{cred.pin}</code></p>
-                          </div>
-                        ))}
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                        <div className="bg-muted/50 rounded-lg px-4 py-3">
+                          <p className="text-[10px] text-muted-foreground uppercase mb-0.5">Base URL</p>
+                          <code className="text-sm font-mono">https://api.sandbox.bmaglasspay.com/v1</code>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg px-4 py-3">
+                          <p className="text-[10px] text-muted-foreground uppercase mb-0.5">API Key Prefix</p>
+                          <code className="text-sm font-mono">pk_test_*</code>
+                        </div>
                       </div>
+                      <p className="text-sm text-muted-foreground">
+                        The sandbox environment mirrors production exactly but processes no real money. 
+                        All webhook events, API responses, and dashboard data work identically.
+                      </p>
                     </CardContent>
                   </Card>
 
@@ -776,15 +1371,71 @@ function verifyWebhook(payload, signature, secret) {
                     <CardContent>
                       <div className="space-y-2">
                         {[
-                          { number: "4242 4242 4242 4242", result: "Success" },
-                          { number: "4000 0000 0000 0002", result: "Declined" },
-                          { number: "4000 0000 0000 9995", result: "Insufficient funds" },
+                          { number: "4242 4242 4242 4242", result: "Always succeeds", badge: "default" as const },
+                          { number: "4000 0000 0000 0002", result: "Always declined", badge: "destructive" as const },
+                          { number: "4000 0027 6000 3184", result: "Requires 3D Secure", badge: "secondary" as const },
+                          { number: "4000 0000 0000 9995", result: "Insufficient funds", badge: "destructive" as const },
+                          { number: "4000 0000 0000 0119", result: "Network error", badge: "destructive" as const },
+                          { number: "4000 0000 0000 3220", result: "Processing error", badge: "destructive" as const },
                         ].map((card) => (
-                          <div key={card.number} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                          <div key={card.number} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                             <code className="text-sm font-mono">{card.number}</code>
-                            <Badge variant={card.result === "Success" ? "default" : "secondary"} className="text-xs">
-                              {card.result}
-                            </Badge>
+                            <Badge variant={card.badge} className="text-xs">{card.result}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Test Mobile Money Numbers</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {[
+                          { number: "+260970000001", provider: "MTN", result: "Success", badge: "default" as const },
+                          { number: "+260960000001", provider: "Airtel", result: "Success", badge: "default" as const },
+                          { number: "+260950000001", provider: "Zamtel", result: "Success", badge: "default" as const },
+                          { number: "+260970000099", provider: "MTN", result: "Timeout", badge: "secondary" as const },
+                          { number: "+260960000099", provider: "Airtel", result: "Declined", badge: "destructive" as const },
+                          { number: "+260970000055", provider: "MTN", result: "Insufficient balance", badge: "destructive" as const },
+                        ].map((mm) => (
+                          <div key={mm.number} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                            <div className="flex items-center gap-3">
+                              <code className="text-sm font-mono">{mm.number}</code>
+                              <Badge variant="outline" className="text-[10px]">{mm.provider}</Badge>
+                            </div>
+                            <Badge variant={mm.badge} className="text-xs">{mm.result}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Go-Live Checklist</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {[
+                          "Switch from pk_test_ to pk_live_ API keys",
+                          "Update base URL to production",
+                          "Set up production webhook endpoint with HTTPS",
+                          "Implement idempotency keys for all payment creation",
+                          "Add proper error handling for all error types",
+                          "Test webhook signature verification",
+                          "Set up monitoring and alerting for failed payments",
+                          "Complete KYC/KYB verification for your merchant account",
+                          "Review rate limits for your plan",
+                          "Enable 3D Secure for card payments",
+                        ].map((item, i) => (
+                          <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="w-5 h-5 rounded border-2 border-muted-foreground/30 flex items-center justify-center shrink-0">
+                              <span className="text-[10px] text-muted-foreground">{i + 1}</span>
+                            </div>
+                            <span className="text-sm text-muted-foreground">{item}</span>
                           </div>
                         ))}
                       </div>
@@ -795,12 +1446,195 @@ function verifyWebhook(payload, signature, secret) {
 
               {/* PLAYGROUND */}
               {activeSection === "playground" && (
-                <div className="space-y-6">
+                <div className="space-y-8">
                   <div>
                     <h2 className="text-2xl font-bold text-foreground mb-2">API Playground</h2>
-                    <p className="text-muted-foreground">Test API endpoints interactively with live responses</p>
+                    <p className="text-muted-foreground">Test API endpoints interactively with instant mock responses</p>
                   </div>
                   <ApiPlayground />
+                </div>
+              )}
+
+              {/* MIGRATION GUIDE */}
+              {activeSection === "migration" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Migration Guide</h2>
+                    <p className="text-muted-foreground">Switch from other payment providers to BMaGlass Pay</p>
+                  </div>
+
+                  {[
+                    {
+                      provider: "PayPal",
+                      steps: [
+                        "Replace PayPal client SDK with @bmaglass/payments-js",
+                        "Map PayPal order IDs to BMaGlass payment IDs in your database",
+                        "Update webhook endpoints from PayPal events to BMaGlass events",
+                        "Replace PayPal buttons with BMaGlass Drop-in Checkout",
+                        "Update refund logic — BMaGlass supports partial refunds natively",
+                        "Migrate recurring billing from PayPal Subscriptions to BMaGlass Subscriptions",
+                      ],
+                      codeMap: [
+                        { from: "paypal.orders.create()", to: "bmaglass.payments.create()" },
+                        { from: "paypal.orders.capture()", to: "bmaglass.payments.capture()" },
+                        { from: "CHECKOUT.ORDER.APPROVED", to: "payment.completed" },
+                        { from: "paypal.subscriptions.create()", to: "bmaglass.subscriptions.create()" },
+                      ]
+                    },
+                    {
+                      provider: "Stripe",
+                      steps: [
+                        "Replace stripe SDK with @bmaglass/payments-js",
+                        "Map Stripe PaymentIntent IDs to BMaGlass payment IDs",
+                        "Update webhook signatures from Stripe to BMaGlass format",
+                        "Replace Stripe Elements with BMaGlass Drop-in UI",
+                        "Migrate Stripe Customers to BMaGlass Customers API",
+                        "Update subscription billing from Stripe to BMaGlass",
+                      ],
+                      codeMap: [
+                        { from: "stripe.paymentIntents.create()", to: "bmaglass.payments.create()" },
+                        { from: "stripe.customers.create()", to: "bmaglass.customers.create()" },
+                        { from: "payment_intent.succeeded", to: "payment.completed" },
+                        { from: "stripe.webhooks.construct()", to: "bmaglass.webhooks.verify()" },
+                      ]
+                    },
+                    {
+                      provider: "Flutterwave / Paystack",
+                      steps: [
+                        "Replace payment initialization with BMaGlass API",
+                        "Update callback URLs and webhook endpoints",
+                        "Mobile Money integration works the same way — just update the API",
+                        "Replace inline.js with BMaGlass checkout.js",
+                        "Update transfer/payout endpoints",
+                        "Migrate virtual card issuance to BMaGlass Cards API",
+                      ],
+                      codeMap: [
+                        { from: "flw.charge.card()", to: "bmaglass.payments.create()" },
+                        { from: "paystack.transaction.initialize()", to: "bmaglass.payments.create()" },
+                        { from: "charge.completed", to: "payment.completed" },
+                        { from: "flw.transfer.initiate()", to: "bmaglass.transfers.create()" },
+                      ]
+                    }
+                  ].map((migration) => (
+                    <Card key={migration.provider} className="border-0 shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="text-lg">Migrating from {migration.provider}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          {migration.steps.map((step, i) => (
+                            <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold shrink-0 mt-0.5">{i + 1}</div>
+                              {step}
+                            </div>
+                          ))}
+                        </div>
+                        <Separator />
+                        <h4 className="font-medium text-sm">API Mapping</h4>
+                        <div className="space-y-2">
+                          {migration.codeMap.map((map) => (
+                            <div key={map.from} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg text-xs font-mono">
+                              <span className="text-muted-foreground line-through">{map.from}</span>
+                              <ArrowRight className="h-3 w-3 text-primary shrink-0" />
+                              <span className="text-primary font-semibold">{map.to}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* CHANGELOG */}
+              {activeSection === "changelog" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">API Changelog</h2>
+                    <p className="text-muted-foreground">Track all changes to the BMaGlass Pay API</p>
+                  </div>
+
+                  {[
+                    {
+                      version: "v1.8.0",
+                      date: "March 5, 2026",
+                      type: "feature" as const,
+                      changes: [
+                        "Added Payment Links API — create shareable payment links",
+                        "Added Batch Payouts API — send money to multiple recipients",
+                        "Added Invoice reminder endpoint",
+                        "New webhook events: invoice.overdue, payout.completed",
+                        "React Native SDK v1.0.0 released",
+                      ]
+                    },
+                    {
+                      version: "v1.7.0",
+                      date: "February 18, 2026",
+                      type: "feature" as const,
+                      changes: [
+                        "Added Disputes API — manage chargebacks programmatically",
+                        "Added subscription pause/resume endpoints",
+                        "Ruby SDK v1.3.0 released with Rails integration",
+                        "Improved Mobile Money timeout handling",
+                      ]
+                    },
+                    {
+                      version: "v1.6.2",
+                      date: "February 3, 2026",
+                      type: "fix" as const,
+                      changes: [
+                        "Fixed webhook signature verification edge case with special characters",
+                        "Improved rate limit headers accuracy",
+                        "Fixed pagination cursor encoding for filtered queries",
+                      ]
+                    },
+                    {
+                      version: "v1.6.0",
+                      date: "January 20, 2026",
+                      type: "feature" as const,
+                      changes: [
+                        "Added Bitcoin Lightning Network support",
+                        "Added QR code payment method",
+                        "New Go SDK v1.2.0 with connection pooling",
+                        "Added Zapier integration",
+                        "Improved sandbox response times by 40%",
+                      ]
+                    },
+                    {
+                      version: "v1.5.0",
+                      date: "January 5, 2026",
+                      type: "feature" as const,
+                      changes: [
+                        "Added Reporting API — transaction, settlement, and payout reports",
+                        "Added CSV/PDF export endpoint",
+                        "C# / .NET SDK v1.0.0 released",
+                        "Added Shopify plugin (stable)",
+                        "Improved idempotency key handling",
+                      ]
+                    },
+                  ].map((release) => (
+                    <Card key={release.version} className="border-0 shadow-sm">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center gap-3">
+                          <Badge variant={release.type === "feature" ? "default" : "secondary"} className="font-mono text-xs">
+                            {release.version}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">{release.date}</span>
+                          <Badge variant="outline" className="text-[10px] capitalize">{release.type}</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="space-y-2">
+                          {release.changes.map((change, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                              <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
+                              {change}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
             </div>

@@ -10,7 +10,7 @@ import { Play, Copy, Check, Loader2, Clock, ChevronDown, ChevronRight, Code2 } f
 import { useToast } from "@/hooks/use-toast";
 
 interface Endpoint {
-  method: "GET" | "POST" | "PUT" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   path: string;
   label: string;
   category: string;
@@ -20,264 +20,132 @@ interface Endpoint {
 }
 
 const ENDPOINTS: Endpoint[] = [
-  {
-    method: "POST", path: "/v1/payments", label: "Create Payment", category: "Payments",
+  // Payments
+  { method: "POST", path: "/v1/payments", label: "Create Payment", category: "Payments",
     description: "Create a new payment intent",
-    defaultBody: {
-      amount: 150.00,
-      currency: "ZMW",
-      payment_method: "mobile_money",
-      customer: { phone: "+260970000001", name: "John Banda" },
-      description: "Test order #1234",
-      callback_url: "https://yoursite.com/webhook"
-    }
-  },
-  {
-    method: "GET", path: "/v1/payments/:id", label: "Get Payment", category: "Payments",
-    description: "Retrieve payment details by ID",
-    pathParams: ["id"],
-  },
-  {
-    method: "GET", path: "/v1/payments", label: "List Payments", category: "Payments",
-    description: "List all payments with pagination",
-  },
-  {
-    method: "POST", path: "/v1/payments/:id/refund", label: "Refund Payment", category: "Payments",
-    description: "Refund a completed payment",
-    pathParams: ["id"],
-    defaultBody: { amount: 50.00, reason: "Customer request" }
-  },
-  {
-    method: "POST", path: "/v1/transfers", label: "Create Transfer", category: "Transfers",
+    defaultBody: { amount: 150.00, currency: "ZMW", payment_method: "mobile_money", customer: { phone: "+260970000001", name: "John Banda" }, description: "Test order #1234", callback_url: "https://yoursite.com/webhook" } },
+  { method: "GET", path: "/v1/payments/:id", label: "Get Payment", category: "Payments", description: "Retrieve payment details by ID", pathParams: ["id"] },
+  { method: "GET", path: "/v1/payments", label: "List Payments", category: "Payments", description: "List all payments with pagination" },
+  { method: "POST", path: "/v1/payments/:id/refund", label: "Refund Payment", category: "Payments", description: "Refund a completed payment", pathParams: ["id"], defaultBody: { amount: 50.00, reason: "Customer request" } },
+  { method: "POST", path: "/v1/payments/:id/capture", label: "Capture Payment", category: "Payments", description: "Capture an authorized payment", pathParams: ["id"] },
+  
+  // Payment Links
+  { method: "POST", path: "/v1/payment-links", label: "Create Payment Link", category: "Payment Links",
+    description: "Create a shareable payment link",
+    defaultBody: { amount: 250.00, currency: "ZMW", description: "Invoice #5678", expires_in: 86400, reusable: false, redirect_url: "https://yoursite.com/thank-you" } },
+  { method: "GET", path: "/v1/payment-links", label: "List Payment Links", category: "Payment Links", description: "List all payment links" },
+  
+  // Transfers & Payouts
+  { method: "POST", path: "/v1/transfers", label: "Create Transfer", category: "Transfers",
     description: "Send money to a mobile wallet or bank account",
-    defaultBody: {
-      amount: 200.00,
-      currency: "ZMW",
-      destination: { type: "mobile_money", phone: "+260960000001", provider: "airtel" },
-      description: "Payout to supplier"
-    }
-  },
-  {
-    method: "GET", path: "/v1/transfers/:id", label: "Get Transfer", category: "Transfers",
-    description: "Check transfer status",
-    pathParams: ["id"],
-  },
-  {
-    method: "POST", path: "/v1/customers", label: "Create Customer", category: "Customers",
+    defaultBody: { amount: 200.00, currency: "ZMW", destination: { type: "mobile_money", phone: "+260960000001", provider: "airtel" }, description: "Payout to supplier" } },
+  { method: "GET", path: "/v1/transfers/:id", label: "Get Transfer", category: "Transfers", description: "Check transfer status", pathParams: ["id"] },
+  { method: "POST", path: "/v1/payouts/batch", label: "Batch Payout", category: "Transfers",
+    description: "Send money to multiple recipients at once",
+    defaultBody: { currency: "ZMW", items: [
+      { amount: 100.00, destination: { type: "mobile_money", phone: "+260970000001", provider: "mtn" }, reference: "salary_jan_001" },
+      { amount: 150.00, destination: { type: "mobile_money", phone: "+260960000002", provider: "airtel" }, reference: "salary_jan_002" },
+    ]} },
+  
+  // Invoices
+  { method: "POST", path: "/v1/invoices", label: "Create Invoice", category: "Invoices",
+    description: "Create a new invoice",
+    defaultBody: { customer_email: "jane@example.com", customer_name: "Jane Mwale", currency: "ZMW", items: [{ description: "Web Development", quantity: 1, unit_price: 5000.00 }, { description: "Hosting (1 year)", quantity: 1, unit_price: 1200.00 }], due_date: "2026-04-08", notes: "Payment due within 30 days" } },
+  { method: "GET", path: "/v1/invoices/:id", label: "Get Invoice", category: "Invoices", description: "Retrieve invoice details", pathParams: ["id"] },
+  { method: "POST", path: "/v1/invoices/:id/send", label: "Send Invoice", category: "Invoices", description: "Send invoice to customer email", pathParams: ["id"] },
+  
+  // Customers
+  { method: "POST", path: "/v1/customers", label: "Create Customer", category: "Customers",
     description: "Create a new customer record",
-    defaultBody: {
-      name: "Jane Mwale",
-      email: "jane@example.com",
-      phone: "+260971234567",
-      metadata: { plan: "premium" }
-    }
-  },
-  {
-    method: "GET", path: "/v1/customers/:id", label: "Get Customer", category: "Customers",
-    description: "Retrieve customer details",
-    pathParams: ["id"],
-  },
-  {
-    method: "POST", path: "/v1/cards", label: "Create Virtual Card", category: "Virtual Cards",
+    defaultBody: { name: "Jane Mwale", email: "jane@example.com", phone: "+260971234567", metadata: { plan: "premium" } } },
+  { method: "GET", path: "/v1/customers/:id", label: "Get Customer", category: "Customers", description: "Retrieve customer details", pathParams: ["id"] },
+  
+  // Virtual Cards
+  { method: "POST", path: "/v1/cards", label: "Create Virtual Card", category: "Virtual Cards",
     description: "Issue a new virtual card",
-    defaultBody: {
-      currency: "ZMW",
-      name: "Marketing Budget",
-      type: "single_use",
-      spending_limit: 1000.00
-    }
-  },
-  {
-    method: "POST", path: "/v1/cards/:id/fund", label: "Fund Card", category: "Virtual Cards",
-    description: "Add funds to a virtual card",
-    pathParams: ["id"],
-    defaultBody: { amount: 500.00, currency: "ZMW" }
-  },
-  {
-    method: "POST", path: "/v1/subscriptions", label: "Create Subscription", category: "Subscriptions",
+    defaultBody: { currency: "ZMW", name: "Marketing Budget", type: "single_use", spending_limit: 1000.00 } },
+  { method: "POST", path: "/v1/cards/:id/fund", label: "Fund Card", category: "Virtual Cards",
+    description: "Add funds to a virtual card", pathParams: ["id"], defaultBody: { amount: 500.00, currency: "ZMW" } },
+  { method: "POST", path: "/v1/cards/:id/freeze", label: "Freeze Card", category: "Virtual Cards", description: "Temporarily freeze a card", pathParams: ["id"] },
+  
+  // Subscriptions
+  { method: "POST", path: "/v1/subscriptions", label: "Create Subscription", category: "Subscriptions",
     description: "Set up recurring billing",
-    defaultBody: {
-      customer_id: "cus_abc123",
-      plan_id: "plan_monthly_pro",
-      payment_method: "mobile_money",
-      customer: { phone: "+260970000001" }
-    }
-  },
+    defaultBody: { customer_id: "cus_abc123", plan_id: "plan_monthly_pro", payment_method: "mobile_money", customer: { phone: "+260970000001" } } },
+  { method: "POST", path: "/v1/subscriptions/:id/cancel", label: "Cancel Subscription", category: "Subscriptions", description: "Cancel a subscription", pathParams: ["id"], defaultBody: { cancel_at_period_end: true } },
+  
+  // Disputes
+  { method: "GET", path: "/v1/disputes", label: "List Disputes", category: "Disputes", description: "List all disputes" },
+  { method: "GET", path: "/v1/disputes/:id", label: "Get Dispute", category: "Disputes", description: "Get dispute details", pathParams: ["id"] },
+  { method: "POST", path: "/v1/disputes/:id/contest", label: "Contest Dispute", category: "Disputes", description: "Contest a dispute with evidence", pathParams: ["id"],
+    defaultBody: { reason: "Service was delivered as described", evidence: { receipt_url: "https://example.com/receipt.pdf", tracking_number: "ZM123456789" } } },
+  
+  // Reporting
+  { method: "GET", path: "/v1/balance", label: "Get Balance", category: "Reporting", description: "Get current account balance" },
+  { method: "POST", path: "/v1/reports/export", label: "Export Report", category: "Reporting", description: "Export transactions to CSV/PDF",
+    defaultBody: { format: "csv", date_from: "2026-01-01", date_to: "2026-03-08", type: "transactions" } },
 ];
 
 const MOCK_RESPONSES: Record<string, (body?: any, params?: Record<string, string>) => { status: number; body: any; latency: number }> = {
-  "POST /v1/payments": (body) => ({
-    status: 201,
-    latency: 245,
-    body: {
-      id: "pay_" + Math.random().toString(36).slice(2, 14),
-      object: "payment",
-      amount: body?.amount || 150,
-      currency: body?.currency || "ZMW",
-      status: "pending",
-      payment_method: body?.payment_method || "mobile_money",
-      customer: body?.customer || { phone: "+260970000001" },
-      description: body?.description || "Test payment",
-      checkout_url: "https://checkout.bmaglasspay.com/pay/cs_sandbox_" + Math.random().toString(36).slice(2, 10),
-      created_at: new Date().toISOString(),
-      metadata: {},
-      livemode: false,
-    }
-  }),
-  "GET /v1/payments/:id": (_b, params) => ({
-    status: 200,
-    latency: 89,
-    body: {
-      id: params?.id || "pay_abc123def456",
-      object: "payment",
-      amount: 150.00,
-      currency: "ZMW",
-      status: "completed",
-      payment_method: "mobile_money",
-      customer: { phone: "+260970000001", name: "John Banda" },
-      completed_at: new Date().toISOString(),
-      created_at: new Date(Date.now() - 120000).toISOString(),
-      fee: { amount: 3.75, currency: "ZMW" },
-      livemode: false,
-    }
-  }),
-  "GET /v1/payments": () => ({
-    status: 200,
-    latency: 132,
-    body: {
-      object: "list",
-      data: [
-        { id: "pay_" + Math.random().toString(36).slice(2, 10), amount: 150, currency: "ZMW", status: "completed", created_at: new Date().toISOString() },
-        { id: "pay_" + Math.random().toString(36).slice(2, 10), amount: 320, currency: "ZMW", status: "pending", created_at: new Date(Date.now() - 3600000).toISOString() },
-        { id: "pay_" + Math.random().toString(36).slice(2, 10), amount: 75, currency: "ZMW", status: "failed", created_at: new Date(Date.now() - 7200000).toISOString() },
-      ],
-      has_more: true,
-      total_count: 47,
-      url: "/v1/payments",
-    }
-  }),
-  "POST /v1/payments/:id/refund": (_b, params) => ({
-    status: 200,
-    latency: 310,
-    body: {
-      id: "ref_" + Math.random().toString(36).slice(2, 14),
-      object: "refund",
-      payment_id: params?.id || "pay_abc123",
-      amount: _b?.amount || 50,
-      currency: "ZMW",
-      status: "processing",
-      reason: _b?.reason || "Customer request",
-      created_at: new Date().toISOString(),
-      livemode: false,
-    }
-  }),
-  "POST /v1/transfers": (body) => ({
-    status: 201,
-    latency: 198,
-    body: {
-      id: "tr_" + Math.random().toString(36).slice(2, 14),
-      object: "transfer",
-      amount: body?.amount || 200,
-      currency: body?.currency || "ZMW",
-      status: "processing",
-      destination: body?.destination || { type: "mobile_money", phone: "+260960000001" },
-      estimated_arrival: new Date(Date.now() + 300000).toISOString(),
-      created_at: new Date().toISOString(),
-      livemode: false,
-    }
-  }),
-  "GET /v1/transfers/:id": (_b, params) => ({
-    status: 200,
-    latency: 76,
-    body: {
-      id: params?.id || "tr_abc123",
-      object: "transfer",
-      amount: 200,
-      currency: "ZMW",
-      status: "completed",
-      destination: { type: "mobile_money", phone: "+260960000001", provider: "airtel" },
-      completed_at: new Date().toISOString(),
-      created_at: new Date(Date.now() - 600000).toISOString(),
-      livemode: false,
-    }
-  }),
-  "POST /v1/customers": (body) => ({
-    status: 201,
-    latency: 112,
-    body: {
-      id: "cus_" + Math.random().toString(36).slice(2, 14),
-      object: "customer",
-      name: body?.name || "Jane Mwale",
-      email: body?.email || "jane@example.com",
-      phone: body?.phone || "+260971234567",
-      metadata: body?.metadata || {},
-      created_at: new Date().toISOString(),
-      livemode: false,
-    }
-  }),
-  "GET /v1/customers/:id": (_b, params) => ({
-    status: 200,
-    latency: 65,
-    body: {
-      id: params?.id || "cus_abc123",
-      object: "customer",
-      name: "Jane Mwale",
-      email: "jane@example.com",
-      phone: "+260971234567",
-      total_spent: 2450.00,
-      transactions_count: 12,
-      created_at: new Date(Date.now() - 86400000 * 30).toISOString(),
-      livemode: false,
-    }
-  }),
-  "POST /v1/cards": (body) => ({
-    status: 201,
-    latency: 287,
-    body: {
-      id: "card_" + Math.random().toString(36).slice(2, 14),
-      object: "virtual_card",
-      masked_number: "**** **** **** " + Math.floor(1000 + Math.random() * 9000),
-      currency: body?.currency || "ZMW",
-      name: body?.name || "Marketing Budget",
-      type: body?.type || "single_use",
-      balance: 0,
-      spending_limit: body?.spending_limit || 1000,
-      status: "active",
-      expiry_date: "12/28",
-      created_at: new Date().toISOString(),
-      livemode: false,
-    }
-  }),
-  "POST /v1/cards/:id/fund": (_b, params) => ({
-    status: 200,
-    latency: 156,
-    body: {
-      id: params?.id || "card_abc123",
-      object: "virtual_card",
-      balance: _b?.amount || 500,
-      currency: _b?.currency || "ZMW",
-      funded_amount: _b?.amount || 500,
-      status: "active",
-      updated_at: new Date().toISOString(),
-      livemode: false,
-    }
-  }),
-  "POST /v1/subscriptions": (body) => ({
-    status: 201,
-    latency: 334,
-    body: {
-      id: "sub_" + Math.random().toString(36).slice(2, 14),
-      object: "subscription",
-      customer_id: body?.customer_id || "cus_abc123",
-      plan_id: body?.plan_id || "plan_monthly_pro",
-      status: "active",
-      current_period_start: new Date().toISOString(),
-      current_period_end: new Date(Date.now() + 86400000 * 30).toISOString(),
-      payment_method: body?.payment_method || "mobile_money",
-      created_at: new Date().toISOString(),
-      livemode: false,
-    }
-  }),
+  "POST /v1/payments": (body) => ({ status: 201, latency: 245,
+    body: { id: "pay_" + Math.random().toString(36).slice(2, 14), object: "payment", amount: body?.amount || 150, currency: body?.currency || "ZMW", status: "pending", payment_method: body?.payment_method || "mobile_money", customer: body?.customer || { phone: "+260970000001" }, checkout_url: "https://checkout.bmaglasspay.com/pay/cs_sandbox_" + Math.random().toString(36).slice(2, 10), created_at: new Date().toISOString(), livemode: false } }),
+  "GET /v1/payments/:id": (_b, params) => ({ status: 200, latency: 89,
+    body: { id: params?.id || "pay_abc123", object: "payment", amount: 150.00, currency: "ZMW", status: "completed", payment_method: "mobile_money", customer: { phone: "+260970000001", name: "John Banda" }, completed_at: new Date().toISOString(), fee: { amount: 3.75, currency: "ZMW" }, livemode: false } }),
+  "GET /v1/payments": () => ({ status: 200, latency: 132,
+    body: { object: "list", data: [
+      { id: "pay_" + Math.random().toString(36).slice(2, 10), amount: 150, currency: "ZMW", status: "completed", created_at: new Date().toISOString() },
+      { id: "pay_" + Math.random().toString(36).slice(2, 10), amount: 320, currency: "ZMW", status: "pending", created_at: new Date(Date.now() - 3600000).toISOString() },
+    ], has_more: true, next_cursor: "pay_xyz789", total_count: 47 } }),
+  "POST /v1/payments/:id/refund": (_b, params) => ({ status: 200, latency: 310,
+    body: { id: "ref_" + Math.random().toString(36).slice(2, 14), object: "refund", payment_id: params?.id || "pay_abc123", amount: _b?.amount || 50, currency: "ZMW", status: "processing", reason: _b?.reason || "Customer request", created_at: new Date().toISOString(), livemode: false } }),
+  "POST /v1/payments/:id/capture": (_b, params) => ({ status: 200, latency: 180,
+    body: { id: params?.id || "pay_abc123", object: "payment", status: "completed", captured: true, captured_at: new Date().toISOString(), livemode: false } }),
+  "POST /v1/payment-links": (body) => ({ status: 201, latency: 120,
+    body: { id: "plink_" + Math.random().toString(36).slice(2, 14), object: "payment_link", url: "https://pay.bmaglasspay.com/l/" + Math.random().toString(36).slice(2, 8), amount: body?.amount || 250, currency: body?.currency || "ZMW", description: body?.description || "", active: true, expires_at: new Date(Date.now() + (body?.expires_in || 86400) * 1000).toISOString(), created_at: new Date().toISOString(), livemode: false } }),
+  "GET /v1/payment-links": () => ({ status: 200, latency: 95,
+    body: { object: "list", data: [
+      { id: "plink_abc", url: "https://pay.bmaglasspay.com/l/abc123", amount: 250, status: "active", views: 12, payments: 3 },
+      { id: "plink_def", url: "https://pay.bmaglasspay.com/l/def456", amount: 500, status: "expired", views: 45, payments: 8 },
+    ], has_more: false, total_count: 2 } }),
+  "POST /v1/transfers": (body) => ({ status: 201, latency: 198,
+    body: { id: "tr_" + Math.random().toString(36).slice(2, 14), object: "transfer", amount: body?.amount || 200, currency: body?.currency || "ZMW", status: "processing", destination: body?.destination, estimated_arrival: new Date(Date.now() + 300000).toISOString(), created_at: new Date().toISOString(), livemode: false } }),
+  "GET /v1/transfers/:id": (_b, params) => ({ status: 200, latency: 76,
+    body: { id: params?.id || "tr_abc123", object: "transfer", amount: 200, currency: "ZMW", status: "completed", destination: { type: "mobile_money", phone: "+260960000001" }, completed_at: new Date().toISOString(), livemode: false } }),
+  "POST /v1/payouts/batch": (body) => ({ status: 201, latency: 420,
+    body: { id: "batch_" + Math.random().toString(36).slice(2, 14), object: "batch_payout", status: "processing", total_amount: body?.items?.reduce((s: number, i: any) => s + i.amount, 0) || 250, currency: body?.currency || "ZMW", items_count: body?.items?.length || 2, completed: 0, failed: 0, created_at: new Date().toISOString(), livemode: false } }),
+  "POST /v1/invoices": (body) => ({ status: 201, latency: 190,
+    body: { id: "inv_" + Math.random().toString(36).slice(2, 14), object: "invoice", invoice_number: "INV-" + Math.floor(100000 + Math.random() * 900000), customer_email: body?.customer_email, customer_name: body?.customer_name, status: "draft", subtotal: body?.items?.reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0) || 6200, tax_amount: 0, total_amount: body?.items?.reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0) || 6200, currency: body?.currency || "ZMW", due_date: body?.due_date, payment_url: "https://pay.bmaglasspay.com/inv/" + Math.random().toString(36).slice(2, 8), created_at: new Date().toISOString(), livemode: false } }),
+  "GET /v1/invoices/:id": (_b, params) => ({ status: 200, latency: 78,
+    body: { id: params?.id || "inv_abc123", object: "invoice", invoice_number: "INV-000042", status: "sent", total_amount: 6200, currency: "ZMW", customer_name: "Jane Mwale", due_date: "2026-04-08", livemode: false } }),
+  "POST /v1/invoices/:id/send": (_b, params) => ({ status: 200, latency: 250,
+    body: { id: params?.id || "inv_abc123", object: "invoice", status: "sent", sent_at: new Date().toISOString(), livemode: false } }),
+  "POST /v1/customers": (body) => ({ status: 201, latency: 112,
+    body: { id: "cus_" + Math.random().toString(36).slice(2, 14), object: "customer", name: body?.name || "Jane Mwale", email: body?.email, phone: body?.phone, metadata: body?.metadata || {}, created_at: new Date().toISOString(), livemode: false } }),
+  "GET /v1/customers/:id": (_b, params) => ({ status: 200, latency: 65,
+    body: { id: params?.id || "cus_abc123", object: "customer", name: "Jane Mwale", email: "jane@example.com", phone: "+260971234567", total_spent: 2450.00, transactions_count: 12, livemode: false } }),
+  "POST /v1/cards": (body) => ({ status: 201, latency: 287,
+    body: { id: "card_" + Math.random().toString(36).slice(2, 14), object: "virtual_card", masked_number: "**** **** **** " + Math.floor(1000 + Math.random() * 9000), currency: body?.currency || "ZMW", name: body?.name, type: body?.type || "single_use", balance: 0, spending_limit: body?.spending_limit || 1000, status: "active", created_at: new Date().toISOString(), livemode: false } }),
+  "POST /v1/cards/:id/fund": (_b, params) => ({ status: 200, latency: 156,
+    body: { id: params?.id || "card_abc123", object: "virtual_card", balance: _b?.amount || 500, funded_amount: _b?.amount || 500, status: "active", livemode: false } }),
+  "POST /v1/cards/:id/freeze": (_b, params) => ({ status: 200, latency: 95,
+    body: { id: params?.id || "card_abc123", object: "virtual_card", status: "frozen", frozen_at: new Date().toISOString(), livemode: false } }),
+  "POST /v1/subscriptions": (body) => ({ status: 201, latency: 334,
+    body: { id: "sub_" + Math.random().toString(36).slice(2, 14), object: "subscription", customer_id: body?.customer_id, plan_id: body?.plan_id, status: "active", current_period_end: new Date(Date.now() + 86400000 * 30).toISOString(), livemode: false } }),
+  "POST /v1/subscriptions/:id/cancel": (_b, params) => ({ status: 200, latency: 120,
+    body: { id: params?.id || "sub_abc123", object: "subscription", status: "cancelled", cancel_at_period_end: _b?.cancel_at_period_end ?? true, cancelled_at: new Date().toISOString(), livemode: false } }),
+  "GET /v1/disputes": () => ({ status: 200, latency: 110,
+    body: { object: "list", data: [
+      { id: "disp_abc", payment_id: "pay_xyz", amount: 150, currency: "ZMW", status: "open", reason: "product_not_received", created_at: new Date(Date.now() - 86400000).toISOString() },
+      { id: "disp_def", payment_id: "pay_uvw", amount: 500, currency: "ZMW", status: "won", reason: "duplicate", created_at: new Date(Date.now() - 604800000).toISOString() },
+    ], has_more: false, total_count: 2 } }),
+  "GET /v1/disputes/:id": (_b, params) => ({ status: 200, latency: 85,
+    body: { id: params?.id || "disp_abc", object: "dispute", payment_id: "pay_xyz", amount: 150, currency: "ZMW", status: "open", reason: "product_not_received", evidence_due_by: new Date(Date.now() + 604800000).toISOString(), livemode: false } }),
+  "POST /v1/disputes/:id/contest": (_b, params) => ({ status: 200, latency: 280,
+    body: { id: params?.id || "disp_abc", object: "dispute", status: "under_review", evidence_submitted: true, submitted_at: new Date().toISOString(), livemode: false } }),
+  "GET /v1/balance": () => ({ status: 200, latency: 55,
+    body: { object: "balance", available: [{ amount: 125000.00, currency: "ZMW" }], pending: [{ amount: 8500.00, currency: "ZMW" }], reserved: [{ amount: 1200.00, currency: "ZMW" }], livemode: false } }),
+  "POST /v1/reports/export": (body) => ({ status: 202, latency: 350,
+    body: { id: "rpt_" + Math.random().toString(36).slice(2, 14), object: "report", format: body?.format || "csv", type: body?.type || "transactions", status: "processing", download_url: null, estimated_completion: new Date(Date.now() + 60000).toISOString(), livemode: false } }),
 };
 
 const methodColors: Record<string, string> = {
@@ -285,6 +153,7 @@ const methodColors: Record<string, string> = {
   POST: "bg-blue-500/15 text-blue-400 border-blue-500/30",
   PUT: "bg-amber-500/15 text-amber-400 border-amber-500/30",
   DELETE: "bg-red-500/15 text-red-400 border-red-500/30",
+  PATCH: "bg-violet-500/15 text-violet-400 border-violet-500/30",
 };
 
 type CodeLang = "curl" | "javascript" | "python" | "php" | "java" | "go" | "ruby" | "csharp";
@@ -300,13 +169,7 @@ const CODE_LANGS: { id: CodeLang; label: string }[] = [
   { id: "csharp", label: "C#" },
 ];
 
-function generateCode(
-  lang: CodeLang,
-  method: string,
-  url: string,
-  apiKey: string,
-  body?: string
-): string {
+function generateCode(lang: CodeLang, method: string, url: string, apiKey: string, body?: string): string {
   let parsedBody: any = null;
   try { if (body) parsedBody = JSON.parse(body); } catch { /* skip */ }
   const hasBody = parsedBody && method !== "GET" && Object.keys(parsedBody).length > 0;
@@ -315,7 +178,7 @@ function generateCode(
 
   switch (lang) {
     case "curl": {
-      let cmd = `curl -X ${method} "${url}" \\\n  -H "Authorization: Bearer ${apiKey}" \\\n  -H "Content-Type: application/json"`;
+      let cmd = `curl -X ${method} "${url}" \\\n  -H "Authorization: Bearer ${apiKey}" \\\n  -H "Content-Type: application/json" \\\n  -H "Idempotency-Key: $(uuidgen)"`;
       if (hasBody) cmd += ` \\\n  -d '${bodyJsonOneline}'`;
       return cmd;
     }
@@ -325,12 +188,12 @@ function generateCode(
   headers: {
     "Authorization": "Bearer ${apiKey}",
     "Content-Type": "application/json",
+    "Idempotency-Key": crypto.randomUUID(),
   },${hasBody ? `\n  body: JSON.stringify(${bodyJson}),` : ""}
 });
 
 const data = await response.json();
 console.log(data);`;
-
     case "python":
       return `import requests
 
@@ -344,11 +207,9 @@ response = requests.${method.toLowerCase()}(
 
 data = response.json()
 print(data)`;
-
     case "php":
       return `<?php
 $ch = curl_init();
-
 curl_setopt_array($ch, [
     CURLOPT_URL => "${url}",
     CURLOPT_RETURNTRANSFER => true,
@@ -358,95 +219,56 @@ curl_setopt_array($ch, [
         "Content-Type: application/json",
     ],${hasBody ? `\n    CURLOPT_POSTFIELDS => json_encode(${bodyJson.replace(/"/g, "'")}),` : ""}
 ]);
-
 $response = curl_exec($ch);
 curl_close($ch);
-
 $data = json_decode($response, true);
 print_r($data);`;
-
     case "java":
-      return `import java.net.http.*;
-import java.net.URI;
-
-HttpClient client = HttpClient.newHttpClient();
-
+      return `HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create("${url}"))
     .header("Authorization", "Bearer ${apiKey}")
     .header("Content-Type", "application/json")
-    .method("${method}", ${hasBody
-      ? `HttpRequest.BodyPublishers.ofString("${bodyJsonOneline.replace(/"/g, '\\"')}")`
-      : `HttpRequest.BodyPublishers.noBody()`})
+    .method("${method}", ${hasBody ? `HttpRequest.BodyPublishers.ofString("${bodyJsonOneline.replace(/"/g, '\\"')}")` : `HttpRequest.BodyPublishers.noBody()`})
     .build();
-
-HttpResponse<String> response = client.send(
-    request, HttpResponse.BodyHandlers.ofString()
-);
-
+HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 System.out.println(response.body());`;
-
     case "go":
       return `package main
 
-import (
-    "fmt"
-    "io"
-    "net/http"${hasBody ? '\n    "strings"' : ""}
-)
+import ("fmt"; "io"; "net/http"${hasBody ? '; "strings"' : ""})
 
 func main() {
     ${hasBody ? `body := strings.NewReader(\`${bodyJsonOneline}\`)
     req, _ := http.NewRequest("${method}", "${url}", body)` : `req, _ := http.NewRequest("${method}", "${url}", nil)`}
     req.Header.Set("Authorization", "Bearer ${apiKey}")
     req.Header.Set("Content-Type", "application/json")
-
     resp, _ := http.DefaultClient.Do(req)
     defer resp.Body.Close()
-
     data, _ := io.ReadAll(resp.Body)
     fmt.Println(string(data))
 }`;
-
     case "ruby":
       return `require "net/http"
 require "json"
-require "uri"
-
 uri = URI.parse("${url}")
 http = Net::HTTP.new(uri.host, uri.port)
 http.use_ssl = true
-
 request = Net::HTTP::${method === "GET" ? "Get" : method === "POST" ? "Post" : method === "PUT" ? "Put" : "Delete"}.new(uri.request_uri)
 request["Authorization"] = "Bearer ${apiKey}"
 request["Content-Type"] = "application/json"${hasBody ? `\nrequest.body = '${bodyJsonOneline}'` : ""}
-
 response = http.request(request)
 puts JSON.parse(response.body)`;
-
     case "csharp":
-      return `using System.Net.Http;
-using System.Text;
-
-var client = new HttpClient();
+      return `var client = new HttpClient();
 client.DefaultRequestHeaders.Add("Authorization", "Bearer ${apiKey}");
-
 ${hasBody
-  ? `var content = new StringContent(
-    @"${bodyJsonOneline.replace(/"/g, '""')}",
-    Encoding.UTF8, "application/json"
-);
-
-var response = await client.${method === "POST" ? "PostAsync" : method === "PUT" ? "PutAsync" : "SendAsync"}(
-    "${url}", content
-);`
+  ? `var content = new StringContent(@"${bodyJsonOneline.replace(/"/g, '""')}", Encoding.UTF8, "application/json");
+var response = await client.${method === "POST" ? "PostAsync" : "PutAsync"}("${url}", content);`
   : `var response = await client.${method === "GET" ? "GetAsync" : "DeleteAsync"}("${url}");`}
-
 var data = await response.Content.ReadAsStringAsync();
 Console.WriteLine(data);`;
-
-    default:
-      return "";
+    default: return "";
   }
 }
 
@@ -462,6 +284,7 @@ export function ApiPlayground() {
   const [codeLang, setCodeLang] = useState<CodeLang>("javascript");
   const [codeCopied, setCodeCopied] = useState(false);
   const [showCodeGen, setShowCodeGen] = useState(false);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>("Payments");
   const { toast } = useToast();
 
   const handleEndpointChange = useCallback((value: string) => {
@@ -476,318 +299,223 @@ export function ApiPlayground() {
 
   const resolvedPath = selectedEndpoint.path.replace(/:(\w+)/g, (_, param) => pathParamValues[param] || `:${param}`);
 
-  const generateCurl = () => {
-    const url = `https://api.sandbox.bmaglasspay.com${resolvedPath}`;
-    let cmd = `curl -X ${selectedEndpoint.method} "${url}" \\\n  -H "Authorization: Bearer ${apiKey}" \\\n  -H "Content-Type: application/json"`;
-    if (selectedEndpoint.defaultBody && selectedEndpoint.method !== "GET") {
-      try {
-        const body = JSON.parse(requestBody);
-        cmd += ` \\\n  -d '${JSON.stringify(body)}'`;
-      } catch { /* skip */ }
-    }
-    return cmd;
-  };
-
   const sendRequest = async () => {
     setLoading(true);
     setResponse(null);
-
-    // Simulate network latency
     const lookupKey = `${selectedEndpoint.method} ${selectedEndpoint.path}`;
     const handler = MOCK_RESPONSES[lookupKey];
-
     await new Promise(r => setTimeout(r, 400 + Math.random() * 600));
 
-    let body: any = {};
-    try { body = JSON.parse(requestBody); } catch { /* empty */ }
+    let body: any = null;
+    try { body = JSON.parse(requestBody); } catch { /* skip */ }
 
-    const res = handler
-      ? handler(body, pathParamValues)
-      : { status: 200, latency: Math.floor(80 + Math.random() * 200), body: { message: "Sandbox response" } };
-
-    setResponse(res);
-    setHistory(prev => [{ endpoint: selectedEndpoint, response: res, timestamp: new Date() }, ...prev.slice(0, 9)]);
+    if (handler) {
+      const result = handler(body, pathParamValues);
+      setResponse(result);
+      setHistory(prev => [{ endpoint: selectedEndpoint, response: result, timestamp: new Date() }, ...prev].slice(0, 20));
+    } else {
+      const fallback = { status: 200, latency: Math.floor(80 + Math.random() * 200), body: { message: "Mock response", endpoint: lookupKey } };
+      setResponse(fallback);
+      setHistory(prev => [{ endpoint: selectedEndpoint, response: fallback, timestamp: new Date() }, ...prev].slice(0, 20));
+    }
     setLoading(false);
   };
 
-  const copyCurl = () => {
-    navigator.clipboard.writeText(generateCurl());
-    setCopied(true);
-    toast({ title: "cURL copied to clipboard" });
-    setTimeout(() => setCopied(false), 2000);
+  const copyResponse = () => {
+    if (response) {
+      navigator.clipboard.writeText(JSON.stringify(response.body, null, 2));
+      setCopied(true);
+      toast({ title: "Response copied" });
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
-  const categories = [...new Set(ENDPOINTS.map(e => e.category))];
+  const url = `https://api.sandbox.bmaglasspay.com${resolvedPath}`;
+  const codeSnippet = generateCode(codeLang, selectedEndpoint.method, url, apiKey, requestBody);
+
+  const categories = Array.from(new Set(ENDPOINTS.map(e => e.category)));
 
   return (
-    <div className="space-y-6">
-      {/* Sandbox Notice */}
-      <div className="flex items-center gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-        <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/30">
-          Sandbox Mode
-        </Badge>
-        <span className="text-sm text-muted-foreground">All requests are simulated — no real payments are processed.</span>
-      </div>
+    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+      {/* Endpoint Sidebar */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Endpoints</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="max-h-[600px] overflow-y-auto">
+            {categories.map((cat) => (
+              <div key={cat}>
+                <button
+                  className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-muted/50"
+                  onClick={() => setExpandedCategory(expandedCategory === cat ? null : cat)}
+                >
+                  {cat}
+                  {expandedCategory === cat ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                </button>
+                {expandedCategory === cat && ENDPOINTS.filter(e => e.category === cat).map((ep) => {
+                  const key = `${ep.method} ${ep.path}`;
+                  const isActive = `${selectedEndpoint.method} ${selectedEndpoint.path}` === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => handleEndpointChange(key)}
+                      className={`w-full flex items-center gap-2 px-4 py-2 text-left text-xs transition-colors ${isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50 text-foreground'}`}
+                    >
+                      <Badge className={`text-[9px] px-1.5 py-0 border ${methodColors[ep.method]}`}>{ep.method}</Badge>
+                      <span className="truncate">{ep.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Left: Request Builder */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* API Key */}
-          <Card className="border-0 shadow-sm">
-            <CardContent className="pt-4 pb-4">
-              <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">API Key</Label>
-              <Input
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="font-mono text-sm h-11 rounded-lg"
-                placeholder="pk_test_..."
-              />
-            </CardContent>
-          </Card>
+      {/* Main Panel */}
+      <div className="space-y-4">
+        {/* Request Bar */}
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Badge className={`border font-mono text-xs ${methodColors[selectedEndpoint.method]}`}>
+                {selectedEndpoint.method}
+              </Badge>
+              <code className="text-sm font-mono flex-1 text-foreground">{resolvedPath}</code>
+              <Button onClick={sendRequest} disabled={loading} size="sm" className="h-8">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
+                Send
+              </Button>
+            </div>
 
-          {/* Endpoint Selector */}
-          <Card className="border-0 shadow-sm">
-            <CardContent className="pt-4 pb-4 space-y-4">
+            <p className="text-xs text-muted-foreground mb-3">{selectedEndpoint.description}</p>
+
+            {/* API Key */}
+            <div className="mb-3">
+              <Label className="text-xs">API Key</Label>
+              <Input value={apiKey} onChange={e => setApiKey(e.target.value)} className="h-8 font-mono text-xs mt-1" />
+            </div>
+
+            {/* Path Params */}
+            {selectedEndpoint.pathParams?.map((param) => (
+              <div key={param} className="mb-3">
+                <Label className="text-xs">{param}</Label>
+                <Input
+                  value={pathParamValues[param] || ""}
+                  onChange={e => setPathParamValues(prev => ({ ...prev, [param]: e.target.value }))}
+                  placeholder={`Enter ${param}`}
+                  className="h-8 font-mono text-xs mt-1"
+                />
+              </div>
+            ))}
+
+            {/* Body */}
+            {selectedEndpoint.defaultBody && selectedEndpoint.method !== "GET" && (
               <div>
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Endpoint</Label>
-                <Select value={`${selectedEndpoint.method} ${selectedEndpoint.path}`} onValueChange={handleEndpointChange}>
-                  <SelectTrigger className="font-mono text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(cat => (
-                      <React.Fragment key={cat}>
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{cat}</div>
-                        {ENDPOINTS.filter(e => e.category === cat).map(ep => (
-                          <SelectItem key={`${ep.method} ${ep.path}`} value={`${ep.method} ${ep.path}`}>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${methodColors[ep.method]}`}>
-                                {ep.method}
-                              </span>
-                              <span className="font-mono text-xs">{ep.path}</span>
-                              <span className="text-muted-foreground text-xs ml-1">— {ep.label}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </React.Fragment>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <p className="text-sm text-muted-foreground">{selectedEndpoint.description}</p>
-
-              {/* URL preview */}
-              <div className="flex items-center gap-2 p-2.5 bg-secondary/20 rounded-lg border font-mono text-sm overflow-x-auto">
-                <span className={`text-xs font-bold px-1.5 py-0.5 rounded border shrink-0 ${methodColors[selectedEndpoint.method]}`}>
-                  {selectedEndpoint.method}
-                </span>
-                <span className="text-muted-foreground">https://api.sandbox.bmaglasspay.com</span>
-                <span className="text-foreground">{resolvedPath}</span>
-              </div>
-
-              {/* Path params */}
-              {selectedEndpoint.pathParams && selectedEndpoint.pathParams.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Path Parameters</Label>
-                  {selectedEndpoint.pathParams.map(param => (
-                    <div key={param} className="flex items-center gap-2">
-                      <Label className="text-sm font-mono w-16 shrink-0">{param}</Label>
-                      <Input
-                        value={pathParamValues[param] || ""}
-                        onChange={(e) => setPathParamValues(prev => ({ ...prev, [param]: e.target.value }))}
-                        placeholder={`e.g. pay_abc123`}
-                        className="font-mono text-sm"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Request Body */}
-          {selectedEndpoint.defaultBody && (
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Request Body</CardTitle>
-              </CardHeader>
-              <CardContent>
+                <Label className="text-xs">Request Body</Label>
                 <textarea
                   value={requestBody}
-                  onChange={(e) => setRequestBody(e.target.value)}
-                  className="w-full min-h-[200px] bg-secondary/20 border rounded-lg p-4 font-mono text-sm text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-                  spellCheck={false}
+                  onChange={e => setRequestBody(e.target.value)}
+                  className="w-full h-40 mt-1 font-mono text-xs p-3 rounded-lg bg-slate-900 text-slate-100 border border-slate-800 resize-y"
                 />
-              </CardContent>
-            </Card>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Code Generator */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <button onClick={() => setShowCodeGen(!showCodeGen)} className="flex items-center gap-2 text-sm font-medium">
+              <Code2 className="h-4 w-4 text-primary" />
+              Code Snippet
+              {showCodeGen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </button>
+          </CardHeader>
+          {showCodeGen && (
+            <CardContent className="pt-0">
+              <div className="flex gap-1 mb-3 flex-wrap">
+                {CODE_LANGS.map(l => (
+                  <Button key={l.id} variant={codeLang === l.id ? "default" : "ghost"} size="sm" className="h-7 text-xs px-2" onClick={() => setCodeLang(l.id)}>
+                    {l.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="relative group">
+                <pre className="bg-slate-900 text-slate-100 border border-slate-800 rounded-lg p-4 overflow-x-auto text-xs font-mono max-h-60">
+                  <code>{codeSnippet}</code>
+                </pre>
+                <Button
+                  variant="ghost" size="sm"
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white hover:bg-slate-800"
+                  onClick={() => {
+                    navigator.clipboard.writeText(codeSnippet);
+                    setCodeCopied(true);
+                    toast({ title: "Code copied" });
+                    setTimeout(() => setCodeCopied(false), 2000);
+                  }}
+                >
+                  {codeCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                </Button>
+              </div>
+            </CardContent>
           )}
+        </Card>
 
-          {/* Send + cURL */}
-          <div className="flex gap-3">
-            <Button onClick={sendRequest} disabled={loading} className="flex-1" size="lg">
-              {loading ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</>
-              ) : (
-                <><Play className="h-4 w-4 mr-2" /> Send Request</>
-              )}
-            </Button>
-            <Button variant="outline" size="lg" onClick={copyCurl}>
-              {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-              cURL
-            </Button>
-          </div>
-
-          {/* Code Generation */}
+        {/* Response */}
+        {response && (
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-2">
-              <button
-                onClick={() => setShowCodeGen(!showCodeGen)}
-                className="flex items-center justify-between w-full"
-              >
-                <div className="flex items-center gap-2">
-                  <Code2 className="h-4 w-4 text-primary" />
-                  <CardTitle className="text-sm">Generated Code</CardTitle>
-                </div>
-                {showCodeGen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-              </button>
-            </CardHeader>
-            {showCodeGen && (
-              <CardContent>
-                <Tabs value={codeLang} onValueChange={(v) => setCodeLang(v as CodeLang)}>
-                  <TabsList className="w-full flex flex-wrap h-auto gap-0.5 bg-muted/50 p-0.5 mb-3">
-                    {CODE_LANGS.map(l => (
-                      <TabsTrigger key={l.id} value={l.id} className="text-xs px-2 py-1">
-                        {l.label}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                  {CODE_LANGS.map(l => (
-                    <TabsContent key={l.id} value={l.id}>
-                      <div className="relative group">
-                        <pre className="bg-secondary/20 border rounded-lg p-4 overflow-x-auto text-xs font-mono text-foreground max-h-[400px]">
-                          <code>{generateCode(
-                            l.id,
-                            selectedEndpoint.method,
-                            `https://api.sandbox.bmaglasspay.com${resolvedPath}`,
-                            apiKey,
-                            requestBody
-                          )}</code>
-                        </pre>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => {
-                            navigator.clipboard.writeText(generateCode(
-                              l.id,
-                              selectedEndpoint.method,
-                              `https://api.sandbox.bmaglasspay.com${resolvedPath}`,
-                              apiKey,
-                              requestBody
-                            ));
-                            setCodeCopied(true);
-                            toast({ title: `${l.label} code copied` });
-                            setTimeout(() => setCodeCopied(false), 2000);
-                          }}
-                        >
-                          {codeCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </TabsContent>
-                  ))}
-                </Tabs>
-              </CardContent>
-            )}
-          </Card>
-        </div>
-
-        {/* Right: Response + History */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Response */}
-          <Card className="sticky top-24 border-0 shadow-sm">
-            <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Response</CardTitle>
-                {response && (
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={
-                        response.status < 300
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                          : response.status < 500
-                          ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                          : "bg-red-500/10 text-red-400 border-red-500/30"
-                      }
-                    >
-                      {response.status}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" /> {response.latency}ms
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center gap-3">
+                  <Badge variant={response.status < 300 ? "default" : response.status < 500 ? "secondary" : "destructive"} className="font-mono text-xs">
+                    {response.status}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> {response.latency}ms
+                  </span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={copyResponse} className="h-7">
+                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center h-40">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : response ? (
-                <pre className="bg-secondary/20 border rounded-lg p-4 overflow-auto text-xs font-mono text-foreground max-h-[500px]">
-                  {JSON.stringify(response.body, null, 2)}
-                </pre>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-                  <Play className="h-8 w-8 mb-2 opacity-30" />
-                  <p className="text-sm">Click "Send Request" to see the response</p>
-                </div>
-              )}
+              <pre className="bg-slate-900 text-slate-100 border border-slate-800 rounded-lg p-4 overflow-x-auto text-xs font-mono max-h-80">
+                <code>{JSON.stringify(response.body, null, 2)}</code>
+              </pre>
             </CardContent>
           </Card>
+        )}
 
-          {/* History */}
-          {history.length > 0 && (
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Recent Requests</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1.5">
+        {/* History */}
+        {history.length > 0 && (
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Request History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
                 {history.map((h, i) => (
                   <button
                     key={i}
                     onClick={() => {
-                      setSelectedEndpoint(h.endpoint);
-                      setRequestBody(JSON.stringify(h.endpoint.defaultBody || {}, null, 2));
+                      handleEndpointChange(`${h.endpoint.method} ${h.endpoint.path}`);
                       setResponse(h.response);
                     }}
-                    className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-accent/30 transition-colors text-left"
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted/50 transition-colors"
                   >
-                    <span className={`text-[10px] font-bold px-1 py-0.5 rounded border ${methodColors[h.endpoint.method]}`}>
-                      {h.endpoint.method}
-                    </span>
-                    <span className="font-mono text-xs text-foreground truncate flex-1">{h.endpoint.path}</span>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] ${
-                        h.response.status < 300
-                          ? "text-emerald-400 border-emerald-500/30"
-                          : "text-amber-400 border-amber-500/30"
-                      }`}
-                    >
-                      {h.response.status}
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground">
-                      {h.timestamp.toLocaleTimeString()}
-                    </span>
+                    <Badge className={`text-[9px] px-1.5 py-0 border ${methodColors[h.endpoint.method]}`}>{h.endpoint.method}</Badge>
+                    <span className="font-mono truncate flex-1 text-left">{h.endpoint.path}</span>
+                    <Badge variant={h.response.status < 300 ? "default" : "destructive"} className="text-[9px]">{h.response.status}</Badge>
+                    <span className="text-muted-foreground">{h.response.latency}ms</span>
                   </button>
                 ))}
-              </CardContent>
-            </Card>
-          )}
-        </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
