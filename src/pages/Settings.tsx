@@ -1,17 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { User, Shield, Bell, CreditCard, LogOut, Camera, Loader2 } from "lucide-react";
+import { User, Shield, Bell, CreditCard, LogOut, Camera, Loader2, ChevronRight, Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -24,8 +23,8 @@ const Settings = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState('profile');
 
-  // Profile state
   const [profile, setProfile] = useState({
     first_name: '',
     last_name: '',
@@ -33,10 +32,8 @@ const Settings = () => {
     avatar_url: ''
   });
 
-  // Security state
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
-  // Notification state
   const [notifications, setNotifications] = useState({
     email_transactions: true,
     email_marketing: false,
@@ -45,13 +42,11 @@ const Settings = () => {
     push_enabled: false,
   });
 
-  // Payment state
   const [payment, setPayment] = useState({
     transactionLimits: true,
     internationalPayments: false
   });
 
-  // Fetch profile, notification prefs, and 2FA status
   useEffect(() => {
     if (!user?.id) return;
 
@@ -110,7 +105,6 @@ const Settings = () => {
         .eq('id', user.id);
 
       if (error) throw error;
-
       toast({ title: "Profile Updated", description: "Your profile has been updated successfully." });
     } catch (error: any) {
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
@@ -132,7 +126,6 @@ const Settings = () => {
         }, { onConflict: 'user_id' });
 
       if (error) throw error;
-
       toast({ title: "Notifications Updated", description: "Your notification preferences have been saved." });
     } catch (error: any) {
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
@@ -184,11 +177,18 @@ const Settings = () => {
     }
   };
 
+  const navItems = [
+    { id: 'profile', label: 'Profile', icon: User, description: 'Personal information' },
+    { id: 'security', label: 'Security', icon: Shield, description: 'Password & 2FA' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Email & push alerts' },
+    { id: 'payment', label: 'Payment', icon: CreditCard, description: 'Currency & limits' },
+  ];
+
   if (profileLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="min-h-screen flex flex-col bg-muted/30">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-4xl mx-auto w-full flex items-center justify-center">
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-5xl mx-auto w-full flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </main>
         <Footer />
@@ -197,296 +197,280 @@ const Settings = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-muted/30">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-4xl mx-auto w-full">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Settings</h1>
-          <p className="text-muted-foreground">Manage your account settings and preferences</p>
+      <main className="flex-1 pt-24 pb-16 px-4 max-w-5xl mx-auto w-full">
+        {/* Page header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <SettingsIcon className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+              <p className="text-sm text-muted-foreground">Manage your account preferences</p>
+            </div>
+          </div>
         </div>
 
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline">Profile</span>
-            </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Security</span>
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              <span className="hidden sm:inline">Notifications</span>
-            </TabsTrigger>
-            <TabsTrigger value="payment" className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4" />
-              <span className="hidden sm:inline">Payment</span>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Profile Tab */}
-          <TabsContent value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center space-x-6">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage src={profile.avatar_url} />
-                    <AvatarFallback className="text-lg">
-                      {profile.first_name?.[0]}{profile.last_name?.[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <Label htmlFor="avatar-upload" className="cursor-pointer">
-                      <Button variant="outline" className="flex items-center gap-2" asChild>
-                        <span>
-                          <Camera className="h-4 w-4" />
-                          Change Photo
-                        </span>
-                      </Button>
-                    </Label>
-                    <input
-                      id="avatar-upload"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarUpload}
-                    />
-                  </div>
+        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6">
+          {/* Sidebar nav */}
+          <nav className="space-y-1">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                  activeSection === item.id
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm">{item.label}</div>
+                  <div className="text-xs text-muted-foreground hidden md:block">{item.description}</div>
                 </div>
+              </button>
+            ))}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Separator className="my-3" />
+
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              <span className="text-sm font-medium">Sign Out</span>
+            </button>
+          </nav>
+
+          {/* Content area */}
+          <div className="space-y-6">
+            {/* Profile */}
+            {activeSection === 'profile' && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">Profile Information</CardTitle>
+                  <CardDescription>Update your personal details and profile photo</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex items-center gap-5">
+                    <Avatar className="h-20 w-20 ring-2 ring-border">
+                      <AvatarImage src={profile.avatar_url} />
+                      <AvatarFallback className="text-lg bg-primary/10 text-primary font-semibold">
+                        {profile.first_name?.[0]}{profile.last_name?.[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <Label htmlFor="avatar-upload" className="cursor-pointer">
+                        <Button variant="outline" size="sm" className="gap-2" asChild>
+                          <span>
+                            <Camera className="h-4 w-4" />
+                            Change Photo
+                          </span>
+                        </Button>
+                      </Label>
+                      <input
+                        id="avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarUpload}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">JPG, PNG. Max 2MB</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        value={profile.first_name}
+                        onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
+                        className="h-11 rounded-lg"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        value={profile.last_name}
+                        onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
+                        className="h-11 rounded-lg"
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input
-                      id="firstName"
-                      value={profile.first_name}
-                      onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
-                    />
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" value={user?.email || ""} disabled className="h-11 rounded-lg bg-muted/50" />
+                    <p className="text-xs text-muted-foreground">Email cannot be changed</p>
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name</Label>
+                    <Label htmlFor="phone">Phone Number</Label>
                     <Input
-                      id="lastName"
-                      value={profile.last_name}
-                      onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
+                      id="phone"
+                      value={profile.phone}
+                      onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                      placeholder="+260..."
+                      className="h-11 rounded-lg"
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email (Read-only)</Label>
-                  <Input id="email" value={user?.email || ""} disabled className="bg-muted" />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    value={profile.phone}
-                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                    placeholder="+260..."
-                  />
-                </div>
-
-                <Button onClick={handleProfileUpdate} disabled={isLoading}>
-                  {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...</> : "Update Profile"}
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Security Tab */}
-          <TabsContent value="security">
-            <Card>
-              <CardHeader>
-                <CardTitle>Security Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Two-Factor Authentication</h3>
-                    <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={twoFactorEnabled ? "default" : "secondary"}>
-                      {twoFactorEnabled ? "Enabled" : "Disabled"}
-                    </Badge>
-                    <Button variant="outline" size="sm" onClick={() => navigate('/two-factor-auth')}>
-                      {twoFactorEnabled ? "Manage" : "Set Up"}
+                  <div className="pt-2">
+                    <Button onClick={handleProfileUpdate} disabled={isLoading} className="h-11 px-6 rounded-lg">
+                      {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save Changes"}
                     </Button>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
+            )}
 
-                <Separator />
+            {/* Security */}
+            {activeSection === 'security' && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">Security</CardTitle>
+                  <CardDescription>Manage your security preferences and authentication</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-0">
+                  {[
+                    {
+                      title: 'Two-Factor Authentication',
+                      desc: 'Add an extra layer of security to your account',
+                      action: (
+                        <div className="flex items-center gap-2">
+                          <Badge variant={twoFactorEnabled ? "default" : "secondary"} className="text-xs">
+                            {twoFactorEnabled ? "On" : "Off"}
+                          </Badge>
+                          <Button variant="ghost" size="sm" onClick={() => navigate('/two-factor-auth')}>
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ),
+                    },
+                    {
+                      title: 'Change Password',
+                      desc: 'Update your account password regularly',
+                      action: (
+                        <Button variant="ghost" size="sm" onClick={() => navigate('/reset-password')}>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      ),
+                    },
+                    {
+                      title: 'Security Dashboard',
+                      desc: 'Review login activity and security events',
+                      action: (
+                        <Button variant="ghost" size="sm" onClick={() => navigate('/security-settings')}>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      ),
+                    },
+                  ].map((item, i, arr) => (
+                    <React.Fragment key={i}>
+                      <div className="flex items-center justify-between py-4">
+                        <div>
+                          <h3 className="text-sm font-medium text-foreground">{item.title}</h3>
+                          <p className="text-sm text-muted-foreground">{item.desc}</p>
+                        </div>
+                        {item.action}
+                      </div>
+                      {i < arr.length - 1 && <Separator />}
+                    </React.Fragment>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Change Password</h3>
-                    <p className="text-sm text-muted-foreground">Update your account password</p>
+            {/* Notifications */}
+            {activeSection === 'notifications' && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">Notifications</CardTitle>
+                  <CardDescription>Choose what you'd like to be notified about</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-0">
+                  {[
+                    { key: 'push_enabled', title: 'Push Notifications', desc: 'Receive notifications on your device' },
+                    { key: 'email_transactions', title: 'Transaction Emails', desc: 'Get notified about transactions' },
+                    { key: 'email_security', title: 'Security Alerts', desc: 'Receive alerts about security events' },
+                    { key: 'email_marketing', title: 'Marketing', desc: 'Promotional content and offers' },
+                    { key: 'email_news', title: 'News & Updates', desc: 'Product news and feature updates' },
+                  ].map((item, i, arr) => (
+                    <React.Fragment key={item.key}>
+                      <div className="flex items-center justify-between py-4">
+                        <div>
+                          <h3 className="text-sm font-medium text-foreground">{item.title}</h3>
+                          <p className="text-sm text-muted-foreground">{item.desc}</p>
+                        </div>
+                        <Switch
+                          checked={(notifications as any)[item.key]}
+                          onCheckedChange={(checked) =>
+                            setNotifications({ ...notifications, [item.key]: checked })
+                          }
+                        />
+                      </div>
+                      {i < arr.length - 1 && <Separator />}
+                    </React.Fragment>
+                  ))}
+
+                  <div className="pt-4">
+                    <Button onClick={handleNotificationUpdate} disabled={isLoading} className="h-11 px-6 rounded-lg">
+                      {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save Preferences"}
+                    </Button>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/reset-password')}>
-                    Change
-                  </Button>
-                </div>
+                </CardContent>
+              </Card>
+            )}
 
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Security Dashboard</h3>
-                    <p className="text-sm text-muted-foreground">View login activity and security events</p>
+            {/* Payment */}
+            {activeSection === 'payment' && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">Payment Settings</CardTitle>
+                  <CardDescription>Manage your currency and payment preferences</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Default Currency</Label>
+                    <CurrencySelector />
+                    <p className="text-xs text-muted-foreground">Used across the entire app</p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/security-settings')}>
-                    View
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          {/* Notifications Tab */}
-          <TabsContent value="notifications">
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Push Notifications</h3>
-                    <p className="text-sm text-muted-foreground">Receive notifications on your device</p>
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground">Transaction Limits</h3>
+                      <p className="text-sm text-muted-foreground">Apply daily and monthly limits</p>
+                    </div>
+                    <Switch
+                      checked={payment.transactionLimits}
+                      onCheckedChange={(checked) => setPayment({ ...payment, transactionLimits: checked })}
+                    />
                   </div>
-                  <Switch
-                    checked={notifications.push_enabled}
-                    onCheckedChange={(checked) => setNotifications({ ...notifications, push_enabled: checked })}
-                  />
-                </div>
 
-                <Separator />
+                  <Separator />
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Transaction Emails</h3>
-                    <p className="text-sm text-muted-foreground">Get notified about transactions via email</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground">International Payments</h3>
+                      <p className="text-sm text-muted-foreground">Allow payments outside Zambia</p>
+                    </div>
+                    <Switch
+                      checked={payment.internationalPayments}
+                      onCheckedChange={(checked) => setPayment({ ...payment, internationalPayments: checked })}
+                    />
                   </div>
-                  <Switch
-                    checked={notifications.email_transactions}
-                    onCheckedChange={(checked) => setNotifications({ ...notifications, email_transactions: checked })}
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Security Alerts</h3>
-                    <p className="text-sm text-muted-foreground">Receive alerts about security events</p>
-                  </div>
-                  <Switch
-                    checked={notifications.email_security}
-                    onCheckedChange={(checked) => setNotifications({ ...notifications, email_security: checked })}
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Marketing Emails</h3>
-                    <p className="text-sm text-muted-foreground">Receive promotional content and updates</p>
-                  </div>
-                  <Switch
-                    checked={notifications.email_marketing}
-                    onCheckedChange={(checked) => setNotifications({ ...notifications, email_marketing: checked })}
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">News & Updates</h3>
-                    <p className="text-sm text-muted-foreground">Stay up to date with product news</p>
-                  </div>
-                  <Switch
-                    checked={notifications.email_news}
-                    onCheckedChange={(checked) => setNotifications({ ...notifications, email_news: checked })}
-                  />
-                </div>
-
-                <Button onClick={handleNotificationUpdate} disabled={isLoading}>
-                  {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save Preferences"}
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Payment Tab */}
-          <TabsContent value="payment">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label>Default Currency</Label>
-                  <CurrencySelector />
-                  <p className="text-sm text-muted-foreground">
-                    This currency will be used across the entire app
-                  </p>
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Transaction Limits</h3>
-                    <p className="text-sm text-muted-foreground">Apply daily and monthly limits</p>
-                  </div>
-                  <Switch
-                    checked={payment.transactionLimits}
-                    onCheckedChange={(checked) => setPayment({ ...payment, transactionLimits: checked })}
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">International Payments</h3>
-                    <p className="text-sm text-muted-foreground">Allow payments outside Zambia</p>
-                  </div>
-                  <Switch
-                    checked={payment.internationalPayments}
-                    onCheckedChange={(checked) => setPayment({ ...payment, internationalPayments: checked })}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-        <Card className="mt-6 border-destructive/50">
-          <CardHeader>
-            <CardTitle className="text-destructive">Danger Zone</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium">Sign Out</h3>
-                <p className="text-sm text-muted-foreground">Sign out from your account</p>
-              </div>
-              <Button variant="destructive" onClick={handleLogout} className="flex items-center gap-2">
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
       </main>
       <Footer />
     </div>
