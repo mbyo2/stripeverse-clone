@@ -23,7 +23,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { 
   ChevronDown, 
-  CreditCard, 
+  CreditCard,
+  AlertCircle,
   BarChart3, 
   Settings, 
   HelpCircle, 
@@ -56,7 +57,11 @@ import {
   Coins,
   FileSpreadsheet,
   RotateCcw,
-  Banknote
+  Banknote,
+  Zap,
+  Package,
+  Shield as ShieldIcon,
+  Receipt
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 
@@ -191,6 +196,11 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/card-vault" className="flex items-center gap-2">
+                      <ShieldIcon className="h-4 w-4" /> Card Vault
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/buy-now-pay-later" className="flex items-center gap-2">
                       <Layers className="h-4 w-4" /> Buy Now Pay Later
                     </Link>
@@ -233,6 +243,21 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/analytics" className="flex items-center gap-2">
                       <BarChart3 className="h-4 w-4" /> Analytics
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settlements" className="flex items-center gap-2">
+                      <Receipt className="h-4 w-4" /> Settlements
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/disputes" className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" /> Disputes
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/webhook-logs" className="flex items-center gap-2">
+                      <Zap className="h-4 w-4" /> Webhook Logs
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -382,6 +407,7 @@ const Header = () => {
                     <MobileNavLink to="/card/new" icon={CardIcon}>Virtual Cards</MobileNavLink>
                     <MobileNavLink to="/spending-insights" icon={BarChart3}>Spending Insights</MobileNavLink>
                     <MobileNavLink to="/refunds" icon={RotateCcw}>Refunds</MobileNavLink>
+                    <MobileNavLink to="/card-vault" icon={ShieldIcon}>Card Vault</MobileNavLink>
                     <MobileNavLink to="/buy-now-pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
                     <MobileNavLink to="/scheduled-payments" icon={Clock}>Scheduled Payments</MobileNavLink>
                     
@@ -392,8 +418,12 @@ const Header = () => {
                     <MobileNavLink to="/payment-links" icon={Link2}>Payment Links</MobileNavLink>
                     <MobileNavLink to="/sub-accounts" icon={GitBranch}>Split Payments</MobileNavLink>
                     <MobileNavLink to="/invoices" icon={FileText}>Invoices</MobileNavLink>
+                    <MobileNavLink to="/settlements" icon={Receipt}>Settlements</MobileNavLink>
+                    <MobileNavLink to="/disputes" icon={AlertCircle}>Disputes</MobileNavLink>
+                    <MobileNavLink to="/webhook-logs" icon={Zap}>Webhook Logs</MobileNavLink>
                     <MobileNavLink to="/analytics" icon={BarChart3}>Analytics</MobileNavLink>
                     <MobileNavLink to="/api" icon={Code2}>API</MobileNavLink>
+                    <MobileNavLink to="/sdk-docs" icon={Package}>SDK Docs</MobileNavLink>
                     <MobileNavLink to="/billing" icon={DollarSign}>Billing</MobileNavLink>
                     <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
                     

@@ -411,6 +411,60 @@ export type Database = {
         }
         Relationships: []
       }
+      card_tokens: {
+        Row: {
+          billing_address: Json | null
+          card_brand: string
+          card_exp_month: number
+          card_exp_year: number
+          card_last_four: string
+          cardholder_name: string | null
+          created_at: string
+          fingerprint: string | null
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          metadata: Json | null
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          billing_address?: Json | null
+          card_brand?: string
+          card_exp_month: number
+          card_exp_year: number
+          card_last_four: string
+          cardholder_name?: string | null
+          created_at?: string
+          fingerprint?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          metadata?: Json | null
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          billing_address?: Json | null
+          card_brand?: string
+          card_exp_month?: number
+          card_exp_year?: number
+          card_last_four?: string
+          cardholder_name?: string | null
+          created_at?: string
+          fingerprint?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          metadata?: Json | null
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       compliance_checks: {
         Row: {
           check_type: string
@@ -1664,6 +1718,77 @@ export type Database = {
         }
         Relationships: []
       }
+      settlement_reports: {
+        Row: {
+          bank_account_id: string | null
+          chargebacks_amount: number
+          created_at: string
+          currency: string
+          gross_amount: number
+          id: string
+          merchant_id: string
+          metadata: Json | null
+          net_amount: number
+          payout_reference: string | null
+          period_end: string
+          period_start: string
+          refunds_amount: number
+          settled_at: string | null
+          status: string
+          total_fees: number
+          total_transactions: number
+          updated_at: string
+        }
+        Insert: {
+          bank_account_id?: string | null
+          chargebacks_amount?: number
+          created_at?: string
+          currency?: string
+          gross_amount?: number
+          id?: string
+          merchant_id: string
+          metadata?: Json | null
+          net_amount?: number
+          payout_reference?: string | null
+          period_end: string
+          period_start: string
+          refunds_amount?: number
+          settled_at?: string | null
+          status?: string
+          total_fees?: number
+          total_transactions?: number
+          updated_at?: string
+        }
+        Update: {
+          bank_account_id?: string | null
+          chargebacks_amount?: number
+          created_at?: string
+          currency?: string
+          gross_amount?: number
+          id?: string
+          merchant_id?: string
+          metadata?: Json | null
+          net_amount?: number
+          payout_reference?: string | null
+          period_end?: string
+          period_start?: string
+          refunds_amount?: number
+          settled_at?: string | null
+          status?: string
+          total_fees?: number
+          total_transactions?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlement_reports_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spending_budgets: {
         Row: {
           alert_threshold: number
@@ -2550,6 +2675,60 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      webhook_delivery_logs: {
+        Row: {
+          attempts: number
+          business_id: string
+          created_at: string
+          error_message: string | null
+          event_id: string
+          event_type: string
+          id: string
+          last_attempt_at: string | null
+          max_attempts: number
+          next_retry_at: string | null
+          payload: Json
+          response_status: number | null
+          status: string
+          updated_at: string
+          webhook_url: string
+        }
+        Insert: {
+          attempts?: number
+          business_id: string
+          created_at?: string
+          error_message?: string | null
+          event_id: string
+          event_type: string
+          id?: string
+          last_attempt_at?: string | null
+          max_attempts?: number
+          next_retry_at?: string | null
+          payload?: Json
+          response_status?: number | null
+          status?: string
+          updated_at?: string
+          webhook_url: string
+        }
+        Update: {
+          attempts?: number
+          business_id?: string
+          created_at?: string
+          error_message?: string | null
+          event_id?: string
+          event_type?: string
+          id?: string
+          last_attempt_at?: string | null
+          max_attempts?: number
+          next_retry_at?: string | null
+          payload?: Json
+          response_status?: number | null
+          status?: string
+          updated_at?: string
+          webhook_url?: string
         }
         Relationships: []
       }

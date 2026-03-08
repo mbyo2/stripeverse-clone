@@ -75,6 +75,11 @@ import SubAccounts from '@/pages/SubAccounts';
 import MultiCurrencyWallet from '@/pages/MultiCurrencyWallet';
 import BulkPayments from '@/pages/BulkPayments';
 import Refunds from '@/pages/Refunds';
+import PublicCheckout from '@/pages/PublicCheckout';
+import Settlements from '@/pages/Settlements';
+import SdkDocs from '@/pages/SdkDocs';
+import WebhookLogs from '@/pages/WebhookLogs';
+import CardVault from '@/pages/CardVault';
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -98,6 +103,8 @@ const AnimatedRoutes = () => {
         <Route path="/privacy-policy" element={<PageTransition><PrivacyPolicy /></PageTransition>} />
         <Route path="/terms-of-service" element={<PageTransition><TermsOfService /></PageTransition>} />
         <Route path="/developers" element={<PageTransition><Developers /></PageTransition>} />
+        <Route path="/pay/:code" element={<PageTransition><PublicCheckout /></PageTransition>} />
+        <Route path="/sdk-docs" element={<PageTransition><SdkDocs /></PageTransition>} />
         <Route path="/payment-success" element={<PageTransition><PaymentSuccess /></PageTransition>} />
         <Route path="/payment-failed" element={<PageTransition><PaymentFailed /></PageTransition>} />
         
@@ -413,6 +420,24 @@ const AnimatedRoutes = () => {
         <Route path="/refunds" element={
           <ProtectedRoute>
             <PageTransition><Refunds /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/settlements" element={
+          <ProtectedRoute>
+            <PageTransition><Settlements /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/webhook-logs" element={
+          <ProtectedRoute>
+            <PageTransition><WebhookLogs /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/card-vault" element={
+          <ProtectedRoute>
+            <PageTransition><CardVault /></PageTransition>
           </ProtectedRoute>
         } />
 
