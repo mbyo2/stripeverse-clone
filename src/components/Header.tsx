@@ -371,19 +371,26 @@ const Header = () => {
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Money</p>
                     <MobileNavLink to="/wallet" icon={Wallet}>Wallet</MobileNavLink>
+                    <MobileNavLink to="/multi-currency" icon={Coins}>Multi-Currency</MobileNavLink>
                     <MobileNavLink to="/transactions" icon={FileText}>Transactions</MobileNavLink>
                     <MobileNavLink to="/transfer" icon={ArrowLeftRight}>Transfer</MobileNavLink>
                     <MobileNavLink to="/send-money" icon={DollarSign}>Send Money</MobileNavLink>
                     <MobileNavLink to="/request-money" icon={Globe}>Request Money</MobileNavLink>
+                    <MobileNavLink to="/bank-transfers" icon={Building2}>Bank Transfers</MobileNavLink>
+                    <MobileNavLink to="/bulk-payments" icon={FileSpreadsheet}>Bulk Payments</MobileNavLink>
                     <MobileNavLink to="/contacts" icon={Users}>Contacts</MobileNavLink>
                     <MobileNavLink to="/card/new" icon={CardIcon}>Virtual Cards</MobileNavLink>
                     <MobileNavLink to="/spending-insights" icon={BarChart3}>Spending Insights</MobileNavLink>
+                    <MobileNavLink to="/refunds" icon={RotateCcw}>Refunds</MobileNavLink>
                     <MobileNavLink to="/buy-now-pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
                     <MobileNavLink to="/scheduled-payments" icon={Clock}>Scheduled Payments</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business</p>
                     <MobileNavLink to="/business" icon={Users}>Business Tools</MobileNavLink>
+                    <MobileNavLink to="/collect-payments" icon={Banknote}>Collect Payments</MobileNavLink>
+                    <MobileNavLink to="/payment-links" icon={Link2}>Payment Links</MobileNavLink>
+                    <MobileNavLink to="/sub-accounts" icon={GitBranch}>Split Payments</MobileNavLink>
                     <MobileNavLink to="/invoices" icon={FileText}>Invoices</MobileNavLink>
                     <MobileNavLink to="/analytics" icon={BarChart3}>Analytics</MobileNavLink>
                     <MobileNavLink to="/api" icon={Code2}>API</MobileNavLink>
