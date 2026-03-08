@@ -328,6 +328,37 @@ const AnimatedRoutes = () => {
           </ProtectedRoute>
         } />
 
+        {/* New PayPal-competitive features */}
+        <Route path="/request-money" element={
+          <ProtectedRoute>
+            <PageTransition><RequestMoney /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/contacts" element={
+          <ProtectedRoute>
+            <PageTransition><Contacts /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/spending-insights" element={
+          <ProtectedRoute>
+            <PageTransition><SpendingInsights /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/invoices" element={
+          <ProtectedRoute>
+            <PageTransition><InvoicesPage /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/pay-later" element={
+          <ProtectedRoute>
+            <PageTransition><BuyNowPayLater /></PageTransition>
+          </ProtectedRoute>
+        } />
+
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
