@@ -68,6 +68,14 @@ import SpendingInsights from '@/pages/SpendingInsights';
 import InvoicesPage from '@/pages/Invoices';
 import BuyNowPayLater from '@/pages/BuyNowPayLater';
 import ScheduledPayments from '@/pages/ScheduledPayments';
+import BankTransfers from '@/pages/BankTransfers';
+import CollectPayments from '@/pages/CollectPayments';
+import PaymentLinks from '@/pages/PaymentLinks';
+import SubAccounts from '@/pages/SubAccounts';
+import MultiCurrencyWallet from '@/pages/MultiCurrencyWallet';
+import BulkPayments from '@/pages/BulkPayments';
+import Refunds from '@/pages/Refunds';
+
 const AnimatedRoutes = () => {
   const location = useLocation();
 
@@ -363,6 +371,48 @@ const AnimatedRoutes = () => {
         <Route path="/scheduled-payments" element={
           <ProtectedRoute>
             <PageTransition><ScheduledPayments /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/bank-transfers" element={
+          <ProtectedRoute>
+            <PageTransition><BankTransfers /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/collect-payments" element={
+          <ProtectedRoute>
+            <PageTransition><CollectPayments /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/payment-links" element={
+          <ProtectedRoute>
+            <PageTransition><PaymentLinks /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/sub-accounts" element={
+          <ProtectedRoute>
+            <PageTransition><SubAccounts /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/multi-currency" element={
+          <ProtectedRoute>
+            <PageTransition><MultiCurrencyWallet /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/bulk-payments" element={
+          <ProtectedRoute>
+            <PageTransition><BulkPayments /></PageTransition>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/refunds" element={
+          <ProtectedRoute>
+            <PageTransition><Refunds /></PageTransition>
           </ProtectedRoute>
         } />
 

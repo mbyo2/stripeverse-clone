@@ -49,7 +49,14 @@ import {
   Globe,
   Bell,
   Code2,
-  Clock
+  Clock,
+  Building2,
+  Link2,
+  GitBranch,
+  Coins,
+  FileSpreadsheet,
+  RotateCcw,
+  Banknote
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 
@@ -124,6 +131,16 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/bank-transfers" className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" /> Bank Transfers
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/bulk-payments" className="flex items-center gap-2">
+                      <FileSpreadsheet className="h-4 w-4" /> Bulk Payments
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/contacts" className="flex items-center gap-2">
                       <Users className="h-4 w-4" /> Contacts
                     </Link>
@@ -149,6 +166,11 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/multi-currency" className="flex items-center gap-2">
+                      <Coins className="h-4 w-4" /> Multi-Currency
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/transactions" className="flex items-center gap-2">
                       <FileText className="h-4 w-4" /> Transactions
                     </Link>
@@ -161,6 +183,11 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/spending-insights" className="flex items-center gap-2">
                       <BarChart3 className="h-4 w-4" /> Spending Insights
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/refunds" className="flex items-center gap-2">
+                      <RotateCcw className="h-4 w-4" /> Refunds
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -181,6 +208,21 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/business" className="flex items-center gap-2">
                       <Users className="h-4 w-4" /> Business Tools
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/collect-payments" className="flex items-center gap-2">
+                      <Banknote className="h-4 w-4" /> Collect Payments
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/payment-links" className="flex items-center gap-2">
+                      <Link2 className="h-4 w-4" /> Payment Links
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/sub-accounts" className="flex items-center gap-2">
+                      <GitBranch className="h-4 w-4" /> Split Payments
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -329,19 +371,26 @@ const Header = () => {
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Money</p>
                     <MobileNavLink to="/wallet" icon={Wallet}>Wallet</MobileNavLink>
+                    <MobileNavLink to="/multi-currency" icon={Coins}>Multi-Currency</MobileNavLink>
                     <MobileNavLink to="/transactions" icon={FileText}>Transactions</MobileNavLink>
                     <MobileNavLink to="/transfer" icon={ArrowLeftRight}>Transfer</MobileNavLink>
                     <MobileNavLink to="/send-money" icon={DollarSign}>Send Money</MobileNavLink>
                     <MobileNavLink to="/request-money" icon={Globe}>Request Money</MobileNavLink>
+                    <MobileNavLink to="/bank-transfers" icon={Building2}>Bank Transfers</MobileNavLink>
+                    <MobileNavLink to="/bulk-payments" icon={FileSpreadsheet}>Bulk Payments</MobileNavLink>
                     <MobileNavLink to="/contacts" icon={Users}>Contacts</MobileNavLink>
                     <MobileNavLink to="/card/new" icon={CardIcon}>Virtual Cards</MobileNavLink>
                     <MobileNavLink to="/spending-insights" icon={BarChart3}>Spending Insights</MobileNavLink>
+                    <MobileNavLink to="/refunds" icon={RotateCcw}>Refunds</MobileNavLink>
                     <MobileNavLink to="/buy-now-pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
                     <MobileNavLink to="/scheduled-payments" icon={Clock}>Scheduled Payments</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business</p>
                     <MobileNavLink to="/business" icon={Users}>Business Tools</MobileNavLink>
+                    <MobileNavLink to="/collect-payments" icon={Banknote}>Collect Payments</MobileNavLink>
+                    <MobileNavLink to="/payment-links" icon={Link2}>Payment Links</MobileNavLink>
+                    <MobileNavLink to="/sub-accounts" icon={GitBranch}>Split Payments</MobileNavLink>
                     <MobileNavLink to="/invoices" icon={FileText}>Invoices</MobileNavLink>
                     <MobileNavLink to="/analytics" icon={BarChart3}>Analytics</MobileNavLink>
                     <MobileNavLink to="/api" icon={Code2}>API</MobileNavLink>
