@@ -122,8 +122,8 @@ const TierWorkflow = () => {
     switch (status) {
       case 'completed': return 'bg-green-500';
       case 'current': return 'bg-blue-500';
-      case 'pending': return 'bg-gray-300';
-      default: return 'bg-gray-300';
+      case 'pending': return 'bg-muted-foreground/30';
+      default: return 'bg-muted-foreground/30';
     }
   };
 
