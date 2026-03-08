@@ -332,6 +332,7 @@ const Header = () => {
         <div className="hidden lg:flex items-center gap-2">
           {user ? (
             <>
+              <LanguageSelector compact />
               <CurrencySelector compact />
               <NotificationBell />
               <RoleBadge />
