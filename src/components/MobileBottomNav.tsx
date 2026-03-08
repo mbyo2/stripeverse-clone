@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Wallet, ArrowRightLeft, User } from 'lucide-react';
+import { Home, Wallet, ArrowRightLeft, BarChart3, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
@@ -14,7 +14,8 @@ const MobileBottomNav = () => {
     { icon: Home, label: 'Home', path: '/dashboard' },
     { icon: Wallet, label: 'Wallet', path: '/wallet' },
     { icon: ArrowRightLeft, label: 'Transfer', path: '/transfer' },
-    { icon: User, label: 'Profile', path: '/profile' },
+    { icon: BarChart3, label: 'Insights', path: '/spending-insights' },
+    { icon: User, label: 'Profile', path: '/settings' },
   ];
 
   return (

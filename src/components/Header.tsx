@@ -117,6 +117,16 @@ const Header = () => {
                       <DollarSign className="h-4 w-4" /> Send Money
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/request-money" className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" /> Request Money
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/contacts" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" /> Contacts
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -142,6 +152,16 @@ const Header = () => {
                       <CardIcon className="h-4 w-4" /> Virtual Cards
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/spending-insights" className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4" /> Spending Insights
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/buy-now-pay-later" className="flex items-center gap-2">
+                      <Layers className="h-4 w-4" /> Buy Now Pay Later
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -155,6 +175,11 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/business" className="flex items-center gap-2">
                       <Users className="h-4 w-4" /> Business Tools
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/invoices" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Invoices
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -301,11 +326,16 @@ const Header = () => {
                     <MobileNavLink to="/transactions" icon={FileText}>Transactions</MobileNavLink>
                     <MobileNavLink to="/transfer" icon={ArrowLeftRight}>Transfer</MobileNavLink>
                     <MobileNavLink to="/send-money" icon={DollarSign}>Send Money</MobileNavLink>
+                    <MobileNavLink to="/request-money" icon={Globe}>Request Money</MobileNavLink>
+                    <MobileNavLink to="/contacts" icon={Users}>Contacts</MobileNavLink>
                     <MobileNavLink to="/card/new" icon={CardIcon}>Virtual Cards</MobileNavLink>
+                    <MobileNavLink to="/spending-insights" icon={BarChart3}>Spending Insights</MobileNavLink>
+                    <MobileNavLink to="/buy-now-pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business</p>
                     <MobileNavLink to="/business" icon={Users}>Business Tools</MobileNavLink>
+                    <MobileNavLink to="/invoices" icon={FileText}>Invoices</MobileNavLink>
                     <MobileNavLink to="/analytics" icon={BarChart3}>Analytics</MobileNavLink>
                     <MobileNavLink to="/api" icon={Code2}>API</MobileNavLink>
                     <MobileNavLink to="/billing" icon={DollarSign}>Billing</MobileNavLink>
