@@ -252,7 +252,7 @@ const Developers = () => {
 
               <Separator className="my-3" />
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Guides</p>
-              {navItems.slice(5, 10).map((item) => (
+              {navItems.slice(5, 12).map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
