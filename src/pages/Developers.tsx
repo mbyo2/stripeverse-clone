@@ -131,7 +131,9 @@ const navItems = [
   { id: "errors", label: "Error Handling", icon: AlertTriangle },
   { id: "ratelimits", label: "Rate Limits", icon: Gauge },
   { id: "idempotency", label: "Idempotency", icon: Hash },
+  { id: "versioning", label: "API Versioning", icon: GitBranch },
   { id: "pagination", label: "Pagination", icon: Layers },
+  { id: "security", label: "Security", icon: Lock },
   { id: "testing", label: "Testing", icon: CreditCard },
   { id: "playground", label: "API Playground", icon: Play },
   { id: "migration", label: "Migration Guide", icon: ArrowLeftRight },
@@ -250,7 +252,7 @@ const Developers = () => {
 
               <Separator className="my-3" />
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Guides</p>
-              {navItems.slice(5, 10).map((item) => (
+              {navItems.slice(5, 12).map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
@@ -267,7 +269,7 @@ const Developers = () => {
 
               <Separator className="my-3" />
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">Tools & More</p>
-              {navItems.slice(10).map((item) => (
+              {navItems.slice(12).map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
@@ -1282,7 +1284,286 @@ const payment = await bmaglass.payments.create({
                 </div>
               )}
 
-              {/* PAGINATION */}
+              {/* API VERSIONING */}
+              {activeSection === "versioning" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">API Versioning</h2>
+                    <p className="text-muted-foreground">Backward-compatible updates and version lifecycle</p>
+                  </div>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Version Strategy</CardTitle>
+                      <CardDescription>We use URL-based versioning for major changes and header-based for minor variations</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+                          <Badge className="mb-2">Current</Badge>
+                          <h4 className="font-semibold text-foreground mb-1">v1 — Stable</h4>
+                          <code className="text-sm font-mono text-muted-foreground">https://api.bmaglasspay.com/v1</code>
+                          <p className="text-xs text-muted-foreground mt-2">Fully supported. All new features land here first.</p>
+                        </div>
+                        <div className="p-4 rounded-xl bg-muted/50 border border-border/50">
+                          <Badge variant="secondary" className="mb-2">Preview</Badge>
+                          <h4 className="font-semibold text-foreground mb-1">v2 — Beta Preview</h4>
+                          <code className="text-sm font-mono text-muted-foreground">https://api.bmaglasspay.com/v2</code>
+                          <p className="text-xs text-muted-foreground mt-2">Breaking changes and redesigned endpoints. Not for production.</p>
+                        </div>
+                      </div>
+
+                      <CodeBlock code={`# Specify version in URL (recommended)
+curl https://api.bmaglasspay.com/v1/payments
+
+# Or via header (for minor version pinning)
+curl https://api.bmaglasspay.com/payments \\
+  -H "BMaGlass-Version: 2026-03-01"`} />
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Version Lifecycle</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {[
+                          { phase: "Active", desc: "Fully supported with new features, patches, and security updates.", duration: "Current version", color: "bg-emerald-500" },
+                          { phase: "Maintenance", desc: "Security patches only. No new features. 12-month window after next major release.", duration: "12 months", color: "bg-amber-500" },
+                          { phase: "Deprecated", desc: "Read-only access. Returns Sunset header. 6-month migration window.", duration: "6 months", color: "bg-red-500" },
+                          { phase: "Retired", desc: "Requests return 410 Gone. All traffic must migrate to new version.", duration: "Permanent", color: "bg-muted-foreground" },
+                        ].map((p, i) => (
+                          <div key={p.phase} className="flex items-start gap-4">
+                            <div className="flex flex-col items-center">
+                              <div className={`w-3 h-3 rounded-full ${p.color}`} />
+                              {i < 3 && <div className="w-0.5 h-8 bg-border" />}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-sm text-foreground">{p.phase}</h4>
+                                <Badge variant="outline" className="text-[10px]">{p.duration}</Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-0.5">{p.desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Breaking vs Non-Breaking Changes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="font-medium text-sm text-foreground mb-2 flex items-center gap-2">
+                            <Check className="h-4 w-4 text-primary" /> Non-Breaking (no version bump)
+                          </h4>
+                          <ul className="space-y-1.5">
+                            {[
+                              "Adding new API endpoints",
+                              "Adding optional request parameters",
+                              "Adding new response fields",
+                              "Adding new webhook event types",
+                              "Adding new enum values",
+                              "Relaxing validation constraints",
+                            ].map((item, i) => (
+                              <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                                <span className="text-primary mt-1">•</span> {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm text-foreground mb-2 flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-destructive" /> Breaking (requires new version)
+                          </h4>
+                          <ul className="space-y-1.5">
+                            {[
+                              "Removing or renaming endpoints",
+                              "Removing or renaming response fields",
+                              "Changing field types or formats",
+                              "Making optional params required",
+                              "Changing error code semantics",
+                              "Modifying authentication flow",
+                            ].map((item, i) => (
+                              <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                                <span className="text-destructive mt-1">•</span> {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Sunset Header</CardTitle>
+                      <CardDescription>Deprecated endpoints include a Sunset header with the retirement date</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <CodeBlock code={`HTTP/1.1 200 OK
+Sunset: Sat, 01 Sep 2027 00:00:00 GMT
+Deprecation: true
+Link: <https://docs.bmaglasspay.com/migration/v2>; rel="successor-version"
+
+// Your SDK will log warnings automatically:
+// ⚠️ BMaGlass: /v1/payments is deprecated. Migrate to /v2/payments by Sep 2027.`} />
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* SECURITY BEST PRACTICES */}
+              {activeSection === "security" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Security Best Practices</h2>
+                    <p className="text-muted-foreground">Protect your integration and your customers' data</p>
+                  </div>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <div className="flex items-center gap-2">
+                        <Key className="h-5 w-5 text-primary" />
+                        <CardTitle className="text-lg">API Key Management</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        {[
+                          { rule: "Never expose secret keys in frontend code", severity: "critical" },
+                          { rule: "Use publishable keys (pk_) for client-side, secret keys (sk_) for server-side", severity: "critical" },
+                          { rule: "Rotate API keys regularly — at least every 90 days", severity: "high" },
+                          { rule: "Use environment variables, never hardcode keys", severity: "high" },
+                          { rule: "Set up IP whitelisting to restrict key usage", severity: "medium" },
+                          { rule: "Use separate keys for test and production", severity: "medium" },
+                        ].map((item) => (
+                          <div key={item.rule} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                            <Badge variant={item.severity === "critical" ? "destructive" : item.severity === "high" ? "default" : "secondary"} className="text-[10px] shrink-0">
+                              {item.severity}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">{item.rule}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-primary" />
+                        <CardTitle className="text-lg">PCI DSS Compliance</CardTitle>
+                      </div>
+                      <CardDescription>Our infrastructure is PCI DSS Level 1 certified</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        BMaGlass Pay handles all sensitive card data on our servers. When using our Drop-in Checkout 
+                        or tokenization API, raw card numbers never touch your servers — keeping you out of PCI scope.
+                      </p>
+                      <CodeBlock code={`// Tokenize card on client-side (PCI-safe)
+const token = await bmaglass.tokens.create({
+  card: {
+    number: '4242424242424242',
+    exp_month: 12,
+    exp_year: 2028,
+    cvc: '123'
+  }
+});
+
+// Send only the token to your server
+// token.id = "tok_abc123" — no raw card data`} />
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {["Tokenized Storage", "TLS 1.3 Encryption", "3D Secure 2.0", "Fraud Detection"].map((f) => (
+                          <div key={f} className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-center">
+                            <p className="text-xs font-medium text-primary">{f}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">IP Whitelisting</CardTitle>
+                      <CardDescription>Restrict API access to trusted IP addresses</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <CodeBlock code={`// Configure allowed IPs in your dashboard or via API
+POST /v1/security/ip-whitelist
+{
+  "ip_addresses": [
+    "203.0.113.0/24",    // Office network
+    "198.51.100.42"      // Production server
+  ],
+  "enforce": true         // Block requests from other IPs
+}
+
+// Requests from non-whitelisted IPs return:
+// 403 Forbidden — "IP address not whitelisted"`} />
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Webhook Security</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <ul className="space-y-2">
+                        {[
+                          "Always verify webhook signatures using HMAC-SHA256",
+                          "Reject events with timestamps older than 5 minutes (replay protection)",
+                          "Use HTTPS endpoints only — HTTP webhooks are rejected",
+                          "Return 200 quickly, process asynchronously",
+                          "Implement idempotent event handlers (you may receive duplicates)",
+                          "Log all webhook events for debugging and audit trails",
+                        ].map((tip, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                            {tip}
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg">AML/CFT & Fraud Prevention</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        BMaGlass Pay automatically screens transactions against sanctions lists and monitors 
+                        for suspicious patterns. You can configure custom fraud rules via the dashboard or API.
+                      </p>
+                      <CodeBlock code={`// Configure fraud rules
+POST /v1/fraud-rules
+{
+  "name": "High-value transaction alert",
+  "rule_type": "amount_threshold",
+  "conditions": {
+    "amount_gte": 50000,
+    "currency": "ZMW"
+  },
+  "action": "flag",        // flag, block, or require_review
+  "severity": "high"
+}
+
+// Check transaction risk score
+GET /v1/payments/pay_abc123/risk
+// → { "risk_score": 15, "factors": ["new_customer", "high_amount"] }`} />
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+
               {activeSection === "pagination" && (
                 <div className="space-y-8">
                   <div>
