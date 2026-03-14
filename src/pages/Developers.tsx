@@ -156,6 +156,7 @@ const navItems = [
 
 const Developers = () => {
   const [activeSection, setActiveSection] = useState("quickstart");
+  const { toast } = useToast();
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
