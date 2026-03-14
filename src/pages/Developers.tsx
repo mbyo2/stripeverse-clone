@@ -895,31 +895,34 @@ app.post('/webhook', (req, res) => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <PlatformCard name="WordPress" icon={Globe} description="Payment gateway for WordPress" status="stable"
-                      installCmd="Upload bmaglass-pay.zip via Plugins"
+                      installCmd="Upload bmaglass-pay.zip via Plugins" onViewDocs={() => setActiveSection("quickstart")}
                       features={["One-click install", "Donation forms", "Gutenberg block", "All payment methods"]} />
                     <PlatformCard name="WooCommerce" icon={ShoppingCart} description="Full checkout integration" status="stable"
-                      installCmd="Upload bmaglass-woocommerce.zip"
+                      installCmd="Upload bmaglass-woocommerce.zip" onViewDocs={() => setActiveSection("quickstart")}
                       features={["All payment methods", "Auto order updates", "Multi-currency", "Refunds from admin"]} />
                     <PlatformCard name="Odoo" icon={Blocks} description="Payment acquirer for Odoo ERP" status="stable"
-                      installCmd="odoo-bin -i bmaglass_payment"
+                      installCmd="odoo-bin -i bmaglass_payment" onViewDocs={() => setActiveSection("quickstart")}
                       features={["Odoo 16 & 17", "POS integration", "Invoice links", "Auto reconciliation"]} />
                     <PlatformCard name="Shopify" icon={Store} description="Shopify payment app" status="stable"
+                      onViewDocs={() => setActiveSection("quickstart")}
                       features={["Shopify Payments API", "Mobile Money checkout", "Auto fulfillment", "Multi-currency"]} />
                     <PlatformCard name="Laravel" icon={Code2} description="First-party PHP package" status="stable"
-                      installCmd="composer require bmaglass/laravel-payments"
+                      installCmd="composer require bmaglass/laravel-payments" onViewDocs={() => setActiveSection("quickstart")}
                       features={["Cashier-style API", "Blade components", "Webhook verify", "Artisan commands"]} />
                     <PlatformCard name="Django" icon={Code2} description="Python Django integration" status="stable"
-                      installCmd="pip install bmaglass-django"
+                      installCmd="pip install bmaglass-django" onViewDocs={() => setActiveSection("quickstart")}
                       features={["Django 4.x+", "Template tags", "Signals for events", "Admin dashboard"]} />
                     <PlatformCard name="Magento" icon={ShoppingCart} description="Adobe Commerce plugin" status="beta"
+                      onViewDocs={() => setActiveSection("quickstart")}
                       features={["Magento 2.4+", "Multi-store support", "Custom checkout", "API integration"]} />
                     <PlatformCard name="PrestaShop" icon={Store} description="PrestaShop module" status="stable"
-                      installCmd="Upload via Modules Manager"
+                      installCmd="Upload via Modules Manager" onViewDocs={() => setActiveSection("quickstart")}
                       features={["1-click install", "Multi-currency", "Order management", "Refund support"]} />
                     <PlatformCard name="Zapier" icon={Zap} description="Connect 5000+ apps" status="stable"
+                      onViewDocs={() => setActiveSection("quickstart")}
                       features={["Payment triggers", "Custom actions", "No-code automation", "Instant updates"]} />
                     <PlatformCard name="React / Next.js" icon={Code2} description="React component library" status="stable"
-                      installCmd="npm install @bmaglass/react-checkout"
+                      installCmd="npm install @bmaglass/react-checkout" onViewDocs={() => setActiveSection("quickstart")}
                       features={["Drop-in components", "Server components", "Hooks API", "TypeScript"]} />
                   </div>
                 </div>
