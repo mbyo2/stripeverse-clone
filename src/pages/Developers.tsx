@@ -67,60 +67,74 @@ const EndpointRow = ({ method, path, description }: { method: string; path: stri
   );
 };
 
-const PlatformCard = ({ name, icon: Icon, description, status, installCmd, features }: {
+const PlatformCard = ({ name, icon: Icon, description, status, installCmd, features, docsUrl, repoUrl, onViewDocs }: {
   name: string;
   icon: React.ElementType;
   description: string;
   status: "stable" | "beta" | "coming-soon";
   installCmd?: string;
   features: string[];
-}) => (
-  <Card className="flex flex-col border-0 shadow-sm hover:shadow-md transition-shadow">
-    <CardHeader className="pb-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10">
-            <Icon className="h-5 w-5 text-primary" />
+  docsUrl?: string;
+  repoUrl?: string;
+  onViewDocs?: () => void;
+}) => {
+  const { toast } = useToast();
+  
+  const handleInstall = () => {
+    if (installCmd) {
+      navigator.clipboard.writeText(installCmd);
+      toast({ title: "Install command copied!", description: installCmd });
+    }
+  };
+
+  return (
+    <Card className="flex flex-col border-0 shadow-sm hover:shadow-md transition-shadow">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <Icon className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base">{name}</CardTitle>
+              <CardDescription className="text-xs">{description}</CardDescription>
+            </div>
           </div>
-          <div>
-            <CardTitle className="text-base">{name}</CardTitle>
-            <CardDescription className="text-xs">{description}</CardDescription>
+          <Badge 
+            variant={status === "stable" ? "default" : status === "beta" ? "secondary" : "outline"}
+            className="text-[10px]"
+          >
+            {status === "coming-soon" ? "Soon" : status === "beta" ? "Beta" : "Stable"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1 flex flex-col justify-between gap-4 pt-0">
+        <ul className="space-y-1.5">
+          {features.slice(0, 4).map((f, i) => (
+            <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+              <Check className="h-3 w-3 text-primary flex-shrink-0 mt-0.5" /> {f}
+            </li>
+          ))}
+        </ul>
+        {installCmd && (
+          <div className="text-xs">
+            <CodeBlock code={installCmd} />
           </div>
-        </div>
-        <Badge 
-          variant={status === "stable" ? "default" : status === "beta" ? "secondary" : "outline"}
-          className="text-[10px]"
-        >
-          {status === "coming-soon" ? "Soon" : status === "beta" ? "Beta" : "Stable"}
-        </Badge>
-      </div>
-    </CardHeader>
-    <CardContent className="flex-1 flex flex-col justify-between gap-4 pt-0">
-      <ul className="space-y-1.5">
-        {features.slice(0, 4).map((f, i) => (
-          <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
-            <Check className="h-3 w-3 text-primary flex-shrink-0 mt-0.5" /> {f}
-          </li>
-        ))}
-      </ul>
-      {installCmd && (
-        <div className="text-xs">
-          <CodeBlock code={installCmd} />
-        </div>
-      )}
-      <div className="flex gap-2 mt-auto">
-        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs">
-          <Book className="h-3 w-3 mr-1" /> Docs
-        </Button>
-        {status !== "coming-soon" && (
-          <Button size="sm" className="flex-1 h-8 text-xs">
-            <Download className="h-3 w-3 mr-1" /> Install
-          </Button>
         )}
-      </div>
-    </CardContent>
-  </Card>
-);
+        <div className="flex gap-2 mt-auto">
+          <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={onViewDocs}>
+            <Book className="h-3 w-3 mr-1" /> Docs
+          </Button>
+          {status !== "coming-soon" && (
+            <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleInstall}>
+              <Copy className="h-3 w-3 mr-1" /> Copy Install
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const navItems = [
   { id: "quickstart", label: "Quick Start", icon: Zap },
@@ -142,6 +156,7 @@ const navItems = [
 
 const Developers = () => {
   const [activeSection, setActiveSection] = useState("quickstart");
+  const { toast } = useToast();
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -788,7 +803,12 @@ app.post('/webhook', (req, res) => {
                         install: "npm install @bmaglass/react-native-payments",
                         features: ["iOS & Android", "Drop-in UI", "Biometric auth", "Mobile Money support"],
                       },
-                    ].map((sdk) => (
+                    ].map((sdk) => {
+                      const handleCopyInstall = () => {
+                        navigator.clipboard.writeText(sdk.install);
+                        toast({ title: "Install command copied!", description: sdk.install });
+                      };
+                      return (
                       <Card key={sdk.lang} className="overflow-hidden border-0 shadow-sm hover:shadow-md transition-shadow">
                         <div className={`h-1 bg-gradient-to-r ${sdk.color}`} />
                         <CardHeader className="pb-3">
@@ -818,16 +838,17 @@ app.post('/webhook', (req, res) => {
                           </div>
                           <CodeBlock code={sdk.install} />
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm" className="flex-1 h-8 text-xs">
-                              <ExternalLink className="h-3 w-3 mr-1" /> GitHub
-                            </Button>
-                            <Button size="sm" className="flex-1 h-8 text-xs">
+                            <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => setActiveSection("quickstart")}>
                               <Book className="h-3 w-3 mr-1" /> Docs
+                            </Button>
+                            <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleCopyInstall}>
+                              <Copy className="h-3 w-3 mr-1" /> Copy Install
                             </Button>
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Drop-in UI */}
@@ -874,31 +895,34 @@ app.post('/webhook', (req, res) => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <PlatformCard name="WordPress" icon={Globe} description="Payment gateway for WordPress" status="stable"
-                      installCmd="Upload bmaglass-pay.zip via Plugins"
+                      installCmd="Upload bmaglass-pay.zip via Plugins" onViewDocs={() => setActiveSection("quickstart")}
                       features={["One-click install", "Donation forms", "Gutenberg block", "All payment methods"]} />
                     <PlatformCard name="WooCommerce" icon={ShoppingCart} description="Full checkout integration" status="stable"
-                      installCmd="Upload bmaglass-woocommerce.zip"
+                      installCmd="Upload bmaglass-woocommerce.zip" onViewDocs={() => setActiveSection("quickstart")}
                       features={["All payment methods", "Auto order updates", "Multi-currency", "Refunds from admin"]} />
                     <PlatformCard name="Odoo" icon={Blocks} description="Payment acquirer for Odoo ERP" status="stable"
-                      installCmd="odoo-bin -i bmaglass_payment"
+                      installCmd="odoo-bin -i bmaglass_payment" onViewDocs={() => setActiveSection("quickstart")}
                       features={["Odoo 16 & 17", "POS integration", "Invoice links", "Auto reconciliation"]} />
                     <PlatformCard name="Shopify" icon={Store} description="Shopify payment app" status="stable"
+                      onViewDocs={() => setActiveSection("quickstart")}
                       features={["Shopify Payments API", "Mobile Money checkout", "Auto fulfillment", "Multi-currency"]} />
                     <PlatformCard name="Laravel" icon={Code2} description="First-party PHP package" status="stable"
-                      installCmd="composer require bmaglass/laravel-payments"
+                      installCmd="composer require bmaglass/laravel-payments" onViewDocs={() => setActiveSection("quickstart")}
                       features={["Cashier-style API", "Blade components", "Webhook verify", "Artisan commands"]} />
                     <PlatformCard name="Django" icon={Code2} description="Python Django integration" status="stable"
-                      installCmd="pip install bmaglass-django"
+                      installCmd="pip install bmaglass-django" onViewDocs={() => setActiveSection("quickstart")}
                       features={["Django 4.x+", "Template tags", "Signals for events", "Admin dashboard"]} />
                     <PlatformCard name="Magento" icon={ShoppingCart} description="Adobe Commerce plugin" status="beta"
+                      onViewDocs={() => setActiveSection("quickstart")}
                       features={["Magento 2.4+", "Multi-store support", "Custom checkout", "API integration"]} />
                     <PlatformCard name="PrestaShop" icon={Store} description="PrestaShop module" status="stable"
-                      installCmd="Upload via Modules Manager"
+                      installCmd="Upload via Modules Manager" onViewDocs={() => setActiveSection("quickstart")}
                       features={["1-click install", "Multi-currency", "Order management", "Refund support"]} />
                     <PlatformCard name="Zapier" icon={Zap} description="Connect 5000+ apps" status="stable"
+                      onViewDocs={() => setActiveSection("quickstart")}
                       features={["Payment triggers", "Custom actions", "No-code automation", "Instant updates"]} />
                     <PlatformCard name="React / Next.js" icon={Code2} description="React component library" status="stable"
-                      installCmd="npm install @bmaglass/react-checkout"
+                      installCmd="npm install @bmaglass/react-checkout" onViewDocs={() => setActiveSection("quickstart")}
                       features={["Drop-in components", "Server components", "Hooks API", "TypeScript"]} />
                   </div>
                 </div>
