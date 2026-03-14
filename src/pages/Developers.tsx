@@ -67,60 +67,74 @@ const EndpointRow = ({ method, path, description }: { method: string; path: stri
   );
 };
 
-const PlatformCard = ({ name, icon: Icon, description, status, installCmd, features }: {
+const PlatformCard = ({ name, icon: Icon, description, status, installCmd, features, docsUrl, repoUrl, onViewDocs }: {
   name: string;
   icon: React.ElementType;
   description: string;
   status: "stable" | "beta" | "coming-soon";
   installCmd?: string;
   features: string[];
-}) => (
-  <Card className="flex flex-col border-0 shadow-sm hover:shadow-md transition-shadow">
-    <CardHeader className="pb-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10">
-            <Icon className="h-5 w-5 text-primary" />
+  docsUrl?: string;
+  repoUrl?: string;
+  onViewDocs?: () => void;
+}) => {
+  const { toast } = useToast();
+  
+  const handleInstall = () => {
+    if (installCmd) {
+      navigator.clipboard.writeText(installCmd);
+      toast({ title: "Install command copied!", description: installCmd });
+    }
+  };
+
+  return (
+    <Card className="flex flex-col border-0 shadow-sm hover:shadow-md transition-shadow">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <Icon className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base">{name}</CardTitle>
+              <CardDescription className="text-xs">{description}</CardDescription>
+            </div>
           </div>
-          <div>
-            <CardTitle className="text-base">{name}</CardTitle>
-            <CardDescription className="text-xs">{description}</CardDescription>
+          <Badge 
+            variant={status === "stable" ? "default" : status === "beta" ? "secondary" : "outline"}
+            className="text-[10px]"
+          >
+            {status === "coming-soon" ? "Soon" : status === "beta" ? "Beta" : "Stable"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1 flex flex-col justify-between gap-4 pt-0">
+        <ul className="space-y-1.5">
+          {features.slice(0, 4).map((f, i) => (
+            <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+              <Check className="h-3 w-3 text-primary flex-shrink-0 mt-0.5" /> {f}
+            </li>
+          ))}
+        </ul>
+        {installCmd && (
+          <div className="text-xs">
+            <CodeBlock code={installCmd} />
           </div>
-        </div>
-        <Badge 
-          variant={status === "stable" ? "default" : status === "beta" ? "secondary" : "outline"}
-          className="text-[10px]"
-        >
-          {status === "coming-soon" ? "Soon" : status === "beta" ? "Beta" : "Stable"}
-        </Badge>
-      </div>
-    </CardHeader>
-    <CardContent className="flex-1 flex flex-col justify-between gap-4 pt-0">
-      <ul className="space-y-1.5">
-        {features.slice(0, 4).map((f, i) => (
-          <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
-            <Check className="h-3 w-3 text-primary flex-shrink-0 mt-0.5" /> {f}
-          </li>
-        ))}
-      </ul>
-      {installCmd && (
-        <div className="text-xs">
-          <CodeBlock code={installCmd} />
-        </div>
-      )}
-      <div className="flex gap-2 mt-auto">
-        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs">
-          <Book className="h-3 w-3 mr-1" /> Docs
-        </Button>
-        {status !== "coming-soon" && (
-          <Button size="sm" className="flex-1 h-8 text-xs">
-            <Download className="h-3 w-3 mr-1" /> Install
-          </Button>
         )}
-      </div>
-    </CardContent>
-  </Card>
-);
+        <div className="flex gap-2 mt-auto">
+          <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={onViewDocs}>
+            <Book className="h-3 w-3 mr-1" /> Docs
+          </Button>
+          {status !== "coming-soon" && (
+            <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleInstall}>
+              <Copy className="h-3 w-3 mr-1" /> Copy Install
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const navItems = [
   { id: "quickstart", label: "Quick Start", icon: Zap },
