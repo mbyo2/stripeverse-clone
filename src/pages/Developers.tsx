@@ -802,7 +802,12 @@ app.post('/webhook', (req, res) => {
                         install: "npm install @bmaglass/react-native-payments",
                         features: ["iOS & Android", "Drop-in UI", "Biometric auth", "Mobile Money support"],
                       },
-                    ].map((sdk) => (
+                    ].map((sdk) => {
+                      const handleCopyInstall = () => {
+                        navigator.clipboard.writeText(sdk.install);
+                        toast({ title: "Install command copied!", description: sdk.install });
+                      };
+                      return (
                       <Card key={sdk.lang} className="overflow-hidden border-0 shadow-sm hover:shadow-md transition-shadow">
                         <div className={`h-1 bg-gradient-to-r ${sdk.color}`} />
                         <CardHeader className="pb-3">
@@ -832,16 +837,17 @@ app.post('/webhook', (req, res) => {
                           </div>
                           <CodeBlock code={sdk.install} />
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm" className="flex-1 h-8 text-xs">
-                              <ExternalLink className="h-3 w-3 mr-1" /> GitHub
-                            </Button>
-                            <Button size="sm" className="flex-1 h-8 text-xs">
+                            <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => setActiveSection("quickstart")}>
                               <Book className="h-3 w-3 mr-1" /> Docs
+                            </Button>
+                            <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleCopyInstall}>
+                              <Copy className="h-3 w-3 mr-1" /> Copy Install
                             </Button>
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Drop-in UI */}
