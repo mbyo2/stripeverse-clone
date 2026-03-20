@@ -180,6 +180,7 @@ const Settings = () => {
 
   const navItems = [
     { id: 'profile', label: 'Profile', icon: User, description: 'Personal information' },
+    { id: 'appearance', label: 'Appearance', icon: Palette, description: 'Theme & dark mode' },
     { id: 'security', label: 'Security', icon: Shield, description: 'Password & 2FA' },
     { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Email & push alerts' },
     { id: 'payment', label: 'Payment', icon: CreditCard, description: 'Currency & limits' },
