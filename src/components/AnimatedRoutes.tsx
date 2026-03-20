@@ -91,6 +91,8 @@ import FraudRules from '@/pages/FraudRules';
 import Statements from '@/pages/Statements';
 import TransactionSearch from '@/pages/TransactionSearch';
 import IpWhitelist from '@/pages/IpWhitelist';
+import QrPayments from '@/pages/QrPayments';
+import CheckoutWidget from '@/pages/CheckoutWidget';
 
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
