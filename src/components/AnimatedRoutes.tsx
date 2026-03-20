@@ -198,6 +198,8 @@ const AnimatedRoutes = () => {
         <Route path="/fraud-rules" element={<ProtectedPage><FraudRules /></ProtectedPage>} />
         <Route path="/statements" element={<ProtectedPage><Statements /></ProtectedPage>} />
         <Route path="/ip-whitelist" element={<ProtectedPage><IpWhitelist /></ProtectedPage>} />
+        <Route path="/qr-payments" element={<ProtectedPage><QrPayments /></ProtectedPage>} />
+        <Route path="/checkout-widget" element={<ProtectedPage><CheckoutWidget /></ProtectedPage>} />
 
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
