@@ -324,6 +324,11 @@ const Header = () => {
                       <ShieldCheck className="h-4 w-4" /> IP Whitelist
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/checkout-widget" className="flex items-center gap-2">
+                      <Code2 className="h-4 w-4" /> Checkout Widget
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
