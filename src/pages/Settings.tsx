@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
   const { user, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
