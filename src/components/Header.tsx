@@ -159,6 +159,11 @@ const Header = () => {
                       <Clock className="h-4 w-4" /> Scheduled Payments
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/qr-payments" className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" /> QR Payments
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
