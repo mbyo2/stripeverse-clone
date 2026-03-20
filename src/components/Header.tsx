@@ -159,6 +159,11 @@ const Header = () => {
                       <Clock className="h-4 w-4" /> Scheduled Payments
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/qr-payments" className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" /> QR Payments
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -205,7 +210,7 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/buy-now-pay-later" className="flex items-center gap-2">
+                    <Link to="/pay-later" className="flex items-center gap-2">
                       <Layers className="h-4 w-4" /> Buy Now Pay Later
                     </Link>
                   </DropdownMenuItem>
@@ -317,6 +322,11 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/ip-whitelist" className="flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4" /> IP Whitelist
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/checkout-widget" className="flex items-center gap-2">
+                      <Code2 className="h-4 w-4" /> Checkout Widget
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -458,8 +468,9 @@ const Header = () => {
                     <MobileNavLink to="/spending-insights" icon={BarChart3}>Spending Insights</MobileNavLink>
                     <MobileNavLink to="/refunds" icon={RotateCcw}>Refunds</MobileNavLink>
                     <MobileNavLink to="/card-vault" icon={ShieldCheck}>Card Vault</MobileNavLink>
-                    <MobileNavLink to="/buy-now-pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
+                    <MobileNavLink to="/pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
                     <MobileNavLink to="/scheduled-payments" icon={Clock}>Scheduled Payments</MobileNavLink>
+                    <MobileNavLink to="/qr-payments" icon={Globe}>QR Payments</MobileNavLink>
                     <MobileNavLink to="/savings" icon={Star}>Savings</MobileNavLink>
                     <MobileNavLink to="/statements" icon={FileText}>Statements</MobileNavLink>
                     <MobileNavLink to="/transaction-search" icon={Globe}>Search Transactions</MobileNavLink>

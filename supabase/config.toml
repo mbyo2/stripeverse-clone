@@ -70,3 +70,6 @@ verify_jwt = false
 
 [functions.process-webhook-retries]
 verify_jwt = false
+
+[functions.send-receipt]
+verify_jwt = false
