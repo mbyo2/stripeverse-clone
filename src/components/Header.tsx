@@ -468,8 +468,9 @@ const Header = () => {
                     <MobileNavLink to="/spending-insights" icon={BarChart3}>Spending Insights</MobileNavLink>
                     <MobileNavLink to="/refunds" icon={RotateCcw}>Refunds</MobileNavLink>
                     <MobileNavLink to="/card-vault" icon={ShieldCheck}>Card Vault</MobileNavLink>
-                    <MobileNavLink to="/buy-now-pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
+                    <MobileNavLink to="/pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
                     <MobileNavLink to="/scheduled-payments" icon={Clock}>Scheduled Payments</MobileNavLink>
+                    <MobileNavLink to="/qr-payments" icon={Globe}>QR Payments</MobileNavLink>
                     <MobileNavLink to="/savings" icon={Star}>Savings</MobileNavLink>
                     <MobileNavLink to="/statements" icon={FileText}>Statements</MobileNavLink>
                     <MobileNavLink to="/transaction-search" icon={Globe}>Search Transactions</MobileNavLink>
