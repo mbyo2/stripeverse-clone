@@ -210,7 +210,7 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/buy-now-pay-later" className="flex items-center gap-2">
+                    <Link to="/pay-later" className="flex items-center gap-2">
                       <Layers className="h-4 w-4" /> Buy Now Pay Later
                     </Link>
                   </DropdownMenuItem>
