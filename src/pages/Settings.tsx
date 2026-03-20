@@ -250,6 +250,37 @@ const Settings = () => {
 
           {/* Content area */}
           <div className="space-y-6">
+            {/* Appearance */}
+            {activeSection === 'appearance' && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">Appearance</CardTitle>
+                  <CardDescription>Customize how BMaGlass Pay looks on your device</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { value: 'light', label: 'Light', icon: Sun, desc: 'Always light' },
+                      { value: 'dark', label: 'Dark', icon: Moon, desc: 'Always dark' },
+                      { value: 'system', label: 'System', icon: Monitor, desc: 'Match device' },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setTheme(opt.value)}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                          theme === opt.value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'
+                        }`}
+                      >
+                        <opt.icon className="h-6 w-6" />
+                        <span className="text-sm font-medium">{opt.label}</span>
+                        <span className="text-xs text-muted-foreground">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Profile */}
             {activeSection === 'profile' && (
               <Card className="border-0 shadow-sm">
