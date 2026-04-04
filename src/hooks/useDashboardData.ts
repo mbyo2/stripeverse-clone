@@ -1,5 +1,5 @@
-
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useCallback, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -41,6 +41,48 @@ interface UserRewards {
 
 export const useDashboardData = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+
+  // Realtime subscription for live updates
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('dashboard-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` },
+        () => {
+          // Invalidate all dashboard queries on transaction changes
+          queryClient.invalidateQueries({ queryKey: ['dashboard-stats', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['recent-transactions', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['monthly-data', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['spending-data', user.id] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['dashboard-stats', user.id] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
+        }
+      )
+      .subscribe((status) => {
+        setRealtimeConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
 
   // Fetch user wallet balance and transaction stats
   const { data: dashboardStats, isLoading: statsLoading } = useQuery({
@@ -48,18 +90,14 @@ export const useDashboardData = () => {
     queryFn: async (): Promise<DashboardStats> => {
       if (!user?.id) throw new Error('User not authenticated');
 
-      // Get wallet balance
       const { data: balanceData, error: balanceError } = await supabase.rpc('get_user_wallet_balance', {
         p_user_id: user.id
       });
-
       if (balanceError) throw balanceError;
 
-      // Get transaction stats
       const { data: statsData, error: statsError } = await supabase.rpc('get_user_transaction_stats', {
         p_user_id: user.id
       });
-
       if (statsError) throw statsError;
 
       return {
@@ -70,67 +108,47 @@ export const useDashboardData = () => {
       };
     },
     enabled: !!user?.id,
+    staleTime: 30000, // 30s stale time for realtime-backed data
   });
 
-  // Fetch monthly transaction data for charts
   const { data: monthlyData, isLoading: monthlyLoading } = useQuery({
     queryKey: ['monthly-data', user?.id],
     queryFn: async (): Promise<MonthlyData[]> => {
       if (!user?.id) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase.rpc('get_monthly_transaction_data', {
-        p_user_id: user.id
-      });
-
+      const { data, error } = await supabase.rpc('get_monthly_transaction_data', { p_user_id: user.id });
       if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
   });
 
-  // Fetch spending by category
   const { data: spendingData, isLoading: spendingLoading } = useQuery({
     queryKey: ['spending-data', user?.id],
     queryFn: async (): Promise<SpendingData[]> => {
       if (!user?.id) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase.rpc('get_spending_by_category', {
-        p_user_id: user.id
-      });
-
+      const { data, error } = await supabase.rpc('get_spending_by_category', { p_user_id: user.id });
       if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
   });
 
-  // Fetch recent transactions
   const { data: recentTransactions, isLoading: transactionsLoading } = useQuery({
     queryKey: ['recent-transactions', user?.id],
     queryFn: async (): Promise<RecentTransaction[]> => {
       if (!user?.id) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase.rpc('get_recent_transactions', {
-        p_user_id: user.id,
-        p_limit: 4
-      });
-
+      const { data, error } = await supabase.rpc('get_recent_transactions', { p_user_id: user.id, p_limit: 4 });
       if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
   });
 
-  // Fetch user rewards
   const { data: rewards, isLoading: rewardsLoading } = useQuery({
     queryKey: ['user-rewards', user?.id],
     queryFn: async (): Promise<UserRewards> => {
       if (!user?.id) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase.rpc('get_user_rewards', {
-        p_user_id: user.id
-      });
-
+      const { data, error } = await supabase.rpc('get_user_rewards', { p_user_id: user.id });
       if (error) throw error;
       return data?.[0] || {
         total_points: 0,
@@ -149,6 +167,7 @@ export const useDashboardData = () => {
     spendingData,
     recentTransactions,
     rewards,
+    realtimeConnected,
     isLoading: statsLoading || monthlyLoading || spendingLoading || transactionsLoading || rewardsLoading,
   };
 };
