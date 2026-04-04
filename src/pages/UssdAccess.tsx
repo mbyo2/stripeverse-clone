@@ -71,7 +71,7 @@ const UssdAccess = () => {
       if (error) throw error;
       
       // Extract the USSD code to dial from the response
-      setUssdCode(data.ussdCode);
+      setUssdCode(data?.ussd_code || baseUssdCode);
       
       toast({
         title: "USSD code generated",
