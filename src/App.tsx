@@ -12,6 +12,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import AnimatedRoutes from "@/components/AnimatedRoutes";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import SessionTimeoutWarning from "@/components/SessionTimeoutWarning";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +38,7 @@ function App() {
                   <NotificationProvider>
                     <CurrencyProvider>
                       <LanguageProvider>
+                        <SessionTimeoutWarning />
                         <MobileBottomNav />
                         <AnimatedRoutes />
                       </LanguageProvider>

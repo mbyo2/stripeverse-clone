@@ -1,25 +1,26 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Wallet, ArrowRightLeft, BarChart3, User } from 'lucide-react';
+import { Home, Wallet, ArrowRightLeft, QrCode, Bell, User, Send } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 const MobileBottomNav = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const [showMore, setShowMore] = useState(false);
 
-  // Only show for authenticated users
   if (!user) return null;
 
   const navItems = [
     { icon: Home, label: 'Home', path: '/dashboard' },
+    { icon: Send, label: 'Send', path: '/transfer' },
+    { icon: QrCode, label: 'QR Pay', path: '/qr-payments' },
     { icon: Wallet, label: 'Wallet', path: '/wallet' },
-    { icon: ArrowRightLeft, label: 'Transfer', path: '/transfer' },
-    { icon: BarChart3, label: 'Insights', path: '/spending-insights' },
-    { icon: User, label: 'Profile', path: '/settings' },
+    { icon: Bell, label: 'Alerts', path: '/notifications' },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border md:hidden safe-area-inset-bottom">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;

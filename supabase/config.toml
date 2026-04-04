@@ -73,3 +73,12 @@ verify_jwt = false
 
 [functions.send-receipt]
 verify_jwt = false
+
+[functions.ussd-payment]
+verify_jwt = false
+
+[functions.dispatch-webhook]
+verify_jwt = false
+
+[functions.fetch-exchange-rates]
+verify_jwt = false

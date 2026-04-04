@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,11 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { QrCode, Download, Share2, Copy, ScanLine, Store, User, Smartphone, History, CheckCircle, ArrowRight } from 'lucide-react';
+import { QrCode, Download, Share2, Copy, ScanLine, Store, User, Smartphone, History, CheckCircle, ArrowRight, Camera, X, Loader2 } from 'lucide-react';
 import QRCode from 'qrcode.react';
 
 const QrPayments = () => {
@@ -22,6 +23,12 @@ const QrPayments = () => {
   const [qrGenerated, setQrGenerated] = useState(false);
   const [qrType, setQrType] = useState<'personal' | 'merchant'>('personal');
   const [scanMode, setScanMode] = useState(false);
+  const [scanResult, setScanResult] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const qrData = JSON.stringify({
     platform: 'bmaglass',
@@ -64,6 +71,96 @@ const QrPayments = () => {
     }
   };
 
+  // Camera-based QR scanner
+  const startCamera = useCallback(async () => {
+    setCameraError(null);
+    setScanResult(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setScanMode(true);
+
+      // Start scanning frames
+      scanIntervalRef.current = setInterval(() => {
+        scanFrame();
+      }, 500);
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError') {
+        setCameraError('Camera access was denied. Please allow camera permissions.');
+      } else if (err.name === 'NotFoundError') {
+        setCameraError('No camera found on this device.');
+      } else {
+        setCameraError('Unable to access camera. Try using a mobile device.');
+      }
+    }
+  }, []);
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    setScanMode(false);
+  }, []);
+
+  const scanFrame = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Use the built-in BarcodeDetector API if available
+    if ('BarcodeDetector' in window) {
+      const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      detector.detect(canvas).then((barcodes: any[]) => {
+        if (barcodes.length > 0) {
+          handleScanResult(barcodes[0].rawValue);
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
+  const handleScanResult = (rawValue: string) => {
+    stopCamera();
+    try {
+      const parsed = JSON.parse(rawValue);
+      if (parsed.platform === 'bmaglass') {
+        setScanResult(rawValue);
+        toast({
+          title: 'QR Code Scanned!',
+          description: `Payment to ${parsed.recipient?.slice(0, 8)}... ${parsed.amount ? `for ${parsed.currency} ${parsed.amount}` : ''}`,
+        });
+      } else {
+        setScanResult(rawValue);
+        toast({ title: 'QR Code Detected', description: 'Non-BMaGlass QR code scanned' });
+      }
+    } catch {
+      setScanResult(rawValue);
+      toast({ title: 'QR Code Detected', description: rawValue.slice(0, 100) });
+    }
+  };
+
+  useEffect(() => {
+    return () => { stopCamera(); };
+  }, [stopCamera]);
+
   const recentQrPayments = [
     { id: 1, from: 'Mutale K.', amount: 150, currency: 'ZMW', time: '2 min ago', type: 'received' },
     { id: 2, from: 'Shop #247', amount: 89.50, currency: 'ZMW', time: '1 hr ago', type: 'paid' },
@@ -90,7 +187,6 @@ const QrPayments = () => {
           {/* GENERATE TAB */}
           <TabsContent value="generate">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Config */}
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
@@ -147,7 +243,6 @@ const QrPayments = () => {
                   </CardContent>
                 </Card>
 
-                {/* Features */}
                 <Card>
                   <CardContent className="p-5">
                     <h3 className="font-semibold mb-3 text-sm">QR Payment Features</h3>
@@ -155,9 +250,9 @@ const QrPayments = () => {
                       {[
                         { label: 'Dynamic QR', desc: 'Amount embedded in code' },
                         { label: 'Static QR', desc: 'Payer enters amount' },
+                        { label: 'Camera scan', desc: 'Real device camera integration' },
                         { label: 'Multi-currency', desc: 'ZMW, USD, EUR, GBP' },
                         { label: 'Instant settlement', desc: 'Funds arrive immediately' },
-                        { label: 'Works offline', desc: 'USSD fallback available' },
                       ].map(f => (
                         <div key={f.label} className="flex items-center gap-2 text-sm">
                           <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
@@ -211,17 +306,76 @@ const QrPayments = () => {
           <TabsContent value="scan">
             <div className="max-w-lg mx-auto">
               <Card>
-                <CardContent className="p-8 text-center">
-                  <div className="w-64 h-64 bg-muted/30 border-2 border-dashed border-primary/30 rounded-2xl flex items-center justify-center mx-auto mb-6 relative overflow-hidden">
-                    <div className="absolute inset-4 border-2 border-primary/40 rounded-xl" />
-                    <ScanLine className="h-16 w-16 text-primary/50 animate-pulse" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">Scan QR Code</h3>
-                  <p className="text-sm text-muted-foreground mb-6">Point your camera at a BMaGlass QR code to make a payment</p>
-                  <Button size="lg" className="w-full">
-                    <Smartphone className="h-4 w-4 mr-2" /> Open Camera
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-3">Camera access requires a mobile device or webcam</p>
+                <CardContent className="p-8">
+                  {scanMode ? (
+                    <div className="space-y-4">
+                      <div className="relative w-full aspect-square max-w-sm mx-auto rounded-2xl overflow-hidden bg-black">
+                        <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+                        <div className="absolute inset-8 border-2 border-primary/60 rounded-xl pointer-events-none" />
+                        <div className="absolute top-2 right-2">
+                          <Button variant="secondary" size="icon" onClick={stopCamera}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+                          <Badge variant="secondary" className="animate-pulse">Scanning...</Badge>
+                        </div>
+                      </div>
+                      <canvas ref={canvasRef} className="hidden" />
+                      <p className="text-center text-sm text-muted-foreground">
+                        Point your camera at a QR code
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      {cameraError ? (
+                        <div className="space-y-4">
+                          <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
+                            <Camera className="h-8 w-8 text-destructive" />
+                          </div>
+                          <p className="text-sm text-destructive">{cameraError}</p>
+                          <Button onClick={startCamera} variant="outline">Try Again</Button>
+                        </div>
+                      ) : scanResult ? (
+                        <div className="space-y-4">
+                          <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto">
+                            <CheckCircle className="h-8 w-8 text-green-500" />
+                          </div>
+                          <h3 className="text-lg font-semibold">QR Code Scanned</h3>
+                          <div className="bg-muted rounded-lg p-4 text-left">
+                            <pre className="text-xs whitespace-pre-wrap break-all font-mono">
+                              {(() => {
+                                try { return JSON.stringify(JSON.parse(scanResult), null, 2); }
+                                catch { return scanResult; }
+                              })()}
+                            </pre>
+                          </div>
+                          <div className="flex gap-3 justify-center">
+                            <Button onClick={() => { setScanResult(null); startCamera(); }}>
+                              <ScanLine className="h-4 w-4 mr-2" /> Scan Another
+                            </Button>
+                            <Button variant="outline" onClick={() => setScanResult(null)}>
+                              Close
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-6 py-4">
+                          <div className="w-24 h-24 bg-muted/50 rounded-2xl flex items-center justify-center mx-auto">
+                            <Camera className="h-12 w-12 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold mb-2">Scan QR Code</h3>
+                            <p className="text-sm text-muted-foreground mb-6">Point your camera at a BMaGlass QR code to make a payment</p>
+                          </div>
+                          <Button size="lg" className="w-full" onClick={startCamera}>
+                            <Camera className="h-4 w-4 mr-2" /> Open Camera
+                          </Button>
+                          <p className="text-xs text-muted-foreground">Camera access requires permission and a device with a camera</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
