@@ -58,13 +58,13 @@ const UssdAccess = () => {
       }
       
       // Call the Supabase edge function
-      const { data, error } = await supabase.functions.invoke('mobile-money', {
+      const { data, error } = await supabase.functions.invoke('ussd-payment', {
         body: {
-          paymentMethod: 'ussd',
-          ussdCode: baseUssdCode,
-          referenceCode: newReferenceCode,
+          action: 'payment',
+          provider,
           amount: parseFloat(amount),
-          provider
+          phone_number: '',
+          reference: newReferenceCode,
         }
       });
       
