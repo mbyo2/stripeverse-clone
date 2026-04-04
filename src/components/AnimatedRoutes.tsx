@@ -93,6 +93,7 @@ import TransactionSearch from '@/pages/TransactionSearch';
 import IpWhitelist from '@/pages/IpWhitelist';
 import QrPayments from '@/pages/QrPayments';
 import CheckoutWidget from '@/pages/CheckoutWidget';
+import AmlScreening from '@/pages/AmlScreening';
 
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
