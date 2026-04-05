@@ -257,6 +257,17 @@ const Compliance = () => {
                       </p>
                     </div>
                   </TabsContent>
+
+                  <TabsContent value="aml" className="mt-6">
+                    <div className="space-y-4">
+                      <p className="text-muted-foreground text-sm mb-4">
+                        Anti-Money Laundering screenings help ensure regulatory compliance. Screen individuals and entities against global sanctions lists.
+                      </p>
+                      <Button onClick={() => navigate('/aml-screening')}>
+                        <Shield className="h-4 w-4 mr-2" /> Open AML Screening Dashboard
+                      </Button>
+                    </div>
+                  </TabsContent>
                   
                   <TabsContent value="info" className="mt-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
