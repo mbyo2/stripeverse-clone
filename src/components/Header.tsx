@@ -65,7 +65,8 @@ import {
   Receipt,
   CalendarClock,
   Lock,
-  MapPin
+  MapPin,
+  Search
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
