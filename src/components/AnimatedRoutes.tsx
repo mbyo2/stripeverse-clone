@@ -205,6 +205,9 @@ const AnimatedRoutes = () => {
         <Route path="/qr-payments" element={<ProtectedPage><QrPayments /></ProtectedPage>} />
         <Route path="/checkout-widget" element={<ProtectedPage><CheckoutWidget /></ProtectedPage>} />
         <Route path="/aml-screening" element={<ProtectedPage><AmlScreening /></ProtectedPage>} />
+        <Route path="/audit-logs" element={<ProtectedPage><AuditLogs /></ProtectedPage>} />
+        <Route path="/backup-export" element={<ProtectedPage><BackupExport /></ProtectedPage>} />
+        <Route path="/api-rate-limits" element={<ProtectedPage><ApiRateLimits /></ProtectedPage>} />
 
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
