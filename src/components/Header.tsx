@@ -358,6 +358,16 @@ const Header = () => {
         <div className="hidden lg:flex items-center gap-2">
           {user ? (
             <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSearchOpen(true)}
+                className="h-9 gap-2 text-muted-foreground font-normal w-40 justify-start"
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span className="text-xs">Search...</span>
+                <kbd className="ml-auto text-[10px] bg-muted px-1.5 py-0.5 rounded">⌘K</kbd>
+              </Button>
               <LanguageSelector compact />
               <CurrencySelector compact />
               <NotificationBell />
