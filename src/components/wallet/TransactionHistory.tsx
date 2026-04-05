@@ -12,6 +12,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTransactions } from '@/hooks/useTransactions';
+import TransactionReceipt from '@/components/TransactionReceipt';
 
 interface Transaction {
   id: string;
