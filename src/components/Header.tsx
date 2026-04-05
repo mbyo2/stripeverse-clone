@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
+import GlobalSearch from "@/components/GlobalSearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { RoleBadge } from "@/components/FeatureAccess";
@@ -64,7 +65,8 @@ import {
   Receipt,
   CalendarClock,
   Lock,
-  MapPin
+  MapPin,
+  Search
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -74,6 +76,18 @@ const Header = () => {
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -97,6 +111,7 @@ const Header = () => {
   );
 
   return (
+    <>
     <header className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border shadow-subtle">
       <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         {/* Logo */}
@@ -345,6 +360,16 @@ const Header = () => {
         <div className="hidden lg:flex items-center gap-2">
           {user ? (
             <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSearchOpen(true)}
+                className="h-9 gap-2 text-muted-foreground font-normal w-40 justify-start"
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span className="text-xs">Search...</span>
+                <kbd className="ml-auto text-[10px] bg-muted px-1.5 py-0.5 rounded">⌘K</kbd>
+              </Button>
               <LanguageSelector compact />
               <CurrencySelector compact />
               <NotificationBell />
@@ -393,6 +418,16 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/role-management" className="flex items-center gap-2">
                       <Users className="h-4 w-4" /> Role Management
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/audit-logs" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Audit Logs
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/backup-export" className="flex items-center gap-2">
+                      <Package className="h-4 w-4" /> Backup & Export
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -570,6 +605,8 @@ const Header = () => {
         </div>
       </div>
     </header>
+    <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+    </>
   );
 };
 

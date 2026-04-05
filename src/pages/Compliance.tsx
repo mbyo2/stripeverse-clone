@@ -164,9 +164,10 @@ const Compliance = () => {
             {user ? (
               <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
                 <Tabs defaultValue="status">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="status">Compliance Status</TabsTrigger>
                     <TabsTrigger value="documents">Required Documents</TabsTrigger>
+                    <TabsTrigger value="aml">AML Screening</TabsTrigger>
                     <TabsTrigger value="info">Compliance Info</TabsTrigger>
                   </TabsList>
                   
@@ -254,6 +255,17 @@ const Compliance = () => {
                         You need to review and accept all policy documents to achieve full compliance status.
                         This will ensure that you understand our terms, privacy policies, and anti-money laundering requirements.
                       </p>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="aml" className="mt-6">
+                    <div className="space-y-4">
+                      <p className="text-muted-foreground text-sm mb-4">
+                        Anti-Money Laundering screenings help ensure regulatory compliance. Screen individuals and entities against global sanctions lists.
+                      </p>
+                      <Button onClick={() => navigate('/aml-screening')}>
+                        <Shield className="h-4 w-4 mr-2" /> Open AML Screening Dashboard
+                      </Button>
                     </div>
                   </TabsContent>
                   

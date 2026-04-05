@@ -12,6 +12,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTransactions } from '@/hooks/useTransactions';
+import TransactionReceipt from '@/components/TransactionReceipt';
 
 interface Transaction {
   id: string;
@@ -198,7 +199,8 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <TransactionReceipt transaction={{...transaction, id: String(transaction.id)}} />
                   <div className="text-right">
                     <p className={cn(
                       "font-semibold",

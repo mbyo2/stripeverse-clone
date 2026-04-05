@@ -94,6 +94,9 @@ import IpWhitelist from '@/pages/IpWhitelist';
 import QrPayments from '@/pages/QrPayments';
 import CheckoutWidget from '@/pages/CheckoutWidget';
 import AmlScreening from '@/pages/AmlScreening';
+import AuditLogs from '@/pages/AuditLogs';
+import BackupExport from '@/pages/BackupExport';
+import ApiRateLimits from '@/pages/ApiRateLimits';
 
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
@@ -202,6 +205,9 @@ const AnimatedRoutes = () => {
         <Route path="/qr-payments" element={<ProtectedPage><QrPayments /></ProtectedPage>} />
         <Route path="/checkout-widget" element={<ProtectedPage><CheckoutWidget /></ProtectedPage>} />
         <Route path="/aml-screening" element={<ProtectedPage><AmlScreening /></ProtectedPage>} />
+        <Route path="/audit-logs" element={<ProtectedPage><AuditLogs /></ProtectedPage>} />
+        <Route path="/backup-export" element={<ProtectedPage><BackupExport /></ProtectedPage>} />
+        <Route path="/api-rate-limits" element={<ProtectedPage><ApiRateLimits /></ProtectedPage>} />
 
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
