@@ -200,7 +200,7 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <TransactionReceipt transaction={transaction} />
+                  <TransactionReceipt transaction={{...transaction, id: String(transaction.id)}} />
                   <div className="text-right">
                     <p className={cn(
                       "font-semibold",
