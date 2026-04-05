@@ -594,6 +594,8 @@ const Header = () => {
         </div>
       </div>
     </header>
+    <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+    </>
   );
 };
 
