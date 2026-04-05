@@ -164,9 +164,10 @@ const Compliance = () => {
             {user ? (
               <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
                 <Tabs defaultValue="status">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="status">Compliance Status</TabsTrigger>
                     <TabsTrigger value="documents">Required Documents</TabsTrigger>
+                    <TabsTrigger value="aml">AML Screening</TabsTrigger>
                     <TabsTrigger value="info">Compliance Info</TabsTrigger>
                   </TabsList>
                   
