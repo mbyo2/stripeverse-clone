@@ -420,6 +420,16 @@ const Header = () => {
                       <Users className="h-4 w-4" /> Role Management
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/audit-logs" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Audit Logs
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/backup-export" className="flex items-center gap-2">
+                      <Package className="h-4 w-4" /> Backup & Export
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/support" className="flex items-center gap-2">
