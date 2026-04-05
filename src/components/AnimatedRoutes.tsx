@@ -94,6 +94,9 @@ import IpWhitelist from '@/pages/IpWhitelist';
 import QrPayments from '@/pages/QrPayments';
 import CheckoutWidget from '@/pages/CheckoutWidget';
 import AmlScreening from '@/pages/AmlScreening';
+import AuditLogs from '@/pages/AuditLogs';
+import BackupExport from '@/pages/BackupExport';
+import ApiRateLimits from '@/pages/ApiRateLimits';
 
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
