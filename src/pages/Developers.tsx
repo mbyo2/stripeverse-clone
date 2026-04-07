@@ -125,9 +125,14 @@ const PlatformCard = ({ name, icon: Icon, description, status, installCmd, featu
           <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={onViewDocs}>
             <Book className="h-3 w-3 mr-1" /> Docs
           </Button>
-          {status !== "coming-soon" && (
+          {repoUrl && (
+            <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => window.open(repoUrl, '_blank')}>
+              <ExternalLink className="h-3 w-3" />
+            </Button>
+          )}
+          {status !== "coming-soon" && installCmd && (
             <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleInstall}>
-              <Copy className="h-3 w-3 mr-1" /> Copy Install
+              <Copy className="h-3 w-3 mr-1" /> Install
             </Button>
           )}
         </div>
@@ -893,37 +898,73 @@ app.post('/webhook', (req, res) => {
                     <p className="text-muted-foreground">Install once, accept payments forever. No coding required.</p>
                   </div>
 
+                  <h3 className="text-lg font-semibold text-foreground">E-Commerce Platforms</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <PlatformCard name="WordPress" icon={Globe} description="Payment gateway for WordPress" status="stable"
-                      installCmd="Upload bmaglass-pay.zip via Plugins" onViewDocs={() => setActiveSection("quickstart")}
-                      features={["One-click install", "Donation forms", "Gutenberg block", "All payment methods"]} />
-                    <PlatformCard name="WooCommerce" icon={ShoppingCart} description="Full checkout integration" status="stable"
-                      installCmd="Upload bmaglass-woocommerce.zip" onViewDocs={() => setActiveSection("quickstart")}
-                      features={["All payment methods", "Auto order updates", "Multi-currency", "Refunds from admin"]} />
+                    <PlatformCard name="WooCommerce" icon={ShoppingCart} description="Full checkout integration for WooCommerce" status="stable"
+                      installCmd="Upload bmaglass-pay-woocommerce.zip" repoUrl="https://github.com/bmaglass/bmaglass-pay-woocommerce"
+                      onViewDocs={() => setActiveSection("quickstart")}
+                      features={["Card, Mobile Money, USSD, Bank Transfer", "Auto order updates via webhooks", "Refunds from WooCommerce admin", "HPOS compatible"]} />
+                    <PlatformCard name="WordPress" icon={Globe} description="Payments & donations for any WP site" status="stable"
+                      installCmd="Upload bmaglass-pay.zip via Plugins" repoUrl="https://github.com/bmaglass/bmaglass-pay-wordpress"
+                      onViewDocs={() => setActiveSection("quickstart")}
+                      features={["Shortcodes & Gutenberg block", "Donation forms with presets", "All payment methods", "Zero code setup"]} />
+                    <PlatformCard name="Shopify" icon={Store} description="Shopify Payments App" status="stable"
+                      repoUrl="https://github.com/bmaglass/bmaglass-pay-shopify"
+                      onViewDocs={() => setActiveSection("quickstart")}
+                      features={["Native Payments API integration", "Mobile Money at checkout", "Auto fulfillment triggers", "Multi-currency support"]} />
+                    <PlatformCard name="Magento 2" icon={ShoppingCart} description="Adobe Commerce / Magento 2 module" status="stable"
+                      installCmd="composer require bmaglass/module-pay" repoUrl="https://github.com/bmaglass/bmaglass-pay-magento"
+                      onViewDocs={() => setActiveSection("quickstart")}
+                      features={["Magento 2.4+", "Multi-store support", "Admin refunds", "Encrypted API key storage"]} />
+                    <PlatformCard name="PrestaShop" icon={Store} description="PrestaShop payment module" status="stable"
+                      installCmd="Upload via Modules Manager" repoUrl="https://github.com/bmaglass/bmaglass-pay-prestashop"
+                      onViewDocs={() => setActiveSection("quickstart")}
+                      features={["PrestaShop 1.7+ & 8.x", "Multi-currency checkout", "Webhook order confirmation", "One-click install"]} />
+                    <PlatformCard name="OpenCart" icon={ShoppingCart} description="OpenCart 4.x payment extension" status="stable"
+                      repoUrl="https://github.com/bmaglass/bmaglass-pay-opencart"
+                      onViewDocs={() => setActiveSection("quickstart")}
+                      features={["OpenCart 4.x compatible", "All payment methods", "Webhook auto-confirm", "Admin configuration"]} />
+                  </div>
+
+                  <Separator className="my-6" />
+                  <h3 className="text-lg font-semibold text-foreground">ERP & Business Platforms</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <PlatformCard name="Odoo" icon={Blocks} description="Payment acquirer for Odoo ERP" status="stable"
-                      installCmd="odoo-bin -i bmaglass_payment" onViewDocs={() => setActiveSection("quickstart")}
-                      features={["Odoo 16 & 17", "POS integration", "Invoice links", "Auto reconciliation"]} />
-                    <PlatformCard name="Shopify" icon={Store} description="Shopify payment app" status="stable"
+                      installCmd="odoo-bin -u bmaglass_payment" repoUrl="https://github.com/bmaglass/bmaglass-pay-odoo"
                       onViewDocs={() => setActiveSection("quickstart")}
-                      features={["Shopify Payments API", "Mobile Money checkout", "Auto fulfillment", "Multi-currency"]} />
+                      features={["Odoo 16 & 17 compatible", "Invoice payment links", "Webhook auto-confirmation", "POS integration ready"]} />
+                    <PlatformCard name="WHMCS" icon={Globe} description="WHMCS billing gateway module" status="stable"
+                      repoUrl="https://github.com/bmaglass/bmaglass-pay-whmcs"
+                      onViewDocs={() => setActiveSection("quickstart")}
+                      features={["WHMCS 8.x compatible", "Auto invoice marking", "Refunds from admin", "Webhook signature verification"]} />
+                  </div>
+
+                  <Separator className="my-6" />
+                  <h3 className="text-lg font-semibold text-foreground">Frameworks & Libraries</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <PlatformCard name="Laravel" icon={Code2} description="First-party PHP package" status="stable"
-                      installCmd="composer require bmaglass/laravel-payments" onViewDocs={() => setActiveSection("quickstart")}
-                      features={["Cashier-style API", "Blade components", "Webhook verify", "Artisan commands"]} />
-                    <PlatformCard name="Django" icon={Code2} description="Python Django integration" status="stable"
-                      installCmd="pip install bmaglass-django" onViewDocs={() => setActiveSection("quickstart")}
-                      features={["Django 4.x+", "Template tags", "Signals for events", "Admin dashboard"]} />
-                    <PlatformCard name="Magento" icon={ShoppingCart} description="Adobe Commerce plugin" status="beta"
+                      installCmd="composer require bmaglass/laravel-payments" repoUrl="https://github.com/bmaglass/bmaglass-laravel"
                       onViewDocs={() => setActiveSection("quickstart")}
-                      features={["Magento 2.4+", "Multi-store support", "Custom checkout", "API integration"]} />
-                    <PlatformCard name="PrestaShop" icon={Store} description="PrestaShop module" status="stable"
-                      installCmd="Upload via Modules Manager" onViewDocs={() => setActiveSection("quickstart")}
-                      features={["1-click install", "Multi-currency", "Order management", "Refund support"]} />
-                    <PlatformCard name="Zapier" icon={Zap} description="Connect 5000+ apps" status="stable"
+                      features={["Cashier-style API", "Blade components", "Webhook verification", "Artisan commands"]} />
+                    <PlatformCard name="Django" icon={Code2} description="Python Django integration" status="stable"
+                      installCmd="pip install bmaglass-django" repoUrl="https://github.com/bmaglass/bmaglass-django"
+                      onViewDocs={() => setActiveSection("quickstart")}
+                      features={["Django 4.x+", "Template tags", "Signals for events", "Admin dashboard"]} />
+                    <PlatformCard name="React / Next.js" icon={Code2} description="React component library" status="stable"
+                      installCmd="npm install @bmaglass/react-checkout" repoUrl="https://github.com/bmaglass/bmaglass-react"
+                      onViewDocs={() => setActiveSection("quickstart")}
+                      features={["Drop-in components", "Server components", "Hooks API", "TypeScript"]} />
+                  </div>
+
+                  <Separator className="my-6" />
+                  <h3 className="text-lg font-semibold text-foreground">Automation</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <PlatformCard name="Zapier" icon={Zap} description="Connect 5000+ apps" status="coming-soon"
                       onViewDocs={() => setActiveSection("quickstart")}
                       features={["Payment triggers", "Custom actions", "No-code automation", "Instant updates"]} />
-                    <PlatformCard name="React / Next.js" icon={Code2} description="React component library" status="stable"
-                      installCmd="npm install @bmaglass/react-checkout" onViewDocs={() => setActiveSection("quickstart")}
-                      features={["Drop-in components", "Server components", "Hooks API", "TypeScript"]} />
+                    <PlatformCard name="Make (Integromat)" icon={Zap} description="Visual workflow automation" status="coming-soon"
+                      onViewDocs={() => setActiveSection("quickstart")}
+                      features={["Payment scenarios", "Multi-step workflows", "Error handling", "Scheduling"]} />
                   </div>
                 </div>
               )}
