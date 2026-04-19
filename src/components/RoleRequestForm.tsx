@@ -97,6 +97,7 @@ const RoleRequestForm = () => {
               onChange={(e) => setReason(e.target.value)}
               placeholder="Why do you need this role?"
               rows={3}
+              maxLength={500}
             />
           </div>
 
