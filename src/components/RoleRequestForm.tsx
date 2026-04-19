@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { z } from 'zod';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -6,21 +7,46 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { UserPlus } from "lucide-react";
 import { useRoleManagement } from "@/hooks/useRoleManagement";
+import { toast } from "@/hooks/use-toast";
+
+const ALLOWED_ROLES = ['beta_tester', 'business', 'moderator'] as const;
+
+const roleRequestSchema = z.object({
+  selectedRole: z.enum(ALLOWED_ROLES, {
+    errorMap: () => ({ message: 'Please select a valid role' }),
+  }),
+  reason: z
+    .string()
+    .trim()
+    .max(500, { message: 'Reason must be 500 characters or fewer' })
+    .optional()
+    .or(z.literal('')),
+});
 
 const RoleRequestForm = () => {
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [reason, setReason] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const { requestRoleChange } = useRoleManagement();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRole) return;
-    
+
+    const result = roleRequestSchema.safeParse({ selectedRole, reason });
+    if (!result.success) {
+      const firstError = result.error.errors[0]?.message ?? 'Invalid input';
+      toast({
+        title: 'Invalid request',
+        description: firstError,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await requestRoleChange(selectedRole, reason);
+      await requestRoleChange(result.data.selectedRole, result.data.reason ?? '');
       setSelectedRole('');
       setReason('');
     } finally {
