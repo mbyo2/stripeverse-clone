@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedRouteProps) => {
   const { user, isLoading: authLoading } = useAuth();
-  const { hasAccess, hasRole, isLoading: rolesLoading } = useRoles();
+  const { hasAccess, hasRole, roles, isLoading: rolesLoading } = useRoles();
   const location = useLocation();
   
   // Show loading state while checking authentication and roles
