@@ -13,12 +13,22 @@ const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedR
   const { user, isLoading: authLoading } = useAuth();
   const { hasAccess, hasRole, roles, isLoading: rolesLoading } = useRoles();
   const location = useLocation();
-  
-  // Show loading state while checking authentication and roles
-  if (authLoading || rolesLoading) {
+
+  // Wait for auth + roles to fully resolve before any access decision.
+  // For authenticated users, also wait until roles array is populated to prevent
+  // a brief flash of "Your role: user" before the real role loads.
+  const rolesNotReady = !!user && roles.length === 0;
+  if (authLoading || rolesLoading || rolesNotReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div
+        className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+        <p className="text-sm text-muted-foreground">Verifying your access…</p>
+        <span className="sr-only">Loading authentication and permissions</span>
       </div>
     );
   }
