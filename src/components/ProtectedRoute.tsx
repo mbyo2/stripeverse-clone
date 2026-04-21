@@ -32,15 +32,39 @@ const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedR
   if (requiredRoles && requiredRoles.length > 0) {
     const allowed = requiredRoles.some((r) => hasRole(r));
     if (!allowed) {
+      const userRoles = roles.length ? roles.join(', ') : 'user';
+      const requiredList = requiredRoles.join(', ');
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-4">
-          <h1 className="text-3xl font-bold mb-4">Access Denied</h1>
-          <p className="text-muted-foreground mb-8 text-center max-w-md">
-            You don't have permission to access this page. This area is restricted to authorized roles only.
-          </p>
-          <a href="/dashboard" className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/80">
-            Back to Dashboard
-          </a>
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
+          <div className="max-w-md w-full bg-card border rounded-lg p-8 shadow-sm text-center">
+            <div className="mx-auto w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+              <svg className="w-7 h-7 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0-10a4 4 0 00-4 4v3h8v-3a4 4 0 00-4-4z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold mb-2 text-foreground">Access Denied</h1>
+            <p className="text-muted-foreground mb-6">
+              This page is restricted to authorized roles only.
+            </p>
+            <div className="bg-muted rounded-md p-4 mb-6 text-sm text-left space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Your role:</span>
+                <span className="font-medium text-foreground capitalize">{userRoles}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Required:</span>
+                <span className="font-medium text-foreground capitalize">{requiredList}</span>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <a href="/role-management" className="flex-1 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors font-medium">
+                Request Access
+              </a>
+              <a href="/dashboard" className="flex-1 border border-border px-4 py-2 rounded-md hover:bg-muted transition-colors font-medium">
+                Back to Dashboard
+              </a>
+            </div>
+          </div>
         </div>
       );
     }
