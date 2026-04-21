@@ -102,6 +102,11 @@ const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
 );
 
+type Role = 'admin' | 'business' | 'user' | 'beta_tester';
+const RoleGuardedPage = ({ children, roles }: { children: React.ReactNode; roles: Role[] }) => (
+  <ProtectedRoute requiredRoles={roles}><PageTransition>{children}</PageTransition></ProtectedRoute>
+);
+
 const AnimatedRoutes = () => {
   const location = useLocation();
 
@@ -132,8 +137,8 @@ const AnimatedRoutes = () => {
         {/* Protected routes */}
         <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
         <Route path="/user-dashboard" element={<ProtectedPage><UserDashboard /></ProtectedPage>} />
-        <Route path="/admin-dashboard" element={<ProtectedPage><AdminDashboard /></ProtectedPage>} />
-        <Route path="/beta-dashboard" element={<ProtectedPage><BetaTesterDashboard /></ProtectedPage>} />
+        <Route path="/admin-dashboard" element={<RoleGuardedPage roles={['admin']}><AdminDashboard /></RoleGuardedPage>} />
+        <Route path="/beta-dashboard" element={<RoleGuardedPage roles={['beta_tester','admin']}><BetaTesterDashboard /></RoleGuardedPage>} />
 
         <Route path="/business-dashboard" element={
           <ProtectedRoute><BusinessRouteGuard><PageTransition><BusinessDashboard /></PageTransition></BusinessRouteGuard></ProtectedRoute>
@@ -142,8 +147,8 @@ const AnimatedRoutes = () => {
           <ProtectedRoute><BusinessRouteGuard><PageTransition><Business /></PageTransition></BusinessRouteGuard></ProtectedRoute>
         } />
         
-        <Route path="/role-management" element={<ProtectedPage><RoleManagement /></ProtectedPage>} />
-        <Route path="/tier-management" element={<ProtectedPage><TierManagement /></ProtectedPage>} />
+        <Route path="/role-management" element={<RoleGuardedPage roles={['admin']}><RoleManagement /></RoleGuardedPage>} />
+        <Route path="/tier-management" element={<RoleGuardedPage roles={['admin']}><TierManagement /></RoleGuardedPage>} />
         <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
         <Route path="/security-settings" element={<ProtectedPage><SecuritySettings /></ProtectedPage>} />
         <Route path="/two-factor-auth" element={<ProtectedPage><TwoFactorAuth /></ProtectedPage>} />
@@ -163,8 +168,8 @@ const AnimatedRoutes = () => {
         <Route path="/card/:id/fund" element={<ProtectedPage><VirtualCardFund /></ProtectedPage>} />
         <Route path="/transfer" element={<ProtectedRoute requiredFeature="transfers"><PageTransition><Transfer /></PageTransition></ProtectedRoute>} />
         <Route path="/send-money" element={<ProtectedPage><SendMoney /></ProtectedPage>} />
-        <Route path="/compliance" element={<ProtectedPage><Compliance /></ProtectedPage>} />
-        <Route path="/feedback-dashboard" element={<ProtectedRoute requiredFeature="feedback_dashboard"><PageTransition><FeedbackDashboard /></PageTransition></ProtectedRoute>} />
+        <Route path="/compliance" element={<RoleGuardedPage roles={['admin','business']}><Compliance /></RoleGuardedPage>} />
+        <Route path="/feedback-dashboard" element={<RoleGuardedPage roles={['admin']}><FeedbackDashboard /></RoleGuardedPage>} />
         <Route path="/feedback" element={<ProtectedPage><Feedback /></ProtectedPage>} />
         <Route path="/help" element={<ProtectedPage><Help /></ProtectedPage>} />
         <Route path="/rewards" element={<ProtectedPage><Rewards /></ProtectedPage>} />
@@ -174,8 +179,8 @@ const AnimatedRoutes = () => {
         <Route path="/notifications" element={<ProtectedPage><Notifications /></ProtectedPage>} />
         <Route path="/kyc" element={<ProtectedPage><KycPage /></ProtectedPage>} />
         <Route path="/ussd-access" element={<ProtectedPage><UssdAccess /></ProtectedPage>} />
-        <Route path="/admin/users" element={<ProtectedRoute requiredFeature="feedback_dashboard"><PageTransition><AdminUsers /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/transactions" element={<ProtectedRoute requiredFeature="feedback_dashboard"><PageTransition><AdminTransactions /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/users" element={<RoleGuardedPage roles={['admin']}><AdminUsers /></RoleGuardedPage>} />
+        <Route path="/admin/transactions" element={<RoleGuardedPage roles={['admin']}><AdminTransactions /></RoleGuardedPage>} />
         <Route path="/request-money" element={<ProtectedPage><RequestMoney /></ProtectedPage>} />
         <Route path="/contacts" element={<ProtectedPage><Contacts /></ProtectedPage>} />
         <Route path="/spending-insights" element={<ProtectedPage><SpendingInsights /></ProtectedPage>} />
@@ -199,15 +204,15 @@ const AnimatedRoutes = () => {
         <Route path="/savings" element={<ProtectedPage><Savings /></ProtectedPage>} />
         <Route path="/bill-payments" element={<ProtectedPage><BillPayments /></ProtectedPage>} />
         <Route path="/agent-network" element={<ProtectedPage><AgentNetwork /></ProtectedPage>} />
-        <Route path="/fraud-rules" element={<ProtectedPage><FraudRules /></ProtectedPage>} />
+        <Route path="/fraud-rules" element={<RoleGuardedPage roles={['admin','business']}><FraudRules /></RoleGuardedPage>} />
         <Route path="/statements" element={<ProtectedPage><Statements /></ProtectedPage>} />
         <Route path="/ip-whitelist" element={<ProtectedPage><IpWhitelist /></ProtectedPage>} />
         <Route path="/qr-payments" element={<ProtectedPage><QrPayments /></ProtectedPage>} />
         <Route path="/checkout-widget" element={<ProtectedPage><CheckoutWidget /></ProtectedPage>} />
-        <Route path="/aml-screening" element={<ProtectedPage><AmlScreening /></ProtectedPage>} />
-        <Route path="/audit-logs" element={<ProtectedPage><AuditLogs /></ProtectedPage>} />
-        <Route path="/backup-export" element={<ProtectedPage><BackupExport /></ProtectedPage>} />
-        <Route path="/api-rate-limits" element={<ProtectedPage><ApiRateLimits /></ProtectedPage>} />
+        <Route path="/aml-screening" element={<RoleGuardedPage roles={['admin']}><AmlScreening /></RoleGuardedPage>} />
+        <Route path="/audit-logs" element={<RoleGuardedPage roles={['admin']}><AuditLogs /></RoleGuardedPage>} />
+        <Route path="/backup-export" element={<RoleGuardedPage roles={['admin']}><BackupExport /></RoleGuardedPage>} />
+        <Route path="/api-rate-limits" element={<RoleGuardedPage roles={['admin','business']}><ApiRateLimits /></RoleGuardedPage>} />
 
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
