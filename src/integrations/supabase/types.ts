@@ -737,6 +737,33 @@ export type Database = {
         }
         Relationships: []
       }
+      crypto_address_nonces: {
+        Row: {
+          address: string
+          created_at: string
+          expires_at: string
+          id: string
+          nonce: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          nonce: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          nonce?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       crypto_invoices: {
         Row: {
           amount_fiat: number | null
@@ -773,6 +800,87 @@ export type Database = {
           paid_at?: string | null
           status?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      crypto_payout_requests: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          chain_id: number
+          created_at: string
+          destination_address: string
+          id: string
+          processed_at: string | null
+          processed_by: string | null
+          status: string
+          token_address: string | null
+          token_symbol: string
+          tx_hash: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount: number
+          chain_id: number
+          created_at?: string
+          destination_address: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          token_address?: string | null
+          token_symbol: string
+          tx_hash?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amount?: number
+          chain_id?: number
+          created_at?: string
+          destination_address?: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          token_address?: string | null
+          token_symbol?: string
+          tx_hash?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      crypto_treasury_config: {
+        Row: {
+          active: boolean
+          chain_id: number
+          created_at: string
+          id: string
+          label: string | null
+          safe_address: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          chain_id: number
+          created_at?: string
+          id?: string
+          label?: string | null
+          safe_address: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          chain_id?: number
+          created_at?: string
+          id?: string
+          label?: string | null
+          safe_address?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2917,6 +3025,45 @@ export type Database = {
           last_activity?: string
           session_token?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      vendor_crypto_wallets: {
+        Row: {
+          address: string
+          chain_id: number
+          created_at: string
+          id: string
+          is_primary: boolean
+          label: string | null
+          signature: string | null
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          address: string
+          chain_id: number
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          signature?: string | null
+          updated_at?: string
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          address?: string
+          chain_id?: number
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          signature?: string | null
+          updated_at?: string
+          user_id?: string
+          verified_at?: string | null
         }
         Relationships: []
       }
