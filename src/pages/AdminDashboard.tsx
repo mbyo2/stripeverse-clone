@@ -330,6 +330,10 @@ const AdminDashboard = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="crypto">
+            <AdminCryptoPayouts />
+          </TabsContent>
         </Tabs>
       </main>
       <Footer />
