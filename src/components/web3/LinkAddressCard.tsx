@@ -30,7 +30,7 @@ export const LinkAddressCard = ({ onLinked }: { onLinked?: () => void }) => {
       if (nonceErr) throw nonceErr;
 
       const message = `BMaGlass Pay — link wallet\n\nAddress: ${address}\nUser: ${user.id}\nNonce: ${nonce}`;
-      const signature = await signMessageAsync({ message });
+      const signature = await signMessageAsync({ account: address, message });
 
       const { error } = await supabase.from("vendor_crypto_wallets").insert({
         user_id: user.id,
