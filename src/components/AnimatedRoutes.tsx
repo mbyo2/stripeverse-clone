@@ -80,6 +80,7 @@ import Settlements from '@/pages/Settlements';
 import SdkDocs from '@/pages/SdkDocs';
 import WebhookLogs from '@/pages/WebhookLogs';
 import CardVault from '@/pages/CardVault';
+import CryptoWallet from '@/pages/CryptoWallet';
 
 // New feature pages
 import PaymentPlans from '@/pages/PaymentPlans';
@@ -155,6 +156,7 @@ const AnimatedRoutes = () => {
         <Route path="/profile" element={<Navigate to="/settings" replace />} />
         <Route path="/wallet" element={<ProtectedPage><Wallet /></ProtectedPage>} />
         <Route path="/bitcoin-wallet" element={<ProtectedPage><BitcoinWallet /></ProtectedPage>} />
+        <Route path="/wallet/crypto" element={<ProtectedPage><CryptoWallet /></ProtectedPage>} />
         <Route path="/wallet-reconciliation" element={<ProtectedPage><WalletReconciliationPage /></ProtectedPage>} />
         <Route path="/transactions" element={<ProtectedPage><Transactions /></ProtectedPage>} />
         <Route path="/transaction-list" element={<ProtectedPage><TransactionList /></ProtectedPage>} />
