@@ -1,9 +1,12 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { mainnet, base, polygon, arbitrum, sepolia } from "wagmi/chains";
 
-// WalletConnect Project ID is publishable. Replace with your own from https://cloud.reown.com.
-// Injected wallets (MetaMask, Coinbase, Brave) work without it; WalletConnect QR needs a real ID.
-export const WALLETCONNECT_PROJECT_ID = "REPLACE_WITH_WALLETCONNECT_PROJECT_ID";
+// WalletConnect Project ID is publishable (safe in client code).
+// Set VITE_WALLETCONNECT_PROJECT_ID in your .env to enable WalletConnect QR on mobile.
+// Get one at https://cloud.reown.com.
+export const WALLETCONNECT_PROJECT_ID =
+  (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined) ||
+  "REPLACE_WITH_WALLETCONNECT_PROJECT_ID";
 
 export const SUPPORTED_CHAINS = [mainnet, base, polygon, arbitrum, sepolia] as const;
 
