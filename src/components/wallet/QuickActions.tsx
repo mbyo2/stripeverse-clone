@@ -5,7 +5,8 @@ import {
   QrCode, 
   History,
   Smartphone,
-  Receipt
+  Receipt,
+  Bitcoin
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -50,6 +51,12 @@ const QuickActions = () => {
       label: "Bills",
       description: "Pay utilities",
       onClick: () => navigate("/wallet"),
+    },
+    {
+      icon: Bitcoin,
+      label: "Crypto",
+      description: "EVM payouts",
+      onClick: () => navigate("/wallet/crypto"),
     },
   ];
 
