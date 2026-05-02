@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Web3Provider } from "@/components/web3/Web3Provider";
 import { LinkAddressCard } from "@/components/web3/LinkAddressCard";
+import { WalletConnectStatus } from "@/components/web3/WalletConnectStatus";
 import { LinkedAddressList } from "@/components/web3/LinkedAddressList";
 import { BalancesCard } from "@/components/web3/BalancesCard";
 import { RequestPayoutForm } from "@/components/web3/RequestPayoutForm";
@@ -19,6 +20,8 @@ const CryptoWallet = () => {
             Connect an EVM wallet to receive USDC and native-token payouts on Ethereum, Base, Polygon, Arbitrum, or Sepolia.
           </p>
         </header>
+
+        <WalletConnectStatus />
 
         <div className="grid gap-6 md:grid-cols-2">
           <LinkAddressCard onLinked={bump} />
