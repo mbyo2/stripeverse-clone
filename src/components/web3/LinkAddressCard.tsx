@@ -32,14 +32,17 @@ export const LinkAddressCard = ({ onLinked }: { onLinked?: () => void }) => {
       const message = `BMaGlass Pay — link wallet\n\nAddress: ${address}\nUser: ${user.id}\nNonce: ${nonce}`;
       const signature = await signMessageAsync({ account: address, message });
 
-      const { error } = await supabase.from("vendor_crypto_wallets").insert({
-        user_id: user.id,
-        chain_id: chainId,
-        address: address.toLowerCase(),
-        label: label || null,
-        signature,
-        verified_at: new Date().toISOString(),
-      });
+      const { error } = await supabase.from("vendor_crypto_wallets").upsert(
+        {
+          user_id: user.id,
+          chain_id: chainId,
+          address: address.toLowerCase(),
+          label: label || null,
+          signature,
+          verified_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,chain_id,address" }
+      );
       if (error) throw error;
 
       toast.success("Wallet linked and verified");
