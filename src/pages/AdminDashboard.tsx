@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminCryptoPayouts } from "@/components/web3/AdminCryptoPayouts";
+import { AdminTreasuryConfig } from "@/components/web3/AdminTreasuryConfig";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
@@ -158,12 +159,13 @@ const AdminDashboard = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="system">System</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="crypto">Crypto Payouts</TabsTrigger>
+            <TabsTrigger value="treasury">Treasury</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -333,6 +335,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="crypto">
             <AdminCryptoPayouts />
+          </TabsContent>
+
+          <TabsContent value="treasury">
+            <AdminTreasuryConfig />
           </TabsContent>
         </Tabs>
       </main>
