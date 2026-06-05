@@ -46,7 +46,7 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="bg-foreground text-background/80">
+    <footer className="bg-foreground text-background/80 dark:bg-card dark:text-foreground/80 dark:border-t dark:border-border">
       <div className="max-w-[1320px] mx-auto px-4 sm:px-6">
         {/* Main Footer */}
         <div className="py-12 grid grid-cols-2 md:grid-cols-5 gap-8">
