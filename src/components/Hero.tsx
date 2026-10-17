@@ -32,13 +32,13 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
 
             <FadeIn delay={0.2} duration={0.6} distance={16}>
               <h1 className="heading-1 mb-6 text-foreground">
-                The future of Zambian commerce.
+                The simpler, safer way to pay and get paid
               </h1>
             </FadeIn>
 
             <FadeIn delay={0.3} duration={0.5} distance={12}>
               <p className="body-text mb-8 text-lg">
-                BMaGlass Pay empowers businesses to accept Bitcoin, Mobile Money, and international cards through one seamless API.
+                Accept payments online, send money to anyone, and manage your business finances — all in one place. Built for Zambian businesses.
               </p>
             </FadeIn>
 
@@ -64,9 +64,9 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
             <FadeIn delay={0.5} duration={0.5} distance={8}>
               <div className="flex flex-col gap-3">
                 {[
-                  'Bitcoin Native — accept crypto, settle in ZMW or USD',
-                  'Mobile Money First — MTN, Airtel, Zamtel',
-                  'Card Payments & USSD — Visa, Mastercard, *384#',
+                  'No setup fees or monthly charges',
+                  'Accept Mobile Money, Cards & USSD',
+                  'Bank of Zambia Approved',
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                     <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
@@ -143,7 +143,7 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
                         </div>
                       ))}
                     </div>
-                    <span className="text-sm text-muted-foreground">Trusted by over 1,200 Zambian businesses</span>
+                    <span className="text-sm text-muted-foreground">Trusted by 500+ businesses</span>
                   </div>
                   <div className="flex items-center gap-1">
                     {[...Array(5)].map((_, i) => (
