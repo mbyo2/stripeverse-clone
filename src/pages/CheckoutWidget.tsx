@@ -33,92 +33,104 @@ const CheckoutWidget = () => {
 
   const updateConfig = (key: string, value: any) => setConfig(prev => ({ ...prev, [key]: value }));
 
-  const jsSnippet = `<script src="https://js.bmaglasspay.com/v1/checkout.js"></script>
-<script>
-  const checkout = BMaGlassPay.checkout({
-    publicKey: "${config.publicKey}",
-    amount: ${config.amount},
-    currency: "${config.currency}",
-    title: "${config.title}",
-    description: "${config.description}",
-    ${config.logo ? `logo: "${config.logo}",` : ''}
-    theme: {
-      primaryColor: "${config.primaryColor}",
-    },
-    paymentMethods: [${[
-      config.showCard && '"card"',
-      config.showMobileMoney && '"mobile_money"',
-      config.showBankTransfer && '"bank_transfer"',
-      config.showBitcoin && '"bitcoin"',
-    ].filter(Boolean).join(', ')}],
-    callbackUrl: "${config.callbackUrl}",
-    onSuccess: function(response) {
-      console.log("Payment successful:", response);
-      window.location.href = "${config.redirectUrl}";
-    },
-    onError: function(error) {
-      console.error("Payment failed:", error);
-    },
-    onClose: function() {
-      console.log("Checkout closed");
-    }
-  });
+  // Real integration: uses @supabase/supabase-js against the live project.
+  // Merchants install the Supabase JS client and invoke the deployed edge functions directly.
+  const projectUrl = 'https://hhxwwozpvgktuqutfkhc.supabase.co';
+
+  const jsSnippet = `<!-- 1. Install: npm install @supabase/supabase-js -->
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+  const supabase = createClient('${projectUrl}', '${config.publicKey}');
+
+  async function payWithBMaGlass({ amount, currency, method, phone }) {
+    const { data, error } = await supabase.functions.invoke('process-payment', {
+      body: {
+        amount,
+        currency: '${config.currency}',
+        paymentMethod: method, // 'mobile' | 'card' | 'bank'
+        provider: method === 'mobile' ? 'mtn' : undefined,
+        phone_number: phone,
+        description: '${config.description}',
+      }
+    });
+    if (error) throw error;
+    return data;
+  }
 
   // Open checkout modal
-  document.getElementById("pay-btn").addEventListener("click", () => {
-    checkout.open();
+  document.getElementById("pay-btn").addEventListener("click", async () => {
+    try {
+      const result = await payWithBMaGlass({
+        amount: ${config.amount},
+        currency: '${config.currency}',
+        method: 'mobile',
+        phone: prompt('Enter mobile money number:'),
+      });
+      console.log("Payment result:", result);
+      window.location.href = "${config.redirectUrl}";
+    } catch (error) {
+      console.error("Payment failed:", error);
+    }
   });
 </script>
 
 <button id="pay-btn">Pay ${config.currency} ${config.amount}</button>`;
 
-  const reactSnippet = `import { BMaGlassCheckout } from '@bmaglass/react-checkout';
+  const reactSnippet = `import { createClient } from '@supabase/supabase-js';
+
+// npm install @supabase/supabase-js
+const supabase = createClient(
+  '${projectUrl}',
+  '${config.publicKey}'
+);
 
 function PaymentPage() {
+  const handlePay = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: {
+          amount: ${config.amount},
+          currency: '${config.currency}',
+          paymentMethod: 'mobile',
+          description: '${config.description}',
+        }
+      });
+      if (error) throw error;
+      console.log("Payment result:", data);
+    } catch (error) {
+      console.error("Payment failed:", error);
+    }
+  };
+
   return (
-    <BMaGlassCheckout
-      publicKey="${config.publicKey}"
-      amount={${config.amount}}
-      currency="${config.currency}"
-      title="${config.title}"
-      description="${config.description}"
-      paymentMethods={[${[
-        config.showCard && '"card"',
-        config.showMobileMoney && '"mobile_money"',
-        config.showBankTransfer && '"bank_transfer"',
-        config.showBitcoin && '"bitcoin"',
-      ].filter(Boolean).join(', ')}]}
-      theme={{ primaryColor: "${config.primaryColor}" }}
-      onSuccess={(response) => {
-        console.log("Payment successful:", response);
-      }}
-      onError={(error) => {
-        console.error("Payment failed:", error);
-      }}
+    <button
+      onClick={handlePay}
+      style={{ background: '${config.primaryColor}', color: 'white', padding: '12px 24px', border: 'none', borderRadius: '8px' }}
     >
-      <button>Pay ${config.currency} ${config.amount}</button>
-    </BMaGlassCheckout>
+      Pay ${config.currency} ${config.amount}
+    </button>
   );
 }`;
 
-  const htmlSnippet = `<!-- BMaGlass Pay Button — paste in your HTML -->
-<form action="https://api.bmaglasspay.com/v1/checkout/hosted" method="POST">
-  <input type="hidden" name="public_key" value="${config.publicKey}" />
-  <input type="hidden" name="amount" value="${config.amount}" />
-  <input type="hidden" name="currency" value="${config.currency}" />
-  <input type="hidden" name="title" value="${config.title}" />
-  <input type="hidden" name="redirect_url" value="${config.redirectUrl}" />
-  <input type="hidden" name="callback_url" value="${config.callbackUrl}" />
-  <button type="submit" style="
-    background: ${config.primaryColor};
-    color: white;
-    padding: 12px 24px;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-  ">Pay ${config.currency} ${config.amount}</button>
-</form>`;
+  const htmlSnippet = `<!-- BMaGlass Pay — server-side REST example (keep your key secret!) -->
+<!-- POST to the live edge function: -->
+<!--   ${projectUrl}/functions/v1/process-payment -->
+
+curl -X POST '${projectUrl}/functions/v1/process-payment' \\
+  -H 'apikey: ${config.publicKey}' \\
+  -H 'Authorization: Bearer ${config.publicKey}' \\
+  -H 'Content-Type: application/json' \\
+  -d '{
+    "amount": ${config.amount},
+    "currency": "${config.currency}",
+    "paymentMethod": "mobile",
+    "description": "${config.description}",
+    "callback_url": "${config.callbackUrl}"
+  }'
+
+<!-- Response: { "success": true, "transaction_id": "...", "status": "pending" } -->
+<!-- Webhook notifications are sent to your callback_url on status changes. -->`;
 
   const copyCode = (code: string, label: string) => {
     navigator.clipboard.writeText(code);

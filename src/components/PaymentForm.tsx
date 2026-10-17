@@ -1,14 +1,10 @@
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { formatCardNumber, formatCurrency, isMobileMoneyNumber, validateCardNumber } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { CreditCard, Smartphone, Check, AlertCircle, Building, Phone, Bitcoin } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import UssdPayment from "./payments/UssdPayment";
 import MobileMoneyPayment from "./payments/MobileMoneyPayment";
@@ -26,116 +22,10 @@ type PaymentFormProps = {
 
 const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
   const [paymentMethod, setPaymentMethod] = useState("card");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardName, setCardName] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
-  
-  const [isProcessing, setIsProcessing] = useState(false);
+
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCardNumber(e.target.value);
-    setCardNumber(formatted);
-  };
-
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    
-    // Format as MM/YY
-    if (value.length > 2) {
-      value = value.substring(0, 2) + '/' + value.substring(2, 4);
-    }
-    
-    setCardExpiry(value);
-  };
-
-  const processCardPayment = async () => {
-    try {
-      setIsProcessing(true);
-      setError(null);
-      
-      // Call Edge Function: process-payment (card via local processor mock)
-      const { data, error } = await supabase.functions.invoke('process-payment', {
-        body: {
-          amount,
-          currency: 'ZMW',
-          paymentMethod: 'card',
-          provider: 'visa',
-          description: 'Card payment via local processor',
-        }
-      });
-      
-      if (error) {
-        throw new Error(error.message || 'Failed to process card payment');
-      }
-      
-      if (!data?.success) {
-        throw new Error(data?.error || 'Transaction failed');
-      }
-      
-      // Payment successful
-      setIsComplete(true);
-      
-      toast({
-        title: "Payment successful",
-        description: `Your card payment of ${formatCurrency(amount)} has been processed.`,
-      });
-      
-      // Call success callback with payment details
-      if (onSuccess) {
-        onSuccess({
-          paymentId: data.transaction_id,
-          method: 'card_visa',
-          status: data.status
-        });
-      }
-      
-    } catch (err) {
-      console.error('Card payment error:', err);
-      setError(err instanceof Error ? err.message : 'Payment processing failed');
-      
-      toast({
-        title: "Payment failed",
-        description: err instanceof Error ? err.message : 'Please try again or use another payment method.',
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Reset any previous errors
-    setError(null);
-    
-    // Validate based on payment method
-    if (paymentMethod === "card") {
-      if (!validateCardNumber(cardNumber)) {
-        toast({
-          title: "Invalid card number",
-          description: "Please check your card details and try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (!cardName || !cardExpiry || !cardCvc) {
-        toast({
-          title: "Missing information",
-          description: "Please fill in all card details.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      await processCardPayment();
-    }
-  };
 
   const handlePaymentSuccess = (response: { paymentId: string; method: string; status: string }) => {
     setIsComplete(true);
@@ -194,62 +84,18 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
               </TabsList>
               
               <TabsContent value="card" className="mt-4 space-y-4">
-                <form onSubmit={handleSubmit}>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="cardNumber">Card Number</Label>
-                      <Input 
-                        id="cardNumber" 
-                        placeholder="4242 4242 4242 4242" 
-                        value={cardNumber}
-                        onChange={handleCardNumberChange}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="cardName">Cardholder Name</Label>
-                      <Input 
-                        id="cardName" 
-                        placeholder="John Doe" 
-                        value={cardName}
-                        onChange={(e) => setCardName(e.target.value)}
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="cardExpiry">Expiry Date</Label>
-                        <Input 
-                          id="cardExpiry" 
-                          placeholder="MM/YY" 
-                          value={cardExpiry}
-                          onChange={handleExpiryChange}
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="cardCvc">CVC</Label>
-                        <Input 
-                          id="cardCvc" 
-                          placeholder="123" 
-                          value={cardCvc}
-                          onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, '').substring(0, 3))}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="pt-4 flex justify-between">
-                      {onCancel && (
-                        <Button type="button" variant="outline" onClick={onCancel}>
-                          Cancel
-                        </Button>
-                      )}
-                      <Button type="submit" disabled={isProcessing} className={onCancel ? "" : "w-full"}>
-                        {isProcessing ? "Processing..." : `Pay ${formatCurrency(amount)}`}
-                      </Button>
-                    </div>
-                  </div>
-                </form>
+                <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
+                  <p className="text-sm font-medium text-amber-700">Card payments are not available yet</p>
+                  <p className="text-sm text-amber-700/80 mt-1">
+                    Direct card processing is coming soon. Please use mobile money, USSD, or Bitcoin for now — or check out with PayPal.
+                  </p>
+                </div>
+
+                {onCancel && (
+                  <Button variant="outline" onClick={onCancel} className="w-full">
+                    Cancel
+                  </Button>
+                )}
               </TabsContent>
               
               <TabsContent value="mobile" className="mt-4">

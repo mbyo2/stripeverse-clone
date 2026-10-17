@@ -36,6 +36,7 @@ const PublicCheckout = () => {
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [receiptRef, setReceiptRef] = useState('');
+  const [payErrorMsg, setPayErrorMsg] = useState<string | null>(null);
 
   // Card fields
   const [cardNumber, setCardNumber] = useState('');
@@ -105,10 +106,10 @@ const PublicCheckout = () => {
 
       setSuccess(true);
     } catch (err: any) {
-      // Fallback: simulate success for demo
-      const ref = `RCP-${Date.now().toString(36).toUpperCase()}`;
-      setReceiptRef(ref);
-      setSuccess(true);
+      // NEVER fake a successful payment. Show the error and let the user retry.
+      console.error('PublicCheckout payment failed:', err);
+      setPayErrorMsg(err?.message || 'Payment could not be processed. No money was charged.');
+      toast({ title: 'Payment failed', description: 'No money was charged. Please try again.', variant: 'destructive' });
     } finally {
       setProcessing(false);
     }
@@ -127,6 +128,22 @@ const PublicCheckout = () => {
           <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
           <h2 className="text-lg font-semibold mb-2">Payment Unavailable</h2>
           <p className="text-muted-foreground">{error}</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  if (payErrorMsg) return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="max-w-md w-full">
+        <CardContent className="pt-8 pb-8 text-center space-y-4">
+          <AlertCircle className="h-14 w-14 mx-auto text-destructive" />
+          <h2 className="text-xl font-semibold">Payment Failed</h2>
+          <p className="text-sm text-muted-foreground">{payErrorMsg}</p>
+          <p className="text-sm font-medium text-foreground">No money was charged.</p>
+          <Button onClick={() => setPayErrorMsg(null)} className="w-full">
+            Try Again
+          </Button>
         </CardContent>
       </Card>
     </div>

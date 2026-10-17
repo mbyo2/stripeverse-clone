@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 const UssdAccess = () => {
   const [provider, setProvider] = useState("mtn");
   const [amount, setAmount] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [ussdCode, setUssdCode] = useState("");
   const [referenceCode, setReferenceCode] = useState("");
@@ -31,6 +32,16 @@ const UssdAccess = () => {
       toast({
         title: "Invalid amount",
         description: "Please enter a valid amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const digits = phoneNumber.replace(/\D/g, '');
+    if (!digits || digits.length < 9) {
+      toast({
+        title: "Invalid phone number",
+        description: "Please enter the mobile money phone number to receive the USSD prompt",
         variant: "destructive",
       });
       return;
@@ -63,7 +74,7 @@ const UssdAccess = () => {
           action: 'payment',
           provider,
           amount: parseFloat(amount),
-          phone_number: '',
+          phone_number: digits,
           reference: newReferenceCode,
         }
       });
@@ -152,6 +163,21 @@ const UssdAccess = () => {
                         required
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumber">Mobile Money Phone Number</Label>
+                    <Input
+                      id="phoneNumber"
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="e.g. 0971234567"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      The USSD payment prompt will be sent to this number.
+                    </p>
                   </div>
                   
                   <Button 
