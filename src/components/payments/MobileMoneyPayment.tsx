@@ -152,6 +152,13 @@ const MobileMoneyPayment = ({ amount, onSuccess, onCancel }: MobileMoneyPaymentP
 
   return (
     <div className="space-y-4">
+      <Alert className="border-amber-500/50 bg-amber-500/10">
+        <AlertCircle className="h-4 w-4 text-amber-600" />
+        <AlertTitle className="text-amber-700">Sandbox Mode</AlertTitle>
+        <AlertDescription className="text-amber-700/90">
+          Mobile money is simulated — no real funds move. Connect live MTN/Airtel credentials to process real payments.
+        </AlertDescription>
+      </Alert>
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
