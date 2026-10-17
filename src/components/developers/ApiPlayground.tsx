@@ -330,12 +330,21 @@ export function ApiPlayground() {
     }
   };
 
-  const url = `https://api.sandbox.bmaglasspay.com${resolvedPath}`;
+  const url = `https://hhxwwozpvgktuqutfkhc.supabase.co/functions/v1${resolvedPath.replace(/^\/v1/, "")}`;
   const codeSnippet = generateCode(codeLang, selectedEndpoint.method, url, apiKey, requestBody);
 
   const categories = Array.from(new Set(ENDPOINTS.map(e => e.category)));
 
   return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+        <Clock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+        <p className="text-xs text-amber-700">
+          <strong>Documentation playground.</strong> Responses below are simulated examples to
+          help you explore request shapes — they do not call a live API. The live integration
+          surface is the Supabase Edge Functions API (see API → Documentation).
+        </p>
+      </div>
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
       {/* Endpoint Sidebar */}
       <Card className="border-0 shadow-sm">
@@ -385,7 +394,7 @@ export function ApiPlayground() {
               <code className="text-sm font-mono flex-1 text-foreground">{resolvedPath}</code>
               <Button onClick={sendRequest} disabled={loading} size="sm" className="h-8">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
-                Send
+                Simulate
               </Button>
             </div>
 
@@ -517,6 +526,7 @@ export function ApiPlayground() {
           </Card>
         )}
       </div>
+    </div>
     </div>
   );
 }
