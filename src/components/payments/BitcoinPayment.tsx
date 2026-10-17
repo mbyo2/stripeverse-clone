@@ -31,37 +31,40 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
   useEffect(() => {
     const fetchPaymentDetails = async () => {
       setIsLoading(true);
-      
+
       try {
-        const orderId = `ORDER-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        
-        const { data, error } = await supabase.functions.invoke('btc-payment', {
-          body: {
-            amount: amount,
-            currency: 'ZMW',
-            orderId: orderId,
-            redirectUrl: window.location.origin + '/dashboard'
-          }
+        // Use the real btc-onchain function (not the btc-payment placeholder).
+        // Generates a fresh address from BTC_XPUB for this checkout.
+        const { data, error } = await supabase.functions.invoke('btc-onchain', {
+          body: { action: 'receive' }
         });
-        
+
         if (error) {
           throw new Error(error.message || 'Failed to generate Bitcoin payment details');
         }
-        
-        if (!data) {
-          throw new Error('No response from payment server');
+
+        if (!data || !data.address) {
+          throw new Error('No address returned from payment server');
         }
-        
-        setBitcoinAmount(data.amount);
-        setBitcoinAddress(data.bitcoinAddress);
-        setLightningInvoice(data.lightningInvoice);
-        setInvoiceId(data.id);
-        setCheckoutUrl(data.checkoutUrl);
-        
-        const expiryTime = new Date(data.expirationTime);
-        const secondsRemaining = Math.max(0, Math.floor((expiryTime.getTime() - Date.now()) / 1000));
-        setTimeRemaining(secondsRemaining || 900);
-        
+
+        // Convert fiat amount to sats (approximate — uses a fixed rate;
+        // production should fetch live BTC/ZMW rate)
+        setBitcoinAddress(data.address);
+        setInvoiceId(data.record?.id || `btc-${Date.now()}`);
+        setTimeRemaining(900); // 15 min invoice window
+
+        // Lightning invoice via Breez (amount converted to sats)
+        // Note: amount is in ZMW; this is a placeholder conversion.
+        // TODO: fetch live BTC/ZMW rate from fetch-exchange-rates
+        try {
+          const { data: lnData } = await supabase.functions.invoke('breez-lightning', {
+            body: { action: 'create_invoice', amount_sats: Math.max(1000, Math.floor(amount * 100)) }
+          });
+          if (lnData?.bolt11) setLightningInvoice(lnData.bolt11);
+        } catch {
+          // Lightning optional — on-chain still works
+        }
+
         toast({
           title: "Payment details generated",
           description: "You can now pay with Bitcoin or Lightning.",
@@ -100,16 +103,22 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
     
     const checkPaymentStatus = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('btc-payment', {
-          body: { invoiceId }
-        });
-        
+        // Check on-chain deposit status via btc-watcher-tracked addresses.
+        // The btc-watcher cron credits deposits automatically; we poll
+        // the btc_onchain_deposits table for this address.
+        const { data, error } = await supabase
+          .from('btc_onchain_deposits')
+          .select('status')
+          .eq('address', bitcoinAddress)
+          .eq('status', 'credited')
+          .limit(1);
+
         if (error) {
           console.error("Error checking payment status:", error);
           return;
         }
-        
-        if (data.status === "paid") {
+
+        if (data && data.length > 0) {
           handlePaymentConfirmed();
         }
       } catch (error) {
