@@ -32,11 +32,11 @@ export const useCreateRefund = () => {
       const amount = Number(params.amount);
       if (!amount || amount <= 0) throw new Error('Amount must be greater than zero');
 
-      // Validate the referenced transaction exists
+      // Validate the referenced transaction exists (match by uuid_id string)
       const { data: originalTx, error: txErr } = await supabase
         .from('transactions')
-        .select('id, user_id, amount, currency, direction')
-        .eq('id', params.transaction_id)
+        .select('id, uuid_id, user_id, amount, currency, direction')
+        .eq('uuid_id', params.transaction_id)
         .maybeSingle();
       if (txErr || !originalTx) throw new Error('Original transaction not found — check the transaction ID');
 
