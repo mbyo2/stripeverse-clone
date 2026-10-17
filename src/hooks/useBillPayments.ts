@@ -36,10 +36,44 @@ export const useBillPayments = () => {
 
   const payBill = useMutation({
     mutationFn: async (bill: { biller_name: string; biller_code: string; category: string; account_number: string; amount: number }) => {
+      if (!user?.id) throw new Error("You must be signed in");
+      if (!bill.amount || bill.amount <= 0) throw new Error("Invalid bill amount");
+
       const ref = `BILL-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+      const idempotencyKey = `bill-${user.id}-${Date.now()}`;
+
+      // 1. Debit the wallet FIRST, atomically, server-side.
+      //    The bill is only recorded as paid if the debit succeeds.
+      //    to_user_id is null: funds leave to the external biller.
+      const { data: transferData, error: transferError } = await supabase.functions.invoke("atomic-transfer", {
+        body: {
+          from_user_id: user.id,
+          to_user_id: null,
+          amount: bill.amount,
+          currency: "ZMW",
+          reference_type: "bill_payment",
+          reference_id: ref,
+          idempotency_key: idempotencyKey,
+          description: `${bill.biller_name} bill payment — account ${bill.account_number}`,
+          recipient_name: bill.biller_name,
+          payment_method: "wallet",
+        },
+      });
+
+      if (transferError) throw new Error(transferError.message || "Payment failed");
+      if (transferData?.error) throw new Error(transferData.error);
+
+      // 2. Record the bill payment (funds already debited)
       const { data, error } = await supabase
         .from('bill_payments')
-        .insert({ user_id: user!.id, ...bill, reference: ref, status: 'completed', paid_at: new Date().toISOString() })
+        .insert({
+          user_id: user.id,
+          ...bill,
+          reference: ref,
+          status: 'completed',
+          paid_at: new Date().toISOString(),
+          transaction_id: transferData.transaction_id,
+        })
         .select()
         .single();
       if (error) throw error;

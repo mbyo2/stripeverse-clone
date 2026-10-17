@@ -66,38 +66,51 @@ const SendMoney = () => {
       const parsedAmount = parseFloat(amount);
       const ref = `BP${Date.now().toString(36).toUpperCase()}`;
 
-      // 1. Create the transaction record
-      const { error: txError } = await supabase.from("transactions").insert({
-        user_id: user.id,
-        wallet_id: wallet.id,
-        amount: parsedAmount,
-        fee_amount: fee,
-        currency: wallet.currency,
-        direction: "outgoing",
-        payment_method: paymentMethod === "wallet" ? "wallet" : "mobile_money",
-        provider: paymentMethod === "wallet" ? "bmaglass" : paymentMethod,
-        status: "completed",
-        recipient_name: recipientName || recipient,
-        recipient_account: recipient,
-        description: `Send money to ${recipientName || recipient}`,
-        reference: ref,
-        category: "Transfer",
+      // 1. Resolve recipient: registered user by phone, or external mobile-money number
+      const digits = recipient.replace(/\D/g, "");
+      const { data: recipientProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .or(`phone.eq.${recipient},phone.eq.${digits}`)
+        .limit(1)
+        .maybeSingle();
+
+      const isInternal = paymentMethod === "wallet" && recipientProfile;
+      const isMobileMoney = paymentMethod !== "wallet";
+
+      if (paymentMethod === "wallet" && !recipientProfile) {
+        throw new Error("Recipient must have an account for wallet transfers. Use a mobile money option to send to any number.");
+      }
+
+      // 2. Execute atomically, server-side (amount + fee debited together)
+      const idempotencyKey = `send-${user.id}-${Date.now()}`;
+      const { data, error } = await supabase.functions.invoke("atomic-transfer", {
+        body: {
+          from_user_id: user.id,
+          to_user_id: isInternal ? recipientProfile.id : null,
+          amount: total,
+          currency: wallet.currency,
+          reference_type: "transfer",
+          reference_id: ref,
+          idempotency_key: idempotencyKey,
+          description: `Send money to ${recipientName || recipient}${isMobileMoney ? ` via ${paymentMethod}` : ""} (incl. K${fee} fee)`,
+          recipient_name: recipientName || recipient,
+          payment_method: isInternal ? "wallet" : "mobile_money",
+        },
       });
 
-      if (txError) throw txError;
-
-      // 2. Deduct from wallet balance (amount + fee)
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({ balance: wallet.balance - total, updated_at: new Date().toISOString() })
-        .eq("id", wallet.id);
-
-      if (walletError) throw walletError;
+      if (error) throw new Error(error.message || "Transfer failed");
+      if (data?.error) throw new Error(data.error);
 
       setTransactionRef(ref);
       setStep(4);
 
-      toast({ title: "Money sent successfully", description: `You've sent ${formatAmount(parsedAmount)} to ${recipientName || recipient}` });
+      toast({
+        title: "Money sent successfully",
+        description: isInternal
+          ? `You've sent ${formatAmount(parsedAmount)} to ${recipientName || recipient}`
+          : `${formatAmount(parsedAmount)} sent to ${recipient} via ${paymentMethod}. Mobile money disbursement is queued.`,
+      });
     } catch (error: any) {
       console.error("Send money error:", error);
       toast({ title: "Transaction failed", description: error.message || "Something went wrong. Please try again.", variant: "destructive" });

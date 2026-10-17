@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatCurrency, validateWalletTransfer, formatPhoneForDisplay } from "@/lib/utils";
 import { ArrowRight, CheckCircle2, AlertCircle, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 type TransferFormProps = {
   senderPhone: string;
@@ -63,31 +64,73 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
     }
   };
 
-  const handleTransfer = () => {
+  const handleTransfer = async () => {
     setIsProcessing(true);
     setError(null);
-    
-    // Simulate API call for the transfer
-    setTimeout(() => {
+
+    try {
+      const numAmount = parseFloat(amount);
+
+      // 1. Resolve the recipient to a real user by phone number
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("You must be signed in to send money");
+
+      const digits = receiverPhone.replace(/\D/g, "");
+      const { data: recipientProfile, error: lookupError } = await supabase
+        .from("profiles")
+        .select("id, phone")
+        .or(`phone.eq.${receiverPhone},phone.eq.${digits}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (lookupError) throw lookupError;
+      if (!recipientProfile) {
+        throw new Error("No account found for that phone number. The recipient must have an account.");
+      }
+      if (recipientProfile.id === user.id) {
+        throw new Error("You cannot send money to yourself");
+      }
+
+      // 2. Execute the transfer atomically, server-side
+      const idempotencyKey = `transfer-${user.id}-${Date.now()}`;
+      const { data, error } = await supabase.functions.invoke("atomic-transfer", {
+        body: {
+          from_user_id: user.id,
+          to_user_id: recipientProfile.id,
+          amount: numAmount,
+          currency: "ZMW",
+          reference_type: "transfer",
+          reference_id: null,
+          idempotency_key: idempotencyKey,
+          description: note || `Transfer to ${formatPhoneForDisplay(receiverPhone)}`,
+          recipient_name: formatPhoneForDisplay(receiverPhone),
+          payment_method: "wallet",
+        },
+      });
+
+      if (error) throw new Error(error.message || "Transfer failed");
+      if (data?.error) throw new Error(data.error);
+
       setIsProcessing(false);
-      
-      // Generate a random transfer ID
-      const transferId = `TR${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
-      
+
       toast({
         title: "Transfer successful",
-        description: `You've sent ${formatCurrency(parseFloat(amount))} to ${formatPhoneForDisplay(receiverPhone)}`,
+        description: `You've sent ${formatCurrency(numAmount)} to ${formatPhoneForDisplay(receiverPhone)}`,
       });
-      
-      // Call the success callback with transfer details
+
       if (onSuccess) {
         onSuccess({
-          transferId,
-          amount: parseFloat(amount),
+          transferId: data.transaction_id,
+          amount: numAmount,
           receiverPhone,
         });
       }
-    }, 2000);
+    } catch (err) {
+      setIsProcessing(false);
+      const message = err instanceof Error ? err.message : "Transfer failed";
+      setError(message);
+      toast({ title: "Transfer failed", description: message, variant: "destructive" });
+    }
   };
 
   const handleBack = () => {
