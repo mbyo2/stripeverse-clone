@@ -6,24 +6,169 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBitcoinWallet } from "@/hooks/useBitcoinWallet";
-import BitcoinPayment from "@/components/payments/BitcoinPayment";
 import { formatBitcoinAmount } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Copy, QrCode, Zap, Loader2 } from "lucide-react";
 
 const satsToBtc = (sats?: number) => (sats ? sats / 100_000_000 : 0);
+
+function OnchainDeposit({ onDone }: { onDone: () => void }) {
+  const { toast } = useToast();
+  const [address, setAddress] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const getAddress = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("btc-deposit-address", {});
+      if (error) throw error;
+      setAddress(data.address);
+    } catch (e: any) {
+      toast({ title: "Failed to generate address", description: e.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copy = () => {
+    if (address) {
+      navigator.clipboard.writeText(address);
+      toast({ title: "Address copied" });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Send BTC to your unique deposit address. Funds appear after 1 confirmation (~10 min).
+      </p>
+      {!address ? (
+        <Button onClick={getAddress} disabled={loading} className="w-full">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <QrCode className="h-4 w-4 mr-2" />}
+          Generate deposit address
+        </Button>
+      ) : (
+        <div className="space-y-3">
+          <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all">{address}</div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={copy} className="flex-1">
+              <Copy className="h-4 w-4 mr-2" /> Copy
+            </Button>
+            <Button variant="outline" onClick={getAddress} disabled={loading} className="flex-1">
+              New address
+            </Button>
+          </div>
+          <Button onClick={onDone} className="w-full">Done</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LightningDeposit({ onDone }: { onDone: () => void }) {
+  const { toast } = useToast();
+  const [sats, setSats] = useState(10000);
+  const [invoice, setInvoice] = useState<{ bolt11: string; payment_id: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  const create = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("breez-lightning", {
+        body: { action: "create_invoice", amount_sats: sats },
+      });
+      if (error) throw error;
+      setInvoice(data);
+    } catch (e: any) {
+      toast({ title: "Failed to create invoice", description: e.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkPaid = async () => {
+    if (!invoice) return;
+    setChecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("breez-lightning", {
+        body: { action: "check_status", breez_invoice_id: invoice.payment_id },
+      });
+      if (error) throw error;
+      if (data.status === "paid") {
+        toast({ title: "Payment received!" });
+        onDone();
+      } else {
+        toast({ title: "Still pending", description: "The invoice hasn't been paid yet." });
+      }
+    } catch (e: any) {
+      toast({ title: "Check failed", description: e.message, variant: "destructive" });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const copy = () => {
+    if (invoice) {
+      navigator.clipboard.writeText(invoice.bolt11);
+      toast({ title: "Invoice copied" });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Instant Lightning deposits — no waiting for confirmations.
+      </p>
+      {!invoice ? (
+        <>
+          <div className="grid gap-2">
+            <Label htmlFor="sats">Amount (sats)</Label>
+            <Input id="sats" type="number" min={1} value={sats} onChange={(e) => setSats(Number(e.target.value))} />
+          </div>
+          <Button onClick={create} disabled={loading} className="w-full">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
+            Create Lightning invoice
+          </Button>
+        </>
+      ) : (
+        <div className="space-y-3">
+          <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all max-h-32 overflow-y-auto">
+            {invoice.bolt11}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={copy} className="flex-1">
+              <Copy className="h-4 w-4 mr-2" /> Copy
+            </Button>
+            <Button onClick={checkPaid} disabled={checking} className="flex-1">
+              {checking ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              I've paid
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function BitcoinWallet() {
   const { wallet, isLoading, refetchWallet, transactions, isTxLoading, refetchTx } = useBitcoinWallet();
   const { toast } = useToast();
-  const [amountUsd, setAmountUsd] = useState<number>(50);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     document.title = "Bitcoin Wallet | BTC balance & deposits";
     const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', 'Manage your Bitcoin wallet: view BTC balance, deposit via BTCPay, and track recent BTC transactions.');
+    if (meta) meta.setAttribute('content', 'Manage your Bitcoin wallet: view BTC balance, deposit on-chain or via Lightning, and track recent BTC transactions.');
   }, []);
+
+  const handleDone = async () => {
+    await Promise.all([refetchWallet(), refetchTx()]);
+    setOpen(false);
+  };
 
   const btcBalance = useMemo(() => formatBitcoinAmount(satsToBtc(wallet?.balance_sats || 0)), [wallet]);
 
@@ -54,32 +199,21 @@ export default function BitcoinWallet() {
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Deposit via BTCPay</DialogTitle>
+                    <DialogTitle>Deposit Bitcoin</DialogTitle>
                   </DialogHeader>
 
-                  <div className="space-y-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="amount-usd">Amount (USD)</Label>
-                      <Input
-                        id="amount-usd"
-                        type="number"
-                        min={1}
-                        step={1}
-                        value={amountUsd}
-                        onChange={(e) => setAmountUsd(Number(e.target.value))}
-                      />
-                    </div>
-
-                    <BitcoinPayment
-                      amount={amountUsd}
-                      onSuccess={async () => {
-                        toast({ title: "Deposit credited", description: "Your BTC deposit has been credited." });
-                        await Promise.all([refetchWallet(), refetchTx()]);
-                        setOpen(false);
-                      }}
-                      onCancel={() => setOpen(false)}
-                    />
-                  </div>
+                  <Tabs defaultValue="onchain" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="onchain">On-chain</TabsTrigger>
+                      <TabsTrigger value="lightning">Lightning</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="onchain" className="pt-4">
+                      <OnchainDeposit onDone={handleDone} />
+                    </TabsContent>
+                    <TabsContent value="lightning" className="pt-4">
+                      <LightningDeposit onDone={handleDone} />
+                    </TabsContent>
+                  </Tabs>
                 </DialogContent>
               </Dialog>
             </CardContent>
