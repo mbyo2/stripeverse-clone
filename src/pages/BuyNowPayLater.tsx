@@ -6,11 +6,13 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { useBnpl } from '@/hooks/useBnpl';
 import { useCurrency } from '@/contexts/CurrencyContext';
-import { CalendarClock, CreditCard, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { CalendarClock, CreditCard, Clock, CheckCircle2, AlertTriangle, Zap, ZapOff, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 const BuyNowPayLater = () => {
-  const { plans, activePlans, totalOwed, isLoading } = useBnpl();
+  const { plans, activePlans, totalOwed, isLoading, autoDebitByPlan, payInstallment, enableAutoDebit, disableAutoDebit } = useBnpl();
   const { formatAmount } = useCurrency();
 
   const getStatusBadge = (status: string) => {
@@ -149,6 +151,47 @@ const BuyNowPayLater = () => {
                       <p className="text-sm mt-3 text-muted-foreground">
                         Next payment: {formatAmount(plan.installment_amount)} on {format(new Date(plan.next_payment_date), 'MMM d, yyyy')}
                       </p>
+                    )}
+
+                    {plan.status === 'active' && (
+                      <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t">
+                        <Button
+                          onClick={() => payInstallment.mutate(plan)}
+                          disabled={payInstallment.isPending}
+                          size="sm"
+                        >
+                          {payInstallment.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <CreditCard className="h-4 w-4 mr-2" />
+                          )}
+                          Pay {formatAmount(plan.installment_amount)} now
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          {autoDebitByPlan[plan.id] ? (
+                            <Zap className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <ZapOff className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <Label htmlFor={`autodebit-${plan.id}`} className="text-sm cursor-pointer">
+                            Auto-debit installments
+                          </Label>
+                          <Switch
+                            id={`autodebit-${plan.id}`}
+                            checked={!!autoDebitByPlan[plan.id] && autoDebitByPlan[plan.id].status === 'active'}
+                            onCheckedChange={(on) => {
+                              if (on) enableAutoDebit.mutate(plan);
+                              else disableAutoDebit.mutate(plan.id);
+                            }}
+                            disabled={enableAutoDebit.isPending || disableAutoDebit.isPending}
+                          />
+                        </div>
+                        {autoDebitByPlan[plan.id] && autoDebitByPlan[plan.id].status === 'paused' && (
+                          <span className="text-xs text-amber-600">
+                            Auto-debit paused (check wallet balance)
+                          </span>
+                        )}
+                      </div>
                     )}
                   </CardContent>
                 </Card>

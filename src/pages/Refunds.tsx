@@ -10,12 +10,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { RotateCcw, Plus, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { useRefunds, useCreateRefund } from '@/hooks/useRefunds';
+import { useRefunds, useCreateRefund, useApproveRefund, useRejectRefund } from '@/hooks/useRefunds';
+import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 
 const Refunds = () => {
+  const { user } = useAuth();
   const { data: refunds, isLoading } = useRefunds();
   const createRefund = useCreateRefund();
+  const approveRefund = useApproveRefund();
+  const rejectRefund = useRejectRefund();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ transaction_id: '', amount: '', reason: '', refund_type: 'full', notes: '' });
 
@@ -112,6 +116,29 @@ const Refunds = () => {
                       <p className="text-sm text-muted-foreground mt-1">Reason: {refund.reason}</p>
                       <p className="text-xs text-muted-foreground">Transaction: {refund.transaction_id}</p>
                       {refund.notes && <p className="text-sm text-muted-foreground mt-1">{refund.notes}</p>}
+                      {refund.status === 'pending' && refund.user_id !== user?.id && (
+                        <div className="flex gap-2 mt-3">
+                          <Button
+                            size="sm"
+                            onClick={() => approveRefund.mutate(refund.id)}
+                            disabled={approveRefund.isPending}
+                          >
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            {approveRefund.isPending ? 'Approving…' : 'Approve & Send Refund'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => rejectRefund.mutate(refund.id)}
+                            disabled={rejectRefund.isPending}
+                          >
+                            <XCircle className="h-3 w-3 mr-1" />Reject
+                          </Button>
+                        </div>
+                      )}
+                      {refund.status === 'pending' && refund.user_id === user?.id && (
+                        <p className="text-xs text-muted-foreground mt-2">Awaiting approval from the recipient</p>
+                      )}
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">{format(new Date(refund.created_at), 'MMM d, yyyy HH:mm')}</p>

@@ -273,6 +273,12 @@ const PaymentCard = ({ payment, onPause, onResume, onDelete }: PaymentCardProps)
               {payment.total_runs > 0 && ` · ${payment.total_runs} runs`}
               {payment.max_runs && ` / ${payment.max_runs}`}
             </p>
+            {payment.metadata?.last_error && (
+              <p className="text-xs text-amber-600 mt-1">
+                Last attempt failed: {payment.metadata.last_error}
+                {payment.consecutive_failures > 0 && ` (${payment.consecutive_failures} in a row)`}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">

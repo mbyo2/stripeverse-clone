@@ -15,11 +15,12 @@ import { format } from 'date-fns';
 const statusColors: Record<string, string> = {
   pending: 'bg-warning/10 text-warning', funded: 'bg-primary/10 text-primary',
   released: 'bg-success/10 text-success', disputed: 'bg-destructive/10 text-destructive',
+  cancelled: 'bg-muted text-muted-foreground',
 };
 
 const Escrow = () => {
   const { user } = useAuth();
-  const { escrows, createEscrow, releaseEscrow } = useEscrow();
+  const { escrows, createEscrow, releaseEscrow, cancelEscrow, disputeEscrow } = useEscrow();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ seller_id: '', amount: '', description: '', release_conditions: '' });
 
@@ -81,7 +82,19 @@ const Escrow = () => {
                 <div className="flex items-center gap-2">
                   <Badge className={statusColors[escrow.status] || ''}>{escrow.status}</Badge>
                   {escrow.status === 'funded' && escrow.buyer_id === user?.id && (
-                    <Button size="sm" variant="outline" onClick={() => releaseEscrow.mutate(escrow.id)}>Release</Button>
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => releaseEscrow.mutate(escrow.id)} disabled={releaseEscrow.isPending}>
+                        Release
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => cancelEscrow.mutate(escrow.id)} disabled={cancelEscrow.isPending}>
+                        Cancel & Refund
+                      </Button>
+                    </>
+                  )}
+                  {(escrow.status === 'funded' || escrow.status === 'pending') && (
+                    <Button size="sm" variant="ghost" onClick={() => disputeEscrow.mutate(escrow.id)} disabled={disputeEscrow.isPending}>
+                      Dispute
+                    </Button>
                   )}
                 </div>
               </CardContent>

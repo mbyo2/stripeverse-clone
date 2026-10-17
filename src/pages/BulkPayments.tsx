@@ -12,6 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Users, Plus, Play, Trash2, Upload, FileSpreadsheet } from 'lucide-react';
 import { useBulkPayments, useCreateBulkPayment, useProcessBulkPayment, useBulkPaymentItems } from '@/hooks/useBulkPayments';
 import { format } from 'date-fns';
+import { useRef } from 'react';
+import { toast } from 'sonner';
 
 const BulkPayments = () => {
   const { data: batches, isLoading } = useBulkPayments();
@@ -30,6 +32,55 @@ const BulkPayments = () => {
   const updateRow = (i: number, field: string, value: string | number) => setRecipients(p => p.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
 
   const total = recipients.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // CSV format: name, phone_or_email, amount  (header row optional)
+  // Example: "Jane Doe,+260971234567,1500"
+  const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const text = String(reader.result || '');
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (!lines.length) throw new Error('CSV is empty');
+        // Skip header row if it doesn't start with a digit in the amount column
+        let startIdx = 0;
+        const firstParts = lines[0].split(',').map(p => p.trim());
+        if (firstParts.length >= 3 && isNaN(Number(firstParts[2]))) startIdx = 1;
+
+        const parsed: Array<{ recipient_name: string; recipient_account: string; recipient_bank: string; amount: number; recipient_phone?: string; recipient_email?: string }> = [];
+        for (let i = startIdx; i < lines.length; i++) {
+          const parts = lines[i].split(',').map(p => p.trim());
+          if (parts.length < 3) continue;
+          const [name, contact, amountStr] = parts;
+          const amount = Number(amountStr);
+          if (!name || !amount || amount <= 0) continue;
+          const row: { recipient_name: string; recipient_account: string; recipient_bank: string; amount: number; recipient_phone?: string; recipient_email?: string } = {
+            recipient_name: name,
+            recipient_account: '',
+            recipient_bank: '',
+            amount,
+          };
+          if (contact) {
+            if (contact.includes('@')) row.recipient_email = contact;
+            else row.recipient_phone = contact;
+          }
+          parsed.push(row);
+        }
+        if (!parsed.length) throw new Error('No valid rows found (need: name, phone/email, amount)');
+        setRecipients(parsed);
+        toast.success(`Imported ${parsed.length} recipients from CSV`);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to parse CSV');
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const handleCreate = () => {
     createBatch.mutate({ name, items: recipients.filter(r => r.recipient_name && r.amount > 0) }, {
@@ -77,9 +128,22 @@ const BulkPayments = () => {
                   </Table>
                 </div>
                 <div className="flex items-center justify-between">
-                  <Button variant="outline" size="sm" onClick={addRow}><Plus className="h-3 w-3 mr-1" />Add Row</Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={addRow}><Plus className="h-3 w-3 mr-1" />Add Row</Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={handleCsvImport}
+                    />
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                      <Upload className="h-3 w-3 mr-1" />Import CSV
+                    </Button>
+                  </div>
                   <p className="font-semibold">Total: K{total.toLocaleString()}</p>
                 </div>
+                <p className="text-xs text-muted-foreground">CSV format: name, phone or email, amount (e.g. "Jane Doe,+260971234567,1500")</p>
                 <Button onClick={handleCreate} disabled={createBatch.isPending || !name || total === 0} className="w-full">
                   {createBatch.isPending ? 'Creating...' : `Create Batch (${recipients.filter(r => r.recipient_name && r.amount).length} recipients)`}
                 </Button>
@@ -115,8 +179,13 @@ const BulkPayments = () => {
                     </div>
                   </div>
                   {batch.status === 'draft' && (
-                    <Button size="sm" onClick={(e) => { e.stopPropagation(); processBatch.mutate(batch.id); }}>
-                      <Play className="h-3 w-3 mr-1" />Process
+                    <Button
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); processBatch.mutate(batch.id); }}
+                      disabled={processBatch.isPending}
+                    >
+                      <Play className="h-3 w-3 mr-1" />
+                      {processBatch.isPending ? 'Processing…' : 'Process'}
                     </Button>
                   )}
                 </div>

@@ -19,6 +19,7 @@ export interface ScheduledPayment {
   end_date: string | null;
   total_runs: number;
   max_runs: number | null;
+  consecutive_failures: number;
   status: string;
   metadata: any;
   created_at: string;

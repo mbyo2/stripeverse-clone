@@ -73,17 +73,118 @@ export const useCreateBulkPayment = () => {
 };
 
 export const useProcessBulkPayment = () => {
+  const { user } = useAuth();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (bulkPaymentId: string) => {
-      const { error } = await supabase.from('bulk_payments')
-        .update({ status: 'processing' })
-        .eq('id', bulkPaymentId);
-      if (error) throw error;
-      // In production, this would trigger an edge function to process each item
-      toast.info('Bulk payment submitted for processing');
+      if (!user) throw new Error('Not signed in');
+
+      // 1. Load batch + items
+      const { data: batch, error: batchErr } = await supabase
+        .from('bulk_payments')
+        .select('*')
+        .eq('id', bulkPaymentId)
+        .single();
+      if (batchErr || !batch) throw new Error('Batch not found');
+      if (batch.status !== 'draft') throw new Error(`Batch is ${batch.status}, only drafts can be processed`);
+      if (batch.user_id !== user.id) throw new Error('Not your batch');
+
+      const { data: items, error: itemsErr } = await supabase
+        .from('bulk_payment_items')
+        .select('*')
+        .eq('bulk_payment_id', bulkPaymentId)
+        .eq('status', 'pending');
+      if (itemsErr) throw itemsErr;
+      if (!items?.length) throw new Error('No pending items to process');
+
+      // 2. Verify sufficient balance for the total upfront
+      const total = items.reduce((s, i) => s + Number(i.amount), 0);
+      const { data: wallet } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', user.id)
+        .eq('currency', batch.currency || 'ZMW')
+        .single();
+      if (!wallet || Number(wallet.balance) < total) {
+        throw new Error(
+          `Insufficient balance: need K${total.toLocaleString()}, have K${Number(wallet?.balance || 0).toLocaleString()}`
+        );
+      }
+
+      // 3. Mark batch as processing
+      await supabase.from('bulk_payments').update({ status: 'processing' }).eq('id', bulkPaymentId);
+
+      // 4. Process each item via atomic-transfer
+      let completed = 0;
+      let failed = 0;
+      for (const item of items) {
+        const amount = Number(item.amount);
+        try {
+          // Resolve recipient to a platform user by phone or email when possible.
+          // External recipients (bank accounts) settle as to_user_id=null —
+          // funds leave the sender's wallet and the disbursement is recorded.
+          let toUserId: string | null = null;
+          if (item.recipient_phone || item.recipient_email) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('id')
+              .or(
+                `phone.eq.${item.recipient_phone || ''},email.eq.${item.recipient_email || ''}`
+              )
+              .limit(1)
+              .maybeSingle();
+            if (profile) toUserId = profile.id;
+          }
+
+          const { data, error } = await supabase.functions.invoke('atomic-transfer', {
+            body: {
+              from_user_id: user.id,
+              to_user_id: toUserId,
+              amount,
+              currency: item.currency || batch.currency || 'ZMW',
+              reference_type: 'bulk_payment',
+              reference_id: item.id,
+              idempotency_key: `bulk-${bulkPaymentId}-${item.id}`,
+              description: `Bulk payment: ${batch.name} → ${item.recipient_name}`,
+              recipient_name: item.recipient_name,
+              payment_method: item.payment_method || 'bank_transfer',
+            },
+          });
+          if (error || data?.error) throw new Error(data?.error || error?.message || 'Transfer failed');
+
+          await supabase.from('bulk_payment_items').update({
+            status: 'completed',
+            transaction_id: data.transaction_id,
+            processed_at: new Date().toISOString(),
+          }).eq('id', item.id);
+          completed++;
+        } catch (e) {
+          const message = e instanceof Error ? e.message : 'Processing failed';
+          await supabase.from('bulk_payment_items').update({
+            status: 'failed',
+            error_message: message,
+            processed_at: new Date().toISOString(),
+          }).eq('id', item.id);
+          failed++;
+        }
+      }
+
+      // 5. Finalize batch
+      const finalStatus = failed === 0 ? 'completed' : completed === 0 ? 'failed' : 'partial';
+      await supabase.from('bulk_payments').update({
+        status: finalStatus,
+        completed_items: completed,
+        failed_items: failed,
+        processed_at: new Date().toISOString(),
+      }).eq('id', bulkPaymentId);
+
+      return { completed, failed, total: items.length };
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['bulk-payments'] }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['bulk-payments'] });
+      if (r.failed === 0) toast.success(`Bulk payment complete: ${r.completed} recipients paid`);
+      else toast.warning(`Processed ${r.completed}/${r.total} — ${r.failed} failed`);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 };
