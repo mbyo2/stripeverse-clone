@@ -1,38 +1,17 @@
 -- ============================================================================
--- Bitcoin infrastructure: on-chain deposits (xpub) + Lightning (Breez).
+-- Lightning payments via Breez (server-side).
 --
--- Replaces the BTCPay placeholder. Uses:
---   BTC_XPUB (Supabase secret, mainnet) — HD address derivation (BIP84)
---   BREEZ_API_KEY (Supabase secret) — Lightning via Breez nodeless API
+-- The on-chain Bitcoin infrastructure (btc-onchain, btc-watcher,
+-- btc_deposit_addresses, btc_onchain_deposits, btc_withdrawals) already
+-- exists live via Lovable. This migration adds ONLY what's missing:
+-- server-side Lightning payment tracking for the breez-lightning
+-- edge function.
 --
--- New tables:
---   1. btc_deposit_addresses — per-user derived addresses (BIP84 m/84'/0'/0'/0/i)
---   2. lightning_payments — Breez invoice/payment tracking
+-- get-breez-config currently only delivers the API key to clients;
+-- breez-lightning adds actual invoice creation, payment, and status
+-- checks with wallet settlement.
 -- ============================================================================
 
--- 1. Deposit addresses derived from the platform xpub
-CREATE TABLE IF NOT EXISTS public.btc_deposit_addresses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  address TEXT NOT NULL UNIQUE,
-  derivation_index INTEGER NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(user_id, derivation_index)
-);
-
-CREATE INDEX IF NOT EXISTS idx_btc_deposit_addresses_user ON public.btc_deposit_addresses(user_id);
-CREATE INDEX IF NOT EXISTS idx_btc_deposit_addresses_address ON public.btc_deposit_addresses(address);
-
-ALTER TABLE public.btc_deposit_addresses ENABLE ROW LEVEL SECURITY;
-
--- Users can view their own deposit addresses; inserts go through the
--- edge function (service role), so no user INSERT policy.
-DROP POLICY IF EXISTS "Users view own deposit addresses" ON public.btc_deposit_addresses;
-CREATE POLICY "Users view own deposit addresses"
-ON public.btc_deposit_addresses FOR SELECT TO authenticated
-USING (auth.uid() = user_id);
-
--- 2. Lightning payments via Breez
 CREATE TABLE IF NOT EXISTS public.lightning_payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -58,4 +37,4 @@ CREATE POLICY "Users view own lightning payments"
 ON public.lightning_payments FOR SELECT TO authenticated
 USING (auth.uid() = user_id);
 
--- No DELETE on either table — financial history is the audit trail.
+-- No DELETE — financial history is the audit trail.

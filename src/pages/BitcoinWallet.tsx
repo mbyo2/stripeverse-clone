@@ -23,7 +23,11 @@ function OnchainDeposit({ onDone }: { onDone: () => void }) {
   const getAddress = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("btc-deposit-address", {});
+      // Uses the existing btc-onchain function (receive action) —
+      // derives from BTC_XPUB via the live watch-only setup.
+      const { data, error } = await supabase.functions.invoke("btc-onchain", {
+        body: { action: "receive" },
+      });
       if (error) throw error;
       setAddress(data.address);
     } catch (e: any) {
