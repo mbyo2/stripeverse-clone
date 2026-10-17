@@ -33,54 +33,16 @@ const AmlScreening = () => {
       return;
     }
 
-    setLoading(true);
-    try {
-      // Simulated screening check (in production, call an AML provider like ComplyAdvantage)
-      const riskFactors: string[] = [];
-      const matchFound = Math.random() < 0.1; // 10% chance of match for demo
-
-      if (matchFound) {
-        riskFactors.push('Potential PEP match', 'Name similarity > 85%');
-      }
-
-      const riskLevel = matchFound ? 'high' : (Math.random() < 0.2 ? 'medium' : 'low');
-
-      const { error } = await supabase.from('aml_screenings').insert({
-        user_id: user!.id,
-        full_name: fullName,
-        date_of_birth: dateOfBirth || null,
-        country,
-        screening_type: screeningType,
-        match_found: matchFound,
-        risk_level: riskLevel,
-        status: matchFound ? 'review_required' : 'cleared',
-        match_details: matchFound ? {
-          matches: [
-            { list: 'OFAC SDN', score: 87, name: fullName, country },
-            ...(riskFactors.length ? [{ factors: riskFactors }] : []),
-          ],
-        } : null,
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: matchFound ? 'Review Required' : 'Screening Passed',
-        description: matchFound
-          ? 'Potential match found — manual review required'
-          : `${fullName} cleared with ${riskLevel} risk`,
-        variant: matchFound ? 'destructive' : 'default',
-      });
-
-      // Reset
-      setFullName('');
-      setDateOfBirth('');
-      screenings.refetch();
-    } catch (err: any) {
-      toast({ title: 'Screening failed', description: err.message, variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
+    // AML screening requires a licensed sanctions/PEP data provider
+    // (e.g. ComplyAdvantage, Refinitiv, Dow Jones). No provider is connected,
+    // so screening is DISABLED. Presenting simulated results as compliance
+    // output would be a regulatory liability.
+    toast({
+      title: 'Screening unavailable',
+      description: 'No AML provider connected. Connect a sanctions/PEP data provider to enable screening.',
+      variant: 'destructive',
+    });
+    return;
   };
 
   const riskBadge = (level: string) => {
