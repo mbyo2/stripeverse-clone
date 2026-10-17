@@ -109,7 +109,7 @@ const PaymentServices = () => {
                         <h3 className="text-lg font-medium mb-2">Supported Providers</h3>
                         <div className="space-y-3">
                           <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold mr-3">
+                            <div className="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center text-yellow-950 font-bold mr-3">
                               M
                             </div>
                             <div>
