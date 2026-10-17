@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,39 +11,40 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowRight, Wallet } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const VirtualCardFund = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { id: cardId } = useParams<{ id: string }>();
   const { toast } = useToast();
-  const { virtualCards } = useWallet();
+  const { wallet } = useWallet();
+  const queryClient = useQueryClient();
   const [amount, setAmount] = useState<string>("50");
   const [loading, setLoading] = useState(false);
-  
-  // Get cardId from location state
-  const cardId = location.state?.cardId;
-  
-  // Use useMemo for card data to avoid unnecessary recalculations
-  const card = useMemo(() => {
-    if (!cardId) return null;
-    return virtualCards.find(card => card.id === cardId) || null;
-  }, [cardId, virtualCards]);
-  
+
+  // Fetch the real card from the database
+  const { data: card, isLoading: cardLoading } = useQuery({
+    queryKey: ['virtualCard', cardId],
+    queryFn: async () => {
+      if (!cardId) return null;
+      const { data, error } = await supabase
+        .from('virtual_cards')
+        .select('*')
+        .eq('id', cardId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!cardId,
+    retry: 1,
+  });
+
   useEffect(() => {
     if (!cardId) {
       navigate("/wallet");
-      return;
     }
-    
-    if (!card) {
-      navigate("/wallet");
-      toast({
-        title: "Card Not Found",
-        description: "The virtual card you're trying to fund could not be found.",
-        variant: "destructive",
-      });
-    }
-  }, [cardId, card, navigate, toast]);
+  }, [cardId, navigate]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -57,9 +58,9 @@ const VirtualCardFund = () => {
   const fee = useMemo(() => Math.max(parsedAmount * 0.01, 2), [parsedAmount]);
   const total = useMemo(() => parsedAmount + fee, [parsedAmount, fee]);
 
-  const handleFundCard = (e: React.FormEvent) => {
+  const handleFundCard = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       toast({
         title: "Invalid Amount",
@@ -68,21 +69,48 @@ const VirtualCardFund = () => {
       });
       return;
     }
-    
+
+    if ((wallet?.balance ?? 0) < total) {
+      toast({
+        title: "Insufficient Balance",
+        description: `Your wallet balance (${formatCurrency(wallet?.balance ?? 0)}) cannot cover ${formatCurrency(total)} including fees.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
-    
-    // In a real app, this would make an API call to fund the card
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('fund-virtual-card', {
+        body: { cardId, amount: parsedAmount },
+      });
+
+      if (error) throw new Error(error.message || 'Failed to fund card');
+      if (!data?.success) throw new Error(data?.error || 'Failed to fund card');
+
+      queryClient.invalidateQueries({ queryKey: ['virtualCard', cardId] });
+      queryClient.invalidateQueries({ queryKey: ['virtualCards'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+
       toast({
         title: "Card Funded Successfully",
-        description: `${formatCurrency(parsedAmount)} has been added to your ${card?.name}.`,
+        description: `${formatCurrency(parsedAmount)} has been added to ${card?.name}. New card balance: ${formatCurrency(data.newCardBalance)}.`,
       });
-      navigate(`/virtual-card/${cardId}`);
-    }, 1500);
+      navigate(`/card/${cardId}`);
+    } catch (err: any) {
+      console.error('Fund card error:', err);
+      toast({
+        title: "Funding Failed",
+        description: err.message || 'An unknown error occurred',
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (!card) {
+  if (cardLoading || !card) {
     return (
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
@@ -175,6 +203,7 @@ const VirtualCardFund = () => {
                   </div>
                   <p className="text-sm text-muted-foreground">
                     Funding fee: 1% (minimum K 2.00)
+                    {wallet ? ` • Wallet balance: ${formatCurrency(wallet.balance)}` : ""}
                   </p>
                 </div>
                 
@@ -201,7 +230,7 @@ const VirtualCardFund = () => {
                     type="button" 
                     variant="outline" 
                     className="w-full mt-2" 
-                    onClick={() => navigate(`/virtual-card/${cardId}`)}
+                    onClick={() => navigate(`/card/${cardId}`)}
                   >
                     Cancel
                   </Button>

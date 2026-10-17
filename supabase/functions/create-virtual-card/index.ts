@@ -53,7 +53,7 @@ serve(async (req) => {
       throw new Error("Invalid card name");
     }
     
-    if (schema.provider !== 'mastercard') {
+    if (!['visa', 'mastercard', 'amex'].includes(schema.provider)) {
       throw new Error("Invalid provider");
     }
     

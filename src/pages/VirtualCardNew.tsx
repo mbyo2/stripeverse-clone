@@ -11,11 +11,15 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreditCard, WalletCards } from "lucide-react";
+import { useWallet } from "@/hooks/useWallet";
+import { supabase } from "@/integrations/supabase/client";
 
 const VirtualCardNew = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { wallet } = useWallet();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     cardName: "",
     initialFunding: 100,
@@ -40,19 +44,67 @@ const VirtualCardNew = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    // In a real app, this would make an API call to create the virtual card
-    setTimeout(() => {
+    setError(null);
+
+    // Check wallet can cover the initial funding (amount + 1% fee, min K2)
+    const funding = formData.initialFunding;
+    const fee = funding > 0 ? Math.max(funding * 0.01, 2) : 0;
+    if (funding > 0 && (wallet?.balance ?? 0) < funding + fee) {
+      setError(`Insufficient wallet balance. You need ${formatCurrency(funding + fee)} (includes ${formatCurrency(fee)} fee).`);
       setLoading(false);
+      return;
+    }
+
+    try {
+      // 1. Create the card via the real edge function
+      const { data, error: fnError } = await supabase.functions.invoke('create-virtual-card', {
+        body: {
+          name: formData.cardName,
+          provider: formData.cardProvider,
+          cardType: formData.cardType,
+          dailyLimit: 5000,
+          monthlyLimit: 50000,
+          transactionLimit: 2000,
+          allowOnline: true,
+          allowInternational: false,
+        },
+      });
+
+      if (fnError) throw new Error(fnError.message || 'Failed to create card');
+      if (!data?.success) throw new Error(data?.error || 'Failed to create card');
+
+      const cardId: string = data.card.id;
+
+      // 2. Fund it if an initial amount was requested
+      if (funding > 0) {
+        const { data: fundData, error: fundError } = await supabase.functions.invoke('fund-virtual-card', {
+          body: { cardId, amount: funding },
+        });
+        if (fundError) throw new Error(fundError.message || 'Card created but funding failed');
+        if (!fundData?.success) throw new Error(fundData?.error || 'Card created but funding failed');
+      }
+
       toast({
         title: "Virtual Card Created",
-        description: `Your ${formData.cardProvider.toUpperCase()} virtual card has been created successfully.`,
+        description: funding > 0
+          ? `Your ${formData.cardProvider.toUpperCase()} virtual card was created and funded with ${formatCurrency(funding)}.`
+          : `Your ${formData.cardProvider.toUpperCase()} virtual card has been created successfully.`,
       });
-      navigate("/wallet");
-    }, 1500);
+      navigate(`/card/${cardId}`);
+    } catch (err: any) {
+      console.error('Create virtual card error:', err);
+      setError(err.message || 'Failed to create virtual card. Please try again.');
+      toast({
+        title: "Failed to Create Card",
+        description: err.message || 'An unknown error occurred',
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -76,6 +128,11 @@ const VirtualCardNew = () => {
           <CardContent>
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
+                {error && (
+                  <div className="p-3 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+                    {error}
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="cardName">Card Name</Label>
                   <Input
@@ -107,7 +164,8 @@ const VirtualCardNew = () => {
                     />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    This amount will be deducted from your wallet balance.
+                    This amount will be deducted from your wallet balance
+                    {wallet ? ` (${formatCurrency(wallet.balance)} available)` : ""}.
                   </p>
                 </div>
                 

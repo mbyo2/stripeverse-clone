@@ -32,105 +32,54 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 // In a real app, this would fetch from API
 const fetchVirtualCard = async (cardId: string) => {
-  // Mock fetch function
-  const mockCards = {
-    "card_1": {
-      id: "card_1",
-      name: "Shopping Card",
-      number: "4111 2222 3333 4444",
-      masked_number: "**** **** **** 4444",
-      cvv: "123",
-      expiry: "12/25",
-      balance: 350.00,
-      status: "active",
-      provider: "visa",
-      card_type: "virtual",
-      created_at: "2023-10-01T12:00:00Z",
-      updated_at: "2023-10-01T12:00:00Z",
-      currency: "ZMW",
-      transactions: [
-        { 
-          id: 1, 
-          type: "payment", 
-          amount: 29.99, 
-          description: "Netflix Subscription", 
-          date: "2023-10-15T08:30:00Z",
-          status: "completed"
-        },
-        { 
-          id: 2, 
-          type: "funding", 
-          amount: 100.00, 
-          description: "Card Funding", 
-          date: "2023-10-10T14:15:00Z",
-          status: "completed"
-        },
-        { 
-          id: 3, 
-          type: "payment", 
-          amount: 42.50, 
-          description: "Amazon Purchase", 
-          date: "2023-10-05T18:20:00Z",
-          status: "completed"
-        }
-      ],
-      limits: {
-        daily: 5000,
-        monthly: 50000,
-        transaction: 2000
-      },
-      settings: {
-        online_transactions: true,
-        international_transactions: false
-      }
-    },
-    "card_2": {
-      id: "card_2",
-      name: "Subscription Card",
-      number: "5111 2222 3333 4444",
-      masked_number: "**** **** **** 4444",
-      cvv: "456",
-      expiry: "06/26",
-      balance: 125.50,
-      status: "active",
-      provider: "mastercard",
-      card_type: "virtual",
-      created_at: "2023-09-15T10:30:00Z",
-      updated_at: "2023-09-15T10:30:00Z",
-      currency: "ZMW",
-      transactions: [
-        { 
-          id: 1, 
-          type: "payment", 
-          amount: 9.99, 
-          description: "Spotify Premium", 
-          date: "2023-10-12T07:45:00Z",
-          status: "completed"
-        },
-        { 
-          id: 2, 
-          type: "funding", 
-          amount: 50.00, 
-          description: "Card Funding", 
-          date: "2023-10-01T11:30:00Z",
-          status: "completed"
-        }
-      ],
-      limits: {
-        daily: 2000,
-        monthly: 20000,
-        transaction: 1000
-      },
-      settings: {
-        online_transactions: true,
-        international_transactions: false
-      }
-    }
-  };
+  const { data: row, error } = await supabase
+    .from('virtual_cards')
+    .select('*')
+    .eq('id', cardId)
+    .single();
 
-  return mockCards[cardId as keyof typeof mockCards];
+  if (error) throw error;
+  if (!row) throw new Error('Card not found');
+
+  // Transaction history for this card (best-effort)
+  let transactions: any[] = [];
+  try {
+    const { data: txs } = await supabase
+      .from('transactions')
+      .select('id, amount, transaction_type, status, reference, description, processed_at, created_at')
+      .eq('virtual_card_id', cardId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    transactions = txs || [];
+  } catch {
+    transactions = [];
+  }
+
+  return {
+    ...row,
+    number: row.card_number,
+    expiry: row.expiry_date,
+    limits: {
+      daily: Number(row.daily_limit ?? 0),
+      monthly: Number(row.monthly_limit ?? 0),
+      transaction: Number(row.transaction_limit ?? 0),
+    },
+    settings: {
+      online_transactions: !!row.online_transactions,
+      international_transactions: !!row.international_transactions,
+    },
+    transactions: transactions.map((tx: any) => ({
+      id: tx.id,
+      type: tx.transaction_type === 'card_funding' ? 'funding' : 'payment',
+      amount: Number(tx.amount ?? 0),
+      description: tx.reference || tx.description || tx.transaction_type,
+      date: tx.processed_at || tx.created_at,
+      status: tx.status,
+    })),
+  };
 };
 
 const VirtualCardDetails = () => {
@@ -169,109 +118,133 @@ const VirtualCardDetails = () => {
     }
   }, [card]);
 
-  // Card status mutation
+  // Card status mutation — real UPDATE on virtual_cards
   const toggleCardStatusMutation = useMutation({
     mutationFn: async (newStatus: 'active' | 'frozen') => {
-      // In a real app, this would call an API
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return { ...card, status: newStatus };
+      const { error } = await supabase
+        .from('virtual_cards')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+      return newStatus;
     },
-    onSuccess: (updatedCard) => {
-      queryClient.setQueryData(['virtualCard', id], updatedCard);
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['virtualCard', id] });
+      queryClient.invalidateQueries({ queryKey: ['virtualCards'] });
       toast({
-        title: updatedCard.status === 'active' ? 'Card Activated' : 'Card Frozen',
-        description: updatedCard.status === 'active' 
-          ? "Your virtual card has been activated." 
+        title: newStatus === 'active' ? 'Card Activated' : 'Card Frozen',
+        description: newStatus === 'active'
+          ? "Your virtual card has been activated."
           : "Your virtual card has been temporarily frozen.",
       });
+    },
+    onError: (err: any) => {
+      toast({ title: "Update Failed", description: err.message || "Could not update card status.", variant: "destructive" });
     }
   });
 
-  // Card funding mutation
+  // Card funding mutation — real edge function (debits wallet, credits card)
   const fundCardMutation = useMutation({
     mutationFn: async (amount: number) => {
-      // In a real app, this would call an API
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const newBalance = (card?.balance || 0) + amount;
-      const newTransaction = {
-        id: Date.now(),
-        type: "funding",
-        amount: amount,
-        description: "Card Funding",
-        date: new Date().toISOString(),
-        status: "completed"
-      };
-      return { 
-        ...card, 
-        balance: newBalance,
-        transactions: [newTransaction, ...(card?.transactions || [])]
-      };
+      const { data, error } = await supabase.functions.invoke('fund-virtual-card', {
+        body: { cardId: id, amount },
+      });
+      if (error) throw new Error(error.message || 'Failed to fund card');
+      if (!data?.success) throw new Error(data?.error || 'Failed to fund card');
+      return data;
     },
-    onSuccess: (updatedCard) => {
-      queryClient.setQueryData(['virtualCard', id], updatedCard);
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['virtualCard', id] });
+      queryClient.invalidateQueries({ queryKey: ['virtualCards'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
       toast({
         title: "Card Funded",
-        description: `${formatCurrency(Number(fundAmount))} has been added to your card.`,
+        description: `${formatCurrency(Number(fundAmount))} has been added to your card. New balance: ${formatCurrency(data.newCardBalance)}.`,
       });
       setFundAmount("50");
+    },
+    onError: (err: any) => {
+      toast({ title: "Funding Failed", description: err.message || "Could not fund card.", variant: "destructive" });
     }
   });
 
-  // Card delete mutation
+  // Card delete mutation — soft delete (status = cancelled) to preserve the audit trail
   const deleteCardMutation = useMutation({
     mutationFn: async () => {
-      // In a real app, this would call an API
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const { error } = await supabase
+        .from('virtual_cards')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
       return true;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['virtualCards'] });
       toast({
-        title: "Card Deleted",
-        description: "Your virtual card has been permanently deleted.",
+        title: "Card Cancelled",
+        description: "Your virtual card has been cancelled.",
       });
       navigate("/wallet");
+    },
+    onError: (err: any) => {
+      toast({ title: "Delete Failed", description: err.message || "Could not cancel card.", variant: "destructive" });
     }
   });
 
-  // Card limits mutation
+  // Card limits mutation — real UPDATE on virtual_cards
   const updateCardLimitsMutation = useMutation({
     mutationFn: async (limits: typeof limitsForm) => {
-      // In a real app, this would call an API
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return { 
-        ...card,
-        limits: limits
-      };
+      const { error } = await supabase
+        .from('virtual_cards')
+        .update({
+          daily_limit: limits.daily,
+          monthly_limit: limits.monthly,
+          transaction_limit: limits.transaction,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+      if (error) throw error;
+      return true;
     },
-    onSuccess: (updatedCard) => {
-      queryClient.setQueryData(['virtualCard', id], updatedCard);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['virtualCard', id] });
       toast({
         title: "Card Limits Updated",
         description: "Your card spending limits have been updated successfully.",
       });
       setShowLimitsDialog(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Update Failed", description: err.message || "Could not update limits.", variant: "destructive" });
     }
   });
 
-  // Card settings mutation
+  // Card settings mutation — real UPDATE on virtual_cards
   const updateCardSettingsMutation = useMutation({
-    mutationFn: async (settings: { 
+    mutationFn: async (settings: {
       online_transactions: boolean,
-      international_transactions: boolean 
+      international_transactions: boolean
     }) => {
-      // In a real app, this would call an API
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return { 
-        ...card,
-        settings: settings
-      };
+      const { error } = await supabase
+        .from('virtual_cards')
+        .update({
+          online_transactions: settings.online_transactions,
+          international_transactions: settings.international_transactions,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+      if (error) throw error;
+      return true;
     },
-    onSuccess: (updatedCard) => {
-      queryClient.setQueryData(['virtualCard', id], updatedCard);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['virtualCard', id] });
       toast({
         title: "Card Settings Updated",
         description: "Your card settings have been updated successfully.",
       });
+    },
+    onError: (err: any) => {
+      toast({ title: "Update Failed", description: err.message || "Could not update settings.", variant: "destructive" });
     }
   });
 
