@@ -85,20 +85,22 @@ serve(async (req) => {
     if (action === "pay_invoice") {
       if (!bolt11 || typeof bolt11 !== "string") throw new Error("bolt11 required");
 
-      // Decode amount from bolt11 (rough parse) or require explicit amount
-      // For safety, we debit only after Breez confirms payment.
-      const payResult = await breezFetch("/v2/payments", "POST", { bolt11 });
+      // CRITICAL: decode amount and verify balance BEFORE touching Breez.
+      // Paying first and checking after would lose real sats on insufficient funds.
+      const invoiceSats = decodeBolt11Sats(bolt11);
+      if (!invoiceSats || invoiceSats <= 0) throw new Error("Could not decode invoice amount");
 
-      const paidSats = Math.floor((payResult.amount_msat || 0) / 1000);
-
-      // Debit wallet
       const { data: wallet } = await supabase.from("crypto_wallets")
         .select("id, balance_sats, available_sats")
         .eq("user_id", user.id).eq("asset", "BTC").maybeSingle();
 
-      if (!wallet || (wallet.available_sats || 0) < paidSats) {
+      if (!wallet || (wallet.available_sats || 0) < invoiceSats) {
         throw new Error("Insufficient BTC balance");
       }
+
+      // Balance verified — now pay via Breez.
+      const payResult = await breezFetch("/v2/payments", "POST", { bolt11 });
+      const paidSats = Math.floor((payResult.amount_msat || 0) / 1000) || invoiceSats;
 
       await supabase.from("crypto_wallets").update({
         balance_sats: (wallet.balance_sats || 0) - paidSats,
@@ -193,3 +195,21 @@ serve(async (req) => {
 });
 
 function userIdSafe(user: { id: string }) { return user.id; }
+
+// Decode the sat amount from a bolt11 invoice's human-readable part.
+// Format: lnbc<amount><multiplier>1<data> where multiplier is m/u/n/p.
+// Returns sats, or 0 if no amount is encoded (zero-amount invoice).
+function decodeBolt11Sats(bolt11: string): number {
+  const lower = bolt11.toLowerCase();
+  const match = lower.match(/^ln(bc|tb|bcrt)(\d+)([munp]?)1/);
+  if (!match) return 0;
+  const amount = Number(match[2]);
+  const mult = match[3];
+  // Convert to BTC first, then sats
+  let btc = amount;
+  if (mult === "m") btc = amount / 1_000;
+  else if (mult === "u") btc = amount / 1_000_000;
+  else if (mult === "n") btc = amount / 1_000_000_000;
+  else if (mult === "p") btc = amount / 1_000_000_000_000;
+  return Math.floor(btc * 100_000_000);
+}
