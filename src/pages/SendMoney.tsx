@@ -135,13 +135,13 @@ const SendMoney = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="max-w-md mx-auto">
-          <h1 className="text-3xl font-bold mb-6">Send Money</h1>
+          <h1 className="text-[28px] leading-tight font-display font-semibold mb-6">Send Money</h1>
 
           <Card>
             <CardHeader>
-              <CardTitle>
+              <CardTitle className="text-lg">
                 {step === 1 && "Recipient Details"}
                 {step === 2 && "Enter Amount"}
                 {step === 3 && "Confirm Payment"}
@@ -244,10 +244,10 @@ const SendMoney = () => {
 
               {step === 4 && (
                 <div className="text-center py-6">
-                  <div className="flex justify-center mb-4">
-                    <CheckCircle2 className="h-16 w-16 text-green-500" />
+                  <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle2 className="h-8 w-8 text-green-500" />
                   </div>
-                  <h3 className="text-xl font-bold mb-2">Transaction Complete!</h3>
+                  <h3 className="text-xl font-display font-semibold mb-2">Transaction Complete!</h3>
                   <p className="mb-2">
                     You've sent <strong>{formatAmount(parseFloat(amount))}</strong> to{" "}
                     <strong>{recipientName || recipient}</strong>

@@ -38,11 +38,11 @@ const PaymentLinks = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Payment Links</h1>
-            <p className="text-muted-foreground">Create shareable checkout pages to collect payments</p>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">Payment Links</h1>
+            <p className="text-sm text-muted-foreground mt-1">Create shareable checkout pages to collect payments</p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Create Link</Button></DialogTrigger>
@@ -65,46 +65,81 @@ const PaymentLinks = () => {
           </Dialog>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><Link2 className="h-8 w-8 text-primary" /><div><p className="text-2xl font-bold">{links?.length || 0}</p><p className="text-sm text-muted-foreground">Total Links</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><Eye className="h-8 w-8 text-primary" /><div><p className="text-2xl font-bold">{links?.filter(l => l.status === 'active').length || 0}</p><p className="text-sm text-muted-foreground">Active Links</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><DollarSign className="h-8 w-8 text-primary" /><div><p className="text-2xl font-bold">K{links?.reduce((s, l) => s + (l.total_collected || 0), 0).toLocaleString() || '0'}</p><p className="text-sm text-muted-foreground">Total Collected</p></div></div></CardContent></Card>
+        {/* Summary + Stats */}
+        <div className="space-y-6 mb-8">
+          <Card>
+            <CardContent className="p-6 md:p-8">
+              <p className="text-sm font-medium text-muted-foreground">Total Collected</p>
+              <p className="text-4xl md:text-[44px] leading-tight font-display font-semibold mt-2">K{links?.reduce((s, l) => s + (l.total_collected || 0), 0).toLocaleString() || '0'}</p>
+              <p className="text-sm text-muted-foreground mt-1">Across all your payment links</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="px-6 py-2">
+              <div className="divide-y divide-border">
+                <div className="flex items-center justify-between py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Link2 className="h-5 w-5 text-primary" />
+                    </div>
+                    <p className="text-[15px] font-medium">Total Links</p>
+                  </div>
+                  <p className="text-lg font-semibold tabular-nums">{links?.length || 0}</p>
+                </div>
+                <div className="flex items-center justify-between py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Eye className="h-5 w-5 text-primary" />
+                    </div>
+                    <p className="text-[15px] font-medium">Active Links</p>
+                  </div>
+                  <p className="text-lg font-semibold tabular-nums">{links?.filter(l => l.status === 'active').length || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="space-y-4">
-          {isLoading ? <p className="text-muted-foreground">Loading...</p> : links?.length === 0 ? (
-            <Card><CardContent className="py-12 text-center"><Link2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" /><p className="text-muted-foreground">No payment links yet. Create one to start collecting payments.</p></CardContent></Card>
-          ) : links?.map(link => (
-            <Card key={link.id}>
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-lg">{link.title}</h3>
-                      <Badge variant={link.status === 'active' ? 'default' : 'secondary'}>{link.status}</Badge>
+        {isLoading ? <p className="text-muted-foreground">Loading...</p> : links?.length === 0 ? (
+          <Card><CardContent className="py-12 text-center">
+            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+              <Link2 className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <p className="text-muted-foreground">No payment links yet. Create one to start collecting payments.</p>
+          </CardContent></Card>
+        ) : (
+          <Card>
+            <CardContent className="px-6 py-2">
+              <div className="divide-y divide-border">
+                {links?.map(link => (
+                  <div key={link.id} className="flex items-start justify-between py-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-medium text-[15px]">{link.title}</h3>
+                        <Badge variant={link.status === 'active' ? 'default' : 'secondary'}>{link.status}</Badge>
+                      </div>
+                      {link.description && <p className="text-sm text-muted-foreground mb-2">{link.description}</p>}
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        {link.amount && <span className="font-medium text-foreground">K{Number(link.amount).toLocaleString()}</span>}
+                        <span>{link.payment_count} payments</span>
+                        <span>K{Number(link.total_collected || 0).toLocaleString()} collected</span>
+                        <span>Created {format(new Date(link.created_at), 'MMM d, yyyy')}</span>
+                      </div>
+                      <div className="mt-2 p-2 rounded bg-muted/50 text-xs font-mono truncate">
+                        {window.location.origin}/pay/{link.link_code}
+                      </div>
                     </div>
-                    {link.description && <p className="text-sm text-muted-foreground mb-2">{link.description}</p>}
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      {link.amount && <span className="font-medium text-foreground">K{Number(link.amount).toLocaleString()}</span>}
-                      <span>{link.payment_count} payments</span>
-                      <span>K{Number(link.total_collected || 0).toLocaleString()} collected</span>
-                      <span>Created {format(new Date(link.created_at), 'MMM d, yyyy')}</span>
-                    </div>
-                    <div className="mt-2 p-2 rounded bg-muted/50 text-xs font-mono truncate">
-                      {window.location.origin}/pay/{link.link_code}
+                    <div className="flex gap-2 ml-4">
+                      <Button size="sm" variant="outline" onClick={() => copyLink(link.link_code)}><Copy className="h-3 w-3" /></Button>
+                      <Button size="sm" variant="outline" onClick={() => window.open(`/pay/${link.link_code}`, '_blank')}><ExternalLink className="h-3 w-3" /></Button>
+                      {link.status === 'active' && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deactivateLink.mutate(link.id)}><XCircle className="h-3 w-3" /></Button>}
                     </div>
                   </div>
-                  <div className="flex gap-2 ml-4">
-                    <Button size="sm" variant="outline" onClick={() => copyLink(link.link_code)}><Copy className="h-3 w-3" /></Button>
-                    <Button size="sm" variant="outline" onClick={() => window.open(`/pay/${link.link_code}`, '_blank')}><ExternalLink className="h-3 w-3" /></Button>
-                    {link.status === 'active' && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deactivateLink.mutate(link.id)}><XCircle className="h-3 w-3" /></Button>}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
       <Footer />
     </div>

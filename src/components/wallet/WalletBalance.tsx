@@ -35,14 +35,14 @@ const WalletBalance = ({ onSendMoney }: WalletBalanceProps) => {
 
   if (isLoading) {
     return (
-      <Card className="mb-8 overflow-hidden">
+      <Card className="mb-8 overflow-hidden rounded-[24px]">
         <div className="bg-primary p-6">
           <div className="animate-pulse space-y-4">
             <div className="h-4 w-24 bg-primary-foreground/20 rounded" />
             <div className="h-12 w-48 bg-primary-foreground/20 rounded" />
             <div className="flex gap-3">
-              <div className="h-11 w-28 bg-primary-foreground/20 rounded-lg" />
-              <div className="h-11 w-28 bg-primary-foreground/20 rounded-lg" />
+              <div className="h-11 w-28 bg-primary-foreground/20 rounded-full" />
+              <div className="h-11 w-28 bg-primary-foreground/20 rounded-full" />
             </div>
           </div>
         </div>
@@ -52,7 +52,7 @@ const WalletBalance = ({ onSendMoney }: WalletBalanceProps) => {
 
   return (
     <>
-      <Card className="mb-8 overflow-hidden">
+      <Card className="mb-8 overflow-hidden rounded-[24px]">
         <div className="bg-primary p-6 md:p-8">
           <div className="flex items-start justify-between mb-6">
             <div>
@@ -61,7 +61,7 @@ const WalletBalance = ({ onSendMoney }: WalletBalanceProps) => {
                 <span className="text-sm font-medium text-primary-foreground/70">Available Balance</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-4xl md:text-5xl font-bold text-primary-foreground tracking-tight">
+                <span className="text-4xl md:text-5xl font-display font-semibold text-primary-foreground tracking-tight">
                   {showBalance ? formatAmount(wallet?.balance || 0) : "••••••"}
                 </span>
                 <button
@@ -89,7 +89,7 @@ const WalletBalance = ({ onSendMoney }: WalletBalanceProps) => {
             <Button
               onClick={() => setShowReceive(true)}
               variant="secondary"
-              className="h-11 px-5 rounded-lg font-semibold bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30 hover:bg-primary-foreground/30"
+              className="h-11 px-5 rounded-full font-semibold bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30 hover:bg-primary-foreground/30"
             >
               <ArrowDownLeft className="mr-2 h-4 w-4" /> Receive
             </Button>

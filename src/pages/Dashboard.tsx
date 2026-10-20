@@ -55,18 +55,13 @@ const Dashboard = () => {
     return (
       <div className="min-h-screen flex flex-col bg-muted">
         <Header />
-        <main className="flex-1 pt-20 pb-16 px-4 max-w-[1320px] mx-auto w-full">
+        <main className="flex-1 pt-20 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <div className="mb-6 mt-6">
             <Skeleton className="h-8 w-48 mb-2" />
             <Skeleton className="h-5 w-64" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
-            {[...Array(3)].map((_, i) => (
-              <Card key={i}>
-                <CardContent className="pt-6"><Skeleton className="h-16 w-full" /></CardContent>
-              </Card>
-            ))}
-          </div>
+          <Skeleton className="h-44 rounded-[24px] mb-6" />
+          <Skeleton className="h-72 rounded-[24px]" />
         </main>
         <Footer />
       </div>
@@ -84,13 +79,13 @@ const Dashboard = () => {
     <div className="min-h-screen flex flex-col bg-muted">
       <Header />
       <main className="flex-1 pt-20 pb-16">
-        {/* Balance Hero */}
-        <div className="bg-[#003087]">
-          <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-8">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
+          {/* Balance Summary */}
+          <div className="bg-[#003087] rounded-[24px] px-6 py-8 md:px-8 mb-6">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
               <div>
                 <p className="text-white/80 text-sm font-medium mb-1">Welcome back, {firstName}</p>
-                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-2">
+                <h1 className="text-4xl md:text-[44px] font-display font-semibold text-white mb-2">
                   {formatAmount(dashboardStats?.totalBalance || 0)}
                 </h1>
                 <p className="text-white/70 text-sm">Available balance</p>
@@ -111,9 +106,7 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 mt-6">
           {/* Onboarding */}
           {showOnboarding && (
             <div className="mb-6">
@@ -126,120 +119,15 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
-            <Card className="card-hover">
-              <CardContent className="pt-5 pb-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground font-medium">Monthly Activity</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{formatAmount(dashboardStats?.monthlyAmount || 0)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{dashboardStats?.monthlyTransactions || 0} transactions</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="card-hover">
-              <CardContent className="pt-5 pb-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground font-medium">Total Transactions</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{dashboardStats?.totalTransactions || 0}</p>
-                    <p className="text-xs text-muted-foreground mt-1">All time</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                    <BarChart className="h-5 w-5 text-success" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="card-hover cursor-pointer" onClick={() => navigate('/rewards')}>
-              <CardContent className="pt-5 pb-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground font-medium">Rewards Points</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{rewards?.total_points || 0}</p>
-                    <p className="text-xs text-muted-foreground mt-1 capitalize">{rewards?.tier || 'bronze'} tier</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
-                    <Star className="h-5 w-5 text-warning" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Charts & Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                  Monthly Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[280px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={monthlyData || []}>
-                      <defs>
-                        <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(210, 100%, 44%)" stopOpacity={0.15}/>
-                          <stop offset="95%" stopColor="hsl(210, 100%, 44%)" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(216, 24%, 90%)" />
-                      <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 43%)" />
-                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 43%)" />
-                      <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
-                      <Area 
-                        type="monotone" 
-                        dataKey="amount" 
-                        stroke="hsl(210, 100%, 44%)" 
-                        strokeWidth={2}
-                        fillOpacity={1} 
-                        fill="url(#colorAmount)" 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <PieChart className="h-4 w-4 text-primary" />
-                  Spending
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[280px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart data={spendingData || []} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(216, 24%, 90%)" />
-                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(215, 16%, 43%)" />
-                      <YAxis dataKey="category" type="category" tick={{ fontSize: 11 }} width={80} stroke="hsl(215, 16%, 43%)" />
-                      <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
-                      <Bar dataKey="amount" fill="hsl(210, 100%, 44%)" radius={[0, 4, 4, 0]} />
-                    </RechartsBarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
+          {/* Main column + side stack */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="lg:col-span-2 space-y-6">
           {/* Recent Transactions */}
-          <Card className="mb-6">
+          <Card>
             <CardHeader className="pb-3">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
-                <Button variant="ghost" size="sm" asChild className="text-primary font-medium">
+                <CardTitle className="text-lg font-semibold">Recent Activity</CardTitle>
+                <Button variant="link" size="sm" asChild className="font-medium px-0">
                   <Link to="/transactions">View All</Link>
                 </Button>
               </div>
@@ -248,9 +136,9 @@ const Dashboard = () => {
               {recentTransactions && recentTransactions.length > 0 ? (
                 <div className="divide-y divide-border">
                   {recentTransactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
+                    <div key={transaction.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
                       <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                           transaction.direction === "outgoing" ? "bg-destructive/10" : "bg-success/10"
                         }`}>
                           {transaction.direction === "outgoing" ? (
@@ -260,13 +148,13 @@ const Dashboard = () => {
                           )}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-foreground">{transaction.recipient_name}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-[15px] font-medium text-foreground">{transaction.recipient_name}</p>
+                          <p className="text-[13px] text-muted-foreground">
                             {new Date(transaction.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </p>
                         </div>
                       </div>
-                      <span className={`text-sm font-semibold ${
+                      <span className={`text-[15px] font-semibold tabular-nums ${
                         transaction.direction === "outgoing" ? "text-destructive" : "text-success"
                       }`}>
                         {transaction.direction === "outgoing" ? "-" : "+"}
@@ -287,8 +175,114 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  Monthly Activity
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={monthlyData || []}>
+                      <defs>
+                        <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(210, 100%, 44%)" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="hsl(210, 100%, 44%)" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(216, 24%, 90%)" />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 43%)" />
+                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 43%)" />
+                      <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
+                      <Area
+                        type="monotone"
+                        dataKey="amount"
+                        stroke="hsl(210, 100%, 44%)"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#colorAmount)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+            </div>
+
+            <div className="space-y-6">
+            <Card className="card-hover">
+              <CardContent className="pt-5 pb-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium">Monthly Activity</p>
+                    <p className="text-[28px] font-display font-semibold text-foreground mt-1">{formatAmount(dashboardStats?.monthlyAmount || 0)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{dashboardStats?.monthlyTransactions || 0} transactions</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-hover">
+              <CardContent className="pt-5 pb-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium">Total Transactions</p>
+                    <p className="text-[28px] font-display font-semibold text-foreground mt-1">{dashboardStats?.totalTransactions || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1">All time</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                    <BarChart className="h-5 w-5 text-success" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-hover cursor-pointer" onClick={() => navigate('/rewards')}>
+              <CardContent className="pt-5 pb-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium">Rewards Points</p>
+                    <p className="text-[28px] font-display font-semibold text-foreground mt-1">{rewards?.total_points || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1 capitalize">{rewards?.tier || 'bronze'} tier</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                    <Star className="h-5 w-5 text-warning" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <PieChart className="h-4 w-4 text-primary" />
+                  Spending
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart data={spendingData || []} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(216, 24%, 90%)" />
+                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(215, 16%, 43%)" />
+                      <YAxis dataKey="category" type="category" tick={{ fontSize: 11 }} width={80} stroke="hsl(215, 16%, 43%)" />
+                      <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
+                      <Bar dataKey="amount" fill="hsl(210, 100%, 44%)" radius={[0, 4, 4, 0]} />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
           {/* Rewards */}
           <RewardsCard />
+            </div>
+          </div>
         </div>
       </main>
       <Footer />

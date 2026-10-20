@@ -191,7 +191,7 @@ const Settings = () => {
     return (
       <div className="min-h-screen flex flex-col bg-muted/30">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-5xl mx-auto w-full flex items-center justify-center">
+        <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </main>
         <Footer />
@@ -202,18 +202,11 @@ const Settings = () => {
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-5xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         {/* Page header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <SettingsIcon className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-              <p className="text-sm text-muted-foreground">Manage your account preferences</p>
-            </div>
-          </div>
+          <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Settings</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage your account preferences</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6">
@@ -249,10 +242,10 @@ const Settings = () => {
           </nav>
 
           {/* Content area */}
-          <div className="space-y-6">
+          <div className="space-y-6 max-w-xl w-full">
             {/* Appearance */}
             {activeSection === 'appearance' && (
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Appearance</CardTitle>
                   <CardDescription>Customize how BMaGlass Pay looks on your device</CardDescription>
@@ -283,7 +276,7 @@ const Settings = () => {
 
             {/* Profile */}
             {activeSection === 'profile' && (
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Profile Information</CardTitle>
                   <CardDescription>Update your personal details and profile photo</CardDescription>
@@ -316,7 +309,7 @@ const Settings = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
                       <Input
@@ -365,7 +358,7 @@ const Settings = () => {
 
             {/* Security */}
             {activeSection === 'security' && (
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Security</CardTitle>
                   <CardDescription>Manage your security preferences and authentication</CardDescription>
@@ -422,7 +415,7 @@ const Settings = () => {
 
             {/* Notifications */}
             {activeSection === 'notifications' && (
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Notifications</CardTitle>
                   <CardDescription>Choose what you'd like to be notified about</CardDescription>
@@ -463,7 +456,7 @@ const Settings = () => {
 
             {/* Payment */}
             {activeSection === 'payment' && (
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Payment Settings</CardTitle>
                   <CardDescription>Manage your currency and payment preferences</CardDescription>

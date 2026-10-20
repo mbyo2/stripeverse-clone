@@ -380,7 +380,7 @@ const EnhancedTransactionManager = ({
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4">
+        <CardContent className="px-6 pb-6 pt-2">
           {isLoading ? (
             <OptimizedTransactionList transactions={[]} isLoading={true} />
           ) : isError ? (

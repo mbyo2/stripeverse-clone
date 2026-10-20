@@ -79,11 +79,11 @@ const Invoices = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Invoices</h1>
-            <p className="text-muted-foreground">Create, send, and track invoices</p>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">Invoices</h1>
+            <p className="text-sm text-muted-foreground mt-1">Create, send, and track invoices</p>
           </div>
           <Dialog open={showCreate} onOpenChange={setShowCreate}>
             <DialogTrigger asChild>
@@ -159,34 +159,35 @@ const Invoices = () => {
           </Dialog>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        {/* Summary + Stats */}
+        <div className="space-y-6 mb-8">
           <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Total Invoiced</p>
-              <p className="text-xl font-bold">{formatAmount(invoices.reduce((s, i) => s + i.total_amount, 0))}</p>
+            <CardContent className="p-6 md:p-8">
+              <p className="text-sm font-medium text-muted-foreground">Total Invoiced</p>
+              <p className="text-4xl md:text-[44px] leading-tight font-display font-semibold mt-2">{formatAmount(invoices.reduce((s, i) => s + i.total_amount, 0))}</p>
+              <p className="text-sm text-muted-foreground mt-1">Across all your invoices</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Paid</p>
-              <p className="text-xl font-bold text-green-600">
-                {formatAmount(invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total_amount, 0))}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Outstanding</p>
-              <p className="text-xl font-bold text-amber-600">
-                {formatAmount(invoices.filter((i) => ['sent', 'draft'].includes(i.status)).reduce((s, i) => s + i.total_amount, 0))}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Total Invoices</p>
-              <p className="text-xl font-bold">{invoices.length}</p>
+            <CardContent className="px-6 py-2">
+              <div className="divide-y divide-border">
+                <div className="flex items-center justify-between py-4">
+                  <p className="text-[15px] font-medium">Paid</p>
+                  <p className="text-lg font-semibold tabular-nums text-green-600">
+                    {formatAmount(invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total_amount, 0))}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between py-4">
+                  <p className="text-[15px] font-medium">Outstanding</p>
+                  <p className="text-lg font-semibold tabular-nums text-amber-600">
+                    {formatAmount(invoices.filter((i) => ['sent', 'draft'].includes(i.status)).reduce((s, i) => s + i.total_amount, 0))}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between py-4">
+                  <p className="text-[15px] font-medium">Total Invoices</p>
+                  <p className="text-lg font-semibold tabular-nums">{invoices.length}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -208,21 +209,30 @@ const Invoices = () => {
                     <Card key={i} className="animate-pulse"><CardContent className="p-4"><div className="h-16 bg-muted rounded" /></CardContent></Card>
                   ))}
                 </div>
+              ) : invoices.filter((inv) => tab === 'all' || inv.status === tab).length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center text-muted-foreground">
+                    <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                      <FileText className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p>No {tab === 'all' ? '' : tab} invoices</p>
+                  </CardContent>
+                </Card>
               ) : (
-                <div className="space-y-3">
-                  {invoices
-                    .filter((inv) => tab === 'all' || inv.status === tab)
-                    .map((inv) => (
-                      <Card key={inv.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
+                <Card>
+                  <CardContent className="px-6 py-2">
+                    <div className="divide-y divide-border">
+                      {invoices
+                        .filter((inv) => tab === 'all' || inv.status === tab)
+                        .map((inv) => (
+                          <div key={inv.id} className="flex items-center justify-between py-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-1">
                                 <span className="font-mono text-sm font-medium">{inv.invoice_number}</span>
                                 {getStatusBadge(inv.status)}
                               </div>
                               <p className="text-sm">
-                                {inv.customer_name || inv.customer_email} · <span className="font-bold">{formatAmount(inv.total_amount)}</span>
+                                {inv.customer_name || inv.customer_email} · <span className="font-semibold tabular-nums">{formatAmount(inv.total_amount)}</span>
                               </p>
                               <p className="text-xs text-muted-foreground mt-1">
                                 Created {format(new Date(inv.created_at), 'MMM d, yyyy')}
@@ -240,18 +250,10 @@ const Invoices = () => {
                               </Button>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  {invoices.filter((inv) => tab === 'all' || inv.status === tab).length === 0 && (
-                    <Card>
-                      <CardContent className="p-8 text-center text-muted-foreground">
-                        <FileText className="h-12 w-12 mx-auto mb-3 opacity-40" />
-                        <p>No {tab === 'all' ? '' : tab} invoices</p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </TabsContent>
           ))}

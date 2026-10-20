@@ -49,11 +49,11 @@ const UserDashboard = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Welcome back!</h1>
-            <p className="text-muted-foreground">Manage your account and payments</p>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">Welcome back!</h1>
+            <p className="text-sm text-muted-foreground mt-1">Manage your account and payments</p>
           </div>
           <RoleBadge />
         </div>
@@ -62,23 +62,19 @@ const UserDashboard = () => {
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
+                <CardTitle className="text-lg">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-wrap justify-between gap-y-6">
                   {quickActions.map((action) => (
-                    <div key={action.title} className="relative">
-                      <Link to={action.link}>
-                        <Button
-                          variant="outline"
-                          className={`w-full h-20 flex flex-col gap-2 ${
-                            !action.available ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
-                          disabled={!action.available}
-                        >
-                          {action.icon}
+                    <div key={action.title} className="relative w-24">
+                      <Link to={action.link} className={!action.available ? 'pointer-events-none' : ''}>
+                        <div className={`flex flex-col items-center gap-2 text-center ${!action.available ? 'opacity-50' : ''}`}>
+                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                            {action.icon}
+                          </div>
                           <span className="text-sm font-medium">{action.title}</span>
-                        </Button>
+                        </div>
                       </Link>
                       {!action.available && (
                         <Badge variant="secondary" className="absolute -top-2 -right-2 text-xs">
@@ -93,22 +89,24 @@ const UserDashboard = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Account Information</CardTitle>
+                <CardTitle className="text-lg">Account Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Email</span>
-                  <span className="text-sm text-muted-foreground">{user?.email}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Account Status</span>
-                  <Badge variant="default">Active</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Member Since</span>
-                  <span className="text-sm text-muted-foreground">
-                    {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
-                  </span>
+              <CardContent>
+                <div className="divide-y divide-border">
+                  <div className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
+                    <span className="text-sm font-medium">Email</span>
+                    <span className="text-sm text-muted-foreground">{user?.email}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
+                    <span className="text-sm font-medium">Account Status</span>
+                    <Badge variant="default">Active</Badge>
+                  </div>
+                  <div className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
+                    <span className="text-sm font-medium">Member Since</span>
+                    <span className="text-sm text-muted-foreground">
+                      {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                    </span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -117,7 +115,7 @@ const UserDashboard = () => {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Available Features</CardTitle>
+                <CardTitle className="text-lg">Available Features</CardTitle>
               </CardHeader>
               <CardContent>
                 <FeatureList />
@@ -126,7 +124,7 @@ const UserDashboard = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Quick Links</CardTitle>
+                <CardTitle className="text-lg">Quick Links</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 <Link to="/settings">

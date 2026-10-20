@@ -9,7 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Search, Filter, Download, Calendar as CalendarIcon, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { Search, Filter, Download, Calendar as CalendarIcon, ArrowUpRight, ArrowDownLeft, Receipt } from "lucide-react";
 import { formatCurrency } from "@/utils/walletUtils";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -197,11 +197,11 @@ const TransactionList = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Transaction History</h1>
-            <p className="text-muted-foreground">View and manage your transaction history</p>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">Transaction History</h1>
+            <p className="text-sm text-muted-foreground mt-1">View and manage your transaction history</p>
           </div>
           <Button className="flex items-center gap-2" onClick={handleExport} disabled={filteredTransactions.length === 0}>
             <Download className="h-4 w-4" />
@@ -212,7 +212,7 @@ const TransactionList = () => {
         {/* Filters */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <Filter className="h-5 w-5" />
               Filters
             </CardTitle>
@@ -290,7 +290,7 @@ const TransactionList = () => {
         {/* Transaction List */}
         <Card>
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="text-lg font-semibold">
               Transactions ({filteredTransactions.length})
             </CardTitle>
           </CardHeader>
@@ -306,34 +306,34 @@ const TransactionList = () => {
               </div>
             ) : (
               <>
-                <div className="space-y-4">
+                <div className="divide-y divide-border">
                   {filteredTransactions.map((transaction) => (
                     <div
                       key={transaction.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      className="flex items-center justify-between py-4"
                     >
                       <div className="flex items-center space-x-4">
-                        <div className="p-2 bg-muted rounded-full">
+                        <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center shrink-0">
                           {getTransactionIcon(transaction.type)}
                         </div>
                         <div>
-                          <h3 className="font-medium">{transaction.description}</h3>
-                          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          <h3 className="font-medium text-[15px]">{transaction.description}</h3>
+                          <div className="flex items-center space-x-2 text-[13px] text-muted-foreground">
                             <span>{format(new Date(transaction.date), "MMM dd, yyyy 'at' HH:mm")}</span>
                             <span>•</span>
                             <span>{transaction.reference}</span>
                           </div>
                           {transaction.recipient && (
-                            <p className="text-xs text-muted-foreground">To: {transaction.recipient}</p>
+                            <p className="text-[13px] text-muted-foreground">To: {transaction.recipient}</p>
                           )}
                           {transaction.sender && (
-                            <p className="text-xs text-muted-foreground">From: {transaction.sender}</p>
+                            <p className="text-[13px] text-muted-foreground">From: {transaction.sender}</p>
                           )}
                         </div>
                       </div>
 
                       <div className="text-right">
-                        <div className={`font-bold ${getAmountColor(transaction.type)}`}>
+                        <div className={`font-semibold tabular-nums ${getAmountColor(transaction.type)}`}>
                           {getAmountPrefix(transaction.type)}{formatCurrency(transaction.amount, transaction.currency)}
                         </div>
                         <div className="flex items-center space-x-2">
@@ -347,7 +347,10 @@ const TransactionList = () => {
                 </div>
 
                 {filteredTransactions.length === 0 && (
-                  <div className="text-center py-8">
+                  <div className="text-center py-10">
+                    <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                      <Receipt className="h-6 w-6 text-muted-foreground" />
+                    </div>
                     <p className="text-muted-foreground">
                       {transactions.length === 0
                         ? "No transactions yet — your history will appear here once you make your first transaction."

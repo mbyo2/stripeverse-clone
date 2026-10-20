@@ -36,9 +36,9 @@ const BillPayments = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-20 pb-24 px-4 max-w-5xl mx-auto">
-        <h1 className="text-2xl font-bold text-foreground mb-2">Bill Payments</h1>
-        <p className="text-muted-foreground mb-6">Pay utilities, airtime, TV subscriptions and more</p>
+      <main className="pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+        <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Bill Payments</h1>
+        <p className="text-sm text-muted-foreground mt-1 mb-6">Pay utilities, airtime, TV subscriptions and more</p>
 
         <Tabs defaultValue="pay">
           <TabsList><TabsTrigger value="pay">Pay Bills</TabsTrigger><TabsTrigger value="history">History</TabsTrigger></TabsList>
@@ -64,23 +64,30 @@ const BillPayments = () => {
             })}
           </TabsContent>
 
-          <TabsContent value="history" className="mt-4 space-y-3">
-            {payments.data?.map(p => (
-              <Card key={p.id}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{p.biller_name}</p>
-                    <p className="text-sm text-muted-foreground">Acc: {p.account_number} • {p.reference}</p>
-                    <p className="text-xs text-muted-foreground">{format(new Date(p.created_at), 'MMM d, yyyy HH:mm')}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">ZMW {Number(p.amount).toLocaleString()}</p>
-                    <Badge variant={p.status === 'completed' ? 'default' : 'secondary'}>{p.status}</Badge>
+          <TabsContent value="history" className="mt-4">
+            {payments.data?.length ? (
+              <Card>
+                <CardContent className="px-6 py-2">
+                  <div className="divide-y divide-border">
+                    {payments.data?.map(p => (
+                      <div key={p.id} className="flex items-center justify-between py-4">
+                        <div>
+                          <p className="font-medium text-[15px]">{p.biller_name}</p>
+                          <p className="text-[13px] text-muted-foreground">Acc: {p.account_number} • {p.reference}</p>
+                          <p className="text-[13px] text-muted-foreground">{format(new Date(p.created_at), 'MMM d, yyyy HH:mm')}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold tabular-nums">ZMW {Number(p.amount).toLocaleString()}</p>
+                          <Badge variant={p.status === 'completed' ? 'default' : 'secondary'}>{p.status}</Badge>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
-            ))}
-            {!payments.data?.length && <p className="text-center text-muted-foreground py-8">No bill payments yet</p>}
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No bill payments yet</p>
+            )}
           </TabsContent>
         </Tabs>
 

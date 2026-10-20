@@ -1,12 +1,11 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import EnhancedTransactionManager from "@/components/wallet/EnhancedTransactionManager";
 import { Suspense } from "react";
-import { ArrowDownLeft, ArrowUpRight, History, Download, Filter, Loader2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Download, Filter, Loader2 } from "lucide-react";
 
 const Transactions = () => {
   const [activeFilter, setActiveFilter] = useState<"all" | "incoming" | "outgoing">("all");
@@ -14,17 +13,12 @@ const Transactions = () => {
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         {/* Page Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10">
-              <History className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Transactions</h1>
-              <p className="text-sm text-muted-foreground">View and manage your transaction history</p>
-            </div>
+          <div>
+            <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Transactions</h1>
+            <p className="text-sm text-muted-foreground mt-1">View and manage your transaction history</p>
           </div>
           <Button variant="outline" className="h-10 rounded-full gap-2">
             <Download className="h-4 w-4" /> Export
@@ -60,36 +54,30 @@ const Transactions = () => {
         </div>
 
         {/* Transactions Content */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-3 border-b border-border/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">
-                  {activeFilter === "all" && "All Transactions"}
-                  {activeFilter === "incoming" && "Received Payments"}
-                  {activeFilter === "outgoing" && "Sent Payments"}
-                </CardTitle>
-                <CardDescription>
-                  {activeFilter === "all" && "Complete history of all your transactions"}
-                  {activeFilter === "incoming" && "Money you've received from others"}
-                  {activeFilter === "outgoing" && "Money you've sent to others"}
-                </CardDescription>
-              </div>
-              <Badge variant="secondary" className="text-xs">
-                Real-time sync
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Suspense fallback={<LoadingState />}>
-              <EnhancedTransactionManager 
-                showFilters={true} 
-                showExport={false}
-                directionFilter={activeFilter}
-              />
-            </Suspense>
-          </CardContent>
-        </Card>
+        <div className="flex items-start justify-between gap-4 mb-4 px-1">
+          <div>
+            <h2 className="text-lg font-display font-semibold text-foreground">
+              {activeFilter === "all" && "All Transactions"}
+              {activeFilter === "incoming" && "Received Payments"}
+              {activeFilter === "outgoing" && "Sent Payments"}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {activeFilter === "all" && "Complete history of all your transactions"}
+              {activeFilter === "incoming" && "Money you've received from others"}
+              {activeFilter === "outgoing" && "Money you've sent to others"}
+            </p>
+          </div>
+          <Badge variant="secondary" className="text-xs shrink-0">
+            Real-time sync
+          </Badge>
+        </div>
+        <Suspense fallback={<LoadingState />}>
+          <EnhancedTransactionManager
+            showFilters={true}
+            showExport={false}
+            directionFilter={activeFilter}
+          />
+        </Suspense>
       </main>
       <Footer />
     </div>

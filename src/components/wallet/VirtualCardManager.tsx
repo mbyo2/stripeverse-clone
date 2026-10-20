@@ -65,7 +65,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center">
+          <CardTitle className="flex items-center text-lg">
             <CreditCard className="mr-2 h-5 w-5" />
             Virtual Cards ({virtualCards.length}/{maxCards})
           </CardTitle>

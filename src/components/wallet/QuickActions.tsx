@@ -62,20 +62,20 @@ const QuickActions = () => {
 
   return (
     <div className="mb-8">
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+      <div className="flex flex-wrap items-start justify-center sm:justify-between gap-x-2 gap-y-6 px-1">
         {actions.map((action, index) => {
           const Icon = action.icon;
           return (
             <button
               key={index}
               onClick={action.onClick}
-              className="flex flex-col items-center p-4 rounded-xl bg-background border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 group"
+              className="flex flex-col items-center text-center w-[76px] sm:w-24 group"
             >
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2 group-hover:bg-primary/15 transition-colors">
                 <Icon className="h-5 w-5 text-primary" />
               </div>
-              <span className="text-sm font-medium text-foreground">{action.label}</span>
-              <span className="text-[10px] text-muted-foreground">{action.description}</span>
+              <span className="text-sm font-medium text-foreground leading-tight">{action.label}</span>
+              <span className="text-[11px] text-muted-foreground leading-tight mt-0.5">{action.description}</span>
             </button>
           );
         })}

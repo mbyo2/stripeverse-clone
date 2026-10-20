@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { formatBitcoinAmount, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound } from "lucide-react";
+import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound, ArrowUpRight, ArrowDownLeft, Bitcoin } from "lucide-react";
 
 const satsToBtc = (sats?: number) => (sats ? sats / 100_000_000 : 0);
 
@@ -308,9 +309,9 @@ function TradePanel({ onDone }: { onDone: () => void }) {
   };
 
   return (
-    <Card className="mb-6">
+    <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-lg">
           <ArrowLeftRight className="h-5 w-5" /> Buy & Sell Bitcoin
         </CardTitle>
       </CardHeader>
@@ -373,6 +374,7 @@ function TradePanel({ onDone }: { onDone: () => void }) {
 }
 
 export default function BitcoinWallet() {
+  const navigate = useNavigate();
   const { wallet, isLoading, refetchWallet, transactions, isTxLoading, refetchTx } = useBitcoinWallet();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -395,12 +397,12 @@ export default function BitcoinWallet() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1">
-        <section className="container mx-auto px-4 py-8">
-          <h1 className="text-2xl font-semibold mb-4">Bitcoin Wallet</h1>
+        <section className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-8 md:py-10">
+          <h1 className="text-[28px] leading-tight font-display font-semibold mb-6">Bitcoin Wallet</h1>
 
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 Balance
                 <Badge variant="outline" className="border-[#003087] text-[#003087] dark:text-[#A9BCDA] dark:border-[#A9BCDA]">CUSTODIAL ACCOUNT</Badge>
               </CardTitle>
@@ -410,14 +412,14 @@ export default function BitcoinWallet() {
                 is separate: there, you hold the keys.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center justify-between">
+            <CardContent>
               <div>
                 {isLoading ? (
-                  <div className="h-6 w-32 animate-pulse bg-muted rounded" />
+                  <div className="h-10 w-40 animate-pulse bg-muted rounded" />
                 ) : (
-                  <p className="text-xl font-bold">{btcBalance}</p>
+                  <p className="text-[40px] md:text-[44px] leading-none font-display font-semibold">{btcBalance}</p>
                 )}
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-2">
                   Asset: BTC · {(wallet?.balance_sats ?? 0).toLocaleString()} sats
                   {wallet && wallet.available_sats !== wallet.balance_sats
                     ? ` · ${wallet.available_sats.toLocaleString()} available`
@@ -425,7 +427,7 @@ export default function BitcoinWallet() {
                 </p>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-3 mt-6">
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button size="lg">Deposit BTC</Button>
@@ -465,11 +467,64 @@ export default function BitcoinWallet() {
             </CardContent>
           </Card>
 
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="lg:col-span-2 space-y-6">
           <TradePanel onDone={handleDone} />
 
-          <Card className="mb-6 border-amber-500/50">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="text-lg">Recent BTC activity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isTxLoading ? (
+                <div className="h-24 animate-pulse bg-muted rounded" />
+              ) : transactions.length === 0 ? (
+                <div className="text-center py-6">
+                  <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                    <Bitcoin className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-muted-foreground">No Bitcoin transactions yet.</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {transactions.map((t: any) => {
+                    const outgoing = t.direction === "outgoing" || (!t.direction && Number(t.amount || 0) < 0);
+                    const label = t.description
+                      || (t.metadata?.type === "lightning_deposit" ? "Lightning deposit"
+                        : t.metadata?.type === "lightning_payment" ? "Lightning payment"
+                        : t.metadata?.type === "withdrawal" ? "Bitcoin withdrawal"
+                        : "BTC transaction");
+                    return (
+                      <li key={t.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                            {outgoing ? (
+                              <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ArrowDownLeft className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-[15px]">{label}</p>
+                            <p className="text-[13px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold tabular-nums">{outgoing ? "−" : "+"}{formatBitcoinAmount(Math.abs(Number(t.amount || 0)))}</p>
+                          <p className="text-[13px] text-muted-foreground">{t.status}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+            </div>
+
+          <Card className="border-amber-500/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <KeyRound className="h-5 w-5" /> Your self-custody wallet
                 <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY</Badge>
               </CardTitle>
@@ -486,42 +541,7 @@ export default function BitcoinWallet() {
               </Button>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent BTC activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isTxLoading ? (
-                <div className="h-24 animate-pulse bg-muted rounded" />
-              ) : transactions.length === 0 ? (
-                <p className="text-muted-foreground">No Bitcoin transactions yet.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {transactions.map((t: any) => {
-                    const outgoing = t.direction === "outgoing" || (!t.direction && Number(t.amount || 0) < 0);
-                    const label = t.description
-                      || (t.metadata?.type === "lightning_deposit" ? "Lightning deposit"
-                        : t.metadata?.type === "lightning_payment" ? "Lightning payment"
-                        : t.metadata?.type === "withdrawal" ? "Bitcoin withdrawal"
-                        : "BTC transaction");
-                    return (
-                      <li key={t.id} className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{label}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold">{outgoing ? "−" : "+"}{formatBitcoinAmount(Math.abs(Number(t.amount || 0)))}</p>
-                          <p className="text-xs text-muted-foreground">{t.status}</p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          </div>
         </section>
       </main>
       <Footer />
