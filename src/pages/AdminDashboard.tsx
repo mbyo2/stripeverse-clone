@@ -152,10 +152,10 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen flex flex-col bg-muted">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">System overview and management tools</p>
+          <h1 className="text-[28px] leading-tight font-display font-semibold">Admin Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">System overview and management tools</p>
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
@@ -175,7 +175,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-sm font-medium">Total Users</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{userStats.total_users}</div>
+                  <div className="text-[28px] font-display font-semibold tabular-nums">{userStats.total_users}</div>
                 </CardContent>
               </Card>
 
@@ -184,7 +184,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-sm font-medium">Business Users</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{userStats.business_users}</div>
+                  <div className="text-[28px] font-display font-semibold tabular-nums">{userStats.business_users}</div>
                 </CardContent>
               </Card>
 
@@ -193,7 +193,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-sm font-medium">Total Transactions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{systemStats.total_transactions}</div>
+                  <div className="text-[28px] font-display font-semibold tabular-nums">{systemStats.total_transactions}</div>
                 </CardContent>
               </Card>
 
@@ -202,7 +202,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-sm font-medium">Pending KYC</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-orange-600">{systemStats.pending_kyc}</div>
+                  <div className="text-[28px] font-display font-semibold tabular-nums text-orange-600">{systemStats.pending_kyc}</div>
                 </CardContent>
               </Card>
             </div>

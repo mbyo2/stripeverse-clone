@@ -15,9 +15,9 @@ const Rewards = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Rewards Program</h1>
+          <h1 className="text-[28px] leading-tight font-display font-semibold">Rewards Program</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -28,7 +28,7 @@ const Rewards = () => {
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle>How It Works</CardTitle>
+                <CardTitle className="text-lg">How It Works</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -56,7 +56,7 @@ const Rewards = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle className="text-lg">Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -64,11 +64,11 @@ const Rewards = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : rewardTransactions && rewardTransactions.length > 0 ? (
-              <div className="space-y-4">
+              <div className="divide-y divide-border">
                 {rewardTransactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between py-3 border-b last:border-0">
+                  <div key={transaction.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                         transaction.action_type === 'earn' ? 'bg-green-100' : 'bg-red-100'
                       }`}>
                         {transaction.action_type === 'earn' ? (
@@ -78,10 +78,10 @@ const Rewards = () => {
                         )}
                       </div>
                       <div>
-                        <div className="font-medium">
+                        <div className="font-medium text-[15px]">
                           {transaction.description || 'Reward transaction'}
                         </div>
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-[13px] text-muted-foreground">
                           {formatDate(transaction.created_at)}
                         </div>
                       </div>

@@ -61,17 +61,17 @@ const RequestMoney = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Request Money</h1>
-          <p className="text-muted-foreground">Send payment requests or create shareable payment links</p>
+          <h1 className="text-[28px] leading-tight font-display font-semibold">Request Money</h1>
+          <p className="text-sm text-muted-foreground mt-1">Send payment requests or create shareable payment links</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Create Request */}
           <Card className="lg:col-span-1">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" />New Request</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-lg"><Plus className="h-5 w-5" />New Request</CardTitle>
               <CardDescription>Create a payment request or shareable link</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -117,17 +117,26 @@ const RequestMoney = () => {
                         <Card key={i} className="animate-pulse"><CardContent className="p-4"><div className="h-16 bg-muted rounded" /></CardContent></Card>
                       ))}
                     </div>
+                  ) : requests.filter((r) => tab === 'all' || r.status === tab).length === 0 ? (
+                    <Card>
+                      <CardContent className="p-8 text-center text-muted-foreground">
+                        <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                          <Link2 className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <p>No {tab === 'all' ? '' : tab} requests yet</p>
+                      </CardContent>
+                    </Card>
                   ) : (
-                    <div className="space-y-3">
-                      {requests
-                        .filter((r) => tab === 'all' || r.status === tab)
-                        .map((request) => (
-                          <Card key={request.id} className="hover:shadow-md transition-shadow">
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between">
+                    <Card>
+                      <CardContent className="px-6 py-2">
+                        <div className="divide-y divide-border">
+                          {requests
+                            .filter((r) => tab === 'all' || r.status === tab)
+                            .map((request) => (
+                              <div key={request.id} className="flex items-center justify-between py-4">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-1">
-                                    <span className="font-bold text-lg">{formatAmount(request.amount)}</span>
+                                    <span className="font-semibold tabular-nums text-lg">{formatAmount(request.amount)}</span>
                                     {getStatusBadge(request.status)}
                                   </div>
                                   <p className="text-sm text-muted-foreground">
@@ -165,18 +174,10 @@ const RequestMoney = () => {
                                   </Button>
                                 </div>
                               </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      {requests.filter((r) => tab === 'all' || r.status === tab).length === 0 && (
-                        <Card>
-                          <CardContent className="p-8 text-center text-muted-foreground">
-                            <Link2 className="h-12 w-12 mx-auto mb-3 opacity-40" />
-                            <p>No {tab === 'all' ? '' : tab} requests yet</p>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </div>
+                            ))}
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
                 </TabsContent>
               ))}
