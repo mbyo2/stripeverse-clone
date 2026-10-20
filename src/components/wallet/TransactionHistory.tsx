@@ -30,9 +30,10 @@ interface Transaction {
 interface TransactionHistoryProps {
   limit?: number;
   showFilters?: boolean;
+  embedded?: boolean;
 }
 
-const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryProps) => {
+const TransactionHistory = ({ limit, showFilters = true, embedded = false }: TransactionHistoryProps) => {
   const { formatAmount } = useCurrency();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -88,7 +89,8 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
   };
 
   return (
-    <Card>
+    <Card className={embedded ? "border-0 shadow-none" : undefined}>
+      {!embedded && (
       <CardHeader>
         <div className="flex justify-between items-center">
           <CardTitle className="flex items-center">
@@ -103,7 +105,8 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      )}
+      <CardContent className={embedded ? "p-0" : undefined}>
         {showFilters && (
           <div className="space-y-4 mb-6">
             <div className="flex flex-col md:flex-row gap-4">
@@ -143,11 +146,11 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="divide-y divide-border">
           {isLoading ? (
             // Loading skeleton
             Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="flex items-center justify-between p-4 border rounded-lg animate-pulse">
+              <div key={index} className="flex items-center justify-between py-4 animate-pulse">
                 <div className="flex items-center space-x-4">
                   <div className="w-8 h-8 bg-muted rounded-full"></div>
                   <div className="flex-1">
@@ -163,7 +166,9 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
             ))
           ) : filteredTransactions.length === 0 ? (
             <div className="text-center py-8">
-              <Receipt className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                <Receipt className="h-6 w-6 text-muted-foreground" />
+              </div>
               <h3 className="text-lg font-medium mb-2">No Transactions Found</h3>
               <p className="text-muted-foreground">
                 {searchTerm || statusFilter !== 'all' || directionFilter !== 'all'
@@ -174,26 +179,26 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
             </div>
           ) : (
             filteredTransactions.map((transaction) => (
-              <div key={transaction.uuid_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+              <div key={transaction.uuid_id} className="flex items-center justify-between py-4">
                 <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                     {getDirectionIcon(transaction.direction)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">
+                    <p className="font-medium text-[15px] truncate">
                       {transaction.description || 'Transaction'}
                     </p>
                     {transaction.recipient_name && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-[13px] text-muted-foreground">
                         To: {transaction.recipient_name}
                       </p>
                     )}
                     <div className="flex items-center space-x-2 mt-1">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[13px] text-muted-foreground">
                         {format(new Date(transaction.created_at), 'MMM dd, yyyy HH:mm')}
                       </span>
-                      <span className="text-xs text-muted-foreground">•</span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[13px] text-muted-foreground">•</span>
+                      <span className="text-[13px] text-muted-foreground">
                         {getPaymentMethodLabel(transaction.payment_method)}
                       </span>
                     </div>
@@ -203,7 +208,7 @@ const TransactionHistory = ({ limit, showFilters = true }: TransactionHistoryPro
                   <TransactionReceipt transaction={{...transaction, id: String(transaction.id)}} />
                   <div className="text-right">
                     <p className={cn(
-                      "font-semibold",
+                      "font-semibold tabular-nums",
                       transaction.direction === 'incoming' ? 'text-green-600' : 'text-red-600'
                     )}>
                       {transaction.direction === 'incoming' ? '+' : '-'}

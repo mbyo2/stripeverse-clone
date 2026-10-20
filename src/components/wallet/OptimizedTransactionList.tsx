@@ -38,11 +38,11 @@ const TransactionItem = React.memo(({ transaction, style }: TransactionItemProps
           )}
         </div>
         <div className="ml-4">
-          <div className="font-medium">
+          <div className="font-medium text-[15px]">
             {transaction.direction === 'outgoing' ? "Sent to" : "Received from"} {" "}
             {transaction.recipient_name || "Unknown"}
           </div>
-          <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+          <div className="text-[13px] text-muted-foreground flex items-center gap-2 flex-wrap">
             {transaction.created_at ? formatDistanceToNow(new Date(transaction.created_at), { addSuffix: true }) : 'Unknown date'}
             {transaction.status === 'pending' && (
               <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200">
@@ -57,7 +57,7 @@ const TransactionItem = React.memo(({ transaction, style }: TransactionItemProps
           </div>
         </div>
       </div>
-      <div className={`font-medium ${
+      <div className={`font-semibold tabular-nums ${
         transaction.status === 'failed' ? "text-destructive" :
         transaction.status === 'pending' ? "text-amber-600" :
         transaction.direction === 'outgoing' ? "text-blue-600" : "text-green-600"

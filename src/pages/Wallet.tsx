@@ -72,12 +72,12 @@ const Wallet = () => {
     return (
       <div className="min-h-screen flex flex-col bg-muted/30">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
+        <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <div className="flex justify-between items-center mb-8">
             <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-11 w-32 rounded-lg" />
+            <Skeleton className="h-11 w-32 rounded-full" />
           </div>
-          <Skeleton className="h-48 rounded-xl mb-8" />
+          <Skeleton className="h-48 rounded-[24px] mb-8" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
           </div>
@@ -91,17 +91,12 @@ const Wallet = () => {
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10">
-              <WalletIcon className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Wallet</h1>
-              <p className="text-sm text-muted-foreground">Manage your money and cards</p>
-            </div>
+          <div>
+            <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Wallet</h1>
+            <p className="text-sm text-muted-foreground mt-1">Manage your money and cards</p>
           </div>
           
           {isMobile ? (
@@ -145,14 +140,14 @@ const Wallet = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Virtual Cards */}
           <div className="lg:col-span-2">
-            <Card className="border-0 shadow-sm h-full">
+            <Card className="h-full">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-5 w-5 text-primary" />
                     <CardTitle className="text-lg">Virtual Cards</CardTitle>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => navigate('/wallet')} className="text-primary">
+                  <Button variant="link" size="sm" onClick={() => navigate('/wallet')} className="font-medium px-0">
                     View all <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
@@ -166,7 +161,7 @@ const Wallet = () => {
           
           {/* Payment Methods */}
           <div className="lg:col-span-1">
-            <Card className="border-0 shadow-sm h-full">
+            <Card className="h-full">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">Payment Methods</CardTitle>
                 <CardDescription>Your linked accounts</CardDescription>
@@ -179,20 +174,20 @@ const Wallet = () => {
         </div>
         
         {/* Recent Transactions */}
-        <Card className="border-0 shadow-sm">
+        <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-primary" />
                 <CardTitle className="text-lg">Recent Activity</CardTitle>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/transactions')} className="text-primary">
+              <Button variant="link" size="sm" onClick={() => navigate('/transactions')} className="font-medium px-0">
                 View all <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardHeader>
           <CardContent>
-            <TransactionHistory limit={5} />
+            <TransactionHistory limit={5} showFilters={false} embedded />
           </CardContent>
         </Card>
       </main>
