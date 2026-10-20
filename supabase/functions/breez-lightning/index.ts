@@ -3,18 +3,44 @@
 //   POST { action: "create_invoice", amount_sats, description } → bolt11 invoice
 //   POST { action: "pay_invoice", bolt11 } → pay from user balance
 //   POST { action: "check_status", breez_invoice_id } → poll invoice status
+//        (breez_invoice_id is the lightning_payments row id returned as
+//        payment_id by create_invoice)
 //
-// Auth: user JWT required. Balances enforced in sats.
+// Auth: user JWT required; identity comes from the verified token only.
+// Balances are integer sats in crypto_wallets, moved ONLY through the
+// btc_adjust_crypto_wallet RPC (row-locked, non-negative) or the atomic
+// claim-then-credit sequence in check_status — a settled invoice can
+// never be credited twice, and an outbound payment can never overdraw
+// or double-spend the wallet.
+//
+// History note: the previous version decoded invoice amounts with
+// floating-point math (mispricing pico-denominated invoices) and did
+// read-modify-write balance updates, so two concurrent calls could
+// double-credit or double-pay. Amounts are now decoded with BigInt via
+// _shared/btc-core.ts (unit-tested).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
+import { decodeBolt11Msat } from "../_shared/btc-core.ts";
 
 const BREEZ_API = "https://api.breez.technology";
+const MAX_SATS = (() => {
+  const raw = Deno.env.get("BREEZ_MAX_SATS");
+  const n = raw ? Number.parseInt(raw, 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 1_000_000;
+})();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 async function breezFetch(path: string, method: string, body?: unknown) {
   const apiKey = Deno.env.get("BREEZ_API_KEY");
@@ -26,6 +52,7 @@ async function breezFetch(path: string, method: string, body?: unknown) {
       "X-API-KEY": apiKey,
     },
     body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -41,175 +68,231 @@ serve(async (req) => {
 
   try {
     const supabase = getSupabaseClient(req);
-    const authHeader = req.headers.get("Authorization") || "";
-    const token = authHeader.replace("Bearer ", "");
+    const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(401, { error: "Unauthorized" });
     }
 
     const { action, amount_sats, description, bolt11, breez_invoice_id } = await req.json();
 
     // ── Create inbound Lightning invoice ──
     if (action === "create_invoice") {
-      const sats = Math.floor(Number(amount_sats));
-      if (!sats || sats <= 0) throw new Error("Invalid amount_sats");
+      const sats = Number(amount_sats);
+      if (!Number.isInteger(sats) || sats <= 0 || sats > MAX_SATS) {
+        return json(400, { error: `amount_sats must be an integer between 1 and ${MAX_SATS}` });
+      }
 
       const invoice = await breezFetch("/v2/invoices", "POST", {
         amount_msat: sats * 1000,
         description: description || `Deposit for ${user.id.slice(0, 8)}`,
       });
+      const bolt11Invoice = invoice.bolt11 || invoice.invoice;
+      const breezId = invoice.id || invoice.invoice_id;
+      if (!bolt11Invoice || !breezId) {
+        throw new Error("Breez returned an incomplete invoice");
+      }
 
       const { data: payment, error } = await supabase.from("lightning_payments").insert({
         user_id: user.id,
         direction: "inbound",
         amount_sats: sats,
-        breez_invoice_id: invoice.id || invoice.invoice_id,
-        bolt11: invoice.bolt11 || invoice.invoice,
-        payment_hash: invoice.payment_hash,
+        breez_invoice_id: breezId,
+        bolt11: bolt11Invoice,
+        payment_hash: invoice.payment_hash ?? null,
         status: "pending",
       }).select("id").single();
 
       if (error) throw error;
 
-      return new Response(JSON.stringify({
+      return json(200, {
         payment_id: payment.id,
-        bolt11: invoice.bolt11 || invoice.invoice,
-        payment_hash: invoice.payment_hash,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        bolt11: bolt11Invoice,
+        payment_hash: invoice.payment_hash ?? null,
+      });
     }
 
     // ── Pay an outbound Lightning invoice (from wallet balance) ──
     if (action === "pay_invoice") {
-      if (!bolt11 || typeof bolt11 !== "string") throw new Error("bolt11 required");
-
-      // CRITICAL: decode amount and verify balance BEFORE touching Breez.
-      // Paying first and checking after would lose real sats on insufficient funds.
-      const invoiceSats = decodeBolt11Sats(bolt11);
-      if (!invoiceSats || invoiceSats <= 0) throw new Error("Could not decode invoice amount");
-
-      const { data: wallet } = await supabase.from("crypto_wallets")
-        .select("id, balance_sats, available_sats")
-        .eq("user_id", user.id).eq("asset", "BTC").maybeSingle();
-
-      if (!wallet || (wallet.available_sats || 0) < invoiceSats) {
-        throw new Error("Insufficient BTC balance");
+      if (!bolt11 || typeof bolt11 !== "string") {
+        return json(400, { error: "bolt11 required" });
       }
 
-      // Balance verified — now pay via Breez.
-      const payResult = await breezFetch("/v2/payments", "POST", { bolt11 });
-      const paidSats = Math.floor((payResult.amount_msat || 0) / 1000) || invoiceSats;
+      // Decode the amount with integer math BEFORE any money moves, and
+      // verify the balance covers it. Our ledger is whole sats, so
+      // sub-sat (millisat remainder) invoices are refused, not rounded.
+      const msat = decodeBolt11Msat(bolt11);
+      if (msat === null || msat <= 0n) {
+        return json(400, { error: "Could not decode invoice amount" });
+      }
+      if (msat % 1000n !== 0n) {
+        return json(400, { error: "Invoice amount must be a whole number of sats" });
+      }
+      const sats = Number(msat / 1000n);
+      if (sats > MAX_SATS) {
+        return json(400, { error: `Invoice exceeds the ${MAX_SATS} sat payment limit` });
+      }
 
-      await supabase.from("crypto_wallets").update({
-        balance_sats: (wallet.balance_sats || 0) - paidSats,
-        available_sats: (wallet.available_sats || 0) - paidSats,
-        updated_at: new Date().toISOString(),
-      }).eq("id", wallet.id);
-
-      await supabase.from("lightning_payments").insert({
+      // Record the attempt first — it is the audit + idempotency anchor.
+      const { data: payment, error: insErr } = await supabase.from("lightning_payments").insert({
         user_id: user.id,
         direction: "outbound",
-        amount_sats: paidSats,
+        amount_sats: sats,
         bolt11,
-        payment_hash: payResult.payment_hash,
+        status: "pending",
+      }).select("id").single();
+      if (insErr) throw insErr;
+
+      // Reserve spendable balance atomically (row-locked RPC; raises on
+      // insufficient funds). A concurrent payment now cannot pass with
+      // the same sats.
+      const { error: reserveErr } = await supabase.rpc("btc_adjust_crypto_wallet", {
+        p_user_id: user.id,
+        p_delta_balance: 0,
+        p_delta_available: -sats,
+      });
+      if (reserveErr) {
+        await supabase.from("lightning_payments")
+          .update({ status: "failed" }).eq("id", payment.id);
+        return json(400, { error: "Insufficient BTC balance" });
+      }
+
+      // Balance reserved — now pay via Breez.
+      let payResult: any;
+      try {
+        payResult = await breezFetch("/v2/payments", "POST", { bolt11 });
+      } catch (e) {
+        // Payment provably not made by us: release the reservation.
+        await supabase.rpc("btc_adjust_crypto_wallet", {
+          p_user_id: user.id,
+          p_delta_balance: 0,
+          p_delta_available: sats,
+        });
+        await supabase.from("lightning_payments")
+          .update({ status: "failed" }).eq("id", payment.id);
+        throw e;
+      }
+
+      // Settle the total balance (available was already reduced). If this
+      // ever failed, the reservation still prevents re-spending the sats
+      // and the paid lightning_payments row is the reconciliation record.
+      const { error: settleErr } = await supabase.rpc("btc_adjust_crypto_wallet", {
+        p_user_id: user.id,
+        p_delta_balance: -sats,
+        p_delta_available: 0,
+      });
+      if (settleErr) {
+        console.error("CRITICAL: Lightning paid but balance settle failed", payment.id, settleErr);
+      }
+
+      const paymentHash = payResult.payment_hash ?? null;
+      await supabase.from("lightning_payments").update({
         status: "paid",
+        payment_hash: paymentHash,
         settled_at: new Date().toISOString(),
-      });
+      }).eq("id", payment.id);
 
-      await supabase.from("transactions").insert({
-        user_id: userIdSafe(user),
+      const { error: txErr } = await supabase.from("transactions").insert({
+        user_id: user.id,
         currency: "BTC",
-        amount: -(paidSats / 100_000_000),
+        amount: sats / 100_000_000,
+        direction: "outgoing",
+        payment_method: "lightning",
         status: "completed",
-        transaction_id: payResult.payment_hash || `ln-${Date.now()}`,
-        metadata: { type: "lightning_payment", bolt11: bolt11.slice(0, 32) + "…" },
+        description: "Lightning payment",
+        reference: paymentHash,
+        category: "lightning_payment",
+        transaction_id: paymentHash || `ln-out-${payment.id}`,
+        idempotency_key: `ln-out:${payment.id}`,
+        metadata: { type: "lightning_payment", sats },
       });
+      if (txErr) console.error("Lightning payment ledger row failed:", txErr);
 
-      return new Response(JSON.stringify({ ok: true, paid_sats: paidSats }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(200, { ok: true, paid_sats: sats, payment_id: payment.id });
     }
 
     // ── Check inbound invoice status; credit on settlement ──
     if (action === "check_status") {
-      if (!breez_invoice_id) throw new Error("breez_invoice_id required");
+      if (!breez_invoice_id) {
+        return json(400, { error: "breez_invoice_id required" });
+      }
 
       const { data: payment } = await supabase.from("lightning_payments")
         .select("*").eq("id", breez_invoice_id).eq("user_id", user.id).single();
 
-      if (!payment) throw new Error("Payment not found");
-      if (payment.status === "paid") {
-        return new Response(JSON.stringify({ status: "paid" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (!payment) return json(404, { error: "Payment not found" });
+      if (payment.direction !== "inbound") {
+        return json(400, { error: "Not an inbound invoice" });
+      }
+      if (payment.status === "paid") return json(200, { status: "paid" });
+      if (payment.status === "expired" || payment.status === "failed") {
+        return json(200, { status: payment.status });
       }
 
       const status = await breezFetch(`/v2/invoices/${payment.breez_invoice_id}`, "GET");
       const isPaid = status.settled || status.status === "paid";
 
-      if (isPaid) {
-        const sats = payment.amount_sats;
-        const { data: wallet } = await supabase.from("crypto_wallets")
-          .select("id, balance_sats, available_sats")
-          .eq("user_id", user.id).eq("asset", "BTC").maybeSingle();
-
-        if (wallet) {
-          await supabase.from("crypto_wallets").update({
-            balance_sats: (wallet.balance_sats || 0) + sats,
-            available_sats: (wallet.available_sats || 0) + sats,
-            updated_at: new Date().toISOString(),
-          }).eq("id", wallet.id);
-        } else {
-          await supabase.from("crypto_wallets").insert({
-            user_id: user.id, asset: "BTC", balance_sats: sats, available_sats: sats,
-          });
+      if (!isPaid) {
+        if (status.status === "expired" || status.expired) {
+          await supabase.from("lightning_payments")
+            .update({ status: "expired" }).eq("id", payment.id);
+          return json(200, { status: "expired" });
         }
-
-        await supabase.from("lightning_payments").update({
-          status: "paid", settled_at: new Date().toISOString(),
-        }).eq("id", payment.id);
-
-        await supabase.from("transactions").insert({
-          user_id: user.id,
-          currency: "BTC",
-          amount: sats / 100_000_000,
-          status: "completed",
-          transaction_id: payment.payment_hash || `ln-in-${payment.id}`,
-          metadata: { type: "lightning_deposit", sats },
-        });
+        return json(200, { status: "pending" });
       }
 
-      return new Response(JSON.stringify({ status: isPaid ? "paid" : "pending" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // CLAIM before crediting: only the caller that flips
+      // pending → paid (conditional on the row still being pending)
+      // may credit. Concurrent polls lose the claim and skip crediting.
+      const { data: claimed, error: claimErr } = await supabase
+        .from("lightning_payments")
+        .update({ status: "paid", settled_at: new Date().toISOString() })
+        .eq("id", payment.id)
+        .eq("status", "pending")
+        .select("id");
+      if (claimErr) throw claimErr;
+      if (!claimed || claimed.length === 0) {
+        return json(200, { status: "paid" }); // settled by a concurrent call
+      }
+
+      const sats = Number(payment.amount_sats);
+      const { error: creditErr } = await supabase.rpc("btc_adjust_crypto_wallet", {
+        p_user_id: user.id,
+        p_delta_balance: sats,
+        p_delta_available: sats,
       });
+      if (creditErr) {
+        // The row is already marked paid, so a naive retry would skip
+        // crediting. Roll the claim back to pending so the next poll
+        // can complete the credit, and surface the failure.
+        await supabase.from("lightning_payments")
+          .update({ status: "pending", settled_at: null })
+          .eq("id", payment.id);
+        throw creditErr;
+      }
+
+      const { error: txErr } = await supabase.from("transactions").insert({
+        user_id: user.id,
+        currency: "BTC",
+        amount: sats / 100_000_000,
+        direction: "incoming",
+        payment_method: "lightning",
+        status: "completed",
+        description: "Lightning deposit",
+        reference: payment.payment_hash,
+        category: "lightning_deposit",
+        transaction_id: payment.payment_hash || `ln-in-${payment.id}`,
+        idempotency_key: `ln-in:${payment.id}`,
+        metadata: { type: "lightning_deposit", sats },
+      });
+      if (txErr) console.error("Lightning deposit ledger row failed:", txErr);
+
+      return json(200, { status: "paid" });
     }
 
-    throw new Error(`Unknown action: ${action}`);
+    return json(400, { error: `Unknown action: ${action}` });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.message || "Lightning operation failed" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("breez-lightning error:", e);
+    return json(500, { error: e instanceof Error ? e.message : "Lightning operation failed" });
   }
 });
-
-function userIdSafe(user: { id: string }) { return user.id; }
-
-// Decode the sat amount from a bolt11 invoice's human-readable part.
-// Format: lnbc<amount><multiplier>1<data> where multiplier is m/u/n/p.
-// Returns sats, or 0 if no amount is encoded (zero-amount invoice).
-function decodeBolt11Sats(bolt11: string): number {
-  const lower = bolt11.toLowerCase();
-  const match = lower.match(/^ln(bc|tb|bcrt)(\d+)([munp]?)1/);
-  if (!match) return 0;
-  const amount = Number(match[2]);
-  const mult = match[3];
-  // Convert to BTC first, then sats
-  let btc = amount;
-  if (mult === "m") btc = amount / 1_000;
-  else if (mult === "u") btc = amount / 1_000_000;
-  else if (mult === "n") btc = amount / 1_000_000_000;
-  else if (mult === "p") btc = amount / 1_000_000_000_000;
-  return Math.floor(btc * 100_000_000);
-}
