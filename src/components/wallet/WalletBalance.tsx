@@ -36,7 +36,7 @@ const WalletBalance = ({ onSendMoney }: WalletBalanceProps) => {
   if (isLoading) {
     return (
       <Card className="mb-8 overflow-hidden">
-        <div className="bg-gradient-to-br from-primary via-primary to-primary/80 p-6">
+        <div className="bg-primary p-6">
           <div className="animate-pulse space-y-4">
             <div className="h-4 w-24 bg-primary-foreground/20 rounded" />
             <div className="h-12 w-48 bg-primary-foreground/20 rounded" />
@@ -52,8 +52,8 @@ const WalletBalance = ({ onSendMoney }: WalletBalanceProps) => {
 
   return (
     <>
-      <Card className="mb-8 overflow-hidden border-0 shadow-lg">
-        <div className="bg-gradient-to-br from-primary via-primary to-primary/80 p-6 md:p-8">
+      <Card className="mb-8 overflow-hidden">
+        <div className="bg-primary p-6 md:p-8">
           <div className="flex items-start justify-between mb-6">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -82,7 +82,7 @@ const WalletBalance = ({ onSendMoney }: WalletBalanceProps) => {
             <Button
               onClick={onSendMoney}
               variant="secondary"
-              className="h-11 px-5 rounded-lg font-semibold bg-white text-primary hover:bg-white/90"
+              className="h-11 px-5 rounded-full font-semibold bg-white text-primary hover:bg-white/90"
             >
               <ArrowUpRight className="mr-2 h-4 w-4" /> Send Money
             </Button>

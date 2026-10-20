@@ -20,7 +20,7 @@ import {
 import { TrendingDown, TrendingUp, PiggyBank, Target, Plus, Download, ArrowDownToLine, Wallet } from 'lucide-react';
 import { format } from 'date-fns';
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#003087', '#F7931A', '#06B6D4', '#84CC16'];
 
 const SpendingInsights = () => {
   const { user } = useAuth();
@@ -142,7 +142,7 @@ const SpendingInsights = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10"><Target className="h-5 w-5 text-purple-500" /></div>
+                <div className="p-2 rounded-lg bg-[#003087]/10"><Target className="h-5 w-5 text-[#003087]" /></div>
                 <div>
                   <p className="text-xs text-muted-foreground">Active Goals</p>
                   <p className="text-xl font-bold">{goals.filter(g => g.status === 'active').length}</p>

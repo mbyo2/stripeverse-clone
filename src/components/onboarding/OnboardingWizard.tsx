@@ -79,7 +79,7 @@ const OnboardingWizard = ({ kycLevel, walletBalance, hasProfile, onDismiss }: On
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
     >
-      <Card className="mb-8 border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
+      <Card className="mb-8 border-primary/20 bg-primary/5">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>

@@ -114,7 +114,7 @@ const BetaTesterDashboard = () => {
       case 'coming_soon':
         return <Badge className="bg-orange-500">Coming Soon</Badge>;
       case 'development':
-        return <Badge className="bg-purple-500">In Development</Badge>;
+        return <Badge className="bg-[#003087]">In Development</Badge>;
       default:
         return <Badge variant="secondary">Unknown</Badge>;
     }
@@ -134,7 +134,7 @@ const BetaTesterDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50 to-orange-50">
+    <div className="min-h-screen flex flex-col bg-muted">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
         <div className="mb-6">

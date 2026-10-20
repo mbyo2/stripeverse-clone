@@ -5,7 +5,7 @@ interface HeroProps {
 }
 
 /**
- * PayPal-pattern hero: one flat light sky-blue band, fully centred.
+ * PayPal-pattern hero: one flat warm cream band, fully centred.
  * A single oversized black headline, then one large white card holding the
  * photograph. Nothing else — conversion lives in the header.
  */
@@ -13,7 +13,7 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
   if (isAuthenticated) return null;
 
   return (
-    <section className="bg-[#D8EFFF]">
+    <section className="bg-[#FEF3E2]">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 pt-32 md:pt-40 pb-16 md:pb-24 text-center">
         <FadeIn delay={0.1} duration={0.6} distance={16}>
           <h1 className="font-display font-extrabold text-black tracking-[-0.03em] leading-[1.05] text-[42px] sm:text-[58px] lg:text-[76px] max-w-4xl mx-auto">

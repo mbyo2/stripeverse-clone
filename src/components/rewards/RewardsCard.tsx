@@ -23,7 +23,7 @@ const RewardsCard = () => {
 
   const getTierIcon = (tier: string) => {
     switch (tier) {
-      case 'platinum': return <Trophy className="h-5 w-5 text-purple-600" />;
+      case 'platinum': return <Trophy className="h-5 w-5 text-[#003087]" />;
       case 'gold': return <Award className="h-5 w-5 text-yellow-600" />;
       case 'silver': return <Medal className="h-5 w-5 text-muted-foreground" />;
       default: return <Star className="h-5 w-5 text-amber-600" />;
@@ -32,7 +32,7 @@ const RewardsCard = () => {
 
   const getTierColor = (tier: string) => {
     switch (tier) {
-      case 'platinum': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'platinum': return 'bg-[#003087]/10 text-[#003087] border-[#003087]/20';
       case 'gold': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'silver': return 'bg-muted text-muted-foreground border-border';
       default: return 'bg-amber-100 text-amber-800 border-amber-200';

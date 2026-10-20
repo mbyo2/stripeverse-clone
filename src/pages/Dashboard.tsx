@@ -85,7 +85,7 @@ const Dashboard = () => {
       <Header />
       <main className="flex-1 pt-20 pb-16">
         {/* Balance Hero */}
-        <div className="paypal-gradient">
+        <div className="bg-[#003087]">
           <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-8">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
               <div>

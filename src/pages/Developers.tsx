@@ -52,7 +52,7 @@ const EndpointRow = ({ method, path, description }: { method: string; path: stri
     POST: "bg-primary/15 text-primary border-primary/30",
     PUT: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
     DELETE: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30",
-    PATCH: "bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30",
+    PATCH: "bg-[#003087]/15 text-[#003087] dark:text-[#A9BCDA] border-[#003087]/30",
   };
 
   return (
@@ -168,7 +168,7 @@ const Developers = () => {
       <Header />
       <main className="flex-1 pt-20">
         {/* Hero Section */}
-        <section className="bg-gradient-to-b from-primary/5 via-primary/[0.02] to-transparent border-b border-border/50">
+        <section className="bg-[#FEF3E2] border-b border-[#CFD3D8]/70">
           <div className="px-4 max-w-7xl mx-auto py-12 md:py-16">
             <div className="max-w-3xl">
               <Badge className="mb-4 bg-primary/10 text-primary border-primary/20 hover:bg-primary/15">
@@ -182,13 +182,13 @@ const Developers = () => {
                 Get started in minutes with comprehensive SDKs, no-code plugins, and a live sandbox.
               </p>
               <div className="flex flex-wrap gap-3">
-                <Button size="lg" className="h-12 px-6 rounded-lg" onClick={() => setActiveSection("quickstart")}>
+                <Button size="lg" className="h-12 px-6 rounded-full" onClick={() => setActiveSection("quickstart")}>
                   <Zap className="h-4 w-4 mr-2" /> Get Started
                 </Button>
-                <Button size="lg" variant="outline" className="h-12 px-6 rounded-lg" onClick={() => setActiveSection("api")}>
+                <Button size="lg" variant="outline" className="h-12 px-6 rounded-full" onClick={() => setActiveSection("api")}>
                   <Book className="h-4 w-4 mr-2" /> API Reference
                 </Button>
-                <Button size="lg" variant="outline" className="h-12 px-6 rounded-lg" onClick={() => setActiveSection("playground")}>
+                <Button size="lg" variant="outline" className="h-12 px-6 rounded-full" onClick={() => setActiveSection("playground")}>
                   <Play className="h-4 w-4 mr-2" /> Try Playground
                 </Button>
               </div>
@@ -744,7 +744,7 @@ app.post('/webhook', (req, res) => {
                         version: "v2.1.0",
                         downloads: "45.2K",
                         stars: 328,
-                        color: "from-yellow-500/20 to-yellow-600/10",
+                        color: "bg-yellow-500/15",
                         install: "npm install @bmaglass/payments-js",
                         features: ["TypeScript support", "Browser & Node.js", "Webhook helpers", "Retry logic"],
                       },
@@ -754,7 +754,7 @@ app.post('/webhook', (req, res) => {
                         version: "v1.8.0",
                         downloads: "28.7K",
                         stars: 215,
-                        color: "from-blue-500/20 to-blue-600/10",
+                        color: "bg-[#003087]/10",
                         install: "pip install bmaglass-payments",
                         features: ["Async support", "Type hints", "Django/Flask plugins", "Auto-retries"],
                       },
@@ -764,7 +764,7 @@ app.post('/webhook', (req, res) => {
                         version: "v1.5.0",
                         downloads: "18.3K",
                         stars: 142,
-                        color: "from-indigo-500/20 to-indigo-600/10",
+                        color: "bg-[#003087]/10",
                         install: "composer require bmaglass/payments-php",
                         features: ["PHP 8.1+", "Laravel support", "PSR-18 HTTP", "Webhook middleware"],
                       },
@@ -774,7 +774,7 @@ app.post('/webhook', (req, res) => {
                         version: "v1.2.0",
                         downloads: "8.1K",
                         stars: 89,
-                        color: "from-cyan-500/20 to-cyan-600/10",
+                        color: "bg-cyan-500/15",
                         install: "go get github.com/bmaglass/payments-go",
                         features: ["Context support", "Connection pooling", "Idiomatic Go", "Zero dependencies"],
                       },
@@ -784,7 +784,7 @@ app.post('/webhook', (req, res) => {
                         version: "v1.3.0",
                         downloads: "12.4K",
                         stars: 97,
-                        color: "from-red-500/20 to-red-600/10",
+                        color: "bg-red-500/15",
                         install: "gem install bmaglass-payments",
                         features: ["Rails integration", "Webhook helpers", "Auto-retries", "Type checked"],
                       },
@@ -794,7 +794,7 @@ app.post('/webhook', (req, res) => {
                         version: "v1.1.0",
                         downloads: "9.8K",
                         stars: 64,
-                        color: "from-purple-500/20 to-purple-600/10",
+                        color: "bg-[#003087]/10",
                         install: "dotnet add package BMaGlass.Payments",
                         features: [".NET 6+", "Async/await", "DI support", "Strong typing"],
                       },
@@ -804,7 +804,7 @@ app.post('/webhook', (req, res) => {
                         version: "v1.0.0",
                         downloads: "5.2K",
                         stars: 43,
-                        color: "from-sky-500/20 to-sky-600/10",
+                        color: "bg-sky-500/15",
                         install: "npm install @bmaglass/react-native-payments",
                         features: ["iOS & Android", "Drop-in UI", "Biometric auth", "Mobile Money support"],
                       },
@@ -815,11 +815,11 @@ app.post('/webhook', (req, res) => {
                       };
                       return (
                       <Card key={sdk.lang} className="overflow-hidden border-0 shadow-sm hover:shadow-md transition-shadow">
-                        <div className={`h-1 bg-gradient-to-r ${sdk.color}`} />
+                        <div className={`h-1 ${sdk.color}`} />
                         <CardHeader className="pb-3">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${sdk.color} flex items-center justify-center font-bold text-xs border border-border/40`}>
+                              <div className={`w-10 h-10 rounded-xl ${sdk.color} flex items-center justify-center font-bold text-xs border border-border/40`}>
                                 {sdk.icon}
                               </div>
                               <div>

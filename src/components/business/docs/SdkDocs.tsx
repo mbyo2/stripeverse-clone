@@ -57,7 +57,7 @@ const sdkData: SdkInfo[] = [
       "HMAC-SHA256 webhook signature verification",
       "Auto-retry with exponential backoff on 5xx errors",
     ],
-    color: "from-yellow-500/20 to-yellow-600/10",
+    color: "bg-yellow-500/15",
   },
   {
     language: "Python",
@@ -81,7 +81,7 @@ const sdkData: SdkInfo[] = [
       "Auto-retry with exponential backoff",
       "Full API coverage: payments, mobile money, virtual cards, wallets",
     ],
-    color: "from-blue-500/20 to-blue-600/10",
+    color: "bg-[#003087]/10",
   },
   {
     language: "PHP",
@@ -103,7 +103,7 @@ const sdkData: SdkInfo[] = [
       "Auto-retry with exponential backoff on server errors",
       "Resource-based API: payments, virtual cards, mobile money, USSD",
     ],
-    color: "from-indigo-500/20 to-indigo-600/10",
+    color: "bg-[#003087]/10",
   },
 ];
 
@@ -196,12 +196,12 @@ export function SdkDocs() {
               transition={{ delay: index * 0.1 }}
             >
               <Card className="overflow-hidden hover:shadow-md transition-shadow">
-                <div className={`h-1 bg-gradient-to-r ${sdk.color}`} />
+                <div className={`h-1 ${sdk.color}`} />
                 <CardContent className="p-5">
                   <div className="flex flex-col md:flex-row md:items-start gap-4">
                     {/* Icon & Info */}
                     <div className="flex items-start gap-4 flex-1 min-w-0">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${sdk.color} flex items-center justify-center font-bold text-sm shrink-0 border border-border/40`}>
+                      <div className={`w-12 h-12 rounded-xl ${sdk.color} flex items-center justify-center font-bold text-sm shrink-0 border border-border/40`}>
                         {sdk.icon}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -270,7 +270,7 @@ export function SdkDocs() {
               {sdkData.map((sdk) => (
                 <div key={sdk.language} className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${sdk.color} flex items-center justify-center font-bold text-xs border border-border/40`}>
+                    <div className={`w-8 h-8 rounded-lg ${sdk.color} flex items-center justify-center font-bold text-xs border border-border/40`}>
                       {sdk.icon}
                     </div>
                     <div>
@@ -305,7 +305,7 @@ export function SdkDocs() {
                 {sdkData.map((sdk) => (
                   <div key={sdk.language} className="flex items-center justify-between p-4 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-accent/30 transition-all group">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${sdk.color} flex items-center justify-center font-bold text-xs border border-border/40`}>
+                      <div className={`w-10 h-10 rounded-lg ${sdk.color} flex items-center justify-center font-bold text-xs border border-border/40`}>
                         {sdk.icon}
                       </div>
                       <div>
@@ -329,7 +329,7 @@ export function SdkDocs() {
             <Card key={sdk.language}>
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${sdk.color} flex items-center justify-center font-bold text-xs border border-border/40`}>
+                  <div className={`w-8 h-8 rounded-lg ${sdk.color} flex items-center justify-center font-bold text-xs border border-border/40`}>
                     {sdk.icon}
                   </div>
                   <div>
@@ -354,7 +354,7 @@ export function SdkDocs() {
       </Tabs>
 
       {/* Footer CTA */}
-      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+      <Card className="bg-primary/5 border-primary/20">
         <CardContent className="p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h4 className="font-semibold mb-1">Need a different language?</h4>

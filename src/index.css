@@ -11,13 +11,13 @@
     --card-foreground: 220 20% 14%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 14%;
-    --primary: 210 100% 44%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 33 93% 54%;
+    --primary-foreground: 0 0% 0%;
     --secondary: 216 33% 97%;
     --secondary-foreground: 219 100% 26%;
     --muted: 216 33% 97%;
     --muted-foreground: 215 16% 43%;
-    --accent: 210 100% 96%;
+    --accent: 36 90% 95%;
     --accent-foreground: 219 100% 26%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
@@ -27,7 +27,7 @@
     --warning-foreground: 220 26% 14%;
     --border: 216 24% 90%;
     --input: 216 24% 90%;
-    --ring: 210 100% 44%;
+    --ring: 33 93% 54%;
     --radius: 0.75rem;
     --paypal-blue: 219 100% 26%;
     --paypal-blue-light: 210 100% 44%;
@@ -42,8 +42,8 @@
     --card-foreground: 210 40% 98%;
     --popover: 222 40% 14%;
     --popover-foreground: 210 40% 98%;
-    --primary: 210 100% 55%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 33 93% 54%;
+    --primary-foreground: 0 0% 0%;
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217 33% 17%;
@@ -58,7 +58,7 @@
     --warning-foreground: 222 47% 11%;
     --border: 217 33% 22%;
     --input: 217 33% 22%;
-    --ring: 210 100% 55%;
+    --ring: 33 93% 54%;
     --paypal-blue: 219 90% 34%;
     --paypal-blue-light: 210 100% 58%;
     --paypal-dark: 222 47% 11%;
@@ -73,6 +73,13 @@
     @apply bg-background text-foreground antialiased;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Design system: every heading on every page uses the Poppins display
+     face with tight tracking (PayPal-system discipline). Utilities on a
+     heading still override these base values. */
+  h1, h2, h3, h4 {
+    @apply font-display tracking-[-0.02em];
   }
 
   /* Global clickable element styles */
@@ -140,7 +147,7 @@
 
   .button-primary {
     @apply px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold
-           transition-all duration-200 hover:opacity-90 hover:shadow-md
+           transition-all duration-200 hover:bg-[#DE830A]
            active:scale-[0.98];
   }
 
@@ -169,10 +176,6 @@
 
   .feature-icon {
     @apply w-12 h-12 text-primary flex items-center justify-center rounded-2xl bg-primary/10 mb-4;
-  }
-
-  .paypal-gradient {
-    background: linear-gradient(135deg, hsl(var(--paypal-blue)) 0%, hsl(var(--paypal-blue-light)) 100%);
   }
 
   .animate-delay-1 { animation-delay: 0.1s; opacity: 0; animation-fill-mode: forwards; }

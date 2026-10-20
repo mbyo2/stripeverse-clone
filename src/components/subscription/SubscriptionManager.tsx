@@ -38,7 +38,7 @@ const SubscriptionManager = () => {
 
   const getTierIcon = (tier: string) => {
     switch (tier) {
-      case 'enterprise': return <Crown className="h-5 w-5 text-purple-500" />;
+      case 'enterprise': return <Crown className="h-5 w-5 text-[#003087]" />;
       case 'premium': return <Crown className="h-5 w-5 text-blue-500" />;
       case 'basic': return <Crown className="h-5 w-5 text-green-500" />;
       default: return <Crown className="h-5 w-5 text-muted-foreground" />;

@@ -22,7 +22,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-white text-foreground">
+    <div className="min-h-screen overflow-x-hidden bg-white dark:bg-background text-foreground">
       <Header />
       <main>
         <Hero isAuthenticated={false} />

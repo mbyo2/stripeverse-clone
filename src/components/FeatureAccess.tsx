@@ -63,18 +63,18 @@ export const RoleBadge = () => {
   const { roles, subscriptionTier } = useRoles();
   
   const getRoleColor = () => {
-    if (roles.includes("admin")) return "bg-purple-500";
-    if (roles.includes("business")) return "bg-blue-500";
-    if (roles.includes("beta_tester")) return "bg-amber-500";
-    return "bg-gray-500";
+    if (roles.includes("admin")) return "bg-[#003087] text-white";
+    if (roles.includes("business")) return "bg-primary text-black";
+    if (roles.includes("beta_tester")) return "bg-amber-500 text-black";
+    return "bg-gray-600 text-white";
   };
 
   const getTierColor = () => {
     switch (subscriptionTier) {
-      case "enterprise": return "bg-purple-500";
-      case "premium": return "bg-blue-500";
-      case "basic": return "bg-green-500";
-      default: return "bg-gray-500";
+      case "enterprise": return "bg-[#003087] text-white";
+      case "premium": return "bg-primary text-black";
+      case "basic": return "bg-green-500 text-black";
+      default: return "bg-gray-600 text-white";
     }
   };
 
@@ -99,7 +99,7 @@ export const RoleBadge = () => {
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className={`px-2 py-1 rounded-full text-white text-xs font-medium ${getRoleColor()}`}>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor()}`}>
               {getHighestRole()}
             </span>
           </TooltipTrigger>
@@ -112,7 +112,7 @@ export const RoleBadge = () => {
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className={`px-2 py-1 rounded-full text-white text-xs font-medium ${getTierColor()}`}>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTierColor()}`}>
               {getTierName()}
             </span>
           </TooltipTrigger>

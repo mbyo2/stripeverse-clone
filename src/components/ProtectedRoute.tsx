@@ -89,10 +89,10 @@ const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedR
           You need to upgrade your subscription to access this feature.
         </p>
         <div className="flex gap-4">
-          <a href="/pricing" className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/80">
+          <a href="/pricing" className="inline-flex items-center bg-primary text-primary-foreground font-semibold px-6 py-2.5 rounded-full hover:bg-[#DE830A] transition-colors">
             View Pricing
           </a>
-          <a href="/dashboard" className="border border-primary px-4 py-2 rounded hover:bg-primary/5">
+          <a href="/dashboard" className="inline-flex items-center bg-secondary text-secondary-foreground font-semibold px-6 py-2.5 rounded-full hover:bg-accent transition-colors">
             Back to Dashboard
           </a>
         </div>

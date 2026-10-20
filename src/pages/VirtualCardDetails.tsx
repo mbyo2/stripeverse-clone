@@ -370,9 +370,9 @@ const VirtualCardDetails = () => {
         
         {/* Card Preview */}
         <Card className={`mb-6 relative overflow-hidden ${
-          card.provider === 'visa' ? 'bg-gradient-to-r from-blue-800 to-blue-600' : 
-          card.provider === 'mastercard' ? 'bg-gradient-to-r from-red-800 to-orange-600' : 
-          'bg-gradient-to-r from-gray-800 to-gray-600'
+          card.provider === 'visa' ? 'bg-[#003087]' : 
+          card.provider === 'mastercard' ? 'bg-[#7A1E1E]' : 
+          'bg-[#44464A]'
         }`}>
           <CardContent className="p-6 text-white">
             <div className="absolute top-4 right-4">

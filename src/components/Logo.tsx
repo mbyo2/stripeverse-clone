@@ -1,5 +1,5 @@
 interface LogoProps {
-  /** color = navy + bright blue mark, navy wordmark. white/black/navy = one-colour versions. */
+  /** color = orange + navy mark, navy wordmark. white/black/navy = one-colour versions. */
   variant?: "color" | "white" | "black" | "navy";
   /** Render the "BMaGlass Pay" wordmark next to the mark. */
   withWordmark?: boolean;
@@ -9,7 +9,7 @@ interface LogoProps {
 }
 
 const MARK_COLORS = {
-  color: { upper: "#0070E0", lower: "#003087" },
+  color: { upper: "#F7931A", lower: "#003087" },
   white: { upper: "#FFFFFF", lower: "#FFFFFF" },
   black: { upper: "#000000", lower: "#000000" },
   navy: { upper: "#003087", lower: "#003087" },
@@ -24,8 +24,8 @@ const WORDMARK_COLORS = {
 
 /**
  * BMaGlass Pay logo. The mark is a geometric "B" built from two stacked
- * bowls sharing one stem and one arc radius (r=11 on a 64 grid): the bright
- * blue upper bowl overlaps the navy lower bowl. Flat only — no gradients,
+ * bowls sharing one stem and one arc radius (r=11 on a 64 grid): the Bitcoin
+ * orange upper bowl overlaps the navy lower bowl. Flat only — no gradients,
  * no shadows — so it survives in one colour, black, and white at 16px.
  */
 const Logo = ({
