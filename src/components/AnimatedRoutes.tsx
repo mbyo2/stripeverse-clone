@@ -41,6 +41,7 @@ import API from '@/pages/API';
 import Support from '@/pages/Support';
 import Rewards from '@/pages/Rewards';
 import BitcoinWallet from '@/pages/BitcoinWallet';
+import SelfCustodyWallet from '@/pages/SelfCustodyWallet';
 import PaymentProcessor from '@/pages/PaymentProcessor';
 import PaymentServices from '@/pages/PaymentServices';
 import PaymentSuccess from '@/pages/PaymentSuccess';
@@ -156,6 +157,7 @@ const AnimatedRoutes = () => {
         <Route path="/profile" element={<Navigate to="/settings" replace />} />
         <Route path="/wallet" element={<ProtectedPage><Wallet /></ProtectedPage>} />
         <Route path="/bitcoin-wallet" element={<ProtectedPage><BitcoinWallet /></ProtectedPage>} />
+        <Route path="/bitcoin-wallet/self-custody" element={<ProtectedPage><SelfCustodyWallet /></ProtectedPage>} />
         <Route path="/wallet/crypto" element={<ProtectedPage><CryptoWallet /></ProtectedPage>} />
         <Route path="/wallet-reconciliation" element={<ProtectedPage><WalletReconciliationPage /></ProtectedPage>} />
         <Route path="/transactions" element={<ProtectedPage><Transactions /></ProtectedPage>} />

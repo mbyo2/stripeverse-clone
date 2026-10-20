@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +13,7 @@ import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { formatBitcoinAmount, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight } from "lucide-react";
+import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound } from "lucide-react";
 
 const satsToBtc = (sats?: number) => (sats ? sats / 100_000_000 : 0);
 
@@ -399,7 +400,15 @@ export default function BitcoinWallet() {
 
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Balance</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Balance
+                <Badge variant="outline" className="border-blue-500 text-blue-600">CUSTODIAL ACCOUNT</Badge>
+              </CardTitle>
+              <CardDescription>
+                BMaGlass holds the keys for this account — access is recovered by signing in,
+                and you can buy/sell against your ZMW balance. Your self-custody wallet (below)
+                is separate: there, you hold the keys.
+              </CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
               <div>
@@ -457,6 +466,26 @@ export default function BitcoinWallet() {
           </Card>
 
           <TradePanel onDone={handleDone} />
+
+          <Card className="mb-6 border-amber-500/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" /> Your self-custody wallet
+                <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY</Badge>
+              </CardTitle>
+              <CardDescription>
+                Prefer to hold your own keys? A self-custody wallet lives only on your device,
+                protected by a seed phrase that only you have. BMaGlass cannot recover it —
+                losing the phrase means losing the funds. You can hold both wallets and move
+                Bitcoin between them with an ordinary send.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" onClick={() => navigate("/bitcoin-wallet/self-custody")}>
+                Open self-custody wallet
+              </Button>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
