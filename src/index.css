@@ -5,50 +5,50 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 26% 14%;
+    --background: 0 0% 100%;
+    --foreground: 220 20% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 220 26% 14%;
+    --card-foreground: 220 20% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 26% 14%;
-    --primary: 213 100% 36%;
+    --popover-foreground: 220 20% 14%;
+    --primary: 210 100% 44%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 220 26% 14%;
-    --muted: 210 40% 96%;
+    --secondary: 216 33% 97%;
+    --secondary-foreground: 219 100% 26%;
+    --muted: 216 33% 97%;
     --muted-foreground: 215 16% 43%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 220 26% 14%;
+    --accent: 210 100% 96%;
+    --accent-foreground: 219 100% 26%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --success: 152 69% 31%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 220 26% 14%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 213 100% 36%;
-    --radius: 0.5rem;
-    --paypal-blue: 213 100% 36%;
-    --paypal-blue-light: 207 90% 54%;
-    --paypal-dark: 220 26% 14%;
+    --border: 216 24% 90%;
+    --input: 216 24% 90%;
+    --ring: 210 100% 44%;
+    --radius: 0.75rem;
+    --paypal-blue: 219 100% 26%;
+    --paypal-blue-light: 210 100% 44%;
+    --paypal-dark: 219 100% 26%;
     --paypal-gold: 38 92% 50%;
   }
 
   .dark {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 15%;
+    --card: 222 40% 14%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 15%;
+    --popover: 222 40% 14%;
     --popover-foreground: 210 40% 98%;
-    --primary: 207 90% 42%;
+    --primary: 210 100% 55%;
     --primary-foreground: 0 0% 100%;
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
+    --accent: 217 33% 20%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 100%;
@@ -58,10 +58,10 @@
     --warning-foreground: 222 47% 11%;
     --border: 217 33% 22%;
     --input: 217 33% 22%;
-    --ring: 207 90% 54%;
-    --paypal-blue: 207 90% 54%;
-    --paypal-blue-light: 207 90% 64%;
-    --paypal-dark: 210 40% 98%;
+    --ring: 210 100% 55%;
+    --paypal-blue: 219 90% 34%;
+    --paypal-blue-light: 210 100% 58%;
+    --paypal-dark: 222 47% 11%;
     --paypal-gold: 38 92% 50%;
   }
 
@@ -117,23 +117,21 @@
   }
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
 @layer components {
   .section {
     @apply py-16 px-4 sm:px-6 md:px-8 lg:px-10 max-w-7xl mx-auto;
   }
 
   .heading-1 {
-    @apply text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight;
+    @apply text-4xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight tracking-[-0.02em] leading-tight;
   }
 
   .heading-2 {
-    @apply text-3xl md:text-4xl font-bold tracking-tight;
+    @apply text-3xl md:text-4xl font-display font-bold tracking-tight tracking-[-0.02em];
   }
 
   .heading-3 {
-    @apply text-2xl md:text-3xl font-semibold;
+    @apply text-2xl md:text-3xl font-display font-semibold;
   }
 
   .body-text {
@@ -170,7 +168,7 @@
   }
 
   .feature-icon {
-    @apply w-12 h-12 text-primary flex items-center justify-center rounded-xl bg-primary/10 mb-4;
+    @apply w-12 h-12 text-primary flex items-center justify-center rounded-2xl bg-primary/10 mb-4;
   }
 
   .paypal-gradient {

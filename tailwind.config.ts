@@ -69,6 +69,7 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        display: ["Poppins", "Inter", "system-ui", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -128,7 +129,7 @@ export default {
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "shimmer-gradient": "linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0) 100%)",
-        "hero-pattern": "linear-gradient(135deg, hsl(213 100% 36% / 0.05), hsl(207 90% 54% / 0.08))",
+        "hero-pattern": "linear-gradient(135deg, hsl(219 100% 26% / 0.05), hsl(210 100% 44% / 0.08))",
       },
     },
   },
