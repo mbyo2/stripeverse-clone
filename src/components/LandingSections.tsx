@@ -11,7 +11,7 @@ import { FadeIn } from '@/components/animations';
 
 const DISPLAY = "font-display font-extrabold text-black tracking-[-0.025em] leading-[1.1] text-[32px] md:text-[44px] lg:text-[52px]";
 const BODY = "text-[17px] leading-[1.55] text-[#44464A]";
-const TEXT_LINK = "inline-flex items-center gap-1.5 font-semibold text-[#0066F5] hover:underline underline-offset-4";
+const TEXT_LINK = "inline-flex items-center gap-1.5 font-semibold text-[#003087] hover:underline underline-offset-4";
 
 interface SplitProps {
   image: string;
@@ -149,10 +149,10 @@ export const SecurityBand = () => {
   );
 };
 
-/** Light-blue closing band: centred headline + one black pill. */
+/** Light cream closing band: centred headline + one orange pill. */
 export const FinalCta = () => {
   return (
-    <section className="bg-[#D8EFFF]">
+    <section className="bg-[#FEF3E2]">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-16 md:py-24 text-center">
         <FadeIn duration={0.6} distance={20}>
           <h2 className="font-display font-extrabold text-black tracking-[-0.025em] leading-[1.1] text-[32px] md:text-[44px] lg:text-[52px] mb-5">
@@ -163,7 +163,7 @@ export const FinalCta = () => {
           </p>
           <Link
             to="/register"
-            className="inline-flex items-center h-12 rounded-full bg-black px-[30px] text-[15px] font-semibold text-white hover:bg-black/85 transition-colors"
+            className="inline-flex items-center h-12 rounded-full bg-[#F7931A] px-[30px] text-[15px] font-semibold text-black hover:bg-[#DE830A] transition-colors"
           >
             Sign Up
           </Link>
