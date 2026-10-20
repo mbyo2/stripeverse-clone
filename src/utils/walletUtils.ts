@@ -3,11 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 
 export const ensureWalletExists = async (userId: string) => {
   try {
-    // Check if wallet exists
+    // Fetch the primary (ZMW) wallet. A user can hold several wallets
+    // (one per currency), so an unscoped maybeSingle() errors with
+    // "multiple rows returned" the moment a second wallet exists —
+    // that error is what left the Wallet page stuck on skeletons.
     const { data: existingWallet, error: checkError } = await supabase
       .from('wallets')
       .select('*')
       .eq('user_id', userId)
+      .eq('currency', 'ZMW')
       .maybeSingle();
 
     if (checkError) {
@@ -81,6 +85,7 @@ export const getWalletByUserId = async (userId: string) => {
       .from('wallets')
       .select('*')
       .eq('user_id', userId)
+      .eq('currency', 'ZMW')
       .maybeSingle();
 
     if (error) {
