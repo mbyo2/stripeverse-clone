@@ -20,7 +20,7 @@ const MobileBottomNav = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border md:hidden safe-area-inset-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border md:hidden safe-area-inset-bottom">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
@@ -36,7 +36,7 @@ const MobileBottomNav = () => {
               )}
             >
               <item.icon className={cn('h-5 w-5', isActive && 'text-primary')} />
-              <span className={cn('text-xs mt-1', isActive && 'font-medium')}>
+              <span className={cn('text-xs mt-1', isActive && 'font-semibold')}>
                 {item.label}
               </span>
             </Link>

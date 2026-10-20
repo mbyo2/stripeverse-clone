@@ -112,7 +112,7 @@ const Header = () => {
 
   return (
     <>
-    <header className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border shadow-subtle">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-b border-border">
       <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-8">
@@ -120,7 +120,7 @@ const Header = () => {
             <div className="w-8 h-8 rounded-lg paypal-gradient flex items-center justify-center">
               <CreditCard className="h-4 w-4 text-white" />
             </div>
-            <span className="text-lg font-bold text-foreground">BMaGlass<span className="text-primary">Pay</span></span>
+            <span className="text-lg font-bold text-paypal-dark">BMaGlass<span className="text-primary">Pay</span></span>
           </Link>
           
           {/* Desktop Nav */}
@@ -453,7 +453,7 @@ const Header = () => {
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
               <Separator orientation="vertical" className="h-6" />
-              <Link to="/login"><Button variant="ghost" size="sm" className="text-sm h-9">Log In</Button></Link>
+              <Link to="/login"><Button variant="ghost" size="sm" className="text-sm h-9 text-paypal-dark font-semibold">Log In</Button></Link>
               <Link to="/register"><Button size="sm" className="text-sm h-9 rounded-full px-5">Sign Up Free</Button></Link>
             </div>
           )}
@@ -474,7 +474,7 @@ const Header = () => {
                   <div className="w-7 h-7 rounded-lg paypal-gradient flex items-center justify-center">
                     <CreditCard className="h-3.5 w-3.5 text-white" />
                   </div>
-                  BMaGlass<span className="text-primary">Pay</span>
+                  <span className="text-lg font-bold text-paypal-dark">BMaGlass<span className="text-primary">Pay</span></span>
                 </SheetTitle>
               </SheetHeader>
               
@@ -587,7 +587,7 @@ const Header = () => {
                     <Separator className="my-4" />
                     <div className="px-4 space-y-3">
                       <Link to="/login" onClick={closeMobileMenu}>
-                        <Button variant="outline" className="w-full gap-2">
+                        <Button variant="outline" className="w-full gap-2 rounded-full">
                           <LogIn className="h-4 w-4" /> Log In
                         </Button>
                       </Link>
