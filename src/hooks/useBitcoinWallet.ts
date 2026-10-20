@@ -38,7 +38,7 @@ export const useBitcoinWallet = () => {
       if (!user) return [] as any[];
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, created_at, amount, status, transaction_id, metadata")
+        .select("id, created_at, amount, status, transaction_id, metadata, description, direction, category")
         .eq("user_id", user.id)
         .eq("currency", "BTC")
         .order("created_at", { ascending: false })

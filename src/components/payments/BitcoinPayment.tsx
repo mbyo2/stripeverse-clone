@@ -33,7 +33,7 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
       setIsLoading(true);
 
       try {
-        // Use the real btc-onchain function (not the btc-payment placeholder).
+        // Use the real btc-onchain function (not the legacy btc-payment one).
         // Generates a fresh address from BTC_XPUB for this checkout.
         const { data, error } = await supabase.functions.invoke('btc-onchain', {
           body: { action: 'receive' }
@@ -53,14 +53,19 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         setInvoiceId(data.record?.id || `btc-${Date.now()}`);
         setTimeRemaining(900); // 15 min invoice window
 
-        // Lightning invoice via Breez (amount converted to sats)
-        // Note: amount is in ZMW; this is a placeholder conversion.
-        // TODO: fetch live BTC/ZMW rate from fetch-exchange-rates
+        // Lightning invoice via Breez. The amount is in ZMW; convert at
+        // the real BTC/ZMW rate via btc-trade's quote (the same price
+        // path the wallet's Buy flow uses — no fixed-rate conversions).
         try {
-          const { data: lnData } = await supabase.functions.invoke('breez-lightning', {
-            body: { action: 'create_invoice', amount_sats: Math.max(1000, Math.floor(amount * 100)) }
+          const { data: quote } = await supabase.functions.invoke('btc-trade', {
+            body: { action: 'quote', side: 'buy', amount_zmw: amount }
           });
-          if (lnData?.bolt11) setLightningInvoice(lnData.bolt11);
+          if (quote?.amount_sats) {
+            const { data: lnData } = await supabase.functions.invoke('breez-lightning', {
+              body: { action: 'create_invoice', amount_sats: quote.amount_sats }
+            });
+            if (lnData?.bolt11) setLightningInvoice(lnData.bolt11);
+          }
         } catch {
           // Lightning optional — on-chain still works
         }
