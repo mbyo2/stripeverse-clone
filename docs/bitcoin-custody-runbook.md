@@ -276,5 +276,32 @@ Print this section. Every item here has lost real platforms real money.
 11. **Never put BMaGlass Pay's Bitcoin secrets on the wrong project.** `BTC_XPUB`, `BTC_SEED_MNEMONIC`, and `BREEZ_API_KEY` belong to project **paymentgetway** only.
 12. **Never skip the drills** — the address match (Section 3), the test withdrawal (Section 4), and the quarterly backup drill (Section 10) are the only evidence that recovery and spending work before real user money depends on them.
 
+## 12. The Self-Custody Wallet (User-Held Keys)
+
+Alongside the custodial account, the app offers a **self-custody wallet**
+that runs entirely in the user's browser:
+
+- The seed phrase is generated on the user's device, encrypted there with a
+  wallet password (PBKDF2 + AES-256-GCM) into an on-device vault, and is
+  **never transmitted to any server** — not to Supabase, not to BMaGlass,
+  not anywhere. Balances are read from the public blockchain; sends are
+  signed on the device.
+- **There is NO recovery for self-custody funds.** If a user loses their
+  seed phrase, the funds are gone. Support must NEVER ask a user for their
+  seed phrase or wallet password — anyone who asks is scamming them. The
+  only legitimate advice: restore by importing the phrase on the wallet
+  page; if the device password is forgotten, remove the device vault and
+  import the phrase again.
+- The two wallets are labelled everywhere in the UI (CUSTODIAL vs
+  SELF-CUSTODY) and are fully independent; moving funds between them is an
+  ordinary on-chain send.
+- **Self-custody Lightning** uses the Breez SDK on the Liquid network,
+  in-browser, under the user's own seed. It activates only when the
+  deployment is built with a **dedicated client-scoped Breez API key**
+  (`VITE_BREEZ_LIQUID_API_KEY`). NEVER put the platform's server-side
+  `BREEZ_API_KEY` into the web bundle — that key also controls the
+  custodial Lightning integration. Until a separate client key is
+  provisioned, the self-custody wallet is on-chain only and the UI says so.
+
 ---
 *End of runbook. This file is safe to keep in the repo because it contains no secrets. Keep the secrets out of the repo, always.*
