@@ -56,10 +56,6 @@ const PaymentServices = () => {
                 <Shield className="h-5 w-5 text-primary mr-2" />
                 <span className="font-medium">PCI DSS Compliant</span>
               </div>
-              <div className="flex items-center bg-primary/10 px-4 py-2 rounded-full">
-                <Shield className="h-5 w-5 text-primary mr-2" />
-                <span className="font-medium">Bank of Zambia Approved</span>
-              </div>
             </div>
             
             {/* Payment Services Tabs */}

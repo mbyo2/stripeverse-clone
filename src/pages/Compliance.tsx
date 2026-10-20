@@ -276,7 +276,7 @@ const Compliance = () => {
                         <ul className="space-y-3">
                           <li className="flex items-start">
                             <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                            <span>Licensed and regulated by the Bank of Zambia</span>
+                            <span>Bank of Zambia authorisation in progress — approval pending</span>
                           </li>
                           <li className="flex items-start">
                             <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
@@ -293,10 +293,6 @@ const Compliance = () => {
                           <li className="flex items-start">
                             <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
                             <span>Regular compliance audits and reporting</span>
-                          </li>
-                          <li className="flex items-start">
-                            <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                            <span>Full Bank of Zambia certification (License #BOZ/PSP/2023/42)</span>
                           </li>
                         </ul>
                       </div>
@@ -401,31 +397,31 @@ const Compliance = () => {
                     </div>
                     
                     <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
-                      <h2 className="text-xl font-semibold mb-6">Bank of Zambia Approval</h2>
-                      
+                      <h2 className="text-xl font-semibold mb-6">Regulatory Status</h2>
+
                       <p className="mb-6">
-                        BMaGlass Pay is fully licensed and regulated by the Bank of Zambia under the National Payment Systems Act. Our operations comply with all relevant regulations and directives issued by the Bank of Zambia for payment service providers.
+                        BMaGlass Pay's authorisation by the Bank of Zambia is currently pending. We are in the approval process to operate as a payment service provider under the National Payment Systems Act, and we are building our operations to comply with the regulations and directives the Bank of Zambia issues for payment service providers.
                       </p>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="bg-secondary/10 rounded-lg p-6">
-                          <h3 className="font-medium mb-3">Licensing Requirements</h3>
+                          <h3 className="font-medium mb-3">Authorisation Process</h3>
                           <p className="text-foreground/70">
-                            We meet all requirements for payment service providers in Zambia, including capital requirements, governance structures, and operational capabilities.
+                            We are working through the Bank of Zambia's authorisation process, building our capital, governance structures, and operational capabilities to meet its requirements for payment service providers.
                           </p>
                         </div>
-                        
+
                         <div className="bg-secondary/10 rounded-lg p-6">
-                          <h3 className="font-medium mb-3">Regulatory Reporting</h3>
+                          <h3 className="font-medium mb-3">Reporting Readiness</h3>
                           <p className="text-foreground/70">
-                            We submit regular reports to the Bank of Zambia on transaction volumes, suspicious activities, and other regulatory requirements.
+                            We keep full transaction records and operate AML monitoring so that we can meet regulatory reporting requirements — including reporting on transaction volumes and suspicious activities — as our authorisation progresses.
                           </p>
                         </div>
-                        
+
                         <div className="bg-secondary/10 rounded-lg p-6">
                           <h3 className="font-medium mb-3">Consumer Protection</h3>
                           <p className="text-foreground/70">
-                            We adhere to all consumer protection guidelines issued by the Bank of Zambia, ensuring transparent and fair services for all users.
+                            We build our services around the Bank of Zambia's consumer protection guidelines, ensuring transparent and fair services for all users.
                           </p>
                         </div>
                       </div>
@@ -514,7 +510,7 @@ const Compliance = () => {
               </div>
               
               <p className="text-center text-lg mb-8">
-                BMaGlass Pay is committed to maintaining the highest standards of compliance and security in all our operations. As a Bank of Zambia approved payment service provider, we adhere to all relevant financial regulations and industry best practices.
+                BMaGlass Pay is committed to maintaining the highest standards of compliance and security in all our operations. While our Bank of Zambia authorisation is in progress, we adhere to all relevant financial regulations and industry best practices.
               </p>
             </div>
             

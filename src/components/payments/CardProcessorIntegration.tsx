@@ -69,8 +69,8 @@ const CardProcessorIntegration: React.FC<CardProcessorIntegrationProps> = ({ onC
   };
 
   const providerInfo = {
-    name: 'Mastercard Send API',
-    description: 'Official Mastercard payment processing for Zambia',
+    name: 'Mastercard Send API (Developer Sandbox)',
+    description: 'Mastercard integration via the Developer Sandbox for testing — not production processing',
     icon: <CreditCard className="h-5 w-5 text-red-600" />,
     docs: 'https://developer.mastercard.com/send'
   };

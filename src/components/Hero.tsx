@@ -66,7 +66,6 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
                 {[
                   'No setup fees or monthly charges',
                   'Accept Mobile Money, Cards & USSD',
-                  'Bank of Zambia Approved',
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                     <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />

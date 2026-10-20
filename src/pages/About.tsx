@@ -87,12 +87,11 @@ const About = () => {
         <section className="mb-12">
           <h2 className="text-2xl font-semibold mb-4">Regulatory Compliance</h2>
           <p className="text-muted-foreground mb-6">
-            BMaGlass Pay is fully licensed and complies with all relevant financial regulations in Zambia.
+            BMaGlass Pay is in the process of obtaining authorisation from the Bank of Zambia and builds its operations to comply with Zambian financial regulations.
           </p>
           <div className="flex flex-wrap gap-3">
             {[
               { icon: Shield, label: "PCI DSS Compliant" },
-              { icon: Building2, label: "Bank of Zambia Approved" },
               { icon: Award, label: "AML/KYC Compliant" },
             ].map((badge) => (
               <div key={badge.label} className="flex items-center gap-2 px-4 py-2 rounded-lg border bg-card">
