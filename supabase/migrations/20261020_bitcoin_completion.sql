@@ -41,8 +41,8 @@ CREATE TABLE IF NOT EXISTS public.btc_address_assignments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE SEQUENCE IF NOT EXISTS public.btc_derivation_index_seq START WITH 0;
-CREATE SEQUENCE IF NOT EXISTS public.btc_change_index_seq START WITH 0;
+CREATE SEQUENCE IF NOT EXISTS public.btc_derivation_index_seq MINVALUE 0 START WITH 0;
+CREATE SEQUENCE IF NOT EXISTS public.btc_change_index_seq MINVALUE 0 START WITH 0;
 
 ALTER TABLE public.btc_address_assignments ENABLE ROW LEVEL SECURITY;
 
