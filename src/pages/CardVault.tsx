@@ -47,11 +47,11 @@ const CardVault = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl mt-14">
+      <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 pt-24 pb-16">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2"><Shield className="h-6 w-6" />Card Vault</h1>
-            <p className="text-muted-foreground">Tokenised card storage — raw numbers never kept</p>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">Card Vault</h1>
+            <p className="text-sm text-muted-foreground mt-1">Tokenised card storage — raw numbers never kept</p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -102,7 +102,9 @@ const CardVault = () => {
         ) : tokens.length === 0 ? (
           <Card>
             <CardContent className="pt-6 text-center py-12">
-              <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                <CreditCard className="h-6 w-6 text-muted-foreground" />
+              </div>
               <h3 className="font-medium mb-2">No Saved Cards</h3>
               <p className="text-muted-foreground text-sm mb-4">Add a card to securely store it as a token for faster payments.</p>
               <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-2" />Add Your First Card</Button>

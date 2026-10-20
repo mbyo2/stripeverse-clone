@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
-import { TrendingUp, Activity, CreditCard, DollarSign, ArrowLeft, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { TrendingUp, Activity, CreditCard, DollarSign, ArrowLeft, ArrowUpRight, ArrowDownRight, ChevronRight } from "lucide-react";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Button } from "@/components/ui/button";
@@ -21,14 +21,12 @@ const BusinessDashboard = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full space-y-6">
+        <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full space-y-6">
           <Skeleton className="h-10 w-64" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
-          </div>
+          <Skeleton className="h-40 rounded-[24px]" />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Skeleton className="h-80 rounded-xl" />
-            <Skeleton className="h-80 rounded-xl" />
+            <Skeleton className="h-80 rounded-[24px]" />
+            <Skeleton className="h-80 rounded-[24px]" />
           </div>
         </main>
       </div>
@@ -69,7 +67,7 @@ const BusinessDashboard = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         {/* Header */}
         <motion.div 
           className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
@@ -79,7 +77,7 @@ const BusinessDashboard = () => {
         >
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-3xl font-bold text-foreground">Analytics Dashboard</h1>
+              <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Analytics Dashboard</h1>
               {merchantAccount?.status && (
                 <Badge variant={merchantAccount.status === 'active' ? 'default' : 'secondary'} className="text-xs">
                   {merchantAccount.status}
@@ -96,25 +94,41 @@ const BusinessDashboard = () => {
           </Button>
         </motion.div>
 
-        {/* Stat Cards */}
-        <motion.div 
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+        {/* Summary + Metrics */}
+        <motion.div
+          className="space-y-6 mb-8"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
         >
-          {statCards.map((stat) => (
-            <Card key={stat.title} className={`${stat.color} text-white border-0 overflow-hidden relative`}>
-              <CardContent className="p-5 relative z-10">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-medium text-white/80">{stat.title}</p>
-                  <stat.icon className="h-5 w-5 text-white/70" />
-                </div>
-                <p className="text-2xl font-bold">{stat.value}</p>
-                <p className="text-xs text-white/60 mt-1">{stat.description}</p>
-              </CardContent>
-            </Card>
-          ))}
+          <Card>
+            <CardContent className="p-6 md:p-8">
+              <p className="text-sm font-medium text-muted-foreground">{statCards[0].title}</p>
+              <p className="text-4xl md:text-[44px] leading-tight font-display font-semibold mt-2">{statCards[0].value}</p>
+              <p className="text-sm text-muted-foreground mt-1">{statCards[0].description}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="px-6 py-2">
+              <div className="divide-y divide-border">
+                {statCards.slice(1).map((stat) => (
+                  <div key={stat.title} className="flex items-center justify-between py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <stat.icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-[15px] font-medium">{stat.title}</p>
+                        <p className="text-[13px] text-muted-foreground">{stat.description}</p>
+                      </div>
+                    </div>
+                    <p className="text-lg font-semibold tabular-nums">{stat.value}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
 
         {/* Charts */}
@@ -126,7 +140,7 @@ const BusinessDashboard = () => {
         >
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <ArrowUpRight className="h-5 w-5 text-primary" />
                 Revenue by Month
               </CardTitle>
@@ -174,7 +188,7 @@ const BusinessDashboard = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <CreditCard className="h-5 w-5 text-primary" />
                 Payment Methods
               </CardTitle>
@@ -220,33 +234,37 @@ const BusinessDashboard = () => {
         </motion.div>
 
         {/* Quick Links */}
-        <motion.div 
-          className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+        <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.3 }}
         >
-          {[
-            { label: 'Business Settings', desc: 'Profile, banking & compliance', icon: Activity, href: '/business' },
-            { label: 'Payment Processor', desc: 'Configure payment integrations', icon: CreditCard, href: '/payment-processor' },
-            { label: 'Compliance Center', desc: 'Regulatory requirements', icon: TrendingUp, href: '/compliance' },
-          ].map((link) => (
-            <Card 
-              key={link.label} 
-              className="cursor-pointer hover:shadow-md transition-all duration-200 hover:border-primary/30"
-              onClick={() => navigate(link.href)}
-            >
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <link.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">{link.label}</p>
-                  <p className="text-sm text-muted-foreground truncate">{link.desc}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <Card>
+            <CardContent className="px-6 py-2">
+              <div className="divide-y divide-border">
+                {[
+                  { label: 'Business Settings', desc: 'Profile, banking & compliance', icon: Activity, href: '/business' },
+                  { label: 'Payment Processor', desc: 'Configure payment integrations', icon: CreditCard, href: '/payment-processor' },
+                  { label: 'Compliance Center', desc: 'Regulatory requirements', icon: TrendingUp, href: '/compliance' },
+                ].map((link) => (
+                  <div
+                    key={link.label}
+                    className="flex items-center gap-4 py-4 cursor-pointer"
+                    onClick={() => navigate(link.href)}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <link.icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground truncate">{link.label}</p>
+                      <p className="text-sm text-muted-foreground truncate">{link.desc}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
       </main>
       <Footer />
