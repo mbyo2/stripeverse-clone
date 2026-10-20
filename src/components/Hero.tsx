@@ -13,10 +13,10 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
   if (isAuthenticated) return null;
 
   return (
-    <section className="bg-[#FEF3E2]">
+    <section className="bg-[#FEF3E2] dark:bg-background">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 pt-32 md:pt-40 pb-16 md:pb-24 text-center">
         <FadeIn delay={0.1} duration={0.6} distance={16}>
-          <h1 className="font-display font-extrabold text-black tracking-[-0.03em] leading-[1.05] text-[42px] sm:text-[58px] lg:text-[76px] max-w-4xl mx-auto">
+          <h1 className="font-display font-extrabold text-black dark:text-white tracking-[-0.03em] leading-[1.05] text-[42px] sm:text-[58px] lg:text-[76px] max-w-4xl mx-auto">
             The easy way to pay and get paid in Zambia
           </h1>
         </FadeIn>

@@ -174,7 +174,7 @@ const BankTransfers = () => {
                 <div className="grid grid-cols-3 gap-4 p-4 rounded-lg bg-muted/50">
                   <div><p className="text-xs text-muted-foreground">Processing Time</p><p className="font-semibold">2-5 days</p></div>
                   <div><p className="text-xs text-muted-foreground">Transfer Fee</p><p className="font-semibold">K150 + 1.5%</p></div>
-                  <div><p className="text-xs text-muted-foreground">Supported</p><p className="font-semibold">180+ countries</p></div>
+                  <div><p className="text-xs text-muted-foreground">Supported</p><p className="font-semibold">Zambia</p></div>
                 </div>
                 <Button onClick={() => setTransferOpen(true)} className="w-full">Initiate International Transfer</Button>
               </CardContent>

@@ -174,13 +174,13 @@ const CollectPayments = () => {
               </div>
               <div className="p-4 rounded-lg bg-muted/50 text-center">
                 <Zap className="h-8 w-8 mx-auto mb-2 text-primary" />
-                <p className="font-semibold text-sm">99.99% Uptime</p>
-                <p className="text-xs text-muted-foreground">High availability</p>
+                <p className="font-semibold text-sm">Fraud Monitoring</p>
+                <p className="text-xs text-muted-foreground">Every transaction screened</p>
               </div>
               <div className="p-4 rounded-lg bg-muted/50 text-center">
                 <Globe className="h-8 w-8 mx-auto mb-2 text-primary" />
-                <p className="font-semibold text-sm">180+ Countries</p>
-                <p className="text-xs text-muted-foreground">Global coverage</p>
+                <p className="font-semibold text-sm">Built for Zambia</p>
+                <p className="text-xs text-muted-foreground">Kwacha-first payments</p>
               </div>
               <div className="p-4 rounded-lg bg-muted/50 text-center">
                 <BarChart3 className="h-8 w-8 mx-auto mb-2 text-primary" />

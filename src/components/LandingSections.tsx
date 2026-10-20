@@ -11,7 +11,7 @@ import { FadeIn } from '@/components/animations';
 
 const DISPLAY = "font-display font-extrabold text-black dark:text-white tracking-[-0.025em] leading-[1.1] text-[32px] md:text-[44px] lg:text-[52px]";
 const BODY = "text-[17px] leading-[1.55] text-[#44464A] dark:text-white/70";
-const TEXT_LINK = "inline-flex items-center gap-1.5 font-semibold text-[#003087] hover:underline underline-offset-4";
+const TEXT_LINK = "inline-flex items-center gap-1.5 font-semibold text-[#003087] dark:text-[#F7931A] hover:underline underline-offset-4";
 
 interface SplitProps {
   image: string;
@@ -152,13 +152,13 @@ export const SecurityBand = () => {
 /** Light cream closing band: centred headline + one orange pill. */
 export const FinalCta = () => {
   return (
-    <section className="bg-[#FEF3E2]">
+    <section className="bg-[#FEF3E2] dark:bg-background">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-16 md:py-24 text-center">
         <FadeIn duration={0.6} distance={20}>
-          <h2 className="font-display font-extrabold text-black tracking-[-0.025em] leading-[1.1] text-[32px] md:text-[44px] lg:text-[52px] mb-5">
+          <h2 className="font-display font-extrabold text-black dark:text-white tracking-[-0.025em] leading-[1.1] text-[32px] md:text-[44px] lg:text-[52px] mb-5">
             Start getting paid today
           </h2>
-          <p className="text-[17px] leading-[1.55] text-[#44464A] mb-9">
+          <p className="text-[17px] leading-[1.55] text-[#44464A] dark:text-white/70 mb-9">
             Create your free account in minutes. No setup fees or monthly charges.
           </p>
           <Link

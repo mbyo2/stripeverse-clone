@@ -206,32 +206,6 @@ const Developers = () => {
           </div>
         </section>
 
-        {/* Stats bar */}
-        <section className="border-b border-border/50 bg-background">
-          <div className="px-4 max-w-7xl mx-auto py-4">
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 md:gap-6">
-              {[
-                { label: "API Uptime", value: "99.99%", icon: Shield },
-                { label: "Avg Response", value: "89ms", icon: Clock },
-                { label: "SDKs", value: "7 Languages", icon: Package },
-                { label: "Plugins", value: "10+ Platforms", icon: Plug },
-                { label: "API Endpoints", value: "45+", icon: Terminal },
-                { label: "Webhook Events", value: "20+", icon: Webhook },
-              ].map((stat) => (
-                <div key={stat.label} className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-muted">
-                    <stat.icon className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* Main Content with Sidebar */}
         <section className="px-4 max-w-7xl mx-auto py-8">
           <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8">
