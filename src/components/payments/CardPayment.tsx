@@ -147,7 +147,7 @@ const CardPayment = ({ amount, onSuccess, onCancel }: CardPaymentProps) => {
         </div>
         <div className="flex items-center bg-primary/10 px-2 py-1 rounded text-xs">
           <Shield className="h-3 w-3 text-primary mr-1" />
-          <span>PCI DSS Secure</span>
+          <span>Card data encrypted</span>
         </div>
       </div>
       

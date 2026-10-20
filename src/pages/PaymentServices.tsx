@@ -54,7 +54,7 @@ const PaymentServices = () => {
             <div className="flex flex-wrap justify-center gap-6 mb-12">
               <div className="flex items-center bg-primary/10 px-4 py-2 rounded-full">
                 <Shield className="h-5 w-5 text-primary mr-2" />
-                <span className="font-medium">PCI DSS Compliant</span>
+                <span className="font-medium">Encrypted & Tokenised</span>
               </div>
             </div>
             
@@ -156,7 +156,7 @@ const PaymentServices = () => {
                       <div>
                         <h3 className="text-lg font-medium mb-2">Features</h3>
                         <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                          <li>PCI DSS compliant card processing</li>
+                          <li>Tokenised card processing</li>
                           <li>Support for major card networks</li>
                           <li>3D Secure authentication</li>
                           <li>Tokenization for repeat payments</li>
@@ -192,7 +192,7 @@ const PaymentServices = () => {
                         
                         <div className="mt-4">
                           <p className="text-sm text-muted-foreground">
-                            All card data is securely processed according to PCI DSS standards.
+                            All card data is encrypted in transit and stored as tokens.
                             Your customers' card information never touches your servers.
                           </p>
                         </div>

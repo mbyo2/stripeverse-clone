@@ -16,9 +16,9 @@ const Faq = () => {
     {
       title: "General",
       faqs: [
-        { question: "What is BMaGlass Pay?", answer: "BMaGlass Pay is a comprehensive payment solution enabling businesses and individuals to send, receive, and manage payments securely. We're PCI DSS compliant, offering mobile money, card processing, USSD payments, virtual cards, and Bitcoin." },
+        { question: "What is BMaGlass Pay?", answer: "BMaGlass Pay is a comprehensive payment solution enabling businesses and individuals to send, receive, and manage payments securely. We offer mobile money, card processing, USSD payments, virtual cards, and Bitcoin." },
         { question: "How do I create an account?", answer: "Click 'Sign Up' on the homepage. Enter your name, email, and phone number. Verify your email, then complete KYC verification to unlock all features." },
-        { question: "Is my money safe with BMaGlass Pay?", answer: "Yes. We use AES-256 encryption, PCI DSS compliance, two-factor authentication, and 24/7 fraud monitoring." },
+        { question: "Is my money safe with BMaGlass Pay?", answer: "Yes. We use AES-256 encryption, tokenised card storage, two-factor authentication, and fraud monitoring." },
         { question: "What are the transaction fees?", answer: "Mobile Money: 1-2%, Card payments: 2.5-3%, USSD: 1.5%, Bank transfers: K5 flat fee. Volume discounts available for Business accounts. See our Pricing page for details." },
       ]
     },

@@ -35,7 +35,7 @@ const CollectPayments = () => {
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">Accept debit and credit card payments online. Supports 3D Secure authentication.</p>
               <div className="flex gap-2 mb-4">
-                <Badge variant="outline">PCI Compliant</Badge>
+                <Badge variant="outline">Tokenised</Badge>
                 <Badge variant="outline">3D Secure</Badge>
               </div>
               <div className="p-3 rounded-lg bg-muted/50 text-sm">
@@ -169,7 +169,7 @@ const CollectPayments = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 rounded-lg bg-muted/50 text-center">
                 <ShieldCheck className="h-8 w-8 mx-auto mb-2 text-primary" />
-                <p className="font-semibold text-sm">PCI DSS Level 1</p>
+                <p className="font-semibold text-sm">Tokenised Card Data</p>
                 <p className="text-xs text-muted-foreground">Card data security</p>
               </div>
               <div className="p-4 rounded-lg bg-muted/50 text-center">

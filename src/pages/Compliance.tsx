@@ -302,7 +302,7 @@ const Compliance = () => {
                         <ul className="space-y-3">
                           <li className="flex items-start">
                             <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                            <span>PCI DSS Level 1 compliant (Payment Card Industry Data Security Standard)</span>
+                            <span>Card data encrypted in transit and stored only as tokens — raw card numbers are never kept on our servers</span>
                           </li>
                           <li className="flex items-start">
                             <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
@@ -322,7 +322,7 @@ const Compliance = () => {
                           </li>
                           <li className="flex items-start">
                             <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                            <span>SOC 2 Type II audited data centers</span>
+                            <span>Role-based access controls and audit logging on platform data</span>
                           </li>
                         </ul>
                       </div>
@@ -331,7 +331,7 @@ const Compliance = () => {
                     <div className="bg-card rounded-lg shadow-sm p-8 mb-8 mt-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6 flex items-center">
                         <CreditCard className="h-5 w-5 mr-2 text-primary" />
-                        PCI DSS Compliance
+                        PCI DSS & Card Data
                       </h2>
                       
                       <p className="mb-6">
@@ -340,16 +340,16 @@ const Compliance = () => {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div className="bg-secondary/10 rounded-lg p-6">
-                          <h3 className="font-medium mb-3">What PCI DSS Level 1 Means</h3>
+                          <h3 className="font-medium mb-3">How BMaGlass Pay Handles Card Data</h3>
                           <p className="text-foreground/70 mb-3">
-                            As a Level 1 PCI DSS certified service provider, BMaGlass Pay meets the highest level of security requirements, including:
+                            BMaGlass Pay is not itself a PCI DSS-certified processor. We handle card data with PCI DSS-aligned controls:
                           </p>
                           <ul className="space-y-2 pl-5 list-disc text-foreground/70">
-                            <li>Annual on-site security assessments by a Qualified Security Assessor (QSA)</li>
-                            <li>Quarterly network scans by an Approved Scanning Vendor (ASV)</li>
-                            <li>Penetration testing and internal vulnerability assessments</li>
-                            <li>Maintaining a secure network and systems</li>
-                            <li>Protecting cardholder data with encryption and tokenization</li>
+                            <li>Card numbers encrypted in transit on every transaction</li>
+                            <li>Cards stored as tokens — raw card numbers are never stored in our database</li>
+                            <li>CVV security codes are never stored</li>
+                            <li>Two-factor authentication and role-based access on accounts</li>
+                            <li>Transactions monitored for fraud in real time</li>
                           </ul>
                         </div>
                         
@@ -367,14 +367,14 @@ const Compliance = () => {
                       </div>
                       
                       <div className="border border-border p-4 rounded-lg">
-                        <h3 className="font-medium mb-2">Our PCI DSS Compliance Process</h3>
+                        <h3 className="font-medium mb-2">Our Card-Security Process</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div className="flex flex-col items-center text-center p-3">
                             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
                               <FileCheck className="h-6 w-6 text-primary" />
                             </div>
                             <h4 className="font-medium mb-1">Assessment</h4>
-                            <p className="text-sm text-foreground/70">Annual security assessments by certified QSA</p>
+                            <p className="text-sm text-foreground/70">Regular reviews of our card-handling controls</p>
                           </div>
                           
                           <div className="flex flex-col items-center text-center p-3">
@@ -390,7 +390,7 @@ const Compliance = () => {
                               <Eye className="h-6 w-6 text-primary" />
                             </div>
                             <h4 className="font-medium mb-1">Monitoring</h4>
-                            <p className="text-sm text-foreground/70">24/7 security monitoring and quarterly scans</p>
+                            <p className="text-sm text-foreground/70">Continuous monitoring of transactions and access</p>
                           </div>
                         </div>
                       </div>

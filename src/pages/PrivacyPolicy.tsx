@@ -50,7 +50,7 @@ const PrivacyPolicy = () => {
             <ul className="list-disc pl-5 mb-4 text-muted-foreground space-y-1">
               <li>AES-256 encryption for sensitive data at rest</li>
               <li>TLS 1.3 for all data in transit</li>
-              <li>PCI DSS Level 1 compliance for card data</li>
+              <li>Encryption and tokenisation for card data</li>
               <li>Field-level encryption for virtual card details</li>
               <li>Two-factor authentication and biometric verification</li>
               <li>Regular security audits and penetration testing</li>

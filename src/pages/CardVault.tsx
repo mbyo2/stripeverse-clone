@@ -51,7 +51,7 @@ const CardVault = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2"><Shield className="h-6 w-6" />Card Vault</h1>
-            <p className="text-muted-foreground">PCI-compliant tokenized card storage</p>
+            <p className="text-muted-foreground">Tokenised card storage — raw numbers never kept</p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -90,7 +90,7 @@ const CardVault = () => {
             <div className="flex items-start gap-3">
               <Shield className="h-5 w-5 text-primary mt-0.5" />
               <div className="text-sm">
-                <p className="font-medium">PCI DSS Level 1 Compliant Tokenization</p>
+                <p className="font-medium">Tokenised Card Storage</p>
                 <p className="text-muted-foreground">Card details are replaced with secure tokens. Raw PANs are never stored in our database. Each token is unique and can only be used within your account.</p>
               </div>
             </div>

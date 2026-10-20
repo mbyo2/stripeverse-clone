@@ -1497,9 +1497,9 @@ Link: <https://docs.bmaglasspay.com/migration/v2>; rel="successor-version"
                     <CardHeader>
                       <div className="flex items-center gap-2">
                         <Shield className="h-5 w-5 text-primary" />
-                        <CardTitle className="text-lg">PCI DSS Compliance</CardTitle>
+                        <CardTitle className="text-lg">Card Data Security</CardTitle>
                       </div>
-                      <CardDescription>Our infrastructure is PCI DSS Level 1 certified</CardDescription>
+                      <CardDescription>How card data is handled when you build with BMaGlass Pay</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <p className="text-sm text-muted-foreground">

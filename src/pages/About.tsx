@@ -8,7 +8,7 @@ import { Shield, Users, Lightbulb, Eye, MapPin, Award, Building2 } from "lucide-
 
 const About = () => {
   const values = [
-    { icon: Shield, title: "Security", description: "PCI DSS compliance and bank-level encryption protect every transaction and customer data point." },
+    { icon: Shield, title: "Security", description: "Encryption and tokenisation protect every transaction and customer data point." },
     { icon: Users, title: "Accessibility", description: "Solutions designed for everyone — from smartphone users to USSD on feature phones." },
     { icon: Lightbulb, title: "Innovation", description: "Continuously pushing boundaries with mobile money, virtual cards, Bitcoin, and API-first architecture." },
     { icon: Eye, title: "Transparency", description: "Clear, honest communication about fees, policies, and how we handle your data." },
@@ -91,7 +91,7 @@ const About = () => {
           </p>
           <div className="flex flex-wrap gap-3">
             {[
-              { icon: Shield, label: "PCI DSS Compliant" },
+              { icon: Shield, label: "Encrypted & Tokenised" },
               { icon: Award, label: "AML/KYC Compliant" },
             ].map((badge) => (
               <div key={badge.label} className="flex items-center gap-2 px-4 py-2 rounded-lg border bg-card">
