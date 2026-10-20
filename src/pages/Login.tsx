@@ -25,7 +25,7 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-muted/30">
+    <div className="min-h-screen flex flex-col bg-muted">
       <Header />
       <main className="flex-1 flex items-center justify-center p-4 pt-24 pb-16">
         <div className="w-full max-w-[440px]">
@@ -34,10 +34,10 @@ const Login = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4">
               <Lock className="h-7 w-7 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Log in to your account</h1>
+            <h1 className="text-2xl font-display font-bold tracking-tight text-paypal-dark">Log in to your account</h1>
           </div>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="shadow-medium">
             <CardContent className="pt-8 pb-6 px-8">
               <form onSubmit={handleLogin} className="space-y-5">
                 <div className="space-y-2">
@@ -75,7 +75,7 @@ const Login = () => {
                     />
                   </div>
                 </div>
-                <Button type="submit" className="w-full h-12 rounded-lg text-base font-semibold" disabled={isLoading}>
+                <Button type="submit" className="w-full h-12 text-base font-semibold" disabled={isLoading}>
                   {isLoading ? "Signing in..." : "Log In"}
                 </Button>
               </form>

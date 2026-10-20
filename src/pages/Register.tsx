@@ -54,7 +54,7 @@ const Register = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-muted/30">
+    <div className="min-h-screen flex flex-col bg-muted">
       <Header />
       <main className="flex-1 flex items-center justify-center p-4 pt-24 pb-16">
         <div className="w-full max-w-[480px]">
@@ -63,11 +63,11 @@ const Register = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4">
               <UserPlus className="h-7 w-7 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
+            <h1 className="text-2xl font-display font-bold tracking-tight text-paypal-dark">Create your account</h1>
             <p className="text-muted-foreground mt-1 text-sm">Start sending and receiving money today</p>
           </div>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="shadow-medium">
             <CardContent className="pt-8 pb-6 px-8">
               <form onSubmit={handleRegister} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -188,7 +188,7 @@ const Register = () => {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 rounded-lg text-base font-semibold mt-2"
+                  className="w-full h-12 text-base font-semibold mt-2"
                   disabled={isLoading || !allPasswordValid || (confirmPassword !== "" && password !== confirmPassword)}
                 >
                   {isLoading ? "Creating account..." : "Sign Up"}

@@ -53,7 +53,7 @@ const Dashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="min-h-screen flex flex-col bg-muted">
         <Header />
         <main className="flex-1 pt-20 pb-16 px-4 max-w-[1320px] mx-auto w-full">
           <div className="mb-6 mt-6">
@@ -81,7 +81,7 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-muted">
       <Header />
       <main className="flex-1 pt-20 pb-16">
         {/* Balance Hero */}
@@ -90,7 +90,7 @@ const Dashboard = () => {
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
               <div>
                 <p className="text-white/80 text-sm font-medium mb-1">Welcome back, {firstName}</p>
-                <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+                <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-2">
                   {formatAmount(dashboardStats?.totalBalance || 0)}
                 </h1>
                 <p className="text-white/70 text-sm">Available balance</p>
@@ -189,18 +189,18 @@ const Dashboard = () => {
                     <AreaChart data={monthlyData || []}>
                       <defs>
                         <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(213, 100%, 36%)" stopOpacity={0.15}/>
-                          <stop offset="95%" stopColor="hsl(213, 100%, 36%)" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="hsl(210, 100%, 44%)" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="hsl(210, 100%, 44%)" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
-                      <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 47%)" />
-                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 47%)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(216, 24%, 90%)" />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 43%)" />
+                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 43%)" />
                       <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
                       <Area 
                         type="monotone" 
                         dataKey="amount" 
-                        stroke="hsl(213, 100%, 36%)" 
+                        stroke="hsl(210, 100%, 44%)" 
                         strokeWidth={2}
                         fillOpacity={1} 
                         fill="url(#colorAmount)" 
@@ -222,11 +222,11 @@ const Dashboard = () => {
                 <div className="h-[280px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsBarChart data={spendingData || []} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
-                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(215, 16%, 47%)" />
-                      <YAxis dataKey="category" type="category" tick={{ fontSize: 11 }} width={80} stroke="hsl(215, 16%, 47%)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(216, 24%, 90%)" />
+                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(215, 16%, 43%)" />
+                      <YAxis dataKey="category" type="category" tick={{ fontSize: 11 }} width={80} stroke="hsl(215, 16%, 43%)" />
                       <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
-                      <Bar dataKey="amount" fill="hsl(213, 100%, 36%)" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="amount" fill="hsl(210, 100%, 44%)" radius={[0, 4, 4, 0]} />
                     </RechartsBarChart>
                   </ResponsiveContainer>
                 </div>
