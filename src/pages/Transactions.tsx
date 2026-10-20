@@ -26,7 +26,7 @@ const Transactions = () => {
               <p className="text-sm text-muted-foreground">View and manage your transaction history</p>
             </div>
           </div>
-          <Button variant="outline" className="h-10 rounded-lg gap-2">
+          <Button variant="outline" className="h-10 rounded-full gap-2">
             <Download className="h-4 w-4" /> Export
           </Button>
         </div>

@@ -402,7 +402,7 @@ export default function BitcoinWallet() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 Balance
-                <Badge variant="outline" className="border-blue-500 text-blue-600">CUSTODIAL ACCOUNT</Badge>
+                <Badge variant="outline" className="border-[#003087] text-[#003087] dark:text-[#A9BCDA] dark:border-[#A9BCDA]">CUSTODIAL ACCOUNT</Badge>
               </CardTitle>
               <CardDescription>
                 BMaGlass holds the keys for this account — access is recovered by signing in,

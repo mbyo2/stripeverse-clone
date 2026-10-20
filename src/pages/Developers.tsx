@@ -182,13 +182,13 @@ const Developers = () => {
                 Get started in minutes with comprehensive SDKs, no-code plugins, and a live sandbox.
               </p>
               <div className="flex flex-wrap gap-3">
-                <Button size="lg" className="h-12 px-6 rounded-lg" onClick={() => setActiveSection("quickstart")}>
+                <Button size="lg" className="h-12 px-6 rounded-full" onClick={() => setActiveSection("quickstart")}>
                   <Zap className="h-4 w-4 mr-2" /> Get Started
                 </Button>
-                <Button size="lg" variant="outline" className="h-12 px-6 rounded-lg" onClick={() => setActiveSection("api")}>
+                <Button size="lg" variant="outline" className="h-12 px-6 rounded-full" onClick={() => setActiveSection("api")}>
                   <Book className="h-4 w-4 mr-2" /> API Reference
                 </Button>
-                <Button size="lg" variant="outline" className="h-12 px-6 rounded-lg" onClick={() => setActiveSection("playground")}>
+                <Button size="lg" variant="outline" className="h-12 px-6 rounded-full" onClick={() => setActiveSection("playground")}>
                   <Play className="h-4 w-4 mr-2" /> Try Playground
                 </Button>
               </div>

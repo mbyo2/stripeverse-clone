@@ -9,8 +9,8 @@ import { FadeIn } from '@/components/animations';
  * No icon-card rows, no stat bands, no testimonials, no invented numbers.
  */
 
-const DISPLAY = "font-display font-extrabold text-black tracking-[-0.025em] leading-[1.1] text-[32px] md:text-[44px] lg:text-[52px]";
-const BODY = "text-[17px] leading-[1.55] text-[#44464A]";
+const DISPLAY = "font-display font-extrabold text-black dark:text-white tracking-[-0.025em] leading-[1.1] text-[32px] md:text-[44px] lg:text-[52px]";
+const BODY = "text-[17px] leading-[1.55] text-[#44464A] dark:text-white/70";
 const TEXT_LINK = "inline-flex items-center gap-1.5 font-semibold text-[#003087] hover:underline underline-offset-4";
 
 interface SplitProps {
@@ -24,7 +24,7 @@ interface SplitProps {
 }
 
 const SplitSection = ({ image, imageAlt, headline, copy, linkTo, linkLabel, flip = false }: SplitProps) => (
-  <section className="bg-white">
+  <section className="bg-white dark:bg-background">
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-16 md:py-24 grid lg:grid-cols-2 gap-10 lg:gap-20 items-center">
       <FadeIn duration={0.6} distance={20} className={flip ? "lg:order-2" : ""}>
         <img

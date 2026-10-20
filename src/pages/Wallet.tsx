@@ -60,7 +60,7 @@ const Wallet = () => {
       </div>
       <Button 
         onClick={handleAddMoney} 
-        className="w-full h-12 rounded-lg text-base font-semibold" 
+        className="w-full h-12 rounded-full text-base font-semibold" 
         disabled={!amount || parseFloat(amount) <= 0 || isDepositing}
       >
         {isDepositing ? "Processing..." : "Add Money"}
@@ -107,7 +107,7 @@ const Wallet = () => {
           {isMobile ? (
             <Drawer>
               <DrawerTrigger asChild>
-                <Button className="h-11 px-5 rounded-lg font-semibold">
+                <Button className="h-11 px-5 rounded-full font-semibold">
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Money
                 </Button>
               </DrawerTrigger>
@@ -121,7 +121,7 @@ const Wallet = () => {
           ) : (
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="h-11 px-5 rounded-lg font-semibold">
+                <Button className="h-11 px-5 rounded-full font-semibold">
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Money
                 </Button>
               </DialogTrigger>

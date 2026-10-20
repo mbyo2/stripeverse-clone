@@ -355,7 +355,7 @@ const Settings = () => {
                   </div>
 
                   <div className="pt-2">
-                    <Button onClick={handleProfileUpdate} disabled={isLoading} className="h-11 px-6 rounded-lg">
+                    <Button onClick={handleProfileUpdate} disabled={isLoading} className="h-11 px-6 rounded-full">
                       {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save Changes"}
                     </Button>
                   </div>
@@ -453,7 +453,7 @@ const Settings = () => {
                   ))}
 
                   <div className="pt-4">
-                    <Button onClick={handleNotificationUpdate} disabled={isLoading} className="h-11 px-6 rounded-lg">
+                    <Button onClick={handleNotificationUpdate} disabled={isLoading} className="h-11 px-6 rounded-full">
                       {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save Preferences"}
                     </Button>
                   </div>
