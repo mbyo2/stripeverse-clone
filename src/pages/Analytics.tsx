@@ -1,69 +1,217 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, FunnelChart } from "recharts";
-import { TrendingUp, Users, CreditCard, DollarSign, ArrowUpRight, ArrowDownRight, Calendar, Filter } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
+import { TrendingUp, CreditCard, DollarSign, ArrowUpRight, ArrowDownRight, Calendar, Send } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatCurrency } from "@/utils/walletUtils";
+
+interface TxRow {
+  amount: number;
+  currency: string;
+  status: string;
+  direction: string;
+  payment_method: string;
+  recipient_name: string | null;
+  created_at: string | null;
+}
+
+const PERIOD_DAYS: Record<string, number> = {
+  '7d': 7,
+  '1m': 30,
+  '3m': 90,
+  '6m': 180,
+  '1y': 365,
+};
+
+const METHOD_LABELS: Record<string, string> = {
+  mobile_money: 'Mobile Money',
+  card: 'Card Payment',
+  card_payment: 'Card Payment',
+  bank_transfer: 'Bank Transfer',
+  bitcoin: 'Bitcoin',
+  bitcoin_onchain: 'Bitcoin',
+  bitcoin_trade: 'Bitcoin',
+  lightning: 'Lightning',
+  ussd: 'USSD',
+  paypal: 'PayPal',
+  wallet: 'Wallet Transfer',
+};
+
+const METHOD_COLORS = [
+  'hsl(var(--primary))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+];
+
+const methodLabel = (raw: string) =>
+  METHOD_LABELS[raw] || raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+const isRevenue = (t: TxRow) => t.direction === 'incoming' && t.status === 'completed' && t.currency === 'ZMW';
+const isSent = (t: TxRow) => t.direction === 'outgoing' && t.status === 'completed' && t.currency === 'ZMW';
+const sum = (rows: TxRow[]) => rows.reduce((acc, t) => acc + Number(t.amount), 0);
+
+const pctChange = (current: number, previous: number): number | null => {
+  if (previous === 0) return null;
+  return ((current - previous) / previous) * 100;
+};
 
 const Analytics = () => {
+  const { user } = useAuth();
   const [period, setPeriod] = useState('6m');
 
-  const transactionData = [
-    { month: 'Jan', transactions: 65, revenue: 1200, successful: 63, failed: 2 },
-    { month: 'Feb', transactions: 78, revenue: 1450, successful: 76, failed: 2 },
-    { month: 'Mar', transactions: 90, revenue: 1680, successful: 87, failed: 3 },
-    { month: 'Apr', transactions: 85, revenue: 1580, successful: 83, failed: 2 },
-    { month: 'May', transactions: 98, revenue: 1820, successful: 96, failed: 2 },
-    { month: 'Jun', transactions: 110, revenue: 2040, successful: 108, failed: 2 },
-  ];
+  // One fetch of the last 12 months; every figure on this page is computed
+  // from these real rows. Nothing is estimated or sampled.
+  const { data: allTx = [], isLoading } = useQuery({
+    queryKey: ['analytics-transactions', user?.id],
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 365);
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('amount, currency, status, direction, payment_method, recipient_name, created_at')
+        .eq('user_id', user!.id)
+        .gte('created_at', since.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      return (data || []) as TxRow[];
+    },
+    enabled: !!user,
+  });
 
-  const paymentMethods = [
-    { name: 'Mobile Money', value: 45, color: 'hsl(var(--primary))' },
-    { name: 'Card Payment', value: 30, color: 'hsl(var(--chart-2))' },
-    { name: 'Bank Transfer', value: 15, color: 'hsl(var(--chart-3))' },
-    { name: 'Bitcoin', value: 5, color: 'hsl(var(--chart-4))' },
-    { name: 'USSD', value: 5, color: 'hsl(var(--chart-5))' },
-  ];
+  const model = useMemo(() => {
+    const days = PERIOD_DAYS[period] ?? 180;
+    const now = Date.now();
+    const inWindow = (t: TxRow, startMs: number, endMs: number) => {
+      if (!t.created_at) return false;
+      const ts = new Date(t.created_at).getTime();
+      return ts >= startMs && ts < endMs;
+    };
+    const current = allTx.filter(t => inWindow(t, now - days * 86400000, now + 1));
+    const previous = allTx.filter(t => inWindow(t, now - 2 * days * 86400000, now - days * 86400000));
 
-  const conversionData = [
-    { stage: 'Checkout Started', count: 1000, rate: 100 },
-    { stage: 'Payment Method Selected', count: 850, rate: 85 },
-    { stage: 'Details Entered', count: 720, rate: 72 },
-    { stage: 'Payment Attempted', count: 680, rate: 68 },
-    { stage: 'Payment Successful', count: 650, rate: 65 },
-  ];
+    const revenue = sum(current.filter(isRevenue));
+    const prevRevenue = sum(previous.filter(isRevenue));
+    const sent = sum(current.filter(isSent));
+    const prevSent = sum(previous.filter(isSent));
+    const successRate = current.length ? (current.filter(t => t.status === 'completed').length / current.length) * 100 : 0;
+    const prevSuccessRate = previous.length ? (previous.filter(t => t.status === 'completed').length / previous.length) * 100 : null;
 
-  const dailyRevenue = [
-    { day: 'Mon', amount: 450 }, { day: 'Tue', amount: 380 },
-    { day: 'Wed', amount: 520 }, { day: 'Thu', amount: 490 },
-    { day: 'Fri', amount: 610 }, { day: 'Sat', amount: 340 },
-    { day: 'Sun', amount: 280 },
-  ];
+    // Monthly series for the last 6 calendar months.
+    const monthly: { month: string; transactions: number; revenue: number; successful: number; failed: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - i);
+      const start = d.getTime();
+      const endDate = new Date(d);
+      endDate.setMonth(endDate.getMonth() + 1);
+      const rows = allTx.filter(t => inWindow(t, start, endDate.getTime()));
+      monthly.push({
+        month: d.toLocaleString('en', { month: 'short' }),
+        transactions: rows.length,
+        revenue: sum(rows.filter(isRevenue)),
+        successful: rows.filter(t => t.status === 'completed').length,
+        failed: rows.filter(t => t.status === 'failed').length,
+      });
+    }
 
-  const cohortData = [
-    { cohort: 'Week 1', retention: 100, week2: 68, week3: 52, week4: 45 },
-    { cohort: 'Week 2', retention: 100, week2: 72, week3: 55, week4: 48 },
-    { cohort: 'Week 3', retention: 100, week2: 70, week3: 58, week4: 50 },
-    { cohort: 'Week 4', retention: 100, week2: 75, week3: 60, week4: 52 },
-  ];
+    // Payment method distribution for the selected period.
+    const byMethod = new Map<string, number>();
+    current.forEach(t => {
+      const label = methodLabel(t.payment_method);
+      byMethod.set(label, (byMethod.get(label) || 0) + 1);
+    });
+    const paymentMethods = Array.from(byMethod.entries()).map(([name, value], i) => ({
+      name,
+      value,
+      color: METHOD_COLORS[i % METHOD_COLORS.length],
+    }));
 
-  const topMerchants = [
-    { name: 'Shoprite Zambia', volume: 'K45,200', transactions: 128, growth: 12 },
-    { name: 'Total Energies', volume: 'K32,800', transactions: 95, growth: 8 },
-    { name: 'Game Stores', volume: 'K28,100', transactions: 76, growth: -3 },
-    { name: 'Hungry Lion', volume: 'K18,500', transactions: 210, growth: 22 },
-    { name: 'Zambeef', volume: 'K15,400', transactions: 164, growth: 5 },
-  ];
+    // Daily revenue for the current week (Mon–Sun).
+    const weekStart = new Date();
+    const dayIdx = (weekStart.getDay() + 6) % 7; // Monday = 0
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - dayIdx);
+    const dailyRevenue = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => {
+      const start = weekStart.getTime() + i * 86400000;
+      const rows = allTx.filter(t => inWindow(t, start, start + 86400000));
+      return { day, amount: sum(rows.filter(isRevenue)) };
+    });
+
+    // Top counterparties by volume in the selected period (real rows only).
+    const byParty = new Map<string, { volume: number; transactions: number }>();
+    current.filter(t => t.currency === 'ZMW' && t.recipient_name).forEach(t => {
+      const entry = byParty.get(t.recipient_name!) || { volume: 0, transactions: 0 };
+      entry.volume += Number(t.amount);
+      entry.transactions += 1;
+      byParty.set(t.recipient_name!, entry);
+    });
+    const totalVolume = Array.from(byParty.values()).reduce((a, e) => a + e.volume, 0);
+    const topCounterparties = Array.from(byParty.entries())
+      .map(([name, e]) => ({ name, volume: e.volume, transactions: e.transactions, share: totalVolume ? (e.volume / totalVolume) * 100 : 0 }))
+      .sort((a, b) => b.volume - a.volume)
+      .slice(0, 5);
+
+    return {
+      current, prevCount: previous.length, revenue, prevRevenue, sent, prevSent,
+      successRate, prevSuccessRate, monthly, paymentMethods, dailyRevenue, topCounterparties,
+    };
+  }, [allTx, period]);
 
   const stats = [
-    { title: 'Total Revenue', value: 'K89,400', change: '+20.1%', positive: true, icon: DollarSign },
-    { title: 'Transactions', value: '1,248', change: '+12%', positive: true, icon: CreditCard },
-    { title: 'Active Users', value: '573', change: '+8%', positive: true, icon: Users },
-    { title: 'Success Rate', value: '98.5%', change: '+0.5%', positive: true, icon: TrendingUp },
+    {
+      title: 'Total Revenue', icon: DollarSign,
+      value: formatCurrency(model.revenue),
+      change: pctChange(model.revenue, model.prevRevenue),
+      note: 'Completed incoming (ZMW)',
+    },
+    {
+      title: 'Transactions', icon: CreditCard,
+      value: model.current.length.toLocaleString(),
+      change: pctChange(model.current.length, model.prevCount),
+      note: 'In selected period',
+    },
+    {
+      title: 'Success Rate', icon: TrendingUp,
+      value: model.current.length ? `${model.successRate.toFixed(1)}%` : '—',
+      change: model.prevSuccessRate === null ? null : model.successRate - model.prevSuccessRate,
+      note: 'Completed share of transactions',
+    },
+    {
+      title: 'Total Sent', icon: Send,
+      value: formatCurrency(model.sent),
+      change: pctChange(model.sent, model.prevSent),
+      note: 'Completed outgoing (ZMW)',
+    },
   ];
+
+  const renderDelta = (change: number | null, isRate = false) => {
+    if (change === null) {
+      return <p className="text-xs text-muted-foreground">No prior-period data to compare</p>;
+    }
+    const positive = change >= 0;
+    return (
+      <p className={`text-xs flex items-center gap-1 ${positive ? 'text-green-600' : 'text-red-600'}`}>
+        {positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+        {`${positive ? '+' : ''}${change.toFixed(1)}${isRate ? ' pts' : '%'}`} from last period
+      </p>
+    );
+  };
+
+  const emptyChart = (message: string) => (
+    <div className="h-[300px] flex items-center justify-center text-center text-muted-foreground text-sm px-6">
+      {message}
+    </div>
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -89,7 +237,7 @@ const Analytics = () => {
           </Select>
         </div>
 
-        {/* Stats */}
+        {/* Stats — computed from your real transactions */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map(s => (
             <Card key={s.title}>
@@ -98,11 +246,9 @@ const Analytics = () => {
                 <s.icon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{s.value}</div>
-                <p className={`text-xs flex items-center gap-1 ${s.positive ? 'text-green-600' : 'text-red-600'}`}>
-                  {s.positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                  {s.change} from last period
-                </p>
+                <div className="text-2xl font-bold">{isLoading ? '…' : s.value}</div>
+                {renderDelta(s.change, s.title === 'Success Rate')}
+                <p className="text-xs text-muted-foreground mt-1">{s.note}</p>
               </CardContent>
             </Card>
           ))}
@@ -113,7 +259,7 @@ const Analytics = () => {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="revenue">Revenue</TabsTrigger>
             <TabsTrigger value="conversion">Conversion</TabsTrigger>
-            <TabsTrigger value="merchants">Merchants</TabsTrigger>
+            <TabsTrigger value="merchants">Counterparties</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -124,16 +270,20 @@ const Analytics = () => {
                   <CardDescription>Successful vs failed transactions</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={transactionData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="month" className="text-muted-foreground" />
-                      <YAxis className="text-muted-foreground" />
-                      <Tooltip />
-                      <Bar dataKey="successful" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Successful" />
-                      <Bar dataKey="failed" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} name="Failed" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {model.monthly.every(m => m.transactions === 0)
+                    ? emptyChart('No transactions in the last 6 months yet — your volume chart will appear here once you start transacting.')
+                    : (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={model.monthly}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                          <XAxis dataKey="month" className="text-muted-foreground" />
+                          <YAxis className="text-muted-foreground" />
+                          <Tooltip />
+                          <Bar dataKey="successful" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Successful" />
+                          <Bar dataKey="failed" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} name="Failed" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
                 </CardContent>
               </Card>
 
@@ -143,24 +293,28 @@ const Analytics = () => {
                   <CardDescription>Distribution by payment type</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={paymentMethods}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        innerRadius={60}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {paymentMethods.map((entry, i) => (
-                          <Cell key={i} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {model.paymentMethods.length === 0
+                    ? emptyChart('No transactions in this period yet.')
+                    : (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={model.paymentMethods}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={100}
+                            innerRadius={60}
+                            dataKey="value"
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          >
+                            {model.paymentMethods.map((entry, i) => (
+                              <Cell key={i} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
                 </CardContent>
               </Card>
             </div>
@@ -171,24 +325,28 @@ const Analytics = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Revenue Trend</CardTitle>
-                  <CardDescription>Monthly revenue over time</CardDescription>
+                  <CardDescription>Monthly revenue over time (completed incoming, ZMW)</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={transactionData}>
-                      <defs>
-                        <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="url(#revGradient)" strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  {model.monthly.every(m => m.revenue === 0)
+                    ? emptyChart('No revenue recorded in the last 6 months yet.')
+                    : (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <AreaChart data={model.monthly}>
+                          <defs>
+                            <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                          <XAxis dataKey="month" />
+                          <YAxis />
+                          <Tooltip />
+                          <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="url(#revGradient)" strokeWidth={2} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
                 </CardContent>
               </Card>
 
@@ -197,15 +355,19 @@ const Analytics = () => {
                   <CardTitle>Daily Revenue (This Week)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={dailyRevenue}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="day" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="amount" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {model.dailyRevenue.every(d => d.amount === 0)
+                    ? emptyChart('No revenue recorded this week yet.')
+                    : (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={model.dailyRevenue}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                          <XAxis dataKey="day" />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="amount" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
                 </CardContent>
               </Card>
             </div>
@@ -218,32 +380,9 @@ const Analytics = () => {
                 <CardDescription>Where customers drop off in the payment process</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {conversionData.map((step, i) => (
-                    <div key={step.stage} className="flex items-center gap-4">
-                      <div className="w-48 text-sm font-medium shrink-0">{step.stage}</div>
-                      <div className="flex-1 relative">
-                        <div className="h-8 bg-muted rounded-lg overflow-hidden">
-                          <div
-                            className="h-full rounded-lg transition-all"
-                            style={{
-                              width: `${step.rate}%`,
-                              background: `hsl(var(--primary) / ${0.4 + (step.rate / 100) * 0.6})`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="w-20 text-right">
-                        <span className="font-semibold text-sm">{step.rate}%</span>
-                        <span className="text-xs text-muted-foreground ml-1">({step.count})</span>
-                      </div>
-                      {i > 0 && (
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          -{conversionData[i - 1].rate - step.rate}%
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  Checkout funnel tracking isn't available yet. It will appear here once checkout
+                  session events are recorded — we don't estimate or simulate these figures.
                 </div>
               </CardContent>
             </Card>
@@ -254,38 +393,9 @@ const Analytics = () => {
                 <CardDescription>Weekly retention rates by signup cohort</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2 font-medium">Cohort</th>
-                        <th className="text-center p-2 font-medium">Week 1</th>
-                        <th className="text-center p-2 font-medium">Week 2</th>
-                        <th className="text-center p-2 font-medium">Week 3</th>
-                        <th className="text-center p-2 font-medium">Week 4</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cohortData.map(row => (
-                        <tr key={row.cohort} className="border-b">
-                          <td className="p-2 font-medium">{row.cohort}</td>
-                          {[row.retention, row.week2, row.week3, row.week4].map((val, i) => (
-                            <td key={i} className="text-center p-2">
-                              <span
-                                className="inline-block px-3 py-1 rounded text-xs font-medium"
-                                style={{
-                                  background: `hsl(var(--primary) / ${val / 100 * 0.3})`,
-                                  color: val > 60 ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
-                                }}
-                              >
-                                {val}%
-                              </span>
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  Retention cohorts aren't available yet — they need recorded signup cohort data,
+                  which this account doesn't have.
                 </div>
               </CardContent>
             </Card>
@@ -294,30 +404,33 @@ const Analytics = () => {
           <TabsContent value="merchants" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Top Merchants</CardTitle>
-                <CardDescription>Highest volume merchants this period</CardDescription>
+                <CardTitle>Top Counterparties</CardTitle>
+                <CardDescription>Who you transact with most in this period, from your real transactions</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {topMerchants.map((m, i) => (
-                    <div key={m.name} className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                        {i + 1}
+                {model.topCounterparties.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground text-sm">
+                    No transactions with named counterparties in this period yet.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {model.topCounterparties.map((m, i) => (
+                      <div key={m.name} className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                          {i + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{m.name}</p>
+                          <p className="text-xs text-muted-foreground">{m.transactions} transactions</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-sm">{formatCurrency(m.volume)}</p>
+                          <p className="text-xs text-muted-foreground">{m.share.toFixed(1)}% of volume</p>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{m.name}</p>
-                        <p className="text-xs text-muted-foreground">{m.transactions} transactions</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-sm">{m.volume}</p>
-                        <p className={`text-xs flex items-center justify-end gap-1 ${m.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {m.growth >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                          {Math.abs(m.growth)}%
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

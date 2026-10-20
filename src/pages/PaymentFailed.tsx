@@ -14,7 +14,7 @@ const PaymentFailed = () => {
   // Extract error details from query params
   const errorCode = queryParams.get("code") || "ERR_PAYMENT_FAILED";
   const errorMessage = queryParams.get("message") || "Your payment could not be processed. Please try again or contact support.";
-  const transactionId = queryParams.get("txid") || "TX" + Math.floor(Math.random() * 1000000);
+  const transactionId = queryParams.get("txid");
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -38,10 +38,12 @@ const PaymentFailed = () => {
                     <dt className="text-muted-foreground">Error Code</dt>
                     <dd className="font-medium">{errorCode}</dd>
                   </div>
-                  <div className="py-2 flex justify-between">
-                    <dt className="text-muted-foreground">Transaction ID</dt>
-                    <dd className="font-medium">{transactionId}</dd>
-                  </div>
+                  {transactionId && (
+                    <div className="py-2 flex justify-between">
+                      <dt className="text-muted-foreground">Transaction ID</dt>
+                      <dd className="font-medium">{transactionId}</dd>
+                    </div>
+                  )}
                   <div className="py-2 flex justify-between">
                     <dt className="text-muted-foreground">Date & Time</dt>
                     <dd className="font-medium">{new Date().toLocaleString()}</dd>

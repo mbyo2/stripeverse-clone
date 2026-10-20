@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Wallet, Plus, ArrowLeftRight, TrendingUp, Globe } from 'lucide-react';
-import { useMultiCurrencyWallets, useCreateWallet, useConvertCurrency, useConversionHistory } from '@/hooks/useMultiCurrency';
+import { useMultiCurrencyWallets, useCreateWallet, useConvertCurrency, useConversionHistory, useExchangeRates } from '@/hooks/useMultiCurrency';
 import { format } from 'date-fns';
 
 const CURRENCIES = [
@@ -25,18 +25,12 @@ const CURRENCIES = [
   { code: 'BWP', name: 'Botswana Pula', flag: '🇧🇼' },
 ];
 
-// Mock rates (in production, these come from exchange_rates table)
-const MOCK_RATES: Record<string, number> = {
-  'ZMW-USD': 0.037, 'USD-ZMW': 27.0, 'ZMW-EUR': 0.034, 'EUR-ZMW': 29.5,
-  'ZMW-GBP': 0.029, 'GBP-ZMW': 34.2, 'USD-EUR': 0.92, 'EUR-USD': 1.09,
-  'ZMW-ZAR': 0.67, 'ZAR-ZMW': 1.49, 'ZMW-NGN': 57.3, 'NGN-ZMW': 0.017,
-};
-
 const MultiCurrencyWallet = () => {
   const { data: wallets, isLoading } = useMultiCurrencyWallets();
   const createWallet = useCreateWallet();
   const convertCurrency = useConvertCurrency();
   const { data: conversions } = useConversionHistory();
+  const { data: exchangeRates } = useExchangeRates();
   const [addOpen, setAddOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [newCurrency, setNewCurrency] = useState('');
@@ -45,15 +39,25 @@ const MultiCurrencyWallet = () => {
   const existingCurrencies = wallets?.map(w => w.currency) || [];
   const availableCurrencies = CURRENCIES.filter(c => !existingCurrencies.includes(c.code));
 
-  const getRate = (from: string, to: string) => MOCK_RATES[`${from}-${to}`] || 1;
+  // Rates come from the exchange_rates table (kept current by the
+  // fetch-exchange-rates job). A pair with no live rate — directly or
+  // inversely — cannot be converted; there is no fallback rate.
+  const getRate = (from: string, to: string): number | null => {
+    if (from === to) return 1;
+    const direct = exchangeRates?.find(r => r.from_currency === from && r.to_currency === to);
+    if (direct) return Number(direct.rate);
+    const inverse = exchangeRates?.find(r => r.from_currency === to && r.to_currency === from);
+    if (inverse && Number(inverse.rate) !== 0) return 1 / Number(inverse.rate);
+    return null;
+  };
 
   const fromWallet = wallets?.find(w => w.id === convertForm.from_wallet);
   const toWallet = wallets?.find(w => w.id === convertForm.to_wallet);
-  const rate = fromWallet && toWallet ? getRate(fromWallet.currency, toWallet.currency) : 0;
-  const convertedAmount = Number(convertForm.amount) * rate;
+  const rate = fromWallet && toWallet ? getRate(fromWallet.currency, toWallet.currency) : null;
+  const convertedAmount = rate !== null ? Number(convertForm.amount) * rate : 0;
 
   const handleConvert = () => {
-    if (!fromWallet || !toWallet) return;
+    if (!fromWallet || !toWallet || rate === null) return;
     convertCurrency.mutate({
       from_currency: fromWallet.currency, to_currency: toWallet.currency,
       from_amount: Number(convertForm.amount), exchange_rate: rate,
@@ -101,14 +105,19 @@ const MultiCurrencyWallet = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  {fromWallet && toWallet && convertForm.amount && (
+                  {fromWallet && toWallet && convertForm.amount && rate !== null && (
                     <div className="p-4 rounded-lg bg-muted/50 space-y-2">
                       <div className="flex justify-between text-sm"><span className="text-muted-foreground">Exchange Rate</span><span>1 {fromWallet.currency} = {rate.toFixed(4)} {toWallet.currency}</span></div>
                       <div className="flex justify-between text-sm"><span className="text-muted-foreground">Fee (1.5%)</span><span>{(Number(convertForm.amount) * 0.015).toFixed(2)} {fromWallet.currency}</span></div>
                       <div className="flex justify-between font-semibold"><span>You receive</span><span>{convertedAmount.toFixed(2)} {toWallet.currency}</span></div>
                     </div>
                   )}
-                  <Button onClick={handleConvert} disabled={convertCurrency.isPending || !convertForm.from_wallet || !convertForm.to_wallet || !convertForm.amount} className="w-full">
+                  {fromWallet && toWallet && rate === null && (
+                    <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm text-amber-700">
+                      No live exchange rate is available for {fromWallet.currency} → {toWallet.currency} right now, so this conversion can't be made.
+                    </div>
+                  )}
+                  <Button onClick={handleConvert} disabled={convertCurrency.isPending || !convertForm.from_wallet || !convertForm.to_wallet || !convertForm.amount || rate === null} className="w-full">
                     {convertCurrency.isPending ? 'Converting...' : 'Convert Now'}
                   </Button>
                 </div>

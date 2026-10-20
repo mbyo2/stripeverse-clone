@@ -257,43 +257,6 @@ const EnhancedTransactionManager = ({
     }
   };
   
-  const generateMockTransactions = (count: number): Transaction[] => {
-    const mockTransactions: Transaction[] = [];
-    const directions = ['incoming', 'outgoing'] as const;
-    const statuses = ['completed', 'pending', 'failed'] as const;
-    const methods = ['mobile_money', 'bank_transfer', 'card', 'ussd'] as const;
-    const recipients = ['John Banda', 'Mary Phiri', 'Zamtel', 'MTN Mobile', 'Airtel Money', 'ZamPay', 'Standard Chartered'];
-    
-    for (let i = 0; i < count; i++) {
-      const direction = directions[Math.floor(Math.random() * directions.length)];
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
-      const method = methods[Math.floor(Math.random() * methods.length)];
-      const recipient = recipients[Math.floor(Math.random() * recipients.length)];
-      const amount = parseFloat((Math.random() * 1000 + 10).toFixed(2));
-      const date = new Date();
-      date.setDate(date.getDate() - Math.floor(Math.random() * 30));
-      
-      mockTransactions.push({
-        id: i + 1,
-        user_id: '',
-        amount,
-        currency: 'ZMW',
-        payment_method: method,
-        direction,
-        recipient_name: recipient,
-        recipient_account: '',
-        recipient_bank: '',
-        status,
-        reference: `REF${Math.floor(Math.random() * 1000000)}`,
-        provider: method === 'mobile_money' ? 'MTN' : '',
-        created_at: date.toISOString(),
-        updated_at: date.toISOString()
-      });
-    }
-    
-    return mockTransactions;
-  };
-  
   useEffect(() => {
     return endRenderTracking;
   }, [endRenderTracking]);

@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,13 +12,32 @@ import Footer from "@/components/Footer";
 import { Search, Filter, Download, Calendar as CalendarIcon, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { formatCurrency } from "@/utils/walletUtils";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+
+type DisplayType = 'send' | 'receive' | 'deposit' | 'withdrawal' | 'card_payment';
+
+interface TransactionRow {
+  id: number;
+  amount: number;
+  currency: string;
+  status: string;
+  description: string | null;
+  category: string | null;
+  direction: string;
+  payment_method: string;
+  recipient_name: string | null;
+  reference: string | null;
+  transaction_id: string | null;
+  created_at: string | null;
+}
 
 interface Transaction {
   id: string;
-  type: 'send' | 'receive' | 'deposit' | 'withdrawal' | 'card_payment';
+  type: DisplayType;
   amount: number;
   currency: string;
-  status: 'completed' | 'pending' | 'failed';
+  status: string;
   description: string;
   date: string;
   recipient?: string;
@@ -27,73 +46,58 @@ interface Transaction {
   reference: string;
 }
 
+const deriveType = (row: TransactionRow): DisplayType => {
+  const category = (row.category || '').toLowerCase();
+  const method = (row.payment_method || '').toLowerCase();
+  if (category.includes('deposit')) return 'deposit';
+  if (category.includes('withdraw')) return 'withdrawal';
+  if (method.includes('card')) return 'card_payment';
+  return row.direction === 'incoming' ? 'receive' : 'send';
+};
+
+const mapRow = (row: TransactionRow): Transaction => {
+  const type = deriveType(row);
+  return {
+    id: String(row.id),
+    type,
+    amount: Number(row.amount),
+    currency: row.currency,
+    status: row.status,
+    description:
+      row.description ||
+      row.recipient_name ||
+      row.category ||
+      'Transaction',
+    date: row.created_at || new Date().toISOString(),
+    recipient: row.direction === 'outgoing' ? row.recipient_name || undefined : undefined,
+    sender: row.direction === 'incoming' ? row.recipient_name || undefined : undefined,
+    paymentMethod: row.payment_method,
+    reference: row.reference || row.transaction_id || `#${row.id}`,
+  };
+};
+
 const TransactionList = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
 
-  // Mock transaction data
-  const mockTransactions: Transaction[] = [
-    {
-      id: 'tx001',
-      type: 'send',
-      amount: 250.00,
-      currency: 'ZMW',
-      status: 'completed',
-      description: 'Transfer to John Doe',
-      date: '2024-05-29T10:30:00Z',
-      recipient: '+260 97 123 4567',
-      paymentMethod: 'wallet',
-      reference: 'TX20240529001'
+  const { data: transactions = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ['transaction-list', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('id, amount, currency, status, description, category, direction, payment_method, recipient_name, reference, transaction_id, created_at')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return (data || []).map(mapRow);
     },
-    {
-      id: 'tx002',
-      type: 'receive',
-      amount: 500.00,
-      currency: 'ZMW',
-      status: 'completed',
-      description: 'Payment from Jane Smith',
-      date: '2024-05-28T15:45:00Z',
-      sender: '+260 96 987 6543',
-      paymentMethod: 'mobile_money',
-      reference: 'TX20240528002'
-    },
-    {
-      id: 'tx003',
-      type: 'deposit',
-      amount: 1000.00,
-      currency: 'ZMW',
-      status: 'completed',
-      description: 'Wallet top-up via MTN',
-      date: '2024-05-27T09:15:00Z',
-      paymentMethod: 'mobile_money',
-      reference: 'TX20240527003'
-    },
-    {
-      id: 'tx004',
-      type: 'card_payment',
-      amount: 89.99,
-      currency: 'ZMW',
-      status: 'pending',
-      description: 'Online purchase - Amazon',
-      date: '2024-05-26T20:30:00Z',
-      paymentMethod: 'virtual_card',
-      reference: 'TX20240526004'
-    },
-    {
-      id: 'tx005',
-      type: 'withdrawal',
-      amount: 300.00,
-      currency: 'ZMW',
-      status: 'failed',
-      description: 'ATM withdrawal attempt',
-      date: '2024-05-25T14:20:00Z',
-      paymentMethod: 'debit_card',
-      reference: 'TX20240525005'
-    }
-  ];
+    enabled: !!user,
+  });
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
@@ -150,14 +154,45 @@ const TransactionList = () => {
     }
   };
 
-  const filteredTransactions = mockTransactions.filter(transaction => {
+  const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          transaction.reference.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || transaction.type === filterType;
     const matchesStatus = filterStatus === 'all' || transaction.status === filterStatus;
-    
-    return matchesSearch && matchesType && matchesStatus;
+    const txDate = new Date(transaction.date);
+    const matchesFrom = !dateFrom || txDate >= new Date(dateFrom.getFullYear(), dateFrom.getMonth(), dateFrom.getDate());
+    const matchesTo = !dateTo || txDate < new Date(dateTo.getFullYear(), dateTo.getMonth(), dateTo.getDate() + 1);
+
+    return matchesSearch && matchesType && matchesStatus && matchesFrom && matchesTo;
   });
+
+  const handleExport = () => {
+    if (!filteredTransactions.length) return;
+    const headers = ["Date", "Description", "Type", "Amount", "Currency", "Status", "Reference", "Payment Method"];
+    const csvRows = [headers.join(",")];
+    filteredTransactions.forEach(tx => {
+      const row = [
+        new Date(tx.date).toISOString(),
+        `"${tx.description.replace(/"/g, '""')}"`,
+        tx.type,
+        tx.amount.toFixed(2),
+        tx.currency,
+        tx.status,
+        tx.reference,
+        tx.paymentMethod,
+      ];
+      csvRows.push(row.join(","));
+    });
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `transactions_${format(new Date(), "yyyy-MM-dd")}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -168,7 +203,7 @@ const TransactionList = () => {
             <h1 className="text-3xl font-bold mb-2">Transaction History</h1>
             <p className="text-muted-foreground">View and manage your transaction history</p>
           </div>
-          <Button className="flex items-center gap-2">
+          <Button className="flex items-center gap-2" onClick={handleExport} disabled={filteredTransactions.length === 0}>
             <Download className="h-4 w-4" />
             Export
           </Button>
@@ -196,7 +231,7 @@ const TransactionList = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Type</label>
                 <Select value={filterType} onValueChange={setFilterType}>
@@ -260,50 +295,67 @@ const TransactionList = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {filteredTransactions.map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 bg-muted rounded-full">
-                      {getTransactionIcon(transaction.type)}
-                    </div>
-                    <div>
-                      <h3 className="font-medium">{transaction.description}</h3>
-                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                        <span>{format(new Date(transaction.date), "MMM dd, yyyy 'at' HH:mm")}</span>
-                        <span>•</span>
-                        <span>{transaction.reference}</span>
-                      </div>
-                      {transaction.recipient && (
-                        <p className="text-xs text-muted-foreground">To: {transaction.recipient}</p>
-                      )}
-                      {transaction.sender && (
-                        <p className="text-xs text-muted-foreground">From: {transaction.sender}</p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="text-right">
-                    <div className={`font-bold ${getAmountColor(transaction.type)}`}>
-                      {getAmountPrefix(transaction.type)}{formatCurrency(transaction.amount)}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge className={getStatusColor(transaction.status)}>
-                        {transaction.status}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {filteredTransactions.length === 0 && (
+            {isLoading ? (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No transactions found matching your criteria.</p>
+                <p className="text-muted-foreground">Loading transactions…</p>
               </div>
+            ) : isError ? (
+              <div className="text-center py-8">
+                <p className="text-destructive mb-4">Failed to load transactions.</p>
+                <Button variant="outline" onClick={() => refetch()}>Try Again</Button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  {filteredTransactions.map((transaction) => (
+                    <div
+                      key={transaction.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="p-2 bg-muted rounded-full">
+                          {getTransactionIcon(transaction.type)}
+                        </div>
+                        <div>
+                          <h3 className="font-medium">{transaction.description}</h3>
+                          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                            <span>{format(new Date(transaction.date), "MMM dd, yyyy 'at' HH:mm")}</span>
+                            <span>•</span>
+                            <span>{transaction.reference}</span>
+                          </div>
+                          {transaction.recipient && (
+                            <p className="text-xs text-muted-foreground">To: {transaction.recipient}</p>
+                          )}
+                          {transaction.sender && (
+                            <p className="text-xs text-muted-foreground">From: {transaction.sender}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className={`font-bold ${getAmountColor(transaction.type)}`}>
+                          {getAmountPrefix(transaction.type)}{formatCurrency(transaction.amount, transaction.currency)}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge className={getStatusColor(transaction.status)}>
+                            {transaction.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {filteredTransactions.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">
+                      {transactions.length === 0
+                        ? "No transactions yet — your history will appear here once you make your first transaction."
+                        : "No transactions found matching your criteria."}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

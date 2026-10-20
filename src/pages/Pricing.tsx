@@ -303,7 +303,7 @@ const Pricing = () => {
             </div>
             <div className="text-center p-4">
               <h4 className="font-medium mb-2">Reliable Infrastructure</h4>
-              <p className="text-sm text-muted-foreground">Built on robust technology with 99.9% uptime guarantee for your business.</p>
+              <p className="text-sm text-muted-foreground">Built on robust technology for your business.</p>
             </div>
           </div>
         </div>

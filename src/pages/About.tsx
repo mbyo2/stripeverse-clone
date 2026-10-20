@@ -15,9 +15,9 @@ const About = () => {
   ];
 
   const stats = [
-    { value: "10K+", label: "Active Users" },
-    { value: "K50M+", label: "Processed Monthly" },
-    { value: "99.9%", label: "Uptime" },
+    { value: "2023", label: "Founded in Lusaka" },
+    { value: "ZMW · USD · GBP", label: "Currencies Supported" },
+    { value: "Bitcoin + Lightning", label: "Built In" },
     { value: "24/7", label: "Support" },
   ];
 
@@ -59,7 +59,7 @@ const About = () => {
             Founded in 2023 by Mabvuto Banda in Lusaka, BMaGlass Pay emerged from a recognition of the challenges facing the payment ecosystem in Africa. With backgrounds in fintech and telecommunications, our founding team set out to create a platform that works for everyone — from urban merchants processing card payments to rural users transacting via USSD.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            Today, we're one of the fastest-growing payment providers in Zambia, processing millions of Kwacha monthly and serving thousands of businesses and individuals with a commitment to innovation, security, and customer satisfaction.
+            Today, we're building BMaGlass Pay into a home-grown Zambian payment platform, serving businesses and individuals with a commitment to innovation, security, and customer satisfaction.
           </p>
         </section>
 

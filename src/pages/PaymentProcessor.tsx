@@ -16,18 +16,31 @@ const PaymentProcessor = () => {
   const [processorConfig, setProcessorConfig] = useState(null);
 
   const handleValidatePaymentMethod = async (methodId: string) => {
-    // Simulate payment method validation
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    // Real check against the method's stored record: a payment method is
+    // valid when it exists and has completed verification. No simulated
+    // results — what is stored is what is reported.
     const method = paymentMethods.find(m => m.id === methodId);
-    
+
+    if (!method) {
+      return {
+        method: 'unknown',
+        provider: 'unknown',
+        isValid: false,
+        lastChecked: new Date(),
+        errors: ['Payment method not found'],
+        capabilities: [] as string[]
+      };
+    }
+
+    const isValid = method.is_verified === true;
+
     return {
-      method: method?.type || 'unknown',
-      provider: method?.provider || 'unknown',
-      isValid: Math.random() > 0.3, // 70% success rate for demo
+      method: method.type || 'unknown',
+      provider: method.provider || 'unknown',
+      isValid,
       lastChecked: new Date(),
-      errors: Math.random() > 0.7 ? ['Invalid API credentials'] : [],
-      capabilities: ['basic_payments', 'tokenization']
+      errors: isValid ? [] : ['Payment method has not completed verification'],
+      capabilities: [] as string[]
     };
   };
 

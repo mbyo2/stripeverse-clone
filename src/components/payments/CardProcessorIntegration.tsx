@@ -35,10 +35,10 @@ const CardProcessorIntegration: React.FC<CardProcessorIntegrationProps> = ({ onC
 
   const mastercardFeatures = ['basic_payments', '3ds_auth', 'tokenization', 'recurring', 'refunds'];
 
-  const handleValidateConfig = async () => {
+  const handleSaveConfig = async () => {
     if (!config.apiKey.trim()) {
       toast({
-        title: 'Validation Error',
+        title: 'Missing API Key',
         description: 'API Key is required',
         variant: 'destructive'
       });
@@ -46,26 +46,16 @@ const CardProcessorIntegration: React.FC<CardProcessorIntegrationProps> = ({ onC
     }
 
     setIsValidating(true);
-    
-    try {
-      // Simulate API validation
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: 'Configuration Valid',
-        description: `${config.provider} integration configured successfully`,
-      });
-      
-      onConfigSave(config);
-    } catch (error) {
-      toast({
-        title: 'Validation Failed',
-        description: 'Could not validate the provided configuration',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsValidating(false);
-    }
+
+    // This saves the configuration locally only. There is no live check
+    // against Mastercard here, so nothing is described as "validated" —
+    // the key is verified only when a real sandbox call succeeds.
+    onConfigSave(config);
+    toast({
+      title: 'Configuration Saved',
+      description: `${config.provider} configuration saved locally. The API key has not been verified with Mastercard.`,
+    });
+    setIsValidating(false);
   };
 
   const providerInfo = {
@@ -169,11 +159,11 @@ const CardProcessorIntegration: React.FC<CardProcessorIntegrationProps> = ({ onC
             View Documentation
           </Button>
           
-          <Button 
-            onClick={handleValidateConfig}
+          <Button
+            onClick={handleSaveConfig}
             disabled={isValidating || !config.apiKey.trim()}
           >
-            {isValidating ? 'Validating...' : 'Save Configuration'}
+            {isValidating ? 'Saving...' : 'Save Configuration'}
           </Button>
         </div>
       </CardContent>

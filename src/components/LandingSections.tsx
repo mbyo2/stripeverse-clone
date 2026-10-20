@@ -154,10 +154,10 @@ export const BitcoinSection = () => {
 
 export const BusinessBand = () => {
   const stats = [
-    { value: '500+', label: 'businesses' },
-    { value: '99.9%', label: 'uptime SLA' },
-    { value: '24/7', label: 'customer support' },
     { value: 'ZMW · USD · GBP', label: 'multi-currency' },
+    { value: '24/7', label: 'customer support' },
+    { value: 'Bitcoin + Lightning', label: 'built into your wallet' },
+    { value: 'Mobile money & cards', label: 'local payment methods' },
   ];
 
   return (

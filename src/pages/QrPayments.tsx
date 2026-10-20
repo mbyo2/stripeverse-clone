@@ -11,6 +11,8 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { formatDistanceToNow } from 'date-fns';
 import { QrCode, Download, Share2, Copy, ScanLine, Store, User, Smartphone, History, CheckCircle, ArrowRight, Camera, X, Loader2 } from 'lucide-react';
 import QRCode from 'qrcode.react';
 
@@ -161,12 +163,45 @@ const QrPayments = () => {
     return () => { stopCamera(); };
   }, [stopCamera]);
 
-  const recentQrPayments = [
-    { id: 1, from: 'Mutale K.', amount: 150, currency: 'ZMW', time: '2 min ago', type: 'received' },
-    { id: 2, from: 'Shop #247', amount: 89.50, currency: 'ZMW', time: '1 hr ago', type: 'paid' },
-    { id: 3, from: 'Peter M.', amount: 500, currency: 'ZMW', time: '3 hrs ago', type: 'received' },
-    { id: 4, from: 'Total Energies', amount: 320, currency: 'ZMW', time: 'Yesterday', type: 'paid' },
-  ];
+  const [recentQrPayments, setRecentQrPayments] = useState<
+    { id: number; from: string; amount: number; currency: string; time: string; type: 'received' | 'paid' }[]
+  >([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  // Real QR payment history: the signed-in user's own transactions whose
+  // payment method or category marks them as QR payments.
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!user) {
+        setHistoryLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('id, amount, currency, direction, payment_method, category, recipient_name, description, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (!error && data) {
+        const qrRows = data.filter(t =>
+          (t.payment_method || '').toLowerCase().includes('qr') ||
+          (t.category || '').toLowerCase().includes('qr')
+        );
+        setRecentQrPayments(qrRows.map(t => ({
+          id: t.id,
+          from: t.recipient_name || t.description || 'QR payment',
+          amount: Number(t.amount),
+          currency: t.currency,
+          time: t.created_at
+            ? formatDistanceToNow(new Date(t.created_at), { addSuffix: true })
+            : '',
+          type: t.direction === 'incoming' ? 'received' : 'paid',
+        })));
+      }
+      setHistoryLoading(false);
+    };
+    loadHistory();
+  }, [user ]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -389,6 +424,13 @@ const QrPayments = () => {
                 <CardDescription>Recent payments made or received via QR code</CardDescription>
               </CardHeader>
               <CardContent>
+                {historyLoading ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">Loading history…</p>
+                ) : recentQrPayments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    No QR payments yet — payments you make or receive by QR code will appear here.
+                  </p>
+                ) : (
                 <div className="space-y-3">
                   {recentQrPayments.map(p => (
                     <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
@@ -410,6 +452,7 @@ const QrPayments = () => {
                     </div>
                   ))}
                 </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

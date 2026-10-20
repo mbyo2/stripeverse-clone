@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { CopyIcon, EyeIcon, EyeOffIcon, RefreshCwIcon, TrashIcon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { CopyIcon, RefreshCwIcon, TrashIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,32 +20,64 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ApiKey {
   id: string;
+  name: string | null;
   prefix: string;
-  lastFour: string;
   createdAt: string;
   type: 'test' | 'live';
   revoked?: boolean;
 }
 
+interface ApiKeyRow {
+  id: string;
+  name: string | null;
+  key_prefix: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export function ApiKeyManager() {
+  const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showLiveKey, setShowLiveKey] = useState(false);
-  const [showTestKey, setShowTestKey] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [liveKeys, setLiveKeys] = useState<ApiKey[]>([]);
+  const [testKeys, setTestKeys] = useState<ApiKey[]>([]);
+  // A newly generated key is shown in full exactly once — only its hash is
+  // stored server-side, so it can never be retrieved again.
+  const [freshKey, setFreshKey] = useState<string | null>(null);
   const { toast } = useToast();
-  const [liveKeys, setLiveKeys] = useState<ApiKey[]>([{
-    id: "live_key",
-    prefix: "bmp_live_",
-    lastFour: "x4k9",
-    createdAt: new Date().toISOString(),
-    type: 'live'
-  }]);
-  const [testKeys, setTestKeys] = useState<ApiKey[]>([{
-    id: "test_key",
-    prefix: "bmp_test_",
-    lastFour: "t3s7",
-    createdAt: new Date().toISOString(),
-    type: 'test'
-  }]);
+
+  const loadKeys = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from("api_keys")
+      .select("id, name, key_prefix, is_active, created_at")
+      .order("created_at", { ascending: false });
+    if (error) {
+      toast({
+        title: "Failed to load API keys",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      const rows = (data || []) as ApiKeyRow[];
+      const mapped: ApiKey[] = rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        prefix: row.key_prefix,
+        createdAt: row.created_at,
+        type: row.key_prefix.includes('test') ? 'test' : 'live',
+        revoked: !row.is_active,
+      }));
+      setLiveKeys(mapped.filter(k => k.type === 'live'));
+      setTestKeys(mapped.filter(k => k.type === 'test'));
+    }
+    setIsLoading(false);
+  }, [user, toast]);
+
+  useEffect(() => {
+    loadKeys();
+  }, [loadKeys]);
 
   const generateNewKey = async (type: 'test' | 'live') => {
     setIsGenerating(true);
@@ -52,13 +85,26 @@ export function ApiKeyManager() {
       const { data, error } = await supabase.functions.invoke('generate-api-key', {
         body: { type }
       });
-      
+
       if (error) throw error;
-      
-      if (type === 'live') {
-        setLiveKeys([...liveKeys, data]);
+
+      const newKey: ApiKey = {
+        id: data.id,
+        name: data.name ?? null,
+        prefix: data.key_prefix,
+        createdAt: data.created_at,
+        type: data.type === 'test' ? 'test' : 'live',
+        revoked: false,
+      };
+
+      if (newKey.type === 'live') {
+        setLiveKeys(prev => [newKey, ...prev]);
       } else {
-        setTestKeys([...testKeys, data]);
+        setTestKeys(prev => [newKey, ...prev]);
+      }
+
+      if (data.key) {
+        setFreshKey(data.key);
       }
 
       toast({
@@ -79,12 +125,19 @@ export function ApiKeyManager() {
 
   const revokeKey = async (keyToRevoke: ApiKey) => {
     try {
+      const { data, error } = await supabase.functions.invoke('revoke-api-key', {
+        body: { key_id: keyToRevoke.id }
+      });
+
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || 'Failed to revoke API key');
+
       if (keyToRevoke.type === 'live') {
-        setLiveKeys(liveKeys.map(key => 
+        setLiveKeys(prev => prev.map(key =>
           key.id === keyToRevoke.id ? { ...key, revoked: true } : key
         ));
       } else {
-        setTestKeys(testKeys.map(key => 
+        setTestKeys(prev => prev.map(key =>
           key.id === keyToRevoke.id ? { ...key, revoked: true } : key
         ));
       }
@@ -102,12 +155,12 @@ export function ApiKeyManager() {
     }
   };
 
-  const copyToClipboard = async (text: string, keyType: string) => {
+  const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       toast({
         title: "Copied!",
-        description: `${keyType} key copied to clipboard`,
+        description: "API key copied to clipboard",
       });
     } catch (err) {
       toast({
@@ -120,8 +173,6 @@ export function ApiKeyManager() {
 
   const renderKeySection = (type: 'live' | 'test') => {
     const keys = type === 'live' ? liveKeys : testKeys;
-    const showKey = type === 'live' ? showLiveKey : showTestKey;
-    const setShowKey = type === 'live' ? setShowLiveKey : setShowTestKey;
 
     return (
       <div className="space-y-3">
@@ -140,41 +191,29 @@ export function ApiKeyManager() {
           </Button>
         </div>
 
-        {keys.map((key) => (
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground py-2">Loading keys…</p>
+        ) : keys.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-2">
+            No {type} API keys yet — generate one to get started.
+          </p>
+        ) : keys.map((key) => (
           <div
             key={key.id}
             className="flex justify-between items-center p-3 bg-secondary/20 rounded-md"
           >
             <div className="flex items-center space-x-3">
+              {/* Only the prefix is stored; the full key exists only at creation time. */}
               <code className="font-mono bg-secondary px-3 py-1 rounded text-sm">
-                {showKey ? `${key.prefix}...${key.lastFour}` : '••••••••••••••••'}
+                {key.prefix}••••••••
               </code>
+              {key.name && <span className="text-sm text-muted-foreground">{key.name}</span>}
               <Badge variant={key.revoked ? "destructive" : "default"}>
                 {key.revoked ? "Revoked" : "Active"}
               </Badge>
             </div>
-            
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowKey(!showKey)}
-              >
-                {showKey ? (
-                  <EyeOffIcon className="h-4 w-4" />
-                ) : (
-                  <EyeIcon className="h-4 w-4" />
-                )}
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => copyToClipboard(`${key.prefix}...${key.lastFour}`, type)}
-              >
-                <CopyIcon className="h-4 w-4" />
-              </Button>
 
+            <div className="flex items-center space-x-2">
               {!key.revoked && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -216,6 +255,23 @@ export function ApiKeyManager() {
           Keep your API keys secure! Never share them in publicly accessible places such as GitHub or client-side code.
         </AlertDescription>
       </Alert>
+
+      {freshKey && (
+        <Alert className="border-amber-500/50 bg-amber-500/10">
+          <AlertDescription className="space-y-2">
+            <p className="font-medium">Copy your new API key now — it won't be shown again.</p>
+            <div className="flex items-center gap-2">
+              <code className="font-mono bg-secondary px-3 py-1 rounded text-sm break-all">{freshKey}</code>
+              <Button variant="outline" size="sm" onClick={() => copyToClipboard(freshKey)}>
+                <CopyIcon className="h-4 w-4 mr-1" /> Copy
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setFreshKey(null)}>
+                Dismiss
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {renderKeySection('live')}
       {renderKeySection('test')}

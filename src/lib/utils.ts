@@ -230,18 +230,3 @@ export const formatBitcoinAmount = (amount: number): string => {
     return `${(amount * 100000000).toFixed(0)} sats`;
   }
 };
-
-/**
- * Generate a mock BTCPay server checkout URL
- * In a real implementation, this would call the BTCPay Server API
- */
-export const generateBTCPayCheckoutUrl = (
-  amount: number, 
-  orderId: string, 
-  currency: string = 'ZMW'
-): string => {
-  // In a real implementation, this would generate a BTCPay Server checkout URL
-  // This would be configured per environment
-  const btcPayUrl = import.meta.env.VITE_BTCPAY_URL || 'https://btcpay.sandbox.com';
-  return `${btcPayUrl}/checkout?amount=${amount}&orderId=${orderId}&currency=${currency}`;
-};
