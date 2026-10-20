@@ -23,8 +23,7 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { 
-  ChevronDown, 
-  CreditCard,
+  ChevronDown,
   AlertCircle,
   BarChart3, 
   Settings, 
@@ -70,11 +69,12 @@ import {
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import Logo from "@/components/Logo";
 
 const Header = () => {
   const { user, signOut } = useAuth();
   const location = useLocation();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -112,17 +112,29 @@ const Header = () => {
 
   return (
     <>
-    <header className="fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-b border-border">
-      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-[#0A0F1A] border-b border-[#CFD3D8]/70 dark:border-white/10">
+      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-8">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg paypal-gradient flex items-center justify-center">
-              <CreditCard className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-lg font-bold text-paypal-dark">BMaGlass<span className="text-primary">Pay</span></span>
+        <div className="flex items-center gap-10">
+          <Link to="/" aria-label="BMaGlass Pay — home" className="flex items-center">
+            <Logo variant={resolvedTheme === "dark" ? "white" : "color"} />
           </Link>
-          
+
+          {/* Logged-out Nav */}
+          {!user && (
+            <nav className="hidden lg:flex items-center gap-8">
+              <Link to="/" className="text-[15px] font-medium text-black dark:text-white hover:underline underline-offset-4">
+                Personal
+              </Link>
+              <Link to="/business" className="text-[15px] font-medium text-black dark:text-white hover:underline underline-offset-4">
+                Business
+              </Link>
+              <Link to="/developers" className="text-[15px] font-medium text-black dark:text-white hover:underline underline-offset-4">
+                Developers
+              </Link>
+            </nav>
+          )}
+
           {/* Desktop Nav */}
           {user && (
             <nav className="hidden lg:flex items-center gap-1">
@@ -444,17 +456,23 @@ const Header = () => {
               </DropdownMenu>
             </>
           ) : (
-            <div className="flex items-center gap-2">
-              <Link to="/about"><Button variant="ghost" size="sm" className="text-sm h-9">About</Button></Link>
-              <Link to="/pricing"><Button variant="ghost" size="sm" className="text-sm h-9">Pricing</Button></Link>
-              <Link to="/developers"><Button variant="ghost" size="sm" className="text-sm h-9">Developers</Button></Link>
-              <Link to="/contact"><Button variant="ghost" size="sm" className="text-sm h-9">Contact</Button></Link>
-              <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-9 w-9" aria-label="Toggle theme">
+            <div className="flex items-center gap-3">
+              <Link to="/support" className="hidden xl:block text-[15px] font-medium text-black dark:text-white hover:underline underline-offset-4 mr-1">
+                Help
+              </Link>
+              <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-10 w-10 rounded-full" aria-label="Toggle theme">
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
-              <Separator orientation="vertical" className="h-6" />
-              <Link to="/login"><Button variant="ghost" size="sm" className="text-sm h-9 text-paypal-dark font-semibold">Log In</Button></Link>
-              <Link to="/register"><Button size="sm" className="text-sm h-9 rounded-full px-5">Sign Up Free</Button></Link>
+              <Link to="/login">
+                <Button variant="ghost" className="h-12 rounded-full bg-[#E9EEF5] px-7 text-[15px] font-semibold text-[#003087] shadow-none hover:bg-[#DBE5F1] hover:text-[#003087]">
+                  Log In
+                </Button>
+              </Link>
+              <Link to="/register">
+                <Button className="h-12 rounded-full bg-black px-7 text-[15px] font-semibold text-white shadow-none hover:bg-black/85 dark:bg-white dark:text-black dark:hover:bg-white/85">
+                  Sign Up
+                </Button>
+              </Link>
             </div>
           )}
         </div>
@@ -470,11 +488,8 @@ const Header = () => {
             </SheetTrigger>
             <SheetContent side="right" className="w-80 overflow-y-auto">
               <SheetHeader>
-                <SheetTitle className="text-left flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg paypal-gradient flex items-center justify-center">
-                    <CreditCard className="h-3.5 w-3.5 text-white" />
-                  </div>
-                  <span className="text-lg font-bold text-paypal-dark">BMaGlass<span className="text-primary">Pay</span></span>
+                <SheetTitle className="text-left">
+                  <Logo variant={resolvedTheme === "dark" ? "white" : "color"} />
                 </SheetTitle>
               </SheetHeader>
               
@@ -587,13 +602,13 @@ const Header = () => {
                     <Separator className="my-4" />
                     <div className="px-4 space-y-3">
                       <Link to="/login" onClick={closeMobileMenu}>
-                        <Button variant="outline" className="w-full gap-2 rounded-full">
+                        <Button variant="ghost" className="w-full gap-2 rounded-full h-12 bg-[#E9EEF5] text-[15px] font-semibold text-[#003087] shadow-none hover:bg-[#DBE5F1] hover:text-[#003087]">
                           <LogIn className="h-4 w-4" /> Log In
                         </Button>
                       </Link>
                       <Link to="/register" onClick={closeMobileMenu}>
-                        <Button className="w-full gap-2 rounded-full">
-                          <UserPlus className="h-4 w-4" /> Sign Up Free
+                        <Button className="w-full gap-2 rounded-full h-12 bg-black text-[15px] font-semibold text-white shadow-none hover:bg-black/85">
+                          <UserPlus className="h-4 w-4" /> Sign Up
                         </Button>
                       </Link>
                     </div>

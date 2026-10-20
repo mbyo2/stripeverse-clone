@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { CreditCard, Mail, MapPin, Phone } from 'lucide-react';
+import { Mail, MapPin, Phone } from 'lucide-react';
+import Logo from '@/components/Logo';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -46,17 +47,14 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="bg-paypal-dark text-white/80">
+    <footer className="bg-black text-white/80">
       <div className="max-w-[1320px] mx-auto px-4 sm:px-6">
         {/* Main Footer */}
-        <div className="py-12 grid grid-cols-2 md:grid-cols-5 gap-8">
+        <div className="py-14 grid grid-cols-2 md:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <CreditCard className="h-4 w-4 text-white" />
-              </div>
-              <span className="text-lg font-bold text-white">BMaGlass<span className="text-paypal-blue-light">Pay</span></span>
+            <div className="mb-5">
+              <Logo variant="white" />
             </div>
             <p className="text-sm text-white/60 mb-4 max-w-xs">
               Zambia's trusted payment gateway. Secure, fast, and built for African businesses.
