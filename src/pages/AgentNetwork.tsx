@@ -95,7 +95,7 @@ const AgentNetwork = () => {
                     style={{ height: '450px' }}
                   >
                     {/* Map background with Zambia outline approximation */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10" />
+                    <div className="absolute inset-0 bg-primary/5" />
                     <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
                       <Map className="h-32 w-32" />
                     </div>

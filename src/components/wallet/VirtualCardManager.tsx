@@ -74,7 +74,6 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
               <Button 
                 size="sm" 
                 disabled={virtualCards.length >= maxCards}
-                className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Create Card
@@ -156,7 +155,6 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
             </p>
             <Button 
               onClick={() => setShowCreateDialog(true)}
-              className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create Your First Card
@@ -165,7 +163,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {virtualCards.map((card) => (
-              <div key={card.id} className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg p-4 text-white relative overflow-hidden">
+              <div key={card.id} className="bg-[#003087] rounded-2xl p-4 text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
                 <div className="relative z-10">
                   <div className="flex justify-between items-start mb-4">

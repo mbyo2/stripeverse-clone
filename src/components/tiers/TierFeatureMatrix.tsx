@@ -92,7 +92,7 @@ const TierFeatureMatrix = () => {
         support: 'Priority email & chat',
         airtime: 'Free airtime purchase'
       },
-      color: 'bg-purple-500'
+      color: 'bg-[#003087]'
     },
     {
       id: 'enterprise',
@@ -112,7 +112,7 @@ const TierFeatureMatrix = () => {
         support: '24/7 phone & dedicated manager',
         airtime: 'Free airtime purchase'
       },
-      color: 'bg-gradient-to-r from-purple-600 to-pink-600'
+      color: 'bg-[#003087]'
     }
   ];
 

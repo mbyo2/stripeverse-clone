@@ -130,7 +130,7 @@ const AdminDashboard = () => {
       description: "Approve role requests and changes",
       icon: <Shield className="h-6 w-6" />,
       link: "/role-management",
-      color: "bg-purple-500"
+      color: "bg-[#003087]"
     },
     {
       title: "Compliance Center",
@@ -150,7 +150,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-red-50 to-orange-50">
+    <div className="min-h-screen flex flex-col bg-muted">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
         <div className="mb-6">

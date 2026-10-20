@@ -40,28 +40,28 @@ const BusinessDashboard = () => {
       title: "Total Revenue",
       value: formatAmount(metrics.revenue),
       icon: DollarSign,
-      gradient: "from-emerald-500 to-emerald-600",
+      color: "bg-emerald-600",
       description: "Completed incoming",
     },
     {
       title: "Transactions",
       value: metrics.txCount.toLocaleString(),
       icon: Activity,
-      gradient: "from-blue-500 to-blue-600",
+      color: "bg-[#003087]",
       description: "All types",
     },
     {
       title: "Success Rate",
       value: `${metrics.successRate}%`,
       icon: CreditCard,
-      gradient: "from-violet-500 to-violet-600",
+      color: "bg-[#44464A]",
       description: "Completed vs total",
     },
     {
       title: "API Calls",
       value: (usageData?.api_calls || 0).toLocaleString(),
       icon: TrendingUp,
-      gradient: "from-amber-500 to-amber-600",
+      color: "bg-amber-700",
       description: "This month",
     },
   ];
@@ -104,8 +104,7 @@ const BusinessDashboard = () => {
           transition={{ duration: 0.3, delay: 0.1 }}
         >
           {statCards.map((stat) => (
-            <Card key={stat.title} className={`bg-gradient-to-br ${stat.gradient} text-white border-0 overflow-hidden relative`}>
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8" />
+            <Card key={stat.title} className={`${stat.color} text-white border-0 overflow-hidden relative`}>
               <CardContent className="p-5 relative z-10">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-medium text-white/80">{stat.title}</p>

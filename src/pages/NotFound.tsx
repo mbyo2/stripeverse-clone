@@ -21,7 +21,7 @@ const NotFound = () => {
       <Header />
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="text-center max-w-md">
-          <h1 className="text-7xl font-bold mb-4 bg-gradient-to-r from-primary via-accent-foreground to-primary bg-clip-text text-transparent">
+          <h1 className="text-7xl font-bold mb-4 text-[#003087] dark:text-white">
             404
           </h1>
           <p className="text-xl text-foreground mb-2">Page not found</p>

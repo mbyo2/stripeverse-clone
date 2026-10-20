@@ -40,9 +40,9 @@ const Rewards = () => {
                     <h3 className="font-semibold text-green-900 mb-2">Tier Benefits</h3>
                     <p className="text-sm text-green-700">Advance through Bronze, Silver, Gold, and Platinum tiers for exclusive perks.</p>
                   </div>
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <h3 className="font-semibold text-purple-900 mb-2">Redeem Rewards</h3>
-                    <p className="text-sm text-purple-700">Use points for cashback, discounts, and special offers.</p>
+                  <div className="p-4 bg-accent rounded-2xl">
+                    <h3 className="font-semibold text-foreground mb-2">Redeem Rewards</h3>
+                    <p className="text-sm text-muted-foreground">Use points for cashback, discounts, and special offers.</p>
                   </div>
                   <div className="p-4 bg-amber-50 rounded-lg">
                     <h3 className="font-semibold text-amber-900 mb-2">Stay Active</h3>

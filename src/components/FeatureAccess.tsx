@@ -63,7 +63,7 @@ export const RoleBadge = () => {
   const { roles, subscriptionTier } = useRoles();
   
   const getRoleColor = () => {
-    if (roles.includes("admin")) return "bg-purple-500";
+    if (roles.includes("admin")) return "bg-[#003087]";
     if (roles.includes("business")) return "bg-blue-500";
     if (roles.includes("beta_tester")) return "bg-amber-500";
     return "bg-gray-500";
@@ -71,7 +71,7 @@ export const RoleBadge = () => {
 
   const getTierColor = () => {
     switch (subscriptionTier) {
-      case "enterprise": return "bg-purple-500";
+      case "enterprise": return "bg-[#003087]";
       case "premium": return "bg-blue-500";
       case "basic": return "bg-green-500";
       default: return "bg-gray-500";

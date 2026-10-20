@@ -33,7 +33,7 @@ const BuyNowPayLater = () => {
         </div>
 
         {/* How it Works */}
-        <Card className="mb-8 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+        <Card className="mb-8 bg-primary/5 border-primary/20">
           <CardContent className="p-6">
             <h3 className="font-bold text-lg mb-4">How Pay in 4 Works</h3>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">

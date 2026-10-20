@@ -12,11 +12,11 @@ import { CreditCard, Plus, Star, Trash2, Shield, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const brandColors: Record<string, string> = {
-  visa: 'from-blue-600 to-blue-800',
-  mastercard: 'from-red-500 to-orange-500',
-  amex: 'from-green-600 to-green-800',
-  discover: 'from-orange-500 to-yellow-500',
-  unknown: 'from-gray-600 to-gray-800',
+  visa: 'bg-[#003087]',
+  mastercard: 'bg-[#7A1E1E]',
+  amex: 'bg-[#1F5C46]',
+  discover: 'bg-[#9A6206]',
+  unknown: 'bg-[#44464A]',
 };
 
 const CardVault = () => {
@@ -112,7 +112,7 @@ const CardVault = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {tokens.map(token => (
               <Card key={token.id} className="overflow-hidden">
-                <div className={`bg-gradient-to-r ${brandColors[token.card_brand] || brandColors.unknown} p-6 text-white`}>
+                <div className={`${brandColors[token.card_brand] || brandColors.unknown} p-6 text-white`}>
                   <div className="flex items-center justify-between mb-8">
                     <span className="text-sm font-medium uppercase">{token.card_brand}</span>
                     {token.is_default && <Badge className="bg-white/20 text-white border-0">Default</Badge>}

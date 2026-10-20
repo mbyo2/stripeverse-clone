@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Zap, Crown, Building, Sparkles } from "lucide-react";
+import { CheckCircle2, Zap, Crown, Building, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { usePricing } from "@/hooks/usePricing";
 import { FadeIn, StaggerChildren, StaggerItem } from '@/components/animations';
@@ -14,7 +14,7 @@ const Products = () => {
   const getIcon = (tierName: string) => {
     switch (tierName) {
       case 'free': return <Zap className="h-5 w-5" />;
-      case 'basic': return <Sparkles className="h-5 w-5" />;
+      case 'basic': return <Wallet className="h-5 w-5" />;
       case 'premium': return <Crown className="h-5 w-5" />;
       case 'business': return <Building className="h-5 w-5" />;
       default: return <Zap className="h-5 w-5" />;

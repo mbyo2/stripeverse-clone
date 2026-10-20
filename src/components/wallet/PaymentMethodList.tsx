@@ -234,7 +234,7 @@ const PaymentMethodList = ({ paymentMethods: initialMethods }: PaymentMethodList
           <CardTitle>Payment Methods</CardTitle>
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
-              <Button size="sm" className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700">
+              <Button size="sm" className="bg-success text-success-foreground hover:bg-success/90">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Method
               </Button>

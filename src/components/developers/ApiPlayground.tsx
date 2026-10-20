@@ -153,7 +153,7 @@ const methodColors: Record<string, string> = {
   POST: "bg-blue-500/15 text-blue-400 border-blue-500/30",
   PUT: "bg-amber-500/15 text-amber-400 border-amber-500/30",
   DELETE: "bg-red-500/15 text-red-400 border-red-500/30",
-  PATCH: "bg-violet-500/15 text-violet-400 border-violet-500/30",
+  PATCH: "bg-[#003087]/20 text-[#A9BCDA] border-[#003087]/40",
 };
 
 type CodeLang = "curl" | "javascript" | "python" | "php" | "java" | "go" | "ruby" | "csharp";
