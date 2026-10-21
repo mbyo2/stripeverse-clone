@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +17,7 @@ import { Code2, Copy, Eye, Palette, CreditCard, Smartphone, Zap, CheckCircle, Se
 const CheckoutWidget = () => {
   const { toast } = useToast();
   const [config, setConfig] = useState({
-    publicKey: 'pk_test_xxxxxxxxxxxxxxxx',
+    publicKey: '',
     amount: '100.00',
     currency: 'ZMW',
     title: 'My Store',
@@ -43,6 +45,8 @@ const CheckoutWidget = () => {
 
   const supabase = createClient('${projectUrl}', '${config.publicKey}');
 
+  // NOTE: process-payment currently routes PayPal checkouts only. 'mobile',
+  // 'card' and 'bank' return { status: 'not_configured' } today.
   async function payWithBMaGlass({ amount, currency, method, phone }) {
     const { data, error } = await supabase.functions.invoke('process-payment', {
       body: {
@@ -129,8 +133,8 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
     "callback_url": "${config.callbackUrl}"
   }'
 
-<!-- Response: { "success": true, "transaction_id": "...", "status": "pending" } -->
-<!-- Webhook notifications are sent to your callback_url on status changes. -->`;
+<!-- Response: PayPal checkouts return an approval URL with status "pending".
+     Unconfigured methods return status "not_configured" — no payment is taken. -->`;
 
   const copyCode = (code: string, label: string) => {
     navigator.clipboard.writeText(code);
@@ -146,6 +150,18 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
           <p className="text-muted-foreground mt-1">Generate embeddable payment forms for your website</p>
         </div>
 
+        <Alert className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Preview — guest checkout is not enabled</AlertTitle>
+          <AlertDescription>
+            This builder is a visual preview. The card, mobile-money and bank-transfer methods it can
+            display are not enabled for guest checkout: today, payment links settle wallet-to-wallet
+            between BMaGlass accounts. The code snippets call the live process-payment function, which
+            answers truthfully — it starts a PayPal checkout where PayPal is configured and returns
+            "not configured" for everything else.
+          </AlertDescription>
+        </Alert>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Configuration */}
           <div className="lg:col-span-1 space-y-6">
@@ -155,8 +171,9 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Public Key</Label>
-                  <Input value={config.publicKey} onChange={e => updateConfig('publicKey', e.target.value)} placeholder="pk_test_..." />
+                  <Label>Supabase Anon Key</Label>
+                  <Input value={config.publicKey} onChange={e => updateConfig('publicKey', e.target.value)} placeholder="Your project anon key (Supabase → Project Settings → API)" />
+                  <p className="text-xs text-muted-foreground">The snippets call BMaGlass edge functions with your project's anon key — there is no separate publishable key.</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
@@ -200,8 +217,9 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
                 <CardTitle className="text-lg flex items-center gap-2"><CreditCard className="h-5 w-5" /> Payment Methods</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                <p className="text-xs text-muted-foreground">For preview layout only — these methods aren't enabled for guest checkout.</p>
                 {[
-                  { key: 'showCard', label: 'Card (Visa/Mastercard)', icon: '💳' },
+                  { key: 'showCard', label: 'Card', icon: '💳' },
                   { key: 'showMobileMoney', label: 'Mobile Money', icon: '📱' },
                   { key: 'showBankTransfer', label: 'Bank Transfer', icon: '🏦' },
                   { key: 'showBitcoin', label: 'Bitcoin', icon: '₿' },
@@ -239,7 +257,7 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
             {/* Preview */}
             <Card className="border-primary/20">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2"><Eye className="h-5 w-5" /> Live Preview</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2"><Eye className="h-5 w-5" /> Preview</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="bg-muted/30 rounded-xl p-6 flex items-center justify-center min-h-[280px]">
@@ -255,7 +273,7 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
                       {config.showCard && (
                         <div className="flex items-center gap-2 p-3 rounded-lg border hover:border-primary/40 cursor-pointer transition-colors">
                           <CreditCard className="h-4 w-4" /><span className="text-sm">Card Payment</span>
-                          <Badge variant="outline" className="ml-auto text-xs">Visa/MC</Badge>
+                          <Badge variant="outline" className="ml-auto text-xs">Not enabled</Badge>
                         </div>
                       )}
                       {config.showMobileMoney && (
@@ -275,7 +293,11 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
                         </div>
                       )}
                     </div>
-                    <Button className="w-full" style={{ backgroundColor: config.primaryColor }}>
+                    <Button
+                      className="w-full"
+                      style={{ backgroundColor: config.primaryColor }}
+                      onClick={() => toast({ title: 'Preview only', description: "This button doesn't process a payment — the widget is a visual demo and guest checkout is not enabled." })}
+                    >
                       Pay {config.currency} {parseFloat(config.amount || '0').toFixed(2)}
                     </Button>
                     <p className="text-center text-xs text-muted-foreground mt-3 flex items-center justify-center gap-1">
