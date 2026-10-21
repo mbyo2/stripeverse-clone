@@ -10,11 +10,11 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { User, Shield, Bell, CreditCard, LogOut, Camera, Loader2, ChevronRight, Settings as SettingsIcon, Sun, Moon, Monitor, Palette } from "lucide-react";
+import { User, Shield, Bell, CreditCard, LogOut, Camera, Loader2, ChevronRight, Settings as SettingsIcon, Sun, Moon, Monitor, Palette, Lock, CheckCircle2, XCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { CurrencySelector } from "@/components/CurrencySelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -37,6 +37,18 @@ const Settings = () => {
   });
 
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Same strength rules the Register page enforces.
+  const passwordChecks = [
+    { label: "At least 8 characters", valid: newPassword.length >= 8 },
+    { label: "One uppercase letter", valid: /[A-Z]/.test(newPassword) },
+    { label: "One number", valid: /[0-9]/.test(newPassword) },
+  ];
+  const allPasswordValid = passwordChecks.every((c) => c.valid);
 
   const [notifications, setNotifications] = useState({
     email_transactions: true,
@@ -116,6 +128,31 @@ const Settings = () => {
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    // In-app change for a signed-in user (QA Wave 4: this used to
+    // bounce the user out to the public email-reset flow instead).
+    if (!allPasswordValid) {
+      toast({ title: "Weak password", description: "Please meet all password requirements.", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Passwords don't match", description: "Please make sure both passwords are the same.", variant: "destructive" });
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setNewPassword('');
+      setConfirmPassword('');
+      toast({ title: "Password Updated", description: "Your password has been changed. Use it the next time you sign in." });
+    } catch (error: any) {
+      toast({ title: "Password Change Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -384,15 +421,6 @@ const Settings = () => {
                       ),
                     },
                     {
-                      title: 'Change Password',
-                      desc: 'Update your account password regularly',
-                      action: (
-                        <Button variant="ghost" size="sm" onClick={() => navigate('/reset-password')}>
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      ),
-                    },
-                    {
                       title: 'Security Dashboard',
                       desc: 'Review login activity and security events',
                       action: (
@@ -413,6 +441,84 @@ const Settings = () => {
                       {i < arr.length - 1 && <Separator />}
                     </React.Fragment>
                   ))}
+
+                  <Separator />
+
+                  {/* Change password — in-app, while signed in. The
+                      emailed reset link below stays as the fallback
+                      for users who can't sign in at all. */}
+                  <div className="pt-6 space-y-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground">Change Password</h3>
+                      <p className="text-sm text-muted-foreground">Update your account password regularly</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">New Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="new-password"
+                          type="password"
+                          placeholder="Enter a new password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="pl-10 h-11 rounded-lg"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                      {newPassword.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          {passwordChecks.map((check, i) => (
+                            <div key={i} className="flex items-center gap-2 text-xs">
+                              {check.valid ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                              ) : (
+                                <XCircle className="h-3.5 w-3.5 text-destructive" />
+                              )}
+                              <span className={check.valid ? "text-green-600 dark:text-green-400" : "text-destructive"}>
+                                {check.label}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirm New Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="confirm-password"
+                          type="password"
+                          placeholder="Re-enter your new password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="pl-10 h-11 rounded-lg"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                      {confirmPassword && newPassword !== confirmPassword && (
+                        <p className="text-xs text-destructive flex items-center gap-1">
+                          <XCircle className="h-3.5 w-3.5" /> Passwords don't match
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 pt-1">
+                      <Button
+                        onClick={handlePasswordChange}
+                        disabled={isChangingPassword || !newPassword || !confirmPassword}
+                        className="h-11 px-6 rounded-full"
+                      >
+                        {isChangingPassword ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...</> : "Update Password"}
+                      </Button>
+                      <p className="text-sm text-muted-foreground">
+                        Can't sign in?{" "}
+                        <Link to="/reset-password" className="text-primary hover:underline font-medium">
+                          Reset your password by email
+                        </Link>
+                      </p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}
