@@ -3,6 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
+/**
+ * Savings goals are funded from — and paid back to — the user's real
+ * wallet. Every movement goes through the `savings-transfer` edge
+ * function (execute_savings_transfer RPC), which debits/credits the
+ * wallet and the goal atomically with a paired ledger entry. The
+ * browser never writes a savings or wallet balance directly: the old
+ * client-side `balance + amount` write created money from nothing.
+ */
 export const useSavings = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -35,15 +43,67 @@ export const useSavings = () => {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // The wallet that funds / receives for a goal: the user's Main
+  // wallet (account_id null) in the goal's currency, else any active
+  // wallet in that currency. The RPC re-validates ownership.
+  const resolveWalletId = async (currency: string): Promise<string> => {
+    const { data, error } = await supabase
+      .from('wallets')
+      .select('id, account_id')
+      .eq('user_id', user!.id)
+      .eq('currency', currency)
+      .eq('status', 'active');
+    if (error) throw error;
+    const wallet = data?.find(w => w.account_id === null) ?? data?.[0];
+    if (!wallet) {
+      throw new Error(`You have no active ${currency} wallet to move savings money with. Create one first.`);
+    }
+    return wallet.id;
+  };
+
+  const moveMoney = async ({ id, amount, direction }: { id: string; amount: number; direction: 'deposit' | 'withdraw' }) => {
+    if (!amount || amount <= 0) throw new Error('Amount must be greater than zero');
+    const { data: account, error: accountError } = await supabase
+      .from('savings_accounts')
+      .select('id, currency')
+      .eq('id', id)
+      .eq('user_id', user!.id)
+      .single();
+    if (accountError) throw accountError;
+
+    const walletId = await resolveWalletId(account.currency || 'ZMW');
+
+    const { data, error } = await supabase.functions.invoke('savings-transfer', {
+      body: {
+        savings_account_id: id,
+        wallet_id: walletId,
+        amount,
+        direction,
+        idempotency_key: `savings-${direction}-${user!.id}-${crypto.randomUUID()}`,
+      },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
+  const invalidateMoney = () => {
+    queryClient.invalidateQueries({ queryKey: ['savings'] });
+    queryClient.invalidateQueries({ queryKey: ['wallet'] });
+    queryClient.invalidateQueries({ queryKey: ['multi-wallets'] });
+  };
+
   const deposit = useMutation({
-    mutationFn: async ({ id, amount }: { id: string; amount: number }) => {
-      const { data: account } = await supabase.from('savings_accounts').select('balance').eq('id', id).single();
-      const { error } = await supabase.from('savings_accounts').update({ balance: (account?.balance || 0) + amount }).eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success('Deposit successful'); queryClient.invalidateQueries({ queryKey: ['savings'] }); },
+    mutationFn: ({ id, amount }: { id: string; amount: number }) => moveMoney({ id, amount, direction: 'deposit' }),
+    onSuccess: () => { toast.success('Deposit successful — moved from your wallet'); invalidateMoney(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return { accounts, createAccount, deposit };
+  const withdraw = useMutation({
+    mutationFn: ({ id, amount }: { id: string; amount: number }) => moveMoney({ id, amount, direction: 'withdraw' }),
+    onSuccess: () => { toast.success('Withdrawal successful — moved back to your wallet'); invalidateMoney(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return { accounts, createAccount, deposit, withdraw };
 };

@@ -113,7 +113,7 @@ const MultiCurrencyWallet = () => {
                   {fromWallet && toWallet && convertForm.amount && rate !== null && (
                     <div className="p-4 rounded-lg bg-muted/50 space-y-2">
                       <div className="flex justify-between text-sm"><span className="text-muted-foreground">Exchange Rate</span><span>1 {fromWallet.currency} = {rate.toFixed(4)} {toWallet.currency}</span></div>
-                      <div className="flex justify-between text-sm"><span className="text-muted-foreground">Fee (1.5%)</span><span>{(Number(convertForm.amount) * 0.015).toFixed(2)} {fromWallet.currency}</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-muted-foreground">Fee</span><span>None</span></div>
                       <div className="flex justify-between font-semibold"><span>You receive</span><span>{convertedAmount.toFixed(2)} {toWallet.currency}</span></div>
                     </div>
                   )}

@@ -170,23 +170,38 @@ export const useWallet = (accountId?: string | null) => {
     },
   });
 
-  // Wallet deposit mutation
+  // Wallet deposit mutation. The deposit targets the wallet the user
+  // is viewing (selected account + currency) explicitly — the function
+  // credits only that wallet, and only against a confirmed payment.
+  // Mobile money / card currently answer 'not_configured'; PayPal
+  // answers 'pending' with an approval URL the user must complete.
   const depositMutation = useMutation({
-    mutationFn: async ({ amount, paymentMethod }: { amount: number; paymentMethod: string }) => {
+    mutationFn: async ({ amount, paymentMethod, walletId, currency, provider }: {
+      amount: number; paymentMethod: string;
+      walletId?: string; currency?: string; provider?: string;
+    }) => {
       if (!user?.id) throw new Error('User not authenticated');
-      
+
       const { data, error } = await supabase.functions.invoke('wallet-deposit', {
-        body: { amount, paymentMethod, user_id: user.id },
+        body: { amount, paymentMethod, provider, wallet_id: walletId, currency, user_id: user.id },
       });
-      
+
       if (error) throw error;
+      if (data?.status === 'not_configured' || data?.status === 'forbidden') {
+        throw new Error(data.error || 'This deposit method is not available yet.');
+      }
+      if (data?.status === 'pending' && data?.approval_url) {
+        // Hand the user to PayPal; the wallet is credited on capture,
+        // not on initiation.
+        window.location.href = data.approval_url;
+      }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['wallet'] });
       toast({
         title: "Deposit Initiated",
-        description: "Your wallet deposit has been initiated.",
+        description: data?.message || "Your wallet deposit has been initiated.",
       });
     },
     onError: (error: any) => {
