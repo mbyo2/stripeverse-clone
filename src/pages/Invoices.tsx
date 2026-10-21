@@ -242,7 +242,7 @@ const Invoices = () => {
                             <div className="flex gap-1">
                               {inv.status === 'draft' && (
                                 <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: inv.id, status: 'sent' })}>
-                                  <Send className="h-4 w-4 mr-1" />Send
+                                  <Send className="h-4 w-4 mr-1" />Mark as Sent
                                 </Button>
                               )}
                               <Button size="sm" variant="ghost" onClick={() => copyLink(inv.payment_link_code)}>

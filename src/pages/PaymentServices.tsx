@@ -46,7 +46,7 @@ const PaymentServices = () => {
             <div className="text-center mb-12">
               <h1 className="text-4xl font-bold mb-4">Payment Services</h1>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                Zambia's most trusted payment gateway, offering secure and compliant payment solutions for businesses of all sizes.
+                A payment platform offering payment solutions for businesses of all sizes in Zambia.
               </p>
             </div>
             
@@ -54,7 +54,7 @@ const PaymentServices = () => {
             <div className="flex flex-wrap justify-center gap-6 mb-12">
               <div className="flex items-center bg-primary/10 px-4 py-2 rounded-full">
                 <Shield className="h-5 w-5 text-primary mr-2" />
-                <span className="font-medium">Encrypted & Tokenised</span>
+                <span className="font-medium">Encrypted</span>
               </div>
             </div>
             
@@ -148,7 +148,7 @@ const PaymentServices = () => {
                       <CardTitle>Card Processing</CardTitle>
                     </div>
                     <CardDescription>
-                      Accept Visa, Mastercard, and other card payments securely.
+                      Card collection is not enabled yet — this section describes the planned card service. Today, payments settle wallet-to-wallet between BMaGlass accounts.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -156,10 +156,7 @@ const PaymentServices = () => {
                       <div>
                         <h3 className="text-lg font-medium mb-2">Features</h3>
                         <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                          <li>Tokenised card processing</li>
-                          <li>Support for major card networks</li>
-                          <li>3D Secure authentication</li>
-                          <li>Tokenization for repeat payments</li>
+                          <li>Planned: card acceptance for online checkout</li>
                           <li>Advanced fraud protection</li>
                           <li>Recurring billing options</li>
                         </ul>
@@ -301,7 +298,7 @@ const PaymentServices = () => {
                           
                           <div>
                             <p className="font-medium">Lightning Network</p>
-                            <p className="text-sm text-muted-foreground">Instant payments with near-zero fees</p>
+                            <p className="text-sm text-muted-foreground">Payments between BMaGlass wallets</p>
                           </div>
                           
                           <div className="mt-4 p-3 bg-primary/10 rounded">
@@ -341,9 +338,11 @@ const PaymentServices = () => {
                         </ul>
                         
                         <div className="mt-4">
-                          <Button className="mt-2">
-                            API Documentation <ArrowRight className="ml-2 h-4 w-4" />
-                          </Button>
+                          <Link to="/developers">
+                            <Button className="mt-2">
+                              API Documentation <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                          </Link>
                         </div>
                       </div>
                       
@@ -396,7 +395,7 @@ const PaymentServices = () => {
                       <div>
                         <h3 className="text-lg font-medium mb-2">Features</h3>
                         <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                          <li>Next-day settlements to local banks</li>
+                          <li>Settlement reporting in your dashboard</li>
                           <li>Automated settlement schedules</li>
                           <li>Multiple settlement accounts</li>
                           <li>Detailed settlement reports</li>
@@ -405,9 +404,11 @@ const PaymentServices = () => {
                         </ul>
                         
                         <div className="mt-4">
-                          <Button className="mt-2">
-                            Learn More <ArrowRight className="ml-2 h-4 w-4" />
-                          </Button>
+                          <Link to="/settlements">
+                            <Button className="mt-2">
+                              Learn More <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                          </Link>
                         </div>
                       </div>
                       
@@ -501,7 +502,7 @@ const PaymentServices = () => {
             <div className="text-center">
               <h2 className="text-2xl font-bold mb-4">Ready to start accepting payments?</h2>
               <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-                Join hundreds of businesses in Zambia who trust BMaGlass Pay for their payment processing needs.
+                Create an account to start accepting payments with BMaGlass Pay.
               </p>
               
               <div className="flex flex-wrap justify-center gap-4">

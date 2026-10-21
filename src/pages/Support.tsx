@@ -109,14 +109,14 @@ const Support = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageCircle className="h-5 w-5 text-primary" />
-                Live Chat
+                Support Tickets
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Chat with our support team in real-time
+                Send a message to our support team — we reply by email
               </p>
-              <Button className="w-full">Start Chat</Button>
+              <Button className="w-full" onClick={() => setActiveTab("new")}>Contact Support</Button>
             </CardContent>
           </Card>
 
@@ -155,7 +155,7 @@ const Support = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="faq" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="faq">FAQ</TabsTrigger>
             <TabsTrigger value="new">Submit a Ticket</TabsTrigger>
