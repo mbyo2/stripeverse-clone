@@ -34,7 +34,7 @@ const Login = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4">
               <Lock className="h-7 w-7 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-display font-bold tracking-tight text-paypal-dark">Log in to your account</h1>
+            <h1 className="text-2xl font-display font-bold tracking-tight text-foreground">Log in to your account</h1>
           </div>
 
           <Card className="shadow-medium">

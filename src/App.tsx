@@ -3,7 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
-import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AccountProvider } from "@/contexts/AccountContext";
 import { RoleProvider } from "@/contexts/RoleContext";
@@ -29,8 +28,13 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider attribute="class" defaultTheme="light">
-          <TooltipProvider>
+        {/* ThemeProvider lives in main.tsx ONLY. A second, nested one
+            here raced it on the <html> class — both stamp the theme
+            class on mount, so first paint could resolve light while
+            the rest of the tree resolved dark (QA Wave 4: a Wallet
+            panel header rendered all-white in dark mode until a
+            scroll-triggered repaint). One provider, one authority. */}
+        <TooltipProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -50,8 +54,7 @@ function App() {
                 </AccountProvider>
               </AuthProvider>
             </BrowserRouter>
-          </TooltipProvider>
-        </ThemeProvider>
+        </TooltipProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

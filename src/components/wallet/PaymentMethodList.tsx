@@ -56,9 +56,9 @@ const PaymentMethodList = ({ paymentMethods: initialMethods }: PaymentMethodList
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300';
       case 'expired':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300';
       case 'disabled':
         return 'bg-muted text-muted-foreground';
       default:
@@ -331,7 +331,7 @@ const PaymentMethodList = ({ paymentMethods: initialMethods }: PaymentMethodList
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => handleRemoveMethod(method.id)}
-                        className="text-red-600"
+                        className="text-red-600 dark:text-red-400"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Remove
