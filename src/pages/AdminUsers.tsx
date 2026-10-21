@@ -19,9 +19,30 @@ interface UserRow {
   last_name: string | null;
   phone: string | null;
   created_at: string | null;
+  /** Primary role (admin > business > beta_tester > user) — used for the filter. */
   role?: string;
+  /** Every role row the user holds in user_roles. */
+  roles: string[];
   email?: string;
 }
+
+const BASE_ROLES = ["user", "business", "beta_tester"] as const;
+type BaseRole = (typeof BASE_ROLES)[number];
+
+const ROLE_PRIORITY = ["admin", "business", "beta_tester", "user"];
+
+const sortRoles = (roles: string[]) =>
+  [...roles].sort(
+    (a, b) => ROLE_PRIORITY.indexOf(a) - ROLE_PRIORITY.indexOf(b)
+  );
+
+const primaryRole = (roles: string[]) => sortRoles(roles)[0] || "user";
+
+const baseRoleOf = (roles: string[]): BaseRole =>
+  (BASE_ROLES.find((r) => roles.includes(r)) ?? "user") as BaseRole;
+
+const roleBadgeVariant = (role: string) =>
+  role === "admin" ? "destructive" : role === "business" ? "default" : "secondary";
 
 interface KycRow {
   id: number;
@@ -44,8 +65,14 @@ const AdminUsers = () => {
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [roleFilter, setRoleFilter] = useState("all");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [confirmGrantAdmin, setConfirmGrantAdmin] = useState(false);
+  const [roleActionBusy, setRoleActionBusy] = useState(false);
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id ?? null);
+    });
     fetchData();
   }, []);
 
@@ -61,13 +88,23 @@ const AdminUsers = () => {
           .order("created_at", { ascending: false }),
       ]);
 
-      const roleMap = new Map<string, string>();
-      rolesRes.data?.forEach((r) => roleMap.set(r.user_id, r.role));
+      const rolesByUser = new Map<string, string[]>();
+      rolesRes.data?.forEach((r) => {
+        const held = rolesByUser.get(r.user_id) ?? [];
+        held.push(r.role);
+        rolesByUser.set(r.user_id, held);
+      });
 
-      const enrichedUsers: UserRow[] = (profilesRes.data || []).map((p) => ({
-        ...p,
-        role: roleMap.get(p.id) || "user",
-      }));
+      const enrichedUsers: UserRow[] = (profilesRes.data || []).map((p) => {
+        const roles = rolesByUser.get(p.id)?.length
+          ? rolesByUser.get(p.id)!
+          : ["user"];
+        return {
+          ...p,
+          roles,
+          role: primaryRole(roles),
+        };
+      });
 
       setUsers(enrichedUsers);
       setKycRequests((kycRes.data || []) as KycRow[]);
@@ -106,6 +143,114 @@ const AdminUsers = () => {
       toast({ title: "KYC Rejected", description: "Verification has been rejected." });
       fetchData();
     }
+  };
+
+  /** Reflect a role change in the open detail dialog, then refresh the table. */
+  const afterRoleChange = (user: UserRow, roles: string[]) => {
+    setSelectedUser({ ...user, roles, role: primaryRole(roles) });
+    setConfirmGrantAdmin(false);
+    fetchData();
+  };
+
+  const handleGrantAdmin = async (user: UserRow) => {
+    setRoleActionBusy(true);
+    const { error } = await supabase
+      .from("user_roles")
+      .insert({ user_id: user.id, role: "admin" });
+    setRoleActionBusy(false);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: `Failed to grant admin: ${error.message}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: "Admin granted",
+      description: `${user.first_name || ""} ${user.last_name || ""} is now an admin.`,
+    });
+    afterRoleChange(user, [...user.roles, "admin"]);
+  };
+
+  const handleRemoveAdmin = async (user: UserRow) => {
+    if (user.id === currentUserId) {
+      toast({
+        title: "Not allowed",
+        description: "You cannot remove your own admin role.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setRoleActionBusy(true);
+    const { error } = await supabase
+      .from("user_roles")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("role", "admin");
+    setRoleActionBusy(false);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: `Failed to remove admin: ${error.message}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: "Admin removed",
+      description: `${user.first_name || ""} ${user.last_name || ""} is no longer an admin.`,
+    });
+    afterRoleChange(
+      user,
+      user.roles.filter((r) => r !== "admin")
+    );
+  };
+
+  const handleSetBaseRole = async (user: UserRow, newBaseRole: BaseRole) => {
+    if (baseRoleOf(user.roles) === newBaseRole && user.roles.includes(newBaseRole)) {
+      return;
+    }
+    setRoleActionBusy(true);
+    // Replace only the non-admin role rows — the admin row is never touched.
+    const { error: deleteError } = await supabase
+      .from("user_roles")
+      .delete()
+      .eq("user_id", user.id)
+      .in("role", [...BASE_ROLES]);
+    if (deleteError) {
+      setRoleActionBusy(false);
+      toast({
+        title: "Error",
+        description: `Failed to update base role: ${deleteError.message}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    const { error: insertError } = await supabase
+      .from("user_roles")
+      .insert({ user_id: user.id, role: newBaseRole });
+    setRoleActionBusy(false);
+
+    if (insertError) {
+      toast({
+        title: "Error",
+        description: `Failed to update base role: ${insertError.message}`,
+        variant: "destructive",
+      });
+      fetchData();
+      return;
+    }
+    toast({
+      title: "Base role updated",
+      description: `${user.first_name || ""} ${user.last_name || ""} now has the ${newBaseRole} role.`,
+    });
+    afterRoleChange(user, [
+      ...user.roles.filter((r) => !BASE_ROLES.includes(r as BaseRole)),
+      newBaseRole,
+    ]);
   };
 
   const filteredUsers = users.filter((u) => {
@@ -201,17 +346,13 @@ const AdminUsers = () => {
                         </TableCell>
                         <TableCell>{u.phone || "—"}</TableCell>
                         <TableCell>
-                          <Badge
-                            variant={
-                              u.role === "admin"
-                                ? "destructive"
-                                : u.role === "business"
-                                ? "default"
-                                : "secondary"
-                            }
-                          >
-                            {u.role}
-                          </Badge>
+                          <div className="flex flex-wrap gap-1">
+                            {sortRoles(u.roles).map((r) => (
+                              <Badge key={r} variant={roleBadgeVariant(r)}>
+                                {r}
+                              </Badge>
+                            ))}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {u.created_at
@@ -224,6 +365,7 @@ const AdminUsers = () => {
                             size="sm"
                             onClick={() => {
                               setSelectedUser(u);
+                              setConfirmGrantAdmin(false);
                               setShowDetail(true);
                             }}
                           >
@@ -310,7 +452,13 @@ const AdminUsers = () => {
         </Tabs>
 
         {/* User Detail Dialog */}
-        <Dialog open={showDetail} onOpenChange={setShowDetail}>
+        <Dialog
+          open={showDetail}
+          onOpenChange={(open) => {
+            setShowDetail(open);
+            if (!open) setConfirmGrantAdmin(false);
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>User Details</DialogTitle>
@@ -328,10 +476,6 @@ const AdminUsers = () => {
                 <span>{selectedUser?.phone || "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Role</span>
-                <Badge>{selectedUser?.role}</Badge>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-muted-foreground">Joined</span>
                 <span>
                   {selectedUser?.created_at
@@ -339,7 +483,107 @@ const AdminUsers = () => {
                     : "—"}
                 </span>
               </div>
+              <div className="flex justify-between items-start">
+                <span className="text-muted-foreground">Roles</span>
+                <div className="flex flex-wrap justify-end gap-1">
+                  {selectedUser &&
+                    sortRoles(selectedUser.roles).map((r) => (
+                      <Badge key={r} variant={roleBadgeVariant(r)}>
+                        {r}
+                      </Badge>
+                    ))}
+                </div>
+              </div>
             </div>
+
+            {selectedUser && (
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <Shield className="h-4 w-4" />
+                  Role Management
+                </h3>
+
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-muted-foreground">Base role</span>
+                  <Select
+                    value={baseRoleOf(selectedUser.roles)}
+                    onValueChange={(v) =>
+                      handleSetBaseRole(selectedUser, v as BaseRole)
+                    }
+                    disabled={roleActionBusy}
+                  >
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder="Base role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                      <SelectItem value="beta_tester">Beta Tester</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    Admin access
+                  </span>
+                  {selectedUser.roles.includes("admin") ? (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={
+                        roleActionBusy || selectedUser.id === currentUserId
+                      }
+                      title={
+                        selectedUser.id === currentUserId
+                          ? "You cannot remove your own admin role"
+                          : undefined
+                      }
+                      onClick={() => handleRemoveAdmin(selectedUser)}
+                    >
+                      Remove admin
+                    </Button>
+                  ) : confirmGrantAdmin ? (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={roleActionBusy}
+                        onClick={() => setConfirmGrantAdmin(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={roleActionBusy}
+                        onClick={() => handleGrantAdmin(selectedUser)}
+                      >
+                        Confirm grant admin?
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={roleActionBusy}
+                      onClick={() => setConfirmGrantAdmin(true)}
+                    >
+                      <Shield className="h-4 w-4 mr-1" />
+                      Grant admin
+                    </Button>
+                  )}
+                </div>
+
+                {selectedUser.id === currentUserId && (
+                  <p className="text-xs text-muted-foreground">
+                    This is your own account — you can change its base role, but
+                    you cannot remove your own admin role.
+                  </p>
+                )}
+              </div>
+            )}
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowDetail(false)}>
                 Close
