@@ -7,105 +7,26 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, Copy, SmartphoneNfc } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { supabase } from "@/integrations/supabase/client";
 
 const UssdAccess = () => {
   const [provider, setProvider] = useState("mtn");
   const [amount, setAmount] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [ussdCode, setUssdCode] = useState("");
-  const [referenceCode, setReferenceCode] = useState("");
   const { toast } = useToast();
 
-  const generateRandomReference = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  };
-
+  // USSD payments are NOT live: no telco integration is connected, and the
+  // previous flow only recorded a pending transaction that nothing ever
+  // settled. Submission is disabled so no one is told to dial a code that
+  // cannot complete a payment. No money is taken.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!amount || parseFloat(amount) <= 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Please enter a valid amount",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const digits = phoneNumber.replace(/\D/g, '');
-    if (!digits || digits.length < 9) {
-      toast({
-        title: "Invalid phone number",
-        description: "Please enter the mobile money phone number to receive the USSD prompt",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const newReferenceCode = generateRandomReference();
-      setReferenceCode(newReferenceCode);
-      
-      // Determine the base USSD code for the provider
-      let baseUssdCode = "";
-      switch(provider) {
-        case "mtn":
-          baseUssdCode = "*305#";
-          break;
-        case "airtel":
-          baseUssdCode = "*778#";
-          break;
-        case "zamtel":
-          baseUssdCode = "*422#";
-          break;
-        default:
-          baseUssdCode = "*150#";
-      }
-      
-      // Call the Supabase edge function
-      const { data, error } = await supabase.functions.invoke('ussd-payment', {
-        body: {
-          action: 'payment',
-          provider,
-          amount: parseFloat(amount),
-          phone_number: digits,
-          reference: newReferenceCode,
-        }
-      });
-      
-      if (error) throw error;
-      
-      // Extract the USSD code to dial from the response
-      setUssdCode(data?.ussd_code || baseUssdCode);
-      
-      toast({
-        title: "USSD code generated",
-        description: "Dial the code on your phone to complete the payment",
-      });
-      
-    } catch (error) {
-      console.error("Error processing USSD payment:", error);
-      toast({
-        title: "Failed to generate USSD code",
-        description: "There was an error processing your request. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCopyClick = () => {
-    navigator.clipboard.writeText(ussdCode);
     toast({
-      title: "Copied to clipboard",
-      description: "USSD code has been copied to your clipboard",
+      title: "USSD payments are not live yet",
+      description: "No USSD provider is connected, so no code can be generated and no money will be taken.",
+      variant: "destructive",
     });
   };
 
@@ -123,16 +44,25 @@ const UssdAccess = () => {
               <CardHeader>
                 <CardTitle>Generate USSD Code</CardTitle>
                 <CardDescription>
-                  Generate a USSD code that you can dial on your phone to complete a payment
+                  USSD payments are not live yet — no telco integration is connected
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <Alert className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Not available yet</AlertTitle>
+                  <AlertDescription>
+                    USSD payments are not live yet. Code generation is disabled because a generated
+                    code would not complete a real payment. No money will be taken.
+                  </AlertDescription>
+                </Alert>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="provider">Mobile Network</Label>
-                    <Select 
-                      value={provider} 
+                    <Select
+                      value={provider}
                       onValueChange={setProvider}
+                      disabled
                     >
                       <SelectTrigger id="provider">
                         <SelectValue placeholder="Select network" />
@@ -160,7 +90,7 @@ const UssdAccess = () => {
                         placeholder="0.00"
                         min="1"
                         step="0.01"
-                        required
+                        disabled
                       />
                     </div>
                   </div>
@@ -173,49 +103,22 @@ const UssdAccess = () => {
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       placeholder="e.g. 0971234567"
-                      required
+                      disabled
                     />
                     <p className="text-xs text-muted-foreground">
-                      The USSD payment prompt will be sent to this number.
+                      When USSD payments launch, the payment prompt will be sent to this number.
                     </p>
                   </div>
                   
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     className="w-full"
-                    disabled={loading}
+                    disabled
                   >
-                    {loading ? "Processing..." : "Generate USSD Code"}
+                    Generate USSD Code (not yet available)
                   </Button>
                 </form>
                 
-                {ussdCode && (
-                  <div className="mt-6 space-y-4">
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Payment Instructions</AlertTitle>
-                      <AlertDescription>
-                        Dial this code on your phone to complete the payment. Reference: {referenceCode}
-                      </AlertDescription>
-                    </Alert>
-                    
-                    <div className="flex items-center justify-between p-4 border rounded-md bg-secondary/20">
-                      <div className="flex items-center">
-                        <SmartphoneNfc className="h-5 w-5 mr-2 text-primary" />
-                        <span className="text-xl font-mono">{ussdCode}</span>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={handleCopyClick}>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy
-                      </Button>
-                    </div>
-                    
-                    <p className="text-sm text-muted-foreground">
-                      After dialing the code, follow the prompts on your phone to complete the payment.
-                      Your transaction reference is: <strong>{referenceCode}</strong>
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>
@@ -233,9 +136,9 @@ const UssdAccess = () => {
                   <li>Enter your PIN when prompted</li>
                   <li>Confirm the payment</li>
                 </ol>
-                
+
                 <div className="mt-4 pt-4 border-t text-sm text-muted-foreground">
-                  <p>USSD payments are processed directly through your mobile network provider.</p>
+                  <p>This is how USSD payments will work once a mobile network integration is connected. The feature is not live yet.</p>
                 </div>
               </CardContent>
             </Card>
@@ -248,17 +151,18 @@ const UssdAccess = () => {
                 <ul className="space-y-2">
                   <li className="flex items-center">
                     <div className="w-6 h-6 rounded-full bg-yellow-500 mr-2"></div>
-                    <span>MTN - *305#</span>
+                    <span>MTN — planned</span>
                   </li>
                   <li className="flex items-center">
                     <div className="w-6 h-6 rounded-full bg-red-500 mr-2"></div>
-                    <span>Airtel - *778#</span>
+                    <span>Airtel — planned</span>
                   </li>
                   <li className="flex items-center">
                     <div className="w-6 h-6 rounded-full bg-green-500 mr-2"></div>
-                    <span>Zamtel - *422#</span>
+                    <span>Zamtel — planned</span>
                   </li>
                 </ul>
+                <p className="text-sm text-muted-foreground mt-3">No network is connected yet; USSD access codes will be published here when the service launches.</p>
               </CardContent>
             </Card>
           </div>

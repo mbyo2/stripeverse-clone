@@ -1,14 +1,10 @@
-import { useState } from 'react';
 import Header from '@/components/Header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useBillPayments } from '@/hooks/useBillPayments';
-import { Zap, Smartphone, Tv, Wifi, Droplets, Receipt } from 'lucide-react';
+import { Zap, Smartphone, Tv, Wifi, Droplets, Receipt, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 const categoryIcons: Record<string, React.ElementType> = {
@@ -16,22 +12,8 @@ const categoryIcons: Record<string, React.ElementType> = {
 };
 
 const BillPayments = () => {
-  const { payments, payBill, billers } = useBillPayments();
-  const [selectedBiller, setSelectedBiller] = useState<typeof billers[0] | null>(null);
-  const [accountNumber, setAccountNumber] = useState('');
-  const [amount, setAmount] = useState('');
+  const { payments, billers } = useBillPayments();
   const categories = [...new Set(billers.map(b => b.category))];
-
-  const handlePay = () => {
-    if (!selectedBiller) return;
-    payBill.mutate({
-      biller_name: selectedBiller.name,
-      biller_code: selectedBiller.code,
-      category: selectedBiller.category,
-      account_number: accountNumber,
-      amount: Number(amount),
-    }, { onSuccess: () => { setSelectedBiller(null); setAccountNumber(''); setAmount(''); } });
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -39,6 +21,15 @@ const BillPayments = () => {
       <main className="pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Bill Payments</h1>
         <p className="text-sm text-muted-foreground mt-1 mb-6">Pay utilities, airtime, TV subscriptions and more</p>
+
+        <Alert className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Bill payments are not live yet</AlertTitle>
+          <AlertDescription>
+            No biller integration is connected, so payments are disabled and no money will be taken.
+            You can browse the biller list and view your payment history below.
+          </AlertDescription>
+        </Alert>
 
         <Tabs defaultValue="pay">
           <TabsList><TabsTrigger value="pay">Pay Bills</TabsTrigger><TabsTrigger value="history">History</TabsTrigger></TabsList>
@@ -51,7 +42,7 @@ const BillPayments = () => {
                   <h3 className="font-semibold capitalize mb-3 flex items-center gap-2"><Icon className="h-4 w-4" /> {cat}</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {billers.filter(b => b.category === cat).map(biller => (
-                      <Card key={biller.code} className="cursor-pointer hover:border-primary transition-colors" onClick={() => setSelectedBiller(biller)}>
+                      <Card key={biller.code} className="opacity-70">
                         <CardContent className="p-4 text-center">
                           <span className="text-2xl mb-2 block">{biller.icon}</span>
                           <p className="font-medium text-sm">{biller.name}</p>
@@ -91,16 +82,6 @@ const BillPayments = () => {
           </TabsContent>
         </Tabs>
 
-        <Dialog open={!!selectedBiller} onOpenChange={() => setSelectedBiller(null)}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Pay {selectedBiller?.name}</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div><Label>Account / Meter Number</Label><Input value={accountNumber} onChange={e => setAccountNumber(e.target.value)} placeholder="Enter account number" /></div>
-              <div><Label>Amount (ZMW)</Label><Input type="number" value={amount} onChange={e => setAmount(e.target.value)} /></div>
-              <Button onClick={handlePay} disabled={payBill.isPending || !accountNumber || !amount} className="w-full">Pay ZMW {amount || '0'}</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </main>
     </div>
   );
