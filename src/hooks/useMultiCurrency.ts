@@ -60,11 +60,16 @@ export const useExchangeRates = () => {
   return useQuery({
     queryKey: ['exchange-rates'],
     queryFn: async () => {
+      // Fetch every row and let resolveExchangeRate (src/utils/
+      // exchangeRates.ts) apply the RPC's validity window client-side.
+      // The previous `.gte('valid_until', now)` filter silently
+      // discarded open-ended rows (valid_until IS NULL) — exactly the
+      // rows execute_currency_conversion treats as live — so the UI
+      // refused conversions the server would have accepted.
       const { data, error } = await supabase
         .from('exchange_rates')
         .select('*')
-        .gte('valid_until', new Date().toISOString())
-        .order('from_currency');
+        .order('valid_from', { ascending: false });
       if (error) throw error;
       return data;
     },

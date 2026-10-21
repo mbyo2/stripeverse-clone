@@ -12,18 +12,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Wallet, Plus, ArrowLeftRight, TrendingUp, Globe } from 'lucide-react';
 import { useMultiCurrencyWallets, useCreateWallet, useConvertCurrency, useConversionHistory, useExchangeRates } from '@/hooks/useMultiCurrency';
 import { useAccount } from '@/contexts/AccountContext';
+import { resolveExchangeRate } from '@/utils/exchangeRates';
 import { format } from 'date-fns';
 
 const CURRENCIES = [
-  { code: 'ZMW', name: 'Zambian Kwacha', flag: '🇿🇲' },
-  { code: 'USD', name: 'US Dollar', flag: '🇺🇸' },
-  { code: 'EUR', name: 'Euro', flag: '🇪🇺' },
-  { code: 'GBP', name: 'British Pound', flag: '🇬🇧' },
-  { code: 'ZAR', name: 'South African Rand', flag: '🇿🇦' },
-  { code: 'NGN', name: 'Nigerian Naira', flag: '🇳🇬' },
-  { code: 'KES', name: 'Kenyan Shilling', flag: '🇰🇪' },
-  { code: 'TZS', name: 'Tanzanian Shilling', flag: '🇹🇿' },
-  { code: 'BWP', name: 'Botswana Pula', flag: '🇧🇼' },
+  { code: 'ZMW', name: 'Zambian Kwacha', flag: '🇿🇲', symbol: 'K' },
+  { code: 'USD', name: 'US Dollar', flag: '🇺🇸', symbol: '$' },
+  { code: 'EUR', name: 'Euro', flag: '🇪🇺', symbol: '€' },
+  { code: 'GBP', name: 'British Pound', flag: '🇬🇧', symbol: '£' },
+  { code: 'ZAR', name: 'South African Rand', flag: '🇿🇦', symbol: 'R' },
+  { code: 'NGN', name: 'Nigerian Naira', flag: '🇳🇬', symbol: '₦' },
+  { code: 'KES', name: 'Kenyan Shilling', flag: '🇰🇪', symbol: 'KSh ' },
+  { code: 'TZS', name: 'Tanzanian Shilling', flag: '🇹🇿', symbol: 'TSh ' },
+  { code: 'BWP', name: 'Botswana Pula', flag: '🇧🇼', symbol: 'P' },
 ];
 
 const MultiCurrencyWallet = () => {
@@ -42,16 +43,16 @@ const MultiCurrencyWallet = () => {
   const availableCurrencies = CURRENCIES.filter(c => !existingCurrencies.includes(c.code));
 
   // Rates come from the exchange_rates table (kept current by the
-  // fetch-exchange-rates job). A pair with no live rate — directly or
-  // inversely — cannot be converted; there is no fallback rate.
-  const getRate = (from: string, to: string): number | null => {
-    if (from === to) return 1;
-    const direct = exchangeRates?.find(r => r.from_currency === from && r.to_currency === to);
-    if (direct) return Number(direct.rate);
-    const inverse = exchangeRates?.find(r => r.from_currency === to && r.to_currency === from);
-    if (inverse && Number(inverse.rate) !== 0) return 1 / Number(inverse.rate);
-    return null;
-  };
+  // fetch-exchange-rates job). Resolution mirrors the conversion RPC
+  // exactly (see src/utils/exchangeRates.ts): live-window rows only —
+  // including open-ended ones with valid_until NULL — latest first,
+  // direct pair else inverse. A pair with no live rate cannot be
+  // converted; there is no fallback rate.
+  const getRate = (from: string, to: string): number | null =>
+    resolveExchangeRate(exchangeRates, from, to);
+
+  const getCurrencySymbol = (code: string): string =>
+    getCurrencyInfo(code)?.symbol ?? `${code} `;
 
   const fromWallet = wallets?.find(w => w.id === convertForm.from_wallet);
   const toWallet = wallets?.find(w => w.id === convertForm.to_wallet);
@@ -93,7 +94,7 @@ const MultiCurrencyWallet = () => {
                       <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
                       <SelectContent>
                         {wallets?.filter(w => w.id !== convertForm.to_wallet).map(w => (
-                          <SelectItem key={w.id} value={w.id}>{getCurrencyInfo(w.currency)?.flag} {w.currency} — K{Number(w.balance).toLocaleString()}</SelectItem>
+                          <SelectItem key={w.id} value={w.id}>{getCurrencyInfo(w.currency)?.flag} {w.currency} — {getCurrencySymbol(w.currency)}{Number(w.balance).toLocaleString()}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
