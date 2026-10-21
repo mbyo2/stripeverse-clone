@@ -90,8 +90,8 @@ const VirtualCardNew = () => {
       toast({
         title: "Virtual Card Created",
         description: funding > 0
-          ? `Your ${formData.cardProvider.toUpperCase()} virtual card was created and funded with ${formatCurrency(funding)}.`
-          : `Your ${formData.cardProvider.toUpperCase()} virtual card has been created successfully.`,
+          ? `Your virtual card was created and funded with ${formatCurrency(funding)}.`
+          : `Your virtual card has been created successfully.`,
       });
       navigate(`/card/${cardId}`);
     } catch (err: any) {
@@ -114,7 +114,8 @@ const VirtualCardNew = () => {
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Create Virtual Card</h1>
           <p className="text-muted-foreground mt-2">
-            Virtual cards can be used for online payments, subscriptions, and more.
+            A BMaGlass virtual card holds a separate balance inside your wallet so you can set money aside for a purpose.
+            It is not issued by Visa, Mastercard, or any card network, and it can't be used for online purchases or subscriptions outside BMaGlass Pay.
           </p>
         </div>
         
@@ -171,20 +172,11 @@ const VirtualCardNew = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="cardProvider">Card Provider</Label>
-                    <Select 
-                      value={formData.cardProvider}
-                      onValueChange={(value) => handleSelectChange("cardProvider", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select card provider" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="visa">Visa</SelectItem>
-                        <SelectItem value="mastercard">Mastercard</SelectItem>
-                        <SelectItem value="amex">American Express</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Card</Label>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="font-medium text-sm">BMaGlass Virtual Card</p>
+                      <p className="text-xs text-muted-foreground mt-1">Internal wallet card — not a Visa, Mastercard, or bank card</p>
+                    </div>
                   </div>
                   
                   <div className="space-y-2">
@@ -228,9 +220,9 @@ const VirtualCardNew = () => {
                   <CreditCard className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-medium">Secure Online Payments</h3>
+                  <h3 className="font-medium">A Separate Balance</h3>
                   <p className="text-muted-foreground text-sm">
-                    Use virtual cards for online shopping without exposing your main card details.
+                    Fund a named card balance from your wallet and keep that money separate from your main balance.
                   </p>
                 </div>
               </div>
