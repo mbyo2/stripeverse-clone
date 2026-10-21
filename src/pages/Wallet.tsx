@@ -19,11 +19,13 @@ import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/hooks/useWallet";
+import { useAccount } from "@/contexts/AccountContext";
 import { useToast } from "@/hooks/use-toast";
 
 const Wallet = () => {
   const navigate = useNavigate();
-  const { isLoading, deposit, isDepositing } = useWallet();
+  const { selectedAccountId, selectedAccountName } = useAccount();
+  const { isLoading, deposit, isDepositing } = useWallet(selectedAccountId);
   const { paymentMethods } = usePaymentMethods();
   const [amount, setAmount] = useState("");
   const isMobile = useIsMobile();
@@ -96,7 +98,10 @@ const Wallet = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Wallet</h1>
-            <p className="text-sm text-muted-foreground mt-1">Manage your money and cards</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manage your money and cards
+              {selectedAccountId && <> · Viewing <span className="font-medium text-foreground">{selectedAccountName}</span></>}
+            </p>
           </div>
           
           {isMobile ? (
@@ -131,7 +136,7 @@ const Wallet = () => {
         </div>
         
         {/* Wallet Balance Hero */}
-        <WalletBalance onSendMoney={handleSendMoney} />
+        <WalletBalance onSendMoney={handleSendMoney} accountId={selectedAccountId} />
         
         {/* Quick Actions */}
         <QuickActions />

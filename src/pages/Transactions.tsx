@@ -6,9 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import EnhancedTransactionManager from "@/components/wallet/EnhancedTransactionManager";
 import { Suspense } from "react";
 import { ArrowDownLeft, ArrowUpRight, Download, Filter, Loader2 } from "lucide-react";
+import { useAccount } from "@/contexts/AccountContext";
+import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 
 const Transactions = () => {
   const [activeFilter, setActiveFilter] = useState<"all" | "incoming" | "outgoing">("all");
+  const { selectedAccountId, selectedAccountName } = useAccount();
+  const { data: allWallets } = useMultiCurrencyWallets();
+
+  // When a sub-account is selected, show only that account's transactions.
+  const walletIds = selectedAccountId
+    ? (allWallets ?? []).filter(w => w.account_id === selectedAccountId).map(w => w.id)
+    : undefined;
   
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -18,7 +27,10 @@ const Transactions = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
             <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Transactions</h1>
-            <p className="text-sm text-muted-foreground mt-1">View and manage your transaction history</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              View and manage your transaction history
+              {selectedAccountId && <> · Viewing <span className="font-medium text-foreground">{selectedAccountName}</span></>}
+            </p>
           </div>
           <Button variant="outline" className="h-10 rounded-full gap-2">
             <Download className="h-4 w-4" /> Export
@@ -76,6 +88,7 @@ const Transactions = () => {
             showFilters={true}
             showExport={false}
             directionFilter={activeFilter}
+            walletIds={walletIds}
           />
         </Suspense>
       </main>

@@ -1,18 +1,24 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-export const ensureWalletExists = async (userId: string) => {
+export const ensureWalletExists = async (userId: string, accountId: string | null = null) => {
   try {
     // Fetch the primary (ZMW) wallet. A user can hold several wallets
     // (one per currency), so an unscoped maybeSingle() errors with
     // "multiple rows returned" the moment a second wallet exists —
     // that error is what left the Wallet page stuck on skeletons.
-    const { data: existingWallet, error: checkError } = await supabase
+    // The account scope keeps that guarantee per account: the Main
+    // account's wallets are the ones with account_id NULL, and each
+    // sub-account has its own ZMW wallet.
+    let query = supabase
       .from('wallets')
       .select('*')
       .eq('user_id', userId)
-      .eq('currency', 'ZMW')
-      .maybeSingle();
+      .eq('currency', 'ZMW');
+    query = accountId === null
+      ? query.is('account_id', null)
+      : query.eq('account_id', accountId);
+    const { data: existingWallet, error: checkError } = await query.maybeSingle();
 
     if (checkError) {
       console.error('Error checking wallet:', checkError);
@@ -30,7 +36,8 @@ export const ensureWalletExists = async (userId: string) => {
         user_id: userId,
         balance: 0.00,
         currency: 'ZMW',
-        status: 'active'
+        status: 'active',
+        account_id: accountId
       })
       .select()
       .single();
@@ -79,14 +86,17 @@ export const updateWalletBalance = async (userId: string, amount: number) => {
   }
 };
 
-export const getWalletByUserId = async (userId: string) => {
+export const getWalletByUserId = async (userId: string, accountId: string | null = null) => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('wallets')
       .select('*')
       .eq('user_id', userId)
-      .eq('currency', 'ZMW')
-      .maybeSingle();
+      .eq('currency', 'ZMW');
+    query = accountId === null
+      ? query.is('account_id', null)
+      : query.eq('account_id', accountId);
+    const { data, error } = await query.maybeSingle();
 
     if (error) {
       console.error('Error fetching wallet:', error);

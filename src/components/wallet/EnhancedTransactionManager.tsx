@@ -49,6 +49,8 @@ interface EnhancedTransactionManagerProps {
   showExport?: boolean;
   directionFilter?: string;
   className?: string;
+  /** When provided, only transactions belonging to these wallets are shown. */
+  walletIds?: string[];
 }
 
 const EnhancedTransactionManager = ({
@@ -56,7 +58,8 @@ const EnhancedTransactionManager = ({
   showFilters = true,
   showExport = true,
   directionFilter: externalDirectionFilter,
-  className = ""
+  className = "",
+  walletIds
 }: EnhancedTransactionManagerProps) => {
   const endRenderTracking = trackRender("EnhancedTransactionManager");
   
@@ -99,6 +102,11 @@ const EnhancedTransactionManager = ({
     if (externalDirectionFilter && externalDirectionFilter !== 'all') {
       query = query.eq('direction', externalDirectionFilter);
     }
+
+    // Restrict to the selected sub-account's wallets when scoped
+    if (walletIds) {
+      query = query.in('wallet_id', walletIds);
+    }
       
     if (filters.startDate && isValid(filters.startDate)) {
       query = query.gte('created_at', filters.startDate.toISOString());
@@ -135,16 +143,16 @@ const EnhancedTransactionManager = ({
     if (error) throw error;
     
     return (data || []) as Transaction[];
-  }, [filters, limit, sortOrder, currentPage, externalDirectionFilter]);
-  
-  const { 
-    data: transactions = [], 
-    isLoading, 
-    isError, 
+  }, [filters, limit, sortOrder, currentPage, externalDirectionFilter, walletIds]);
+
+  const {
+    data: transactions = [],
+    isLoading,
+    isError,
     refetch,
     isFetching
   } = useQuery({
-    queryKey: ['transactions', filters, limit, sortOrder, currentPage],
+    queryKey: ['transactions', filters, limit, sortOrder, currentPage, walletIds],
     queryFn: fetchTransactions,
     staleTime: 30000,
     gcTime: 300000,

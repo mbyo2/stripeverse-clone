@@ -8,8 +8,10 @@ import { ensureWalletExists } from '@/utils/walletUtils';
 export interface Wallet {
   id: string;
   user_id: string;
+  account_id: string | null;
   balance: number;
   currency: string;
+  status: string;
   created_at: string;
   updated_at: string;
 }
@@ -36,21 +38,28 @@ export interface VirtualCard {
   updated_at: string;
 }
 
-export const useWallet = () => {
+/**
+ * With no argument this behaves exactly as it always has (the Main
+ * account's primary wallet). Pass an account id — or explicit null for
+ * Main — to scope the wallet to a sub-account; scoped calls use their
+ * own query key so accounts never share a cache entry.
+ */
+export const useWallet = (accountId?: string | null) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const scoped = accountId !== undefined;
 
   // Fetch wallet data with proper error handling
   const { data: wallet, isLoading: walletLoading, error: walletError } = useQuery({
-    queryKey: ['wallet', user?.id],
+    queryKey: scoped ? ['wallet', user?.id, accountId ?? 'main'] : ['wallet', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
-      
+
       try {
-        // Ensure wallet exists for the user
-        const walletData = await ensureWalletExists(user.id);
-        return walletData as Wallet;
+        // Ensure wallet exists for the user (within the selected account)
+        const walletData = await ensureWalletExists(user.id, accountId ?? null);
+        return walletData as unknown as Wallet;
       } catch (error) {
         console.error('Error in wallet query:', error);
         throw error;
