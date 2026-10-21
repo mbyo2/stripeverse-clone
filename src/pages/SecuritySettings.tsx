@@ -53,46 +53,46 @@ const SecuritySettings = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-green-600" />
+                    <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
                     Data Encryption Status
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-500/10 rounded-lg border border-green-200 dark:border-green-500/30">
                     <div className="flex items-center gap-3">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                       <div>
-                        <p className="font-medium text-green-800">Virtual Card Data</p>
-                        <p className="text-sm text-green-700">Card numbers and CVV codes are encrypted</p>
+                        <p className="font-medium text-green-800 dark:text-green-200">Virtual Card Data</p>
+                        <p className="text-sm text-green-700 dark:text-green-300">Card numbers and CVV codes are encrypted</p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-green-700 border-green-300">
+                    <Badge variant="outline" className="text-green-700 border-green-300 dark:text-green-300 dark:border-green-500/40">
                       ENCRYPTED
                     </Badge>
                   </div>
                   
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-500/10 rounded-lg border border-green-200 dark:border-green-500/30">
                     <div className="flex items-center gap-3">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                       <div>
-                        <p className="font-medium text-green-800">Role Management</p>
-                        <p className="text-sm text-green-700">Protected against escalation attacks</p>
+                        <p className="font-medium text-green-800 dark:text-green-200">Role Management</p>
+                        <p className="text-sm text-green-700 dark:text-green-300">Protected against escalation attacks</p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-green-700 border-green-300">
+                    <Badge variant="outline" className="text-green-700 border-green-300 dark:text-green-300 dark:border-green-500/40">
                       SECURED
                     </Badge>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg border border-blue-200 dark:border-blue-500/30">
                     <div className="flex items-center gap-3">
-                      <Shield className="h-5 w-5 text-blue-600" />
+                      <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       <div>
-                        <p className="font-medium text-blue-800">Security Monitoring</p>
-                        <p className="text-sm text-blue-700">All sensitive actions are logged and monitored</p>
+                        <p className="font-medium text-blue-800 dark:text-blue-200">Security Monitoring</p>
+                        <p className="text-sm text-blue-700 dark:text-blue-300">All sensitive actions are logged and monitored</p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-blue-700 border-blue-300">
+                    <Badge variant="outline" className="text-blue-700 border-blue-300 dark:text-blue-300 dark:border-blue-500/40">
                       ACTIVE
                     </Badge>
                   </div>

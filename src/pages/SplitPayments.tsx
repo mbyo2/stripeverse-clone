@@ -41,24 +41,24 @@ const SplitPayments = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold">Split Payments</h1>
-            <p className="text-muted-foreground">Automatically split incoming payments between multiple recipients</p>
+            <p className="text-muted-foreground">Manage split-payment recipients and the rules that divide incoming payments between them</p>
           </div>
         </div>
 
         <Tabs defaultValue="subaccounts">
           <TabsList>
-            <TabsTrigger value="subaccounts">Subaccounts</TabsTrigger>
+            <TabsTrigger value="subaccounts">Split Recipients</TabsTrigger>
             <TabsTrigger value="rules">Split Rules</TabsTrigger>
           </TabsList>
 
           <TabsContent value="subaccounts" className="mt-6">
             <div className="flex justify-end mb-4">
               <Dialog open={subOpen} onOpenChange={setSubOpen}>
-                <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Subaccount</Button></DialogTrigger>
+                <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Recipient</Button></DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Create Subaccount</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle>Add Split Recipient</DialogTitle></DialogHeader>
                   <div className="space-y-4">
-                    <div><Label>Account Name</Label><Input value={subForm.account_name} onChange={e => setSubForm(p => ({ ...p, account_name: e.target.value }))} placeholder="e.g. Partner Revenue" /></div>
+                    <div><Label>Recipient Name</Label><Input value={subForm.account_name} onChange={e => setSubForm(p => ({ ...p, account_name: e.target.value }))} placeholder="e.g. Partner Revenue" /></div>
                     <div><Label>Email</Label><Input type="email" value={subForm.account_email} onChange={e => setSubForm(p => ({ ...p, account_email: e.target.value }))} /></div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -77,7 +77,7 @@ const SplitPayments = () => {
                       </div>
                     </div>
                     <Button onClick={handleCreateSub} disabled={createSub.isPending || !subForm.account_name || !subForm.split_value} className="w-full">
-                      {createSub.isPending ? 'Creating...' : 'Create Subaccount'}
+                      {createSub.isPending ? 'Creating...' : 'Create Recipient'}
                     </Button>
                   </div>
                 </DialogContent>
@@ -85,7 +85,7 @@ const SplitPayments = () => {
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {isLoading ? <p className="text-muted-foreground">Loading...</p> : subaccounts?.length === 0 ? (
-                <Card className="col-span-full"><CardContent className="py-12 text-center"><Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" /><p className="text-muted-foreground">No subaccounts yet.</p></CardContent></Card>
+                <Card className="col-span-full"><CardContent className="py-12 text-center"><Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" /><p className="text-muted-foreground">No split recipients yet.</p></CardContent></Card>
               ) : subaccounts?.map(sub => (
                 <Card key={sub.id}>
                   <CardHeader className="pb-3">
@@ -117,9 +117,9 @@ const SplitPayments = () => {
                   <div className="space-y-4">
                     <div><Label>Rule Name</Label><Input value={ruleForm.name} onChange={e => setRuleForm(p => ({ ...p, name: e.target.value }))} /></div>
                     <div>
-                      <Label>Subaccount</Label>
+                      <Label>Recipient</Label>
                       <Select value={ruleForm.subaccount_id} onValueChange={v => setRuleForm(p => ({ ...p, subaccount_id: v }))}>
-                        <SelectTrigger><SelectValue placeholder="Select subaccount" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Select recipient" /></SelectTrigger>
                         <SelectContent>
                           {subaccounts?.map(s => <SelectItem key={s.id} value={s.id}>{s.account_name}</SelectItem>)}
                         </SelectContent>
