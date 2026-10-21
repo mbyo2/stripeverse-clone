@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          id: string
+          kind: string
+          metadata: Json
+          name: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          metadata?: Json
+          name: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          metadata?: Json
+          name?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agent_locations: {
         Row: {
           address: string | null
@@ -3199,6 +3232,7 @@ export type Database = {
       }
       wallets: {
         Row: {
+          account_id: string | null
           balance: number
           created_at: string
           currency: string
@@ -3208,6 +3242,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_id?: string | null
           balance?: number
           created_at?: string
           currency?: string
@@ -3217,6 +3252,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_id?: string | null
           balance?: number
           created_at?: string
           currency?: string
@@ -3225,7 +3261,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "wallets_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       webhook_delivery_logs: {
         Row: {
@@ -3397,6 +3441,23 @@ export type Database = {
       }
       cleanup_expired_sessions: { Args: never; Returns: undefined }
       cleanup_old_totp_tokens: { Args: never; Returns: undefined }
+      close_sub_account: {
+        Args: { p_account_id: string }
+        Returns: undefined
+      }
+      create_sub_account: {
+        Args: { p_kind: string; p_name: string }
+        Returns: {
+          closed_at: string | null
+          created_at: string
+          id: string
+          kind: string
+          metadata: Json
+          name: string
+          status: string
+          user_id: string
+        }
+      }
       decrypt_card_data: { Args: { encrypted_data: Json }; Returns: Json }
       encrypt_card_data: {
         Args: { card_number: string; cvv: string }
@@ -3407,6 +3468,20 @@ export type Database = {
         Returns: string
       }
       enforce_session_security: { Args: never; Returns: undefined }
+      execute_internal_transfer: {
+        Args: {
+          p_amount: number
+          p_description?: string
+          p_from_wallet_id: string
+          p_idempotency_key: string
+          p_to_wallet_id: string
+          p_user_id: string
+        }
+        Returns: {
+          new_sender_balance: number
+          transaction_id: string
+        }[]
+      }
       fix_wallet_balance: {
         Args: { p_notes?: string; p_performed_by?: string; p_wallet_id: string }
         Returns: boolean
@@ -3550,10 +3625,18 @@ export type Database = {
         }
         Returns: string
       }
+      rename_sub_account: {
+        Args: { p_account_id: string; p_name: string }
+        Returns: undefined
+      }
       run_security_maintenance: { Args: never; Returns: undefined }
       secure_encrypt_card_data: {
         Args: { card_number: string; cvv: string }
         Returns: Json
+      }
+      set_sub_account_status: {
+        Args: { p_account_id: string; p_status: string }
+        Returns: undefined
       }
       user_has_feature_access: {
         Args: { p_feature_id: string; p_user_id: string }

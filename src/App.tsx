@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AccountProvider } from "@/contexts/AccountContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
@@ -34,6 +35,7 @@ function App() {
             <Sonner />
             <BrowserRouter>
               <AuthProvider>
+                <AccountProvider>
                 <RoleProvider>
                   <NotificationProvider>
                     <CurrencyProvider>
@@ -45,6 +47,7 @@ function App() {
                     </CurrencyProvider>
                   </NotificationProvider>
                 </RoleProvider>
+                </AccountProvider>
               </AuthProvider>
             </BrowserRouter>
           </TooltipProvider>

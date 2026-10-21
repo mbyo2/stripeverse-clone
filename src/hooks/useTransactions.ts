@@ -6,6 +6,7 @@ export interface Transaction {
   id: number;
   uuid_id: string;
   user_id: string;
+  wallet_id?: string | null;
   amount: number;
   currency: string;
   direction: 'incoming' | 'outgoing';
@@ -21,18 +22,25 @@ export interface Transaction {
   updated_at: string;
 }
 
-export const useTransactions = (limit?: number) => {
+export const useTransactions = (limit?: number, walletIds?: string[]) => {
   const { user } = useAuth();
 
   const { data: transactions = [], isLoading, error } = useQuery({
-    queryKey: ['transactions', user?.id, limit],
+    queryKey: ['transactions', user?.id, limit, walletIds],
     queryFn: async (): Promise<Transaction[]> => {
       if (!user?.id) throw new Error('User not authenticated');
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('transactions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id);
+
+      // When a sub-account is selected, restrict to that account's wallets.
+      if (walletIds) {
+        query = query.in('wallet_id', walletIds);
+      }
+
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .limit(limit || 50);
 

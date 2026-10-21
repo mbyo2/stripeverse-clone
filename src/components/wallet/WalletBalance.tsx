@@ -12,10 +12,12 @@ import { QRCodeSVG } from "qrcode.react";
 interface WalletBalanceProps {
   onSendMoney: () => void;
   onReceiveMoney?: () => void;
+  /** Scope the balance to a sub-account (null = Main). Omit for legacy behaviour. */
+  accountId?: string | null;
 }
 
-const WalletBalance = ({ onSendMoney }: WalletBalanceProps) => {
-  const { wallet, isLoading } = useWallet();
+const WalletBalance = ({ onSendMoney, accountId }: WalletBalanceProps) => {
+  const { wallet, isLoading } = useWallet(accountId);
   const { user } = useAuth();
   const { formatAmount } = useCurrency();
   const { toast } = useToast();

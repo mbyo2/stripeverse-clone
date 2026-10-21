@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Wallet, Plus, ArrowLeftRight, TrendingUp, Globe } from 'lucide-react';
 import { useMultiCurrencyWallets, useCreateWallet, useConvertCurrency, useConversionHistory, useExchangeRates } from '@/hooks/useMultiCurrency';
+import { useAccount } from '@/contexts/AccountContext';
 import { format } from 'date-fns';
 
 const CURRENCIES = [
@@ -26,7 +27,8 @@ const CURRENCIES = [
 ];
 
 const MultiCurrencyWallet = () => {
-  const { data: wallets, isLoading } = useMultiCurrencyWallets();
+  const { selectedAccountId, selectedAccountName } = useAccount();
+  const { data: wallets, isLoading } = useMultiCurrencyWallets(selectedAccountId);
   const createWallet = useCreateWallet();
   const convertCurrency = useConvertCurrency();
   const { data: conversions } = useConversionHistory();
@@ -74,7 +76,10 @@ const MultiCurrencyWallet = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold">Multi-Currency Wallets</h1>
-            <p className="text-muted-foreground">Hold and manage balances in multiple currencies</p>
+            <p className="text-muted-foreground">
+              Hold and manage balances in multiple currencies
+              {selectedAccountId && <> · Viewing <span className="font-medium text-foreground">{selectedAccountName}</span></>}
+            </p>
           </div>
           <div className="flex gap-2">
             <Dialog open={convertOpen} onOpenChange={setConvertOpen}>
@@ -137,7 +142,7 @@ const MultiCurrencyWallet = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button onClick={() => { createWallet.mutate(newCurrency, { onSuccess: () => { setAddOpen(false); setNewCurrency(''); } }); }} disabled={createWallet.isPending || !newCurrency} className="w-full">
+                  <Button onClick={() => { createWallet.mutate({ currency: newCurrency, accountId: selectedAccountId }, { onSuccess: () => { setAddOpen(false); setNewCurrency(''); } }); }} disabled={createWallet.isPending || !newCurrency} className="w-full">
                     {createWallet.isPending ? 'Creating...' : 'Create Wallet'}
                   </Button>
                 </div>

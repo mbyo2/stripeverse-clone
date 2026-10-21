@@ -69,6 +69,7 @@ import {
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { AccountSwitcher, AccountSwitcherList } from "@/components/AccountSwitcher";
 import Logo from "@/components/Logo";
 
 const Header = () => {
@@ -212,6 +213,11 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/sub-accounts" className="flex items-center gap-2">
+                      <Layers className="h-4 w-4" /> Sub-accounts
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/transactions" className="flex items-center gap-2">
                       <FileText className="h-4 w-4" /> Transactions
                     </Link>
@@ -282,7 +288,7 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/sub-accounts" className="flex items-center gap-2">
+                    <Link to="/split-payments" className="flex items-center gap-2">
                       <GitBranch className="h-4 w-4" /> Split Payments
                     </Link>
                   </DropdownMenuItem>
@@ -372,6 +378,7 @@ const Header = () => {
         <div className="hidden lg:flex items-center gap-2">
           {user ? (
             <>
+              <AccountSwitcher />
               <Button
                 variant="outline"
                 size="sm"
@@ -499,7 +506,9 @@ const Header = () => {
                     <div className="px-4 py-3 mb-2">
                       <RoleBadge />
                     </div>
-                    
+
+                    <AccountSwitcherList onNavigate={closeMobileMenu} />
+
                     <Separator className="my-2" />
                     <MobileNavLink to="/dashboard" icon={Home}>Dashboard</MobileNavLink>
                     
@@ -507,6 +516,7 @@ const Header = () => {
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Money</p>
                     <MobileNavLink to="/wallet" icon={Wallet}>Wallet</MobileNavLink>
                     <MobileNavLink to="/multi-currency" icon={Coins}>Multi-Currency</MobileNavLink>
+                    <MobileNavLink to="/sub-accounts" icon={Layers}>Sub-accounts</MobileNavLink>
                     <MobileNavLink to="/transactions" icon={FileText}>Transactions</MobileNavLink>
                     <MobileNavLink to="/transfer" icon={ArrowLeftRight}>Transfer</MobileNavLink>
                     <MobileNavLink to="/send-money" icon={DollarSign}>Send Money</MobileNavLink>
@@ -530,7 +540,7 @@ const Header = () => {
                     <MobileNavLink to="/business" icon={Users}>Business Tools</MobileNavLink>
                     <MobileNavLink to="/collect-payments" icon={Banknote}>Collect Payments</MobileNavLink>
                     <MobileNavLink to="/payment-links" icon={Link2}>Payment Links</MobileNavLink>
-                    <MobileNavLink to="/sub-accounts" icon={GitBranch}>Split Payments</MobileNavLink>
+                    <MobileNavLink to="/split-payments" icon={GitBranch}>Split Payments</MobileNavLink>
                     <MobileNavLink to="/invoices" icon={FileText}>Invoices</MobileNavLink>
                     <MobileNavLink to="/settlements" icon={Receipt}>Settlements</MobileNavLink>
                     <MobileNavLink to="/disputes" icon={AlertCircle}>Disputes</MobileNavLink>

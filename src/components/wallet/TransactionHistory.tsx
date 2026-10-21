@@ -9,6 +9,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ArrowUpRight, ArrowDownLeft, Search, Filter, CalendarIcon, Receipt } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useAccount } from "@/contexts/AccountContext";
+import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTransactions } from '@/hooks/useTransactions';
@@ -41,7 +43,16 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
 
-  const { transactions, isLoading } = useTransactions(limit);
+  const { selectedAccountId } = useAccount();
+  const { data: allWallets } = useMultiCurrencyWallets();
+  // When a sub-account is selected, only its wallets' transactions show.
+  // While the wallet list is still loading we pass an empty id set (no
+  // rows) rather than briefly showing every account's history.
+  const walletIds = selectedAccountId
+    ? (allWallets ?? []).filter(w => w.account_id === selectedAccountId).map(w => w.id)
+    : undefined;
+
+  const { transactions, isLoading } = useTransactions(limit, walletIds);
 
   const filteredTransactions = transactions
     .filter(transaction => {

@@ -34,9 +34,13 @@ import {
   BarChart
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 import { RoleBadge } from "@/components/FeatureAccess";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useAccount } from "@/contexts/AccountContext";
+import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
+import { groupWalletsByAccount } from "@/utils/accountGrouping";
 import RewardsCard from "@/components/rewards/RewardsCard";
 import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
 import { useOnboarding } from "@/hooks/useOnboarding";
@@ -48,6 +52,9 @@ const Dashboard = () => {
   const { dashboardStats, monthlyData, spendingData, recentTransactions, rewards, isLoading } = useDashboardData();
   const { formatAmount } = useCurrency();
   const { showOnboarding, kycLevel, walletBalance, hasProfile, dismiss } = useOnboarding();
+  const { accounts } = useAccount();
+  const { data: allWallets = [] } = useMultiCurrencyWallets();
+  const accountGroups = groupWalletsByAccount(allWallets, accounts);
 
   const firstName = user?.user_metadata?.first_name || "there";
 
@@ -254,6 +261,40 @@ const Dashboard = () => {
                     <Star className="h-5 w-5 text-warning" />
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-primary" />
+                    Your accounts
+                  </CardTitle>
+                  <Button variant="link" size="sm" asChild className="font-medium px-0">
+                    <Link to="/sub-accounts">View all</Link>
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="divide-y divide-border">
+                  {accountGroups.map((group) => (
+                    <div key={group.accountId ?? 'main'} className="flex items-center justify-between gap-2 py-3 first:pt-0 last:pb-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{group.name}</p>
+                        {group.isMain && <Badge variant="outline" className="shrink-0">Main</Badge>}
+                        {group.account?.status === 'frozen' && <Badge variant="secondary" className="shrink-0">Frozen</Badge>}
+                        {group.account?.status === 'closed' && <Badge variant="outline" className="shrink-0">Closed</Badge>}
+                      </div>
+                      <span className="text-sm font-semibold tabular-nums shrink-0">{formatAmount(group.totalZMW)}</span>
+                    </div>
+                  ))}
+                </div>
+                {accounts.length === 0 && (
+                  <Button size="sm" variant="outline" className="rounded-full mt-4" onClick={() => navigate('/sub-accounts')}>
+                    <Plus className="h-3.5 w-3.5 mr-1.5" /> Create a sub-account
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
