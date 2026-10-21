@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { confirmPayPalDeposit, findDepositTransaction } from "../_shared/paypal-deposit.ts";
+import { orderIdFromWebhookEvent } from "../_shared/deposit-capture.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,10 +46,24 @@ serve(async (req) => {
     const resource = webhookData.resource;
 
     switch (eventType) {
-      case 'PAYMENT.CAPTURE.COMPLETED':
-        await handlePaymentCompleted(supabaseClient, resource);
+      case 'PAYMENT.CAPTURE.COMPLETED': {
+        // A capture belonging to a wallet-deposit order settles that
+        // deposit (exactly once, via complete_wallet_deposit). Any
+        // other capture keeps the invoice behaviour below.
+        const depositHandled = await handleWalletDepositEvent(supabaseClient, eventType, resource);
+        if (!depositHandled) {
+          await handlePaymentCompleted(supabaseClient, resource);
+        }
         break;
-      
+      }
+
+      case 'CHECKOUT.ORDER.APPROVED':
+        // Wallet-deposit orders get captured + settled here as a
+        // backstop for buyers who never return to the app. Orders that
+        // are not wallet deposits have nothing to do in this event.
+        await handleWalletDepositEvent(supabaseClient, eventType, resource);
+        break;
+
       case 'BILLING.SUBSCRIPTION.ACTIVATED':
         await handleSubscriptionActivated(supabaseClient, resource);
         break;
@@ -144,6 +160,30 @@ async function verifyWebhookSignature(req: Request, body: string): Promise<boole
     logStep("Error verifying webhook signature", { error: error.message });
     return false;
   }
+}
+
+/**
+ * Backstop settlement for PayPal wallet deposits.
+ *
+ * Returns true when the event's order is a recorded wallet deposit
+ * (handled here), false when it is not (caller falls back to the
+ * pre-existing handlers). The webhook payload is only a trigger:
+ * confirmPayPalDeposit re-reads PayPal's authoritative order state,
+ * captures the order if it is still only APPROVED, verifies amount +
+ * currency against the pending row, and credits the wallet through
+ * the complete_wallet_deposit RPC — idempotently, so this backstop
+ * and the buyer's return flow can race and replay safely.
+ */
+async function handleWalletDepositEvent(supabase: any, eventType: string, resource: any): Promise<boolean> {
+  const orderId = orderIdFromWebhookEvent(eventType, resource);
+  if (!orderId) return false;
+
+  const deposit = await findDepositTransaction(supabase, orderId);
+  if (!deposit) return false;
+
+  const result = await confirmPayPalDeposit(supabase, orderId);
+  logStep("Wallet deposit webhook confirmation", { orderId, kind: result.kind });
+  return true;
 }
 
 async function handlePaymentCompleted(supabase: any, resource: any) {

@@ -20,6 +20,7 @@ import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/hooks/useWallet";
+import { usePayPalDepositReturn } from "@/hooks/usePayPalDepositReturn";
 import { useAccount } from "@/contexts/AccountContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,7 +33,11 @@ const Wallet = () => {
   const [depositMethod, setDepositMethod] = useState("mobile_money");
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  
+
+  // Completes a PayPal deposit when the user returns from approval
+  // (/wallet?paypal_return=deposit&token=<order id>).
+  usePayPalDepositReturn();
+
   const handleSendMoney = () => {
     navigate("/transfer");
   };
