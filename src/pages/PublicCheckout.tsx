@@ -1,16 +1,18 @@
-import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Smartphone, Building2, Lock, CheckCircle, AlertCircle, Loader2, Receipt } from 'lucide-react';
+import { CreditCard, Smartphone, Building2, Lock, CheckCircle, AlertCircle, Loader2, Receipt, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-type PaymentMethod = 'card' | 'mobile_money' | 'bank';
+import {
+  resolveLinkAmount,
+  validateLinkPayment,
+  type LinkPaymentMethod,
+} from '@/utils/paymentLinkSettlement';
 
 interface PaymentLinkData {
   id: string;
@@ -20,6 +22,7 @@ interface PaymentLinkData {
   currency: string;
   status: string;
   user_id: string;
+  account_id: string | null;
 }
 
 const PublicCheckout = () => {
@@ -27,80 +30,117 @@ const PublicCheckout = () => {
   const { toast } = useToast();
 
   const [linkData, setLinkData] = useState<PaymentLinkData | null>(null);
+  const [settlementAccountName, setSettlementAccountName] = useState<string | null>(null);
+  const [payerId, setPayerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
+  const [paymentMethod, setPaymentMethod] = useState<LinkPaymentMethod>('card');
   const [customAmount, setCustomAmount] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [receiptRef, setReceiptRef] = useState('');
   const [payErrorMsg, setPayErrorMsg] = useState<string | null>(null);
 
-  // Card fields
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvc, setCardCvc] = useState('');
+  // One idempotency key per page session: if a pay attempt's response is
+  // lost (network drop, timeout), retrying with the same key replays the
+  // original settlement server-side instead of charging twice.
+  const idempotencyKeyRef = useRef<string | null>(null);
+  const getIdempotencyKey = () => {
+    if (!idempotencyKeyRef.current) idempotencyKeyRef.current = crypto.randomUUID();
+    return idempotencyKeyRef.current;
+  };
 
   useEffect(() => {
     if (!code) { setError('Invalid payment link'); setLoading(false); return; }
     (async () => {
       const { data, error: e } = await supabase
         .from('payment_links')
-        .select('id, title, description, amount, currency, status, user_id')
+        .select('id, title, description, amount, currency, status, user_id, account_id')
         .eq('link_code', code)
         .eq('status', 'active')
         .single();
       if (e || !data) { setError('Payment link not found or expired'); }
-      else { setLinkData(data as PaymentLinkData); }
+      else {
+        setLinkData(data as PaymentLinkData);
+        // The settlement account's name is owner-only data under RLS, so
+        // the checkout function serves it (service-role side). Best
+        // effort: the page works without the label.
+        const { data: described } = await supabase.functions.invoke('payment-link-checkout', {
+          body: { action: 'describe', link_code: code },
+        });
+        if (described?.settlement_account_name) {
+          setSettlementAccountName(described.settlement_account_name as string);
+        }
+      }
       setLoading(false);
     })();
   }, [code]);
 
+  // Wallet payment is offered when the visitor is signed in. Guests can
+  // still open the page and read it; the external methods answer
+  // truthfully from the server until a gateway is connected.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setPayerId(data.session?.user.id ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setPayerId(session?.user.id ?? null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (payerId) setPaymentMethod('wallet');
+  }, [payerId]);
+
   const handlePay = async () => {
-    if (!linkData) return;
-    const amount = linkData.amount || Number(customAmount);
-    if (!amount || amount <= 0) { toast({ title: 'Enter a valid amount', variant: 'destructive' }); return; }
-    if (!email) { toast({ title: 'Enter your email', variant: 'destructive' }); return; }
-    if (paymentMethod === 'mobile_money' && !phone) { toast({ title: 'Enter your phone number', variant: 'destructive' }); return; }
-    if (paymentMethod === 'card' && (!cardNumber || !cardExpiry || !cardCvc)) {
-      toast({ title: 'Fill in all card details', variant: 'destructive' }); return;
-    }
+    if (!linkData || !code) return;
+    const amount = resolveLinkAmount(linkData, customAmount);
+    const validationError = validateLinkPayment({
+      link: linkData, amount, method: paymentMethod, payerId,
+    });
+    if (validationError) { toast({ title: validationError, variant: 'destructive' }); return; }
+    if (!email) { toast({ title: 'Enter your email for your receipt', variant: 'destructive' }); return; }
 
     setProcessing(true);
-    
+
     try {
-      // Process payment via edge function
-      const { data: payResult, error: payError } = await supabase.functions.invoke('process-payment', {
+      // Settle via the payment-link-checkout edge function: the money
+      // lands in the LINK OWNER's wallet for this link's settlement
+      // account (execute_payment_link_settlement, service-role side).
+      // This page never writes balances or link counters itself.
+      const { data: payResult, error: payError } = await supabase.functions.invoke('payment-link-checkout', {
         body: {
+          link_code: code,
           amount,
-          currency: linkData.currency,
           payment_method: paymentMethod,
-          payment_link_id: linkData.id,
+          idempotency_key: getIdempotencyKey(),
           email,
-          phone: paymentMethod === 'mobile_money' ? phone : undefined,
-          metadata: { payment_link_code: code },
         }
       });
 
-      if (payError) throw payError;
+      if (payError) {
+        // FunctionsHttpError carries the function's JSON on `context`;
+        // surface its real message (e.g. insufficient balance).
+        let message = payError.message;
+        const context = (payError as { context?: Response }).context;
+        if (context) {
+          try {
+            const payload = await context.clone().json();
+            if (payload && typeof payload.error === 'string') message = payload.error;
+          } catch { /* keep the generic message */ }
+        }
+        throw new Error(message);
+      }
+      if (!payResult?.success) {
+        throw new Error(payResult?.error || 'Payment could not be processed. No money was charged.');
+      }
 
-      // Update payment link counters
-      await supabase
-        .from('payment_links')
-        .update({
-          payment_count: (linkData as any).payment_count ? (linkData as any).payment_count + 1 : 1,
-          total_collected: ((linkData as any).total_collected || 0) + amount,
-        })
-        .eq('id', linkData.id);
-
-      // Send receipt
+      // Send receipt (best effort — the payment is already settled).
       const txId = payResult?.transaction_id;
       if (txId) {
         await supabase.functions.invoke('send-receipt', {
           body: { transaction_id: txId, recipient_email: email, type: 'payment' }
-        });
+        }).catch(() => { /* receipt failure never unmakes a payment */ });
         setReceiptRef(`RCP-${txId.slice(0, 8).toUpperCase()}`);
       }
 
@@ -172,6 +212,12 @@ const PublicCheckout = () => {
   );
 
   const amount = linkData?.amount || Number(customAmount) || 0;
+  const methods = [
+    ...(payerId ? [{ id: 'wallet' as const, icon: Wallet, label: 'BMaGlass Wallet' }] : []),
+    { id: 'card' as const, icon: CreditCard, label: 'Card' },
+    { id: 'mobile_money' as const, icon: Smartphone, label: 'Mobile Money' },
+    { id: 'bank' as const, icon: Building2, label: 'Bank' },
+  ];
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -188,6 +234,12 @@ const PublicCheckout = () => {
           <CardHeader>
             <CardTitle className="text-lg">{linkData?.title}</CardTitle>
             {linkData?.description && <p className="text-sm text-muted-foreground">{linkData.description}</p>}
+            {settlementAccountName && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1">
+                <Wallet className="h-3.5 w-3.5" />
+                Payments settle to: {settlementAccountName}
+              </p>
+            )}
           </CardHeader>
           <CardContent className="space-y-6">
             {linkData?.amount ? (
@@ -211,12 +263,8 @@ const PublicCheckout = () => {
 
             <div className="space-y-3">
               <Label>Payment Method</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { id: 'card' as const, icon: CreditCard, label: 'Card' },
-                  { id: 'mobile_money' as const, icon: Smartphone, label: 'Mobile Money' },
-                  { id: 'bank' as const, icon: Building2, label: 'Bank' },
-                ] as const).map(m => (
+              <div className={`grid gap-2 ${methods.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                {methods.map(m => (
                   <button
                     key={m.id}
                     onClick={() => setPaymentMethod(m.id)}
@@ -229,31 +277,36 @@ const PublicCheckout = () => {
                   </button>
                 ))}
               </div>
+              {!payerId && (
+                <p className="text-xs text-muted-foreground">
+                  Have a BMaGlass account?{' '}
+                  <Link to="/login" className="text-primary underline underline-offset-2">Sign in</Link>{' '}
+                  to pay instantly from your wallet balance.
+                </p>
+              )}
             </div>
 
+            {paymentMethod === 'wallet' && (
+              <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                The amount will be taken from your BMaGlass wallet balance ({linkData?.currency}) and paid to the seller immediately.
+              </div>
+            )}
+
             {paymentMethod === 'card' && (
-              <div className="space-y-3">
-                <div>
-                  <Label>Card Number</Label>
-                  <Input placeholder="4242 4242 4242 4242" value={cardNumber} onChange={e => setCardNumber(e.target.value)} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Expiry</Label><Input placeholder="MM/YY" value={cardExpiry} onChange={e => setCardExpiry(e.target.value)} /></div>
-                  <div><Label>CVC</Label><Input placeholder="123" value={cardCvc} onChange={e => setCardCvc(e.target.value)} /></div>
-                </div>
+              <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                Pay by debit or credit card. Availability is confirmed when you click Pay — nothing is charged unless the payment completes. We never see or store your card number on this page.
               </div>
             )}
 
             {paymentMethod === 'mobile_money' && (
-              <div>
-                <Label>Phone Number</Label>
-                <Input placeholder="+260 97X XXX XXX" value={phone} onChange={e => setPhone(e.target.value)} />
+              <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                Pay by mobile money. Availability is confirmed when you click Pay — nothing is charged unless the payment completes.
               </div>
             )}
 
             {paymentMethod === 'bank' && (
               <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
-                You'll be redirected to complete the bank transfer after clicking Pay.
+                Pay by bank transfer. Availability is confirmed when you click Pay — nothing is charged unless the payment completes.
               </div>
             )}
 
