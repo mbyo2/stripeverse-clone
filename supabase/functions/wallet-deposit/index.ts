@@ -25,9 +25,14 @@
 //   - No Math.random anywhere; references come from the gateway.
 //
 // Input: { amount, paymentMethod ('mobile_money' | 'paypal' | 'card'),
-//          provider?, wallet_id?, currency? }
+//          provider?, wallet_id?, currency?, return_url?, cancel_url? }
 //   wallet_id omitted → the caller's Main wallet (account_id IS NULL)
 //   in the requested currency, created on demand if missing.
+//   return_url / cancel_url are handed to PayPal as the order's
+//   application_context so the user lands back on the Wallet page
+//   after approving (or cancelling) — the deposit-capture return flow
+//   keys off them. Only well-formed https URLs are accepted; anything
+//   else is ignored, never forwarded to PayPal.
 //
 // Response shape: { success, status, transaction_id?, reference?,
 //                   approval_url?, message?, error? }
@@ -86,6 +91,13 @@ serve(async (req) => {
     const requestedCurrency = body.currency
       ? String(body.currency).toUpperCase()
       : null;
+    // Optional post-PayPal landing URLs from the caller. Sanitised to
+    // https-only; an invalid value is dropped, never forwarded, so a
+    // caller cannot steer PayPal's redirect to an arbitrary scheme.
+    const returnUrl = sanitizeRedirectUrl(body.return_url);
+    const cancelUrl = sanitizeRedirectUrl(body.cancel_url);
+    if (body.return_url && !returnUrl) logStep("Ignored non-https return_url");
+    if (body.cancel_url && !cancelUrl) logStep("Ignored non-https cancel_url");
     logStep("Deposit request", { amount, paymentMethod, userId: user.id });
 
     // ── Validation ──
@@ -170,6 +182,8 @@ serve(async (req) => {
       amount,
       currency,
       description: "BMaGlass Pay wallet deposit",
+      returnUrl,
+      cancelUrl,
     });
     if (!order) {
       return json({
@@ -253,12 +267,47 @@ async function getPayPalAccessToken(): Promise<string | null> {
   }
 }
 
+/**
+ * Returns the value unchanged only when it is a well-formed https
+ * URL; null otherwise. The codebase has no origin allowlist for
+ * PayPal flows (paypal-checkout / paypal-marketplace build their
+ * application_context server-side), so https + parseable is the bar:
+ * it blocks scheme injection (javascript:, data:, http downgrade)
+ * without inventing a host policy the platform does not have.
+ */
+function sanitizeRedirectUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length === 0) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 async function createPayPalOrder(
   accessToken: string,
-  input: { amount: number; currency: string; description?: string },
+  input: {
+    amount: number;
+    currency: string;
+    description?: string;
+    returnUrl?: string | null;
+    cancelUrl?: string | null;
+  },
 ): Promise<{ id: string; approvalUrl: string | null } | null> {
   const isProduction = Deno.env.get("PAYPAL_ENV") === "production";
   const baseUrl = isProduction ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+  // PayPal sends the user back to these URLs after approval/cancel;
+  // without them the deposit-capture return flow can never fire.
+  // Included only when at least one valid URL was supplied, so order
+  // creation is byte-identical to before when they are absent.
+  const applicationContext = input.returnUrl || input.cancelUrl
+    ? {
+        ...(input.returnUrl ? { return_url: input.returnUrl } : {}),
+        ...(input.cancelUrl ? { cancel_url: input.cancelUrl } : {}),
+      }
+    : undefined;
   try {
     const response = await fetch(`${baseUrl}/v2/checkout/orders`, {
       method: "POST",
@@ -272,6 +321,7 @@ async function createPayPalOrder(
           amount: { currency_code: input.currency, value: input.amount.toFixed(2) },
           description: input.description || "BMaGlass Pay wallet deposit",
         }],
+        ...(applicationContext ? { application_context: applicationContext } : {}),
       }),
     });
     if (!response.ok) {

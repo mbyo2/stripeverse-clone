@@ -183,7 +183,14 @@ export const useWallet = (accountId?: string | null) => {
       if (!user?.id) throw new Error('User not authenticated');
 
       const { data, error } = await supabase.functions.invoke('wallet-deposit', {
-        body: { amount, paymentMethod, provider, wallet_id: walletId, currency, user_id: user.id },
+        body: {
+          amount, paymentMethod, provider, wallet_id: walletId, currency, user_id: user.id,
+          // Where PayPal sends the user after approval / cancellation.
+          // PayPal appends &token=<order id> to the return URL, which
+          // usePayPalDepositReturn hands to paypal-deposit-capture.
+          return_url: `${window.location.origin}/wallet?paypal_return=deposit`,
+          cancel_url: `${window.location.origin}/wallet?paypal_return=cancelled`,
+        },
       });
 
       if (error) throw error;
