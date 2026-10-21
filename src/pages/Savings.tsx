@@ -38,7 +38,7 @@ const Savings = () => {
               <div className="space-y-4">
                 <div><Label>Name</Label><Input value={newForm.name} onChange={e => setNewForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g., Emergency Fund" /></div>
                 <div><Label>Target Amount (ZMW)</Label><Input type="number" value={newForm.target_amount} onChange={e => setNewForm(p => ({ ...p, target_amount: e.target.value }))} /></div>
-                <Button onClick={() => { createAccount.mutate({ name: newForm.name, target_amount: newForm.target_amount ? Number(newForm.target_amount) : undefined }); setOpenNew(false); }} disabled={!newForm.name} className="w-full">Create</Button>
+                <Button onClick={() => { createAccount.mutate({ name: newForm.name, target_amount: newForm.target_amount ? Number(newForm.target_amount) : undefined }, { onSuccess: () => { setOpenNew(false); setNewForm({ name: '', target_amount: '' }); } }); }} disabled={!newForm.name || createAccount.isPending} className="w-full">Create</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -108,7 +108,7 @@ const Savings = () => {
                         <div className="space-y-4">
                           <p className="text-sm text-muted-foreground">The amount moves from your wallet into this goal.</p>
                           <div><Label>Amount (ZMW)</Label><Input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} /></div>
-                          <Button onClick={() => { deposit.mutate({ id: account.id, amount: Number(depositAmount) }); setOpenDeposit(null); }} disabled={!depositAmount || deposit.isPending} className="w-full">Deposit</Button>
+                          <Button onClick={() => { deposit.mutate({ id: account.id, amount: Number(depositAmount) }, { onSuccess: () => setOpenDeposit(null) }); }} disabled={!depositAmount || deposit.isPending} className="w-full">Deposit</Button>
                         </div>
                       </DialogContent>
                     </Dialog>
@@ -119,7 +119,7 @@ const Savings = () => {
                         <div className="space-y-4">
                           <p className="text-sm text-muted-foreground">The amount moves from this goal back to your wallet. Available: ZMW {Number(account.balance).toLocaleString()}</p>
                           <div><Label>Amount (ZMW)</Label><Input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} /></div>
-                          <Button onClick={() => { withdraw.mutate({ id: account.id, amount: Number(withdrawAmount) }); setOpenWithdraw(null); }} disabled={!withdrawAmount || Number(withdrawAmount) > Number(account.balance) || withdraw.isPending} className="w-full">Withdraw</Button>
+                          <Button onClick={() => { withdraw.mutate({ id: account.id, amount: Number(withdrawAmount) }, { onSuccess: () => setOpenWithdraw(null) }); }} disabled={!withdrawAmount || Number(withdrawAmount) > Number(account.balance) || withdraw.isPending} className="w-full">Withdraw</Button>
                         </div>
                       </DialogContent>
                     </Dialog>

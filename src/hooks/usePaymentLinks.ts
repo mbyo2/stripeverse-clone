@@ -36,7 +36,14 @@ export const useCreatePaymentLink = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payment-links'] }); toast.success('Payment link created'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payment-links'] });
+      // Force the visible list to refetch now: with the app's
+      // 5-minute staleTime, QA saw a newly created link missing from
+      // the list until a manual reload.
+      qc.refetchQueries({ queryKey: ['payment-links'], type: 'active' });
+      toast.success('Payment link created');
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 };
@@ -55,7 +62,11 @@ export const useUpdatePaymentLink = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payment-links'] }); toast.success('Payment link updated'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payment-links'] });
+      qc.refetchQueries({ queryKey: ['payment-links'], type: 'active' });
+      toast.success('Payment link updated');
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 };
@@ -67,7 +78,11 @@ export const useDeactivatePaymentLink = () => {
       const { error } = await supabase.from('payment_links').update({ status: 'inactive' }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payment-links'] }); toast.success('Link deactivated'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payment-links'] });
+      qc.refetchQueries({ queryKey: ['payment-links'], type: 'active' });
+      toast.success('Link deactivated');
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 };

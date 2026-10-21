@@ -491,7 +491,7 @@ const SubAccounts = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Keep account</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => { if (closeTarget) closeSub.mutate(closeTarget.id); setCloseTarget(null); }}
+              onClick={() => { if (closeTarget) closeSub.mutate(closeTarget.id, { onSuccess: () => setCloseTarget(null) }); }}
             >
               Close account
             </AlertDialogAction>
