@@ -26,6 +26,13 @@ const QrPayments = () => {
   const [qrType, setQrType] = useState<'personal' | 'merchant'>('personal');
   const [scanMode, setScanMode] = useState(false);
   const [scanResult, setScanResult] = useState<string | null>(null);
+  const [scannedPayload, setScannedPayload] = useState<any>(null);
+  const [recipientProfile, setRecipientProfile] = useState<{ id: string; full_name: string | null } | null>(null);
+  const [recipientState, setRecipientState] = useState<'idle' | 'loading' | 'found' | 'missing'>('idle');
+  const [payAmount, setPayAmount] = useState('');
+  const [isPaying, setIsPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+  const [payDone, setPayDone] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -141,21 +148,95 @@ const QrPayments = () => {
 
   const handleScanResult = (rawValue: string) => {
     stopCamera();
+    setPayError(null);
+    setPayDone(false);
     try {
       const parsed = JSON.parse(rawValue);
       if (parsed.platform === 'bmaglass') {
         setScanResult(rawValue);
+        setScannedPayload(parsed);
+        setPayAmount(parsed.amount ? String(parsed.amount) : '');
         toast({
           title: 'QR Code Scanned!',
           description: `Payment to ${parsed.recipient?.slice(0, 8)}... ${parsed.amount ? `for ${parsed.currency} ${parsed.amount}` : ''}`,
         });
       } else {
         setScanResult(rawValue);
+        setScannedPayload(null);
         toast({ title: 'QR Code Detected', description: 'Non-BMaGlass QR code scanned' });
       }
     } catch {
       setScanResult(rawValue);
+      setScannedPayload(null);
       toast({ title: 'QR Code Detected', description: rawValue.slice(0, 100) });
+    }
+  };
+
+  // Resolve the account named in a scanned BMaGlass code, so the payer sees
+  // who they are paying before any money moves.
+  useEffect(() => {
+    const recipient = scannedPayload?.recipient;
+    if (!recipient || typeof recipient !== 'string') {
+      setRecipientProfile(null);
+      setRecipientState('idle');
+      return;
+    }
+    let cancelled = false;
+    setRecipientState('loading');
+    supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('id', recipient)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data) {
+          setRecipientProfile(data as { id: string; full_name: string | null });
+          setRecipientState('found');
+        } else {
+          setRecipientProfile(null);
+          setRecipientState('missing');
+        }
+      });
+    return () => { cancelled = true; };
+  }, [scannedPayload]);
+
+  // Pay a scanned BMaGlass code through the SAME atomic-transfer path the
+  // Send Money / Transfer flows use — no new money logic.
+  const handlePayScanned = async () => {
+    if (!user || !scannedPayload || !recipientProfile) return;
+    const amt = parseFloat(payAmount);
+    if (!amt || isNaN(amt) || amt <= 0) {
+      setPayError('Enter a valid amount greater than 0');
+      return;
+    }
+    setIsPaying(true);
+    setPayError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('atomic-transfer', {
+        body: {
+          from_user_id: user.id,
+          to_user_id: recipientProfile.id,
+          amount: amt,
+          currency: 'ZMW',
+          reference_type: 'qr_payment',
+          reference_id: null,
+          idempotency_key: `qr-${user.id}-${Date.now()}`,
+          description: scannedPayload.description || 'QR code payment',
+          recipient_name: recipientProfile.full_name || 'BMaGlass user',
+          payment_method: 'qr_code',
+        },
+      });
+      if (error) throw new Error(error.message || 'Payment failed');
+      if (data?.error) throw new Error(data.error);
+      setPayDone(true);
+      toast({ title: 'Payment sent', description: `You paid ZMW ${amt.toFixed(2)} by QR code.` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Payment failed';
+      setPayError(message);
+      toast({ title: 'Payment failed', description: message, variant: 'destructive' });
+    } finally {
+      setIsPaying(false);
     }
   };
 
@@ -209,7 +290,7 @@ const QrPayments = () => {
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground">QR Code Payments</h1>
-          <p className="text-muted-foreground mt-1">Generate, scan, and pay with QR codes instantly</p>
+          <p className="text-muted-foreground mt-1">Generate a code to get paid, or scan a BMaGlass code to pay from your wallet</p>
         </div>
 
         <Tabs defaultValue="generate" className="space-y-6">
@@ -286,8 +367,8 @@ const QrPayments = () => {
                         { label: 'Dynamic QR', desc: 'Amount embedded in code' },
                         { label: 'Static QR', desc: 'Payer enters amount' },
                         { label: 'Camera scan', desc: 'Real device camera integration' },
-                        { label: 'Multi-currency', desc: 'ZMW, USD, EUR, GBP' },
-                        { label: 'Instant settlement', desc: 'Funds arrive immediately' },
+                        { label: 'Multi-currency codes', desc: 'Generate in ZMW, USD, EUR, GBP — in-app payment settles ZMW codes' },
+                        { label: 'Wallet-to-wallet', desc: 'Paid codes move money between BMaGlass wallets via the standard transfer path' },
                       ].map(f => (
                         <div key={f.label} className="flex items-center gap-2 text-sm">
                           <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
@@ -376,20 +457,67 @@ const QrPayments = () => {
                           <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto">
                             <CheckCircle className="h-8 w-8 text-green-500" />
                           </div>
-                          <h3 className="text-lg font-semibold">QR Code Scanned</h3>
-                          <div className="bg-muted rounded-lg p-4 text-left">
-                            <pre className="text-xs whitespace-pre-wrap break-all font-mono">
-                              {(() => {
-                                try { return JSON.stringify(JSON.parse(scanResult), null, 2); }
-                                catch { return scanResult; }
-                              })()}
-                            </pre>
-                          </div>
+                          {payDone ? (
+                            <>
+                              <h3 className="text-lg font-semibold">Payment Sent</h3>
+                              <p className="text-sm text-muted-foreground">
+                                ZMW {parseFloat(payAmount || '0').toFixed(2)} sent to {recipientProfile?.full_name || 'the account in this code'}. It will appear in your transaction history.
+                              </p>
+                            </>
+                          ) : scannedPayload ? (
+                            <>
+                              <h3 className="text-lg font-semibold">Pay BMaGlass QR Code</h3>
+                              {recipientState === 'loading' ? (
+                                <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin" /> Looking up the account in this code…
+                                </p>
+                              ) : recipientState === 'missing' ? (
+                                <p className="text-sm text-destructive">The account in this code could not be found — it may not be a current BMaGlass account, so it can't be paid.</p>
+                              ) : recipientProfile && user && recipientProfile.id === user.id ? (
+                                <p className="text-sm text-muted-foreground">This is your own QR code — you can't pay yourself.</p>
+                              ) : recipientProfile && scannedPayload.currency && scannedPayload.currency !== 'ZMW' ? (
+                                <p className="text-sm text-muted-foreground">This code is for {scannedPayload.currency}. In-app QR payments currently settle in ZMW only, so this code can't be paid here.</p>
+                              ) : recipientProfile ? (
+                                <div className="space-y-4 text-left">
+                                  <div className="bg-muted rounded-lg p-4 space-y-1 text-sm">
+                                    <p><span className="text-muted-foreground">To:</span> <span className="font-medium">{recipientProfile.full_name || 'BMaGlass user'}</span></p>
+                                    {scannedPayload.description && <p><span className="text-muted-foreground">For:</span> {scannedPayload.description}</p>}
+                                  </div>
+                                  {scannedPayload.amount ? (
+                                    <p className="text-center text-2xl font-bold">ZMW {Number(scannedPayload.amount).toFixed(2)}</p>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      <Label>Amount (ZMW)</Label>
+                                      <Input type="number" min="0" step="0.01" placeholder="0.00" value={payAmount} onChange={e => setPayAmount(e.target.value)} />
+                                    </div>
+                                  )}
+                                  {payError && <p className="text-sm text-destructive">{payError}</p>}
+                                  <Button className="w-full" onClick={handlePayScanned} disabled={isPaying || !payAmount}>
+                                    {isPaying ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Paying…</> : <>Pay ZMW {payAmount ? parseFloat(payAmount || '0').toFixed(2) : '0.00'}</>}
+                                  </Button>
+                                  <p className="text-xs text-muted-foreground text-center">Paid from your BMaGlass wallet via the standard transfer path.</p>
+                                </div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              <h3 className="text-lg font-semibold">QR Code Scanned</h3>
+                              <div className="bg-muted rounded-lg p-4 text-left">
+                                <pre className="text-xs whitespace-pre-wrap break-all font-mono">
+                                  {(() => {
+                                    try { return JSON.stringify(JSON.parse(scanResult), null, 2); }
+                                    catch { return scanResult; }
+                                  })()}
+                                </pre>
+                              </div>
+                              <p className="text-sm text-muted-foreground">This isn't a BMaGlass payment code, so it can't be paid in the app.</p>
+                            </>
+                          )}
                           <div className="flex gap-3 justify-center">
-                            <Button onClick={() => { setScanResult(null); startCamera(); }}>
+                            <Button onClick={() => { setScanResult(null); setScannedPayload(null); setPayDone(false); startCamera(); }}>
                               <ScanLine className="h-4 w-4 mr-2" /> Scan Another
                             </Button>
-                            <Button variant="outline" onClick={() => setScanResult(null)}>
+                            <Button variant="outline" onClick={() => { setScanResult(null); setScannedPayload(null); setPayDone(false); }}>
                               Close
                             </Button>
                           </div>
