@@ -54,22 +54,40 @@ const PublicCheckout = () => {
   useEffect(() => {
     if (!code) { setError('Invalid payment link'); setLoading(false); return; }
     (async () => {
-      const { data, error: e } = await supabase
-        .from('payment_links')
-        .select('id, title, description, amount, currency, status, user_id, account_id')
-        .eq('link_code', code)
-        .eq('status', 'active')
-        .single();
-      if (e || !data) { setError('Payment link not found or expired'); }
-      else {
-        setLinkData(data as PaymentLinkData);
-        // The settlement account's name is owner-only data under RLS, so
-        // the checkout function serves it (service-role side). Best
-        // effort: the page works without the label.
-        const { data: described } = await supabase.functions.invoke('payment-link-checkout', {
-          body: { action: 'describe', link_code: code },
-        });
-        if (described?.settlement_account_name) {
+      // Load the link through the checkout function (service-role
+      // side), NOT a direct payment_links select: under table RLS a
+      // signed-in non-owner could not read the link at all (anon had
+      // the public read; authenticated policies were owner-scoped), so
+      // exactly the people wallet payment exists for — signed-in
+      // third parties — were told "not found". The function also
+      // serves the settlement account's name, which is owner-only
+      // data under RLS.
+      const { data: described, error: fnError } = await supabase.functions.invoke('payment-link-checkout', {
+        body: { action: 'describe', link_code: code },
+      });
+
+      let failure: string | null = null;
+      if (fnError) {
+        // FunctionsHttpError carries the function's JSON on `context`;
+        // its 404 message is the truthful one ("not found or no
+        // longer active") — surface it instead of guessing.
+        failure = 'Payment link not found or expired';
+        const context = (fnError as { context?: Response }).context;
+        if (context) {
+          try {
+            const payload = await context.clone().json();
+            if (payload && typeof payload.error === 'string') failure = payload.error;
+          } catch { /* keep the fallback message */ }
+        }
+      } else if (!described?.success || !described?.link) {
+        failure = (typeof described?.error === 'string' && described.error) || 'Payment link not found or expired';
+      }
+
+      if (failure) {
+        setError(failure);
+      } else {
+        setLinkData(described.link as PaymentLinkData);
+        if (described.settlement_account_name) {
           setSettlementAccountName(described.settlement_account_name as string);
         }
       }
