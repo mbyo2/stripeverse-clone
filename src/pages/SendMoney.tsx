@@ -60,13 +60,28 @@ const SendMoney = () => {
 
   const handleSendMoney = async () => {
     if (!user?.id || !wallet?.id) return;
+
+    // Mobile money sending is NOT live: no disbursement gateway is
+    // connected, so there is no queue this money could enter. Refuse
+    // BEFORE any debit — the previous flow debited the wallet via
+    // atomic-transfer and toasted "disbursement is queued" while the
+    // money simply vanished into an external ledger row.
+    if (paymentMethod !== "wallet") {
+      toast({
+        title: "Mobile money sending isn't live yet",
+        description: "No mobile-money gateway is connected, so nothing has been charged. To send now, choose BMaGlass Wallet — the recipient needs a BMaGlass account.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const parsedAmount = parseFloat(amount);
       const ref = `BP${Date.now().toString(36).toUpperCase()}`;
 
-      // 1. Resolve recipient: registered user by phone, or external mobile-money number
+      // 1. Resolve recipient: registered user by phone
       const digits = recipient.replace(/\D/g, "");
       const { data: recipientProfile } = await supabase
         .from("profiles")
@@ -75,11 +90,8 @@ const SendMoney = () => {
         .limit(1)
         .maybeSingle();
 
-      const isInternal = paymentMethod === "wallet" && recipientProfile;
-      const isMobileMoney = paymentMethod !== "wallet";
-
-      if (paymentMethod === "wallet" && !recipientProfile) {
-        throw new Error("Recipient must have an account for wallet transfers. Use a mobile money option to send to any number.");
+      if (!recipientProfile) {
+        throw new Error("Recipient must have an account for wallet transfers.");
       }
 
       // 2. Execute atomically, server-side (amount + fee debited together)
@@ -87,15 +99,15 @@ const SendMoney = () => {
       const { data, error } = await supabase.functions.invoke("atomic-transfer", {
         body: {
           from_user_id: user.id,
-          to_user_id: isInternal ? recipientProfile.id : null,
+          to_user_id: recipientProfile.id,
           amount: total,
           currency: wallet.currency,
           reference_type: "transfer",
           reference_id: ref,
           idempotency_key: idempotencyKey,
-          description: `Send money to ${recipientName || recipient}${isMobileMoney ? ` via ${paymentMethod}` : ""} (incl. K${fee} fee)`,
+          description: `Send money to ${recipientName || recipient} (incl. K${fee} fee)`,
           recipient_name: recipientName || recipient,
-          payment_method: isInternal ? "wallet" : "mobile_money",
+          payment_method: "wallet",
         },
       });
 
@@ -107,9 +119,7 @@ const SendMoney = () => {
 
       toast({
         title: "Money sent successfully",
-        description: isInternal
-          ? `You've sent ${formatAmount(parsedAmount)} to ${recipientName || recipient}`
-          : `${formatAmount(parsedAmount)} sent to ${recipient} via ${paymentMethod}. Mobile money disbursement is queued.`,
+        description: `You've sent ${formatAmount(parsedAmount)} to ${recipientName || recipient}`,
       });
     } catch (error: any) {
       console.error("Send money error:", error);
@@ -214,9 +224,9 @@ const SendMoney = () => {
                         <SelectItem value="wallet">
                           BMaGlass Wallet ({formatAmount(wallet?.balance || 0)})
                         </SelectItem>
-                        <SelectItem value="mtn">MTN Mobile Money</SelectItem>
-                        <SelectItem value="airtel">Airtel Money</SelectItem>
-                        <SelectItem value="zamtel">Zamtel Kwacha</SelectItem>
+                        <SelectItem value="mtn" disabled>MTN Mobile Money (not yet available)</SelectItem>
+                        <SelectItem value="airtel" disabled>Airtel Money (not yet available)</SelectItem>
+                        <SelectItem value="zamtel" disabled>Zamtel Kwacha (not yet available)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

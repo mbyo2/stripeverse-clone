@@ -17,6 +17,7 @@ import TransactionHistory from "@/components/wallet/TransactionHistory";
 import { PlusCircle, Wallet as WalletIcon, CreditCard, Clock, ArrowRight, ChevronRight } from "lucide-react";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/hooks/useWallet";
 import { useAccount } from "@/contexts/AccountContext";
@@ -25,9 +26,10 @@ import { useToast } from "@/hooks/use-toast";
 const Wallet = () => {
   const navigate = useNavigate();
   const { selectedAccountId, selectedAccountName } = useAccount();
-  const { isLoading, deposit, isDepositing } = useWallet(selectedAccountId);
+  const { wallet, isLoading, deposit, isDepositing } = useWallet(selectedAccountId);
   const { paymentMethods } = usePaymentMethods();
   const [amount, setAmount] = useState("");
+  const [depositMethod, setDepositMethod] = useState("mobile_money");
   const isMobile = useIsMobile();
   const { toast } = useToast();
   
@@ -38,7 +40,14 @@ const Wallet = () => {
   const handleAddMoney = () => {
     const parsedAmount = parseFloat(amount);
     if (!isNaN(parsedAmount) && parsedAmount > 0) {
-      deposit({ amount: parsedAmount, paymentMethod: 'mobile_money' });
+      // Target the wallet of the account the user is viewing — never
+      // an arbitrary wallet on the account.
+      deposit({
+        amount: parsedAmount,
+        paymentMethod: depositMethod,
+        walletId: wallet?.id,
+        currency: wallet?.currency,
+      });
       setAmount("");
     }
   };
@@ -59,6 +68,25 @@ const Wallet = () => {
           min="0"
         />
         <p className="text-xs text-muted-foreground text-center">Enter the amount you want to add to your wallet</p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="deposit-method" className="text-sm font-medium">
+          Deposit method
+        </Label>
+        <Select value={depositMethod} onValueChange={setDepositMethod}>
+          <SelectTrigger id="deposit-method">
+            <SelectValue placeholder="Select deposit method" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="mobile_money">Mobile Money</SelectItem>
+            <SelectItem value="paypal">PayPal</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground text-center">
+          {depositMethod === 'paypal'
+            ? "You'll be redirected to PayPal. Your wallet is credited once the payment is confirmed."
+            : "Mobile money deposits are not live yet — you'll be told before anything is charged."}
+        </p>
       </div>
       <Button 
         onClick={handleAddMoney} 

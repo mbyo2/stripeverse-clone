@@ -80,26 +80,35 @@ export const useConvertCurrency = () => {
       from_amount: number; exchange_rate: number;
       from_wallet_id: string; to_wallet_id: string;
     }) => {
-      const to_amount = params.from_amount * params.exchange_rate;
-      const fee = params.from_amount * 0.015; // 1.5% fee
-      const { data, error } = await supabase.from('currency_conversions').insert({
-        user_id: user!.id,
-        from_currency: params.from_currency,
-        to_currency: params.to_currency,
-        from_amount: params.from_amount,
-        to_amount,
-        exchange_rate: params.exchange_rate,
-        fee_amount: fee,
-        from_wallet_id: params.from_wallet_id,
-        to_wallet_id: params.to_wallet_id,
-      }).select().single();
+      // The movement happens server-side (currency-convert ->
+      // execute_currency_conversion): the RPC reads the stored rate
+      // from exchange_rates itself (the rate passed here is only the
+      // expectation the user saw — the RPC refuses if the stored rate
+      // has moved >2%), debits/credits both wallets, and writes the
+      // conversion record + ledger legs atomically. The browser never
+      // writes a balance or a history-only "conversion".
+      const { data, error } = await supabase.functions.invoke('currency-convert', {
+        body: {
+          from_wallet_id: params.from_wallet_id,
+          to_wallet_id: params.to_wallet_id,
+          from_amount: params.from_amount,
+          expected_rate: params.exchange_rate,
+          idempotency_key: `conv-${user!.id}-${crypto.randomUUID()}`,
+        },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['multi-wallets'] });
       qc.invalidateQueries({ queryKey: ['currency-conversions'] });
-      toast.success('Currency converted successfully');
+      qc.invalidateQueries({ queryKey: ['wallet'] });
+      toast.success(
+        data?.to_amount != null
+          ? `Currency converted successfully — received ${Number(data.to_amount).toFixed(2)}`
+          : 'Currency converted successfully',
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });

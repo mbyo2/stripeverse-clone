@@ -11,11 +11,13 @@ import { useSavings } from '@/hooks/useSavings';
 import { PiggyBank, Plus, TrendingUp, Target } from 'lucide-react';
 
 const Savings = () => {
-  const { accounts, createAccount, deposit } = useSavings();
+  const { accounts, createAccount, deposit, withdraw } = useSavings();
   const [openNew, setOpenNew] = useState(false);
   const [openDeposit, setOpenDeposit] = useState<string | null>(null);
+  const [openWithdraw, setOpenWithdraw] = useState<string | null>(null);
   const [newForm, setNewForm] = useState({ name: '', target_amount: '' });
   const [depositAmount, setDepositAmount] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
 
   const totalBalance = accounts.data?.reduce((s, a) => s + Number(a.balance), 0) || 0;
   const totalInterest = accounts.data?.reduce((s, a) => s + Number(a.interest_earned), 0) || 0;
@@ -98,16 +100,30 @@ const Savings = () => {
                       <Progress value={Math.min(progress, 100)} />
                     </div>
                   )}
-                  <Dialog open={openDeposit === account.id} onOpenChange={v => { setOpenDeposit(v ? account.id : null); setDepositAmount(''); }}>
-                    <DialogTrigger asChild><Button size="sm" variant="outline">Deposit</Button></DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>Deposit to {account.name}</DialogTitle></DialogHeader>
-                      <div className="space-y-4">
-                        <div><Label>Amount (ZMW)</Label><Input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} /></div>
-                        <Button onClick={() => { deposit.mutate({ id: account.id, amount: Number(depositAmount) }); setOpenDeposit(null); }} disabled={!depositAmount} className="w-full">Deposit</Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  <div className="flex gap-2">
+                    <Dialog open={openDeposit === account.id} onOpenChange={v => { setOpenDeposit(v ? account.id : null); setDepositAmount(''); }}>
+                      <DialogTrigger asChild><Button size="sm" variant="outline">Deposit</Button></DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader><DialogTitle>Deposit to {account.name}</DialogTitle></DialogHeader>
+                        <div className="space-y-4">
+                          <p className="text-sm text-muted-foreground">The amount moves from your wallet into this goal.</p>
+                          <div><Label>Amount (ZMW)</Label><Input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} /></div>
+                          <Button onClick={() => { deposit.mutate({ id: account.id, amount: Number(depositAmount) }); setOpenDeposit(null); }} disabled={!depositAmount || deposit.isPending} className="w-full">Deposit</Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <Dialog open={openWithdraw === account.id} onOpenChange={v => { setOpenWithdraw(v ? account.id : null); setWithdrawAmount(''); }}>
+                      <DialogTrigger asChild><Button size="sm" variant="outline" disabled={Number(account.balance) <= 0}>Withdraw</Button></DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader><DialogTitle>Withdraw from {account.name}</DialogTitle></DialogHeader>
+                        <div className="space-y-4">
+                          <p className="text-sm text-muted-foreground">The amount moves from this goal back to your wallet. Available: ZMW {Number(account.balance).toLocaleString()}</p>
+                          <div><Label>Amount (ZMW)</Label><Input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} /></div>
+                          <Button onClick={() => { withdraw.mutate({ id: account.id, amount: Number(withdrawAmount) }); setOpenWithdraw(null); }} disabled={!withdrawAmount || Number(withdrawAmount) > Number(account.balance) || withdraw.isPending} className="w-full">Withdraw</Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </CardContent>
               </Card>
             );
