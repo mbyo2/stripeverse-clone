@@ -3509,6 +3509,13 @@ export type Database = {
           transaction_id: string
         }[]
       }
+      find_transfer_recipient: {
+        Args: { p_query: string }
+        Returns: {
+          display_name: string | null
+          user_id: string
+        }[]
+      }
       fix_wallet_balance: {
         Args: { p_notes?: string; p_performed_by?: string; p_wallet_id: string }
         Returns: boolean
