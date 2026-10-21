@@ -20,6 +20,7 @@ const Support = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState("faq");
   const [searchTerm, setSearchTerm] = useState('');
   const [ticketForm, setTicketForm] = useState({
     subject: '',
