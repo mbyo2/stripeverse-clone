@@ -473,11 +473,11 @@ const Settings = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-medium text-foreground">Transaction Limits</h3>
-                      <p className="text-sm text-muted-foreground">Apply daily and monthly limits</p>
+                      <p className="text-sm text-muted-foreground">Not yet available — daily and monthly limits can't be configured yet, so this setting is disabled and nothing is saved.</p>
                     </div>
                     <Switch
                       checked={payment.transactionLimits}
-                      onCheckedChange={(checked) => setPayment({ ...payment, transactionLimits: checked })}
+                      disabled
                     />
                   </div>
 
@@ -486,11 +486,11 @@ const Settings = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-medium text-foreground">International Payments</h3>
-                      <p className="text-sm text-muted-foreground">Allow payments outside Zambia</p>
+                      <p className="text-sm text-muted-foreground">Not yet available — this setting isn't active yet, so it is disabled and nothing is saved.</p>
                     </div>
                     <Switch
                       checked={payment.internationalPayments}
-                      onCheckedChange={(checked) => setPayment({ ...payment, internationalPayments: checked })}
+                      disabled
                     />
                   </div>
                 </CardContent>
