@@ -3479,6 +3479,22 @@ export type Database = {
         Returns: string
       }
       enforce_session_security: { Args: never; Returns: undefined }
+      complete_wallet_deposit: {
+        Args: {
+          p_capture_id: string
+          p_captured_amount: number
+          p_captured_currency: string
+          p_order_id: string
+        }
+        Returns: {
+          credited_amount: number
+          currency: string
+          new_balance: number
+          outcome: string
+          transaction_id: string
+          wallet_id: string
+        }[]
+      }
       execute_internal_transfer: {
         Args: {
           p_amount: number
