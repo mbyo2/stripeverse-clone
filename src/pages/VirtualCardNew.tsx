@@ -246,14 +246,6 @@ const VirtualCardNew = () => {
                     <span>Card Creation</span>
                     <span className="font-medium">Free</span>
                   </li>
-                  <li className="flex justify-between">
-                    <span>Monthly Maintenance</span>
-                    <span className="font-medium">K 5.00</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>Card Funding</span>
-                    <span className="font-medium">1% (min K 2.00)</span>
-                  </li>
                 </ul>
               </div>
             </div>
