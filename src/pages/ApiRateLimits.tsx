@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, AUTH_RATE_LIMIT_ATTEMPTS, AUTH_RATE_LIMIT_WINDOW_MINUTES } from "@/contexts/AuthContext";
 import { Gauge, Clock, AlertTriangle, Shield } from "lucide-react";
 import PageSkeleton from "@/components/PageSkeleton";
 import PageErrorState from "@/components/PageErrorState";
@@ -30,13 +30,35 @@ const ApiRateLimits = () => {
     enabled: !!user,
   });
 
-  const actionLimits: Record<string, number> = {
-    login: 10,
-    transfer: 50,
-    api_call: 1000,
-    webhook: 500,
-    payment: 100,
-  };
+  // Denominators come only from real enforcement sources — never invented:
+  //  - auth actions (login, signup, …): the attempt limits AuthContext
+  //    passes to the check_advanced_rate_limit RPC;
+  //  - api_call: the user's plan limit from the tier_limits table
+  //    (api_calls_per_hour), the same table subscription billing reads.
+  // Any other action has no configured per-action limit, so only its
+  // attempt count is shown.
+  const { data: apiCallLimit } = useQuery({
+    queryKey: ["api-call-limit", user?.id],
+    queryFn: async (): Promise<number | null> => {
+      const { data: sub } = await supabase
+        .from("subscribers")
+        .select("subscription_tier")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (!sub?.subscription_tier) return null;
+      const { data: tier } = await supabase
+        .from("tier_limits")
+        .select("api_calls_per_hour")
+        .eq("tier", sub.subscription_tier)
+        .maybeSingle();
+      return tier?.api_calls_per_hour ?? null;
+    },
+    enabled: !!user,
+  });
+
+  const limitFor = (action: string): number | undefined =>
+    AUTH_RATE_LIMIT_ATTEMPTS[action] ??
+    (action === "api_call" ? apiCallLimit ?? undefined : undefined);
 
   if (isLoading) return <PageSkeleton cards={3} />;
 
@@ -78,18 +100,26 @@ const ApiRateLimits = () => {
               )
                 .slice(0, 3)
                 .map(([action, total]) => {
-                  const limit = actionLimits[action] || 100;
-                  const pct = Math.min(100, ((total as number) / limit) * 100);
+                  const limit = limitFor(action);
+                  const pct = limit ? Math.min(100, ((total as number) / limit) * 100) : null;
                   return (
                     <Card key={action}>
                       <CardContent className="pt-5 pb-5">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium capitalize">{action.replace(/_/g, " ")}</span>
-                          <Badge variant={pct > 80 ? "destructive" : "secondary"}>
-                            {total}/{limit}
-                          </Badge>
+                          {limit ? (
+                            <Badge variant={pct! > 80 ? "destructive" : "secondary"}>
+                              {total}/{limit}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">{total} attempts</Badge>
+                          )}
                         </div>
-                        <Progress value={pct} className="h-2" />
+                        {limit ? (
+                          <Progress value={pct!} className="h-2" />
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No fixed per-action limit is configured for this action.</p>
+                        )}
                       </CardContent>
                     </Card>
                   );
@@ -105,12 +135,12 @@ const ApiRateLimits = () => {
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
                   {rateLimits.map((rl) => {
-                    const limit = actionLimits[rl.action] || 100;
-                    const pct = (rl.attempts / limit) * 100;
+                    const limit = limitFor(rl.action);
+                    const pct = limit ? (rl.attempts / limit) * 100 : null;
                     return (
                       <div key={rl.id} className="px-6 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          {pct > 80 ? (
+                          {pct !== null && pct > 80 ? (
                             <AlertTriangle className="h-4 w-4 text-destructive" />
                           ) : (
                             <Shield className="h-4 w-4 text-muted-foreground" />
@@ -118,11 +148,11 @@ const ApiRateLimits = () => {
                           <div>
                             <p className="text-sm font-medium capitalize">{rl.action.replace(/_/g, " ")}</p>
                             <p className="text-xs text-muted-foreground">
-                              {format(new Date(rl.window_start), "MMM d, HH:mm")} · {rl.attempts} attempts
+                              {format(new Date(rl.window_start), "MMM d, HH:mm")} · {rl.attempts} attempts{limit ? ` of ${limit}` : ""}
                             </p>
                           </div>
                         </div>
-                        <Progress value={Math.min(100, pct)} className="w-24 h-2" />
+                        {pct !== null && <Progress value={Math.min(100, pct)} className="w-24 h-2" />}
                       </div>
                     );
                   })}
@@ -131,6 +161,10 @@ const ApiRateLimits = () => {
             </Card>
           </>
         )}
+
+        <p className="text-xs text-muted-foreground mt-6">
+          Limits shown are the enforced ones: sign-in and sign-up limits ({AUTH_RATE_LIMIT_ATTEMPTS.login} and {AUTH_RATE_LIMIT_ATTEMPTS.signup} attempts per {AUTH_RATE_LIMIT_WINDOW_MINUTES} minutes) come from the app's rate-limit checks, and the API-call limit is your plan's hourly limit from the tier settings. Actions without a configured limit show attempts only.
+        </p>
       </main>
       <Footer />
     </div>

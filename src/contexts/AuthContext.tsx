@@ -30,6 +30,17 @@ type UserData = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Enforced per-action attempt limits applied by checkRateLimit via the
+// check_advanced_rate_limit RPC. Exported so the API Rate Limits page can
+// show the same numbers the app actually enforces — not invented ones.
+export const AUTH_RATE_LIMIT_ATTEMPTS: Record<string, number> = {
+  login: 5,
+  signup: 3,
+  password_reset: 3,
+  email_confirmation: 3,
+};
+export const AUTH_RATE_LIMIT_WINDOW_MINUTES = 15;
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -111,12 +122,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       // Server-side rate limiting using database function
       const identifier = user?.id || 'anonymous_' + Math.random().toString(36).substring(7);
-      
+
       const { data, error } = await supabase.rpc('check_advanced_rate_limit', {
         p_identifier: identifier,
         p_action: action,
-        p_max_attempts: action === 'login' ? 5 : 3,
-        p_window_minutes: 15,
+        p_max_attempts: AUTH_RATE_LIMIT_ATTEMPTS[action] ?? 3,
+        p_window_minutes: AUTH_RATE_LIMIT_WINDOW_MINUTES,
         p_ip_address: null // IP would be captured server-side in production
       });
       

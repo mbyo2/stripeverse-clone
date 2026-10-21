@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { format } from 'date-fns';
+import { format, startOfMonth, startOfWeek } from 'date-fns';
+import { exportToCSV } from '@/utils/exportUtils';
 import { Download, FileText, TrendingUp, DollarSign, ArrowDownUp, AlertTriangle } from 'lucide-react';
 
 const Settlements = () => {
@@ -24,6 +25,11 @@ const Settlements = () => {
         .select('*')
         .eq('merchant_id', user!.id)
         .order('period_end', { ascending: false });
+      if (period === 'month') {
+        query = query.gte('period_end', startOfMonth(new Date()).toISOString());
+      } else if (period === 'week') {
+        query = query.gte('period_end', startOfWeek(new Date()).toISOString());
+      }
       const { data, error } = await query;
       if (error) throw error;
       return data;
@@ -65,7 +71,24 @@ const Settlements = () => {
                 <SelectItem value="week">This Week</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-2" />Export CSV</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={settlements.length === 0}
+              onClick={() => exportToCSV(settlements.map(s => ({
+                period_start: s.period_start,
+                period_end: s.period_end,
+                total_transactions: s.total_transactions,
+                gross_amount: s.gross_amount,
+                total_fees: s.total_fees,
+                net_amount: s.net_amount,
+                refunds_amount: s.refunds_amount,
+                status: s.status,
+                payout_reference: s.payout_reference ?? '',
+              })), 'settlements')}
+            >
+              <Download className="h-4 w-4 mr-2" />Export CSV
+            </Button>
           </div>
         </div>
 
