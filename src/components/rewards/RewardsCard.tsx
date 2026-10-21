@@ -32,10 +32,10 @@ const RewardsCard = () => {
 
   const getTierColor = (tier: string) => {
     switch (tier) {
-      case 'platinum': return 'bg-[#003087]/10 text-[#003087] border-[#003087]/20';
-      case 'gold': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'platinum': return 'bg-[#003087]/10 text-[#003087] border-[#003087]/20 dark:text-blue-300 dark:border-blue-400/30';
+      case 'gold': return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300 dark:border-yellow-500/30';
       case 'silver': return 'bg-muted text-muted-foreground border-border';
-      default: return 'bg-amber-100 text-amber-800 border-amber-200';
+      default: return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30';
     }
   };
 

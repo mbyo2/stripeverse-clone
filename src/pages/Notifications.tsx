@@ -111,8 +111,11 @@ const Notifications = () => {
     await enablePushNotifications();
   };
   
-  const handleEmailPreferenceChange = async () => {
-    await updateEmailPreferences(emailPreferences);
+  // Save the preferences object the user just produced. Reading the
+  // emailPreferences state here would persist the PRE-toggle value,
+  // because setEmailPreferences has not been applied yet at call time.
+  const handleEmailPreferenceChange = async (next: typeof emailPreferences) => {
+    await updateEmailPreferences(next);
   };
   
   const markAllAsRead = async () => {
@@ -326,8 +329,9 @@ const Notifications = () => {
                     id="transactions"
                     checked={emailPreferences.transactions}
                     onCheckedChange={(checked) => {
-                      setEmailPreferences(prev => ({ ...prev, transactions: checked }));
-                      handleEmailPreferenceChange();
+                      const next = { ...emailPreferences, transactions: checked };
+                      setEmailPreferences(next);
+                      handleEmailPreferenceChange(next);
                     }}
                   />
                 </div>
@@ -345,8 +349,9 @@ const Notifications = () => {
                     id="security"
                     checked={emailPreferences.security}
                     onCheckedChange={(checked) => {
-                      setEmailPreferences(prev => ({ ...prev, security: checked }));
-                      handleEmailPreferenceChange();
+                      const next = { ...emailPreferences, security: checked };
+                      setEmailPreferences(next);
+                      handleEmailPreferenceChange(next);
                     }}
                   />
                 </div>
@@ -364,8 +369,9 @@ const Notifications = () => {
                     id="news"
                     checked={emailPreferences.news}
                     onCheckedChange={(checked) => {
-                      setEmailPreferences(prev => ({ ...prev, news: checked }));
-                      handleEmailPreferenceChange();
+                      const next = { ...emailPreferences, news: checked };
+                      setEmailPreferences(next);
+                      handleEmailPreferenceChange(next);
                     }}
                   />
                 </div>
@@ -383,8 +389,9 @@ const Notifications = () => {
                     id="marketing"
                     checked={emailPreferences.marketing}
                     onCheckedChange={(checked) => {
-                      setEmailPreferences(prev => ({ ...prev, marketing: checked }));
-                      handleEmailPreferenceChange();
+                      const next = { ...emailPreferences, marketing: checked };
+                      setEmailPreferences(next);
+                      handleEmailPreferenceChange(next);
                     }}
                   />
                 </div>

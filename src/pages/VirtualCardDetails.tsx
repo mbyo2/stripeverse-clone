@@ -369,24 +369,10 @@ const VirtualCardDetails = () => {
         </div>
         
         {/* Card Preview */}
-        <Card className={`mb-6 relative overflow-hidden ${
-          card.provider === 'visa' ? 'bg-[#003087]' : 
-          card.provider === 'mastercard' ? 'bg-[#7A1E1E]' : 
-          'bg-[#44464A]'
-        }`}>
+        <Card className="mb-6 relative overflow-hidden bg-[#44464A]">
           <CardContent className="p-6 text-white">
             <div className="absolute top-4 right-4">
-              {card.provider === "visa" ? (
-                <svg className="h-8" viewBox="0 0 512 512" fill="white">
-                  <path d="M211.7,184.4l-26.4,125.1h-33L178.7,184.4Zm221,125.1-3.1-15.3c-5.7,0-22.8,0-39.9-8.2c-16.7-7.5-25.2-19.3-25.2-19.3l9.1-56.5H406l7.5-33H380.9l7.9-39.7H352.4l-7.9,39.7H312.2l-7.5,33h33l-6.9,41.7c-2.5,16.4,9.1,17.8,15.2,17.8h28.1l-3.8,15.3ZM222,309.5,272,184.4H236.5L206.4,266l-11.3-81.6H165.8L135,309.5h31.8l7.9-39.7h42.2l3.8,39.7Z"/>
-                </svg>
-              ) : card.provider === "mastercard" ? (
-                <svg className="h-8" viewBox="0 0 512 512" fill="white">
-                  <path d="M221.6,272a42.32,42.32,0,1,1,42.32-42.32A42.32,42.32,0,0,1,221.6,272Zm67.4,0a42.32,42.32,0,1,0,0-84.64,42.32,42.32,0,0,0,0,84.64Z"/>
-                </svg>
-              ) : (
-                <span className="text-xl font-bold">{card.provider}</span>
-              )}
+              <span className="text-sm font-bold tracking-widest">BMAGLASS PAY</span>
             </div>
             
             <div className="mb-6 pt-8">
@@ -428,6 +414,9 @@ const VirtualCardDetails = () => {
             </div>
           </CardContent>
         </Card>
+        <p className="text-xs text-muted-foreground -mt-4 mb-6">
+          This is an internal BMaGlass wallet card. It isn't a Visa, Mastercard, or bank card and can't be used on card networks or for purchases outside BMaGlass Pay.
+        </p>
         
         {/* Card Details */}
         <div className="grid gap-6 mb-6 md:grid-cols-3">
@@ -592,13 +581,13 @@ const VirtualCardDetails = () => {
                     <div className="space-y-0.5">
                       <Label htmlFor="online-switch">Online Transactions</Label>
                       <p className="text-sm text-muted-foreground">
-                        Allow card to be used for online purchases
+                        Not available — this card only holds a balance inside BMaGlass Pay and can't be used for online purchases
                       </p>
                     </div>
-                    <Switch 
+                    <Switch
                       id="online-switch"
-                      checked={card.settings?.online_transactions} 
-                      onCheckedChange={() => handleToggleSetting('online_transactions')}
+                      checked={false}
+                      disabled
                     />
                   </div>
                   
@@ -606,13 +595,13 @@ const VirtualCardDetails = () => {
                     <div className="space-y-0.5">
                       <Label htmlFor="international-switch">International Transactions</Label>
                       <p className="text-sm text-muted-foreground">
-                        Allow card to be used internationally
+                        Not available — this card can't be used internationally
                       </p>
                     </div>
-                    <Switch 
+                    <Switch
                       id="international-switch"
-                      checked={card.settings?.international_transactions} 
-                      onCheckedChange={() => handleToggleSetting('international_transactions')}
+                      checked={false}
+                      disabled
                     />
                   </div>
                 </div>

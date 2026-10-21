@@ -71,7 +71,7 @@ export const SecurityMonitor: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-2">
-            <Badge variant="secondary" className="bg-green-100 text-green-800">
+            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300">
               Active Monitoring
             </Badge>
             <Activity className="h-4 w-4 text-green-500" />

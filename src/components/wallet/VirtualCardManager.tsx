@@ -108,12 +108,11 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                       <Label>Provider</Label>
                       <div className="p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-2">
-                          <CreditCard className="h-4 w-4 text-red-600" />
-                          <span className="font-medium">Mastercard</span>
-                          <Badge variant="secondary">Only Available</Badge>
+                          <CreditCard className="h-4 w-4 text-primary" />
+                          <span className="font-medium">BMaGlass Virtual Card</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Secured payment processing for Zambia
+                          Internal wallet card — not a Visa, Mastercard, or bank card
                         </p>
                       </div>
                     </div>
@@ -151,7 +150,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
             <CreditCard className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Virtual Cards Yet</h3>
             <p className="text-muted-foreground mb-4">
-              Create your first virtual card to start making secure online payments.
+              Create your first virtual card to set money aside in a separate balance inside your wallet.
             </p>
             <Button 
               onClick={() => setShowCreateDialog(true)}
@@ -169,7 +168,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="font-semibold text-lg">{card.name}</h3>
-                      <p className="text-sm opacity-80 capitalize">{card.provider} {card.card_type}</p>
+                      <p className="text-sm opacity-80 capitalize">BMaGlass {card.card_type} card</p>
                     </div>
                     <Badge variant={card.status === 'active' ? 'default' : 'secondary'}>
                       {card.status}

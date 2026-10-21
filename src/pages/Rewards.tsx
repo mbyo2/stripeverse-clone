@@ -32,21 +32,21 @@ const Rewards = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <h3 className="font-semibold text-blue-900 mb-2">Earn Points</h3>
-                    <p className="text-sm text-blue-700">Get 1 point for every K10 spent. Bonus points for Food & Transportation!</p>
+                  <div className="p-4 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
+                    <h3 className="font-semibold text-blue-900 dark:text-blue-200 mb-2">Earn Points</h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">Get 1 point for every K10 spent. Bonus points for Food & Transportation!</p>
                   </div>
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <h3 className="font-semibold text-green-900 mb-2">Tier Benefits</h3>
-                    <p className="text-sm text-green-700">Advance through Bronze, Silver, Gold, and Platinum tiers for exclusive perks.</p>
+                  <div className="p-4 bg-green-50 dark:bg-green-500/10 rounded-lg">
+                    <h3 className="font-semibold text-green-900 dark:text-green-200 mb-2">Tier Benefits</h3>
+                    <p className="text-sm text-green-700 dark:text-green-300">Advance through Bronze, Silver, Gold, and Platinum tiers for exclusive perks.</p>
                   </div>
                   <div className="p-4 bg-accent rounded-2xl">
                     <h3 className="font-semibold text-foreground mb-2">Redeem Rewards</h3>
-                    <p className="text-sm text-muted-foreground">Use points for cashback, discounts, and special offers.</p>
+                    <p className="text-sm text-muted-foreground">Redemption isn't available yet. Your points balance is tracked above, and redemption options will be announced here when they launch — points can't be spent today.</p>
                   </div>
-                  <div className="p-4 bg-amber-50 rounded-lg">
-                    <h3 className="font-semibold text-amber-900 mb-2">Stay Active</h3>
-                    <p className="text-sm text-amber-700">Keep earning to maintain your tier status and unlock new benefits.</p>
+                  <div className="p-4 bg-amber-50 dark:bg-amber-500/10 rounded-lg">
+                    <h3 className="font-semibold text-amber-900 dark:text-amber-200 mb-2">Stay Active</h3>
+                    <p className="text-sm text-amber-700 dark:text-amber-300">Keep earning to maintain your tier status and unlock new benefits.</p>
                   </div>
                 </div>
               </CardContent>
@@ -69,12 +69,12 @@ const Rewards = () => {
                   <div key={transaction.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        transaction.action_type === 'earn' ? 'bg-green-100' : 'bg-red-100'
+                        transaction.action_type === 'earn' ? 'bg-green-100 dark:bg-green-500/15' : 'bg-red-100 dark:bg-red-500/15'
                       }`}>
                         {transaction.action_type === 'earn' ? (
-                          <Plus className="h-4 w-4 text-green-600" />
+                          <Plus className="h-4 w-4 text-green-600 dark:text-green-400" />
                         ) : (
-                          <Minus className="h-4 w-4 text-red-600" />
+                          <Minus className="h-4 w-4 text-red-600 dark:text-red-400" />
                         )}
                       </div>
                       <div>

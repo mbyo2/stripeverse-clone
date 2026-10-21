@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import EnhancedTransactionManager from "@/components/wallet/EnhancedTransactionManager";
 import { Suspense } from "react";
-import { ArrowDownLeft, ArrowUpRight, Download, Filter, Loader2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Filter, Loader2 } from "lucide-react";
 import { useAccount } from "@/contexts/AccountContext";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 
@@ -32,9 +32,6 @@ const Transactions = () => {
               {selectedAccountId && <> · Viewing <span className="font-medium text-foreground">{selectedAccountName}</span></>}
             </p>
           </div>
-          <Button variant="outline" className="h-10 rounded-full gap-2">
-            <Download className="h-4 w-4" /> Export
-          </Button>
         </div>
 
         {/* Filter Tabs */}
@@ -86,7 +83,7 @@ const Transactions = () => {
         <Suspense fallback={<LoadingState />}>
           <EnhancedTransactionManager
             showFilters={true}
-            showExport={false}
+            showExport={true}
             directionFilter={activeFilter}
             walletIds={walletIds}
           />

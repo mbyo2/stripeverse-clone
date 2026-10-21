@@ -27,7 +27,7 @@ const WebhookLogs = () => {
       <main className="flex-1 container mx-auto px-4 py-8 max-w-6xl mt-14">
         <div className="mb-6">
           <h1 className="text-2xl font-bold flex items-center gap-2"><Zap className="h-6 w-6" />Webhook Delivery Logs</h1>
-          <p className="text-muted-foreground">Monitor webhook deliveries with automatic exponential backoff retries</p>
+          <p className="text-muted-foreground">Monitor webhook deliveries and re-queue failed ones for another delivery attempt</p>
         </div>
 
         {/* Stats */}
@@ -53,8 +53,8 @@ const WebhookLogs = () => {
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5" />
               <div className="text-sm">
-                <p className="font-medium">Exponential Backoff Retry Policy</p>
-                <p className="text-muted-foreground">Failed webhooks are retried up to 5 times with increasing delays: 1s → 2s → 4s → 8s → 16s. After all retries fail, the event is marked as failed and can be manually retried.</p>
+                <p className="font-medium">How Retries Work</p>
+                <p className="text-muted-foreground">Deliveries are attempted up to 5 times. Clicking "Queue Retry" on a failed delivery puts it back in the queue — the delivery service then attempts it again. The delivery itself happens server-side, not from this page.</p>
               </div>
             </div>
           </CardContent>
@@ -105,13 +105,13 @@ const WebhookLogs = () => {
                         {format(new Date(log.created_at), 'MMM d, HH:mm:ss')}
                       </TableCell>
                       <TableCell>
-                        {log.status === 'failed' && (
+                        {log.status === 'failed' && log.attempts < log.max_attempts && (
                           <Button
                             variant="ghost" size="sm"
                             onClick={() => retryWebhook.mutate(log.id)}
                             disabled={retryWebhook.isPending}
                           >
-                            <RefreshCw className="h-3 w-3 mr-1" />Retry
+                            <RefreshCw className="h-3 w-3 mr-1" />Queue Retry
                           </Button>
                         )}
                       </TableCell>

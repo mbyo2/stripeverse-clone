@@ -41,9 +41,27 @@ const AdminDashboard = () => {
   });
   const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [health, setHealth] = useState<{ status: 'checking' | 'operational' | 'unreachable'; latencyMs?: number; checkedAt?: Date }>({ status: 'checking' });
+
+  // Real, client-side health probe: time a trivial read through the same
+  // PostgREST/database path the admin data above uses. Nothing else on
+  // this page is probed, so nothing else is labelled "Operational".
+  const runHealthCheck = async () => {
+    setHealth({ status: 'checking' });
+    const startedAt = performance.now();
+    const { error } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true });
+    if (error) {
+      setHealth({ status: 'unreachable', checkedAt: new Date() });
+    } else {
+      setHealth({ status: 'operational', latencyMs: Math.round(performance.now() - startedAt), checkedAt: new Date() });
+    }
+  };
 
   useEffect(() => {
     fetchDashboardData();
+    runHealthCheck();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -267,17 +285,27 @@ const AdminDashboard = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span>Database Status</span>
-                    <Badge variant="default">Operational</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>API Status</span>
-                    <Badge variant="default">Operational</Badge>
+                    <span>Database & API</span>
+                    {health.status === 'checking' ? (
+                      <Badge variant="secondary">Checking…</Badge>
+                    ) : health.status === 'operational' ? (
+                      <Badge variant="default">Operational · {health.latencyMs} ms</Badge>
+                    ) : (
+                      <Badge variant="destructive">Unreachable</Badge>
+                    )}
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Payment System</span>
-                    <Badge variant="default">Operational</Badge>
+                    <Badge variant="secondary">Not monitored</Badge>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    The Database & API result is a live check from this browser (a timed read query)
+                    {health.checkedAt ? `, last checked ${health.checkedAt.toLocaleTimeString()}` : ''}.
+                    No automated probe of the payment rails is configured, so that row is not labelled operational.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={runHealthCheck} disabled={health.status === 'checking'}>
+                    Recheck
+                  </Button>
                 </CardContent>
               </Card>
 

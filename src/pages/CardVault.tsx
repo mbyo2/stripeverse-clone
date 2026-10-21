@@ -3,8 +3,6 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useCardTokens } from '@/hooks/useCardTokens';
@@ -20,29 +18,9 @@ const brandColors: Record<string, string> = {
 };
 
 const CardVault = () => {
-  const { tokens, isLoading, tokenizeCard, setDefault, removeToken } = useCardTokens();
+  const { tokens, isLoading, setDefault, removeToken } = useCardTokens();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ number: '', exp: '', name: '' });
-
-  const handleAdd = () => {
-    const [month, year] = form.exp.split('/');
-    if (!form.number || !month || !year) {
-      toast({ title: 'Fill all fields', variant: 'destructive' });
-      return;
-    }
-    tokenizeCard.mutate({
-      card_number: form.number,
-      exp_month: parseInt(month),
-      exp_year: parseInt('20' + year),
-      cardholder_name: form.name || undefined,
-    }, {
-      onSuccess: () => {
-        setOpen(false);
-        setForm({ number: '', exp: '', name: '' });
-      },
-    });
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -51,34 +29,20 @@ const CardVault = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-[28px] leading-tight font-display font-semibold">Card Vault</h1>
-            <p className="text-sm text-muted-foreground mt-1">Tokenised card storage — raw numbers never kept</p>
+            <p className="text-sm text-muted-foreground mt-1">Saved cards — adding new cards is currently disabled</p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" />Add Card</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Tokenize a New Card</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Add a Card</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div className="p-3 bg-muted rounded-lg flex items-start gap-2 text-sm">
                   <Lock className="h-4 w-4 mt-0.5 text-primary" />
-                  <span className="text-muted-foreground">Card numbers are tokenized immediately. The raw number is never stored.</span>
+                  <span className="text-muted-foreground">Card storage is disabled until a PCI-compliant vault is connected. For your safety, this form does not collect card numbers.</span>
                 </div>
-                <div>
-                  <Label>Cardholder Name</Label>
-                  <Input placeholder="John Doe" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-                </div>
-                <div>
-                  <Label>Card Number</Label>
-                  <Input placeholder="4242 4242 4242 4242" value={form.number} onChange={e => setForm(f => ({ ...f, number: e.target.value }))} />
-                </div>
-                <div>
-                  <Label>Expiry (MM/YY)</Label>
-                  <Input placeholder="12/28" value={form.exp} onChange={e => setForm(f => ({ ...f, exp: e.target.value }))} />
-                </div>
-                <Button onClick={handleAdd} disabled={tokenizeCard.isPending} className="w-full">
-                  {tokenizeCard.isPending ? 'Tokenizing...' : 'Tokenize & Save'}
-                </Button>
+                <Button disabled className="w-full">Add Card (not available yet)</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -90,8 +54,8 @@ const CardVault = () => {
             <div className="flex items-start gap-3">
               <Shield className="h-5 w-5 text-primary mt-0.5" />
               <div className="text-sm">
-                <p className="font-medium">Tokenised Card Storage</p>
-                <p className="text-muted-foreground">Card details are replaced with secure tokens. Raw PANs are never stored in our database. Each token is unique and can only be used within your account.</p>
+                <p className="font-medium">Card Storage Is Disabled</p>
+                <p className="text-muted-foreground">Card storage is disabled until a PCI-compliant vault is connected. Entries saved previously are shown below for reference only — they can't be used to make payments, and no new cards can be added.</p>
               </div>
             </div>
           </CardContent>
@@ -106,8 +70,7 @@ const CardVault = () => {
                 <CreditCard className="h-6 w-6 text-muted-foreground" />
               </div>
               <h3 className="font-medium mb-2">No Saved Cards</h3>
-              <p className="text-muted-foreground text-sm mb-4">Add a card to securely store it as a token for faster payments.</p>
-              <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-2" />Add Your First Card</Button>
+              <p className="text-muted-foreground text-sm mb-4">Card storage is disabled until a PCI-compliant vault is connected, so no cards can be added right now.</p>
             </CardContent>
           </Card>
         ) : (

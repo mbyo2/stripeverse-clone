@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Plus, Send, Trash2, Globe, ArrowRight } from 'lucide-react';
-import { useBankAccounts, useAddBankAccount, useDeleteBankAccount, useInitiateBankTransfer } from '@/hooks/useBankTransfers';
+import { Building2, Plus, Send, Trash2, Globe, ArrowRight, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useBankAccounts, useAddBankAccount, useDeleteBankAccount } from '@/hooks/useBankTransfers';
 
 const ZAMBIAN_BANKS = [
   { code: 'ZANACO', name: 'Zanaco' },
@@ -28,7 +29,6 @@ const BankTransfers = () => {
   const { data: accounts, isLoading } = useBankAccounts();
   const addAccount = useAddBankAccount();
   const deleteAccount = useDeleteBankAccount();
-  const initiateTransfer = useInitiateBankTransfer();
   const [addOpen, setAddOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [form, setForm] = useState({ bank_name: '', account_number: '', account_name: '', account_type: 'savings', swift_code: '', country: 'ZM' });
@@ -38,16 +38,6 @@ const BankTransfers = () => {
     addAccount.mutate({ ...form }, { onSuccess: () => { setAddOpen(false); setForm({ bank_name: '', account_number: '', account_name: '', account_type: 'savings', swift_code: '', country: 'ZM' }); } });
   };
 
-  const handleTransfer = () => {
-    const acc = accounts?.find(a => a.id === transferForm.bank_account_id);
-    if (!acc) return;
-    initiateTransfer.mutate({
-      bank_account_id: acc.id, amount: Number(transferForm.amount),
-      description: transferForm.description, recipient_name: acc.account_name,
-      recipient_account: acc.account_number, recipient_bank: acc.bank_name,
-    }, { onSuccess: () => { setTransferOpen(false); setTransferForm({ bank_account_id: '', amount: '', description: '' }); } });
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -55,7 +45,7 @@ const BankTransfers = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold">Bank Transfers</h1>
-            <p className="text-muted-foreground">Send money to any bank account locally or internationally</p>
+            <p className="text-muted-foreground">Save bank accounts for future use. Bank transfers are not live yet — transfers cannot be sent and no money will be taken.</p>
           </div>
           <div className="flex gap-2">
             <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -111,9 +101,11 @@ const BankTransfers = () => {
                   </div>
                   <div><Label>Amount (ZMW)</Label><Input type="number" value={transferForm.amount} onChange={e => setTransferForm(p => ({ ...p, amount: e.target.value }))} /></div>
                   <div><Label>Description</Label><Input value={transferForm.description} onChange={e => setTransferForm(p => ({ ...p, description: e.target.value }))} /></div>
-                  <Button onClick={handleTransfer} disabled={initiateTransfer.isPending || !transferForm.bank_account_id || !transferForm.amount} className="w-full">
-                    {initiateTransfer.isPending ? 'Processing...' : 'Send Transfer'}
-                  </Button>
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>Bank transfers are not live yet — this transfer will not be sent and no money will be taken.</AlertDescription>
+                  </Alert>
+                  <Button disabled className="w-full">Send Transfer (not yet available)</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -145,7 +137,7 @@ const BankTransfers = () => {
                       {acc.swift_code && <Badge variant="outline"><Globe className="h-3 w-3 mr-1" />International</Badge>}
                     </div>
                     <div className="flex gap-2 mt-4">
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => { setTransferForm(p => ({ ...p, bank_account_id: acc.id })); setTransferOpen(true); }}>
+                      <Button size="sm" variant="outline" className="flex-1" disabled title="Bank transfers are not live yet">
                         <ArrowRight className="h-3 w-3 mr-1" />Send
                       </Button>
                       <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteAccount.mutate(acc.id)}>
@@ -158,25 +150,16 @@ const BankTransfers = () => {
             </div>
           </TabsContent>
           <TabsContent value="local" className="mt-6">
-            <Card><CardHeader><CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />Local Bank Transfer (RTGS/EFT)</CardTitle><CardDescription>Transfer to any Zambian bank account. Processed within 1-2 business days via EFT or same-day via RTGS.</CardDescription></CardHeader>
+            <Card><CardHeader><CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />Local Bank Transfer (RTGS/EFT)</CardTitle><CardDescription>Transfers to Zambian bank accounts are not live yet — no banking rail is connected, so no transfer can be sent and no money will be taken.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-muted/50">
-                  <div><p className="text-xs text-muted-foreground">EFT Transfer</p><p className="font-semibold">1-2 business days</p><p className="text-xs text-muted-foreground">Fee: K5.00</p></div>
-                  <div><p className="text-xs text-muted-foreground">RTGS Transfer</p><p className="font-semibold">Same day</p><p className="text-xs text-muted-foreground">Fee: K25.00</p></div>
-                </div>
-                <Button onClick={() => setTransferOpen(true)} className="w-full">Initiate Local Transfer</Button>
+                <Button disabled className="w-full">Initiate Local Transfer (not yet available)</Button>
               </CardContent>
             </Card>
           </TabsContent>
           <TabsContent value="international" className="mt-6">
-            <Card><CardHeader><CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5" />International Wire Transfer (SWIFT)</CardTitle><CardDescription>Send money to bank accounts worldwide. Requires SWIFT/BIC code. Processing time: 2-5 business days.</CardDescription></CardHeader>
+            <Card><CardHeader><CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5" />International Wire Transfer (SWIFT)</CardTitle><CardDescription>International wire transfers are not live yet — no banking rail is connected, so no transfer can be sent and no money will be taken.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4 p-4 rounded-lg bg-muted/50">
-                  <div><p className="text-xs text-muted-foreground">Processing Time</p><p className="font-semibold">2-5 days</p></div>
-                  <div><p className="text-xs text-muted-foreground">Transfer Fee</p><p className="font-semibold">K150 + 1.5%</p></div>
-                  <div><p className="text-xs text-muted-foreground">Supported</p><p className="font-semibold">Zambia</p></div>
-                </div>
-                <Button onClick={() => setTransferOpen(true)} className="w-full">Initiate International Transfer</Button>
+                <Button disabled className="w-full">Initiate International Transfer (not yet available)</Button>
               </CardContent>
             </Card>
           </TabsContent>

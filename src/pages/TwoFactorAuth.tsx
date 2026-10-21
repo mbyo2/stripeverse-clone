@@ -251,8 +251,8 @@ const TwoFactorAuth = () => {
                   </TabsList>
                   
                   <TabsContent value="status" className="space-y-4 pt-4">
-                    <Alert className="bg-green-50 border-green-200">
-                      <Check className="h-5 w-5 text-green-600" />
+                    <Alert className="bg-green-50 border-green-200 dark:bg-green-500/10 dark:border-green-500/30">
+                      <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
                       <AlertTitle>Two-factor authentication is enabled</AlertTitle>
                       <AlertDescription>
                         Your account has enhanced protection. You'll need your authentication app when signing in.
@@ -271,8 +271,8 @@ const TwoFactorAuth = () => {
                   </TabsContent>
                   
                   <TabsContent value="backup" className="space-y-4 pt-4">
-                    <Alert className="bg-amber-50 border-amber-200">
-                      <AlertTriangle className="h-5 w-5 text-amber-600" />
+                    <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                       <AlertTitle>Keep these codes safe</AlertTitle>
                       <AlertDescription>
                         Use these recovery codes if you lose access to your authentication device. Each code can be used once.

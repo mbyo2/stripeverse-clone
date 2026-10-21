@@ -202,9 +202,11 @@ const Help = () => {
                     <div className="flex items-center space-x-3">
                       <MessageCircle className="h-5 w-5 text-primary" />
                       <div>
-                        <p className="font-medium">Live Chat</p>
-                        <p className="text-sm text-muted-foreground">Available 24/7</p>
-                        <Button variant="outline" size="sm" className="mt-1">Start Chat</Button>
+                        <p className="font-medium">Support Tickets</p>
+                        <p className="text-sm text-muted-foreground">Send us a message — we reply by email</p>
+                        <Link to="/support">
+                          <Button variant="outline" size="sm" className="mt-1">Contact Support</Button>
+                        </Link>
                       </div>
                     </div>
                   </CardContent>
