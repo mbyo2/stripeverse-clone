@@ -194,21 +194,33 @@ export const useWallet = (accountId?: string | null) => {
       });
 
       if (error) throw error;
-      if (data?.status === 'not_configured' || data?.status === 'forbidden') {
-        throw new Error(data.error || 'This deposit method is not available yet.');
-      }
       if (data?.status === 'pending' && data?.approval_url) {
         // Hand the user to PayPal; the wallet is credited on capture,
-        // not on initiation.
+        // not on initiation. This is the ONLY success exit: the
+        // navigation below is the result the user was promised.
         window.location.href = data.approval_url;
+        return data;
       }
-      return data;
+      // Every other response is NOT a started deposit — the function
+      // answers 'failed' when PayPal could not create the order (e.g.
+      // an unsupported currency), 'not_configured' when the method has
+      // no gateway, 'forbidden' for someone else's wallet. Previously
+      // only not_configured/forbidden were thrown, so a 'failed'
+      // response fell through to the "Deposit Initiated" success
+      // toast while nothing had happened at all. Surface the
+      // function's own message verbatim instead.
+      throw new Error(
+        data?.error || data?.message || 'This deposit could not be started. No money has moved.',
+      );
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
+      // Reached only when an approval URL existed and the browser is
+      // navigating to PayPal (see mutationFn) — so this toast is a
+      // "redirecting" note, never a completion claim.
       queryClient.invalidateQueries({ queryKey: ['wallet'] });
       toast({
-        title: "Deposit Initiated",
-        description: data?.message || "Your wallet deposit has been initiated.",
+        title: "Redirecting to PayPal",
+        description: "Complete the payment on PayPal — your wallet is credited once the payment is confirmed.",
       });
     },
     onError: (error: any) => {
