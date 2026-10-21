@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ensureWalletExists } from '@/utils/walletUtils';
+import { resolveDepositTarget } from '@/utils/depositTarget';
 
 export interface Wallet {
   id: string;
@@ -175,6 +176,14 @@ export const useWallet = (accountId?: string | null) => {
   // credits only that wallet, and only against a confirmed payment.
   // Mobile money / card currently answer 'not_configured'; PayPal
   // answers 'pending' with an approval URL the user must complete.
+  //
+  // PayPal is the one exception to "target the viewed wallet": PayPal
+  // does not support ZMW, so a PayPal order for the viewed (ZMW)
+  // wallet fails at creation. A PayPal deposit instead targets the
+  // user's USD wallet in the same account scope when one exists, and
+  // otherwise passes currency 'USD' with no wallet_id so the function
+  // resolves (or creates) the Main USD wallet itself — see
+  // resolveDepositTarget. The dialog tells the user this up front.
   const depositMutation = useMutation({
     mutationFn: async ({ amount, paymentMethod, walletId, currency, provider }: {
       amount: number; paymentMethod: string;
@@ -182,9 +191,33 @@ export const useWallet = (accountId?: string | null) => {
     }) => {
       if (!user?.id) throw new Error('User not authenticated');
 
+      let targetWalletId = walletId;
+      let targetCurrency = currency;
+      if (paymentMethod === 'paypal') {
+        // Same account scope the viewed wallet lives in: sub-account
+        // deposits look for that account's USD wallet, Main (null)
+        // for Main's. A failed lookup is not fatal — resolving with
+        // no USD wallet just defers to the function's fallback.
+        let usdQuery = supabase
+          .from('wallets')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('currency', 'USD');
+        usdQuery = (accountId ?? null) === null
+          ? usdQuery.is('account_id', null)
+          : usdQuery.eq('account_id', accountId as string);
+        const { data: usdWallet, error: usdError } = await usdQuery.maybeSingle();
+        if (usdError) console.error('Error resolving USD wallet for PayPal deposit:', usdError);
+        const target = resolveDepositTarget({
+          paymentMethod, walletId, currency, usdWalletId: usdWallet?.id ?? null,
+        });
+        targetWalletId = target.walletId;
+        targetCurrency = target.currency;
+      }
+
       const { data, error } = await supabase.functions.invoke('wallet-deposit', {
         body: {
-          amount, paymentMethod, provider, wallet_id: walletId, currency, user_id: user.id,
+          amount, paymentMethod, provider, wallet_id: targetWalletId, currency: targetCurrency, user_id: user.id,
           // Where PayPal sends the user after approval / cancellation.
           // PayPal appends &token=<order id> to the return URL, which
           // usePayPalDepositReturn hands to paypal-deposit-capture.
