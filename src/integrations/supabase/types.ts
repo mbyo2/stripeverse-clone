@@ -1637,6 +1637,7 @@ export type Database = {
       }
       payment_links: {
         Row: {
+          account_id: string | null
           amount: number | null
           created_at: string
           currency: string
@@ -1655,6 +1656,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_id?: string | null
           amount?: number | null
           created_at?: string
           currency?: string
@@ -1673,6 +1675,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_id?: string | null
           amount?: number | null
           created_at?: string
           currency?: string
@@ -1690,7 +1693,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payment_links_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_methods: {
         Row: {

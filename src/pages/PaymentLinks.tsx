@@ -9,25 +9,66 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Link2, Plus, Copy, ExternalLink, XCircle, DollarSign, Eye } from 'lucide-react';
-import { usePaymentLinks, useCreatePaymentLink, useDeactivatePaymentLink } from '@/hooks/usePaymentLinks';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Link2, Plus, Copy, ExternalLink, XCircle, DollarSign, Eye, Pencil, Wallet } from 'lucide-react';
+import { usePaymentLinks, useCreatePaymentLink, useUpdatePaymentLink, useDeactivatePaymentLink } from '@/hooks/usePaymentLinks';
+import { useAccounts } from '@/hooks/useAccounts';
+import { settlementTargetLabel, selectableSettlementAccounts } from '@/utils/paymentLinkSettlement';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
+/** Sentinel for the Main account in the settlement picker (Radix Select needs a non-empty value). */
+const MAIN_ACCOUNT_VALUE = 'main';
+
 const PaymentLinks = () => {
   const { data: links, isLoading } = usePaymentLinks();
+  const { data: accounts } = useAccounts();
   const createLink = useCreatePaymentLink();
+  const updateLink = useUpdatePaymentLink();
   const deactivateLink = useDeactivatePaymentLink();
   const [open, setOpen] = useState(false);
   const [fixedAmount, setFixedAmount] = useState(true);
   const [form, setForm] = useState({ title: '', description: '', amount: '', max_payments: '' });
+  const [settleAccount, setSettleAccount] = useState(MAIN_ACCOUNT_VALUE);
+
+  const [editLinkId, setEditLinkId] = useState<string | null>(null);
+  const [editFixedAmount, setEditFixedAmount] = useState(true);
+  const [editForm, setEditForm] = useState({ title: '', description: '', amount: '', max_payments: '' });
+  const [editSettleAccount, setEditSettleAccount] = useState(MAIN_ACCOUNT_VALUE);
+
+  const settlementOptions = selectableSettlementAccounts(accounts ?? []);
 
   const handleCreate = () => {
     createLink.mutate({
       title: form.title, description: form.description,
       amount: fixedAmount && form.amount ? Number(form.amount) : undefined,
       max_payments: form.max_payments ? Number(form.max_payments) : undefined,
-    }, { onSuccess: () => { setOpen(false); setForm({ title: '', description: '', amount: '', max_payments: '' }); } });
+      account_id: settleAccount === MAIN_ACCOUNT_VALUE ? null : settleAccount,
+    }, { onSuccess: () => { setOpen(false); setForm({ title: '', description: '', amount: '', max_payments: '' }); setSettleAccount(MAIN_ACCOUNT_VALUE); } });
+  };
+
+  const openEdit = (link: NonNullable<typeof links>[number]) => {
+    setEditLinkId(link.id);
+    setEditFixedAmount(link.amount != null);
+    setEditForm({
+      title: link.title,
+      description: link.description ?? '',
+      amount: link.amount != null ? String(link.amount) : '',
+      max_payments: link.max_payments != null ? String(link.max_payments) : '',
+    });
+    setEditSettleAccount(link.account_id ?? MAIN_ACCOUNT_VALUE);
+  };
+
+  const handleEdit = () => {
+    if (!editLinkId) return;
+    updateLink.mutate({
+      id: editLinkId,
+      title: editForm.title,
+      description: editForm.description || undefined,
+      amount: editFixedAmount && editForm.amount ? Number(editForm.amount) : null,
+      max_payments: editForm.max_payments ? Number(editForm.max_payments) : null,
+      account_id: editSettleAccount === MAIN_ACCOUNT_VALUE ? null : editSettleAccount,
+    }, { onSuccess: () => setEditLinkId(null) });
   };
 
   const copyLink = (code: string) => {
@@ -57,8 +98,53 @@ const PaymentLinks = () => {
                 </div>
                 {fixedAmount && <div><Label>Amount (ZMW)</Label><Input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></div>}
                 <div><Label>Max Payments (optional)</Label><Input type="number" value={form.max_payments} onChange={e => setForm(p => ({ ...p, max_payments: e.target.value }))} placeholder="Unlimited" /></div>
+                <div>
+                  <Label>Settles Into</Label>
+                  <Select value={settleAccount} onValueChange={setSettleAccount}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={MAIN_ACCOUNT_VALUE}>Main account</SelectItem>
+                      {settlementOptions.map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.name}{a.status === 'frozen' ? ' (frozen)' : ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Payments to this link land in the chosen account's wallet.</p>
+                </div>
                 <Button onClick={handleCreate} disabled={createLink.isPending || !form.title} className="w-full">
                   {createLink.isPending ? 'Creating...' : 'Create Payment Link'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={editLinkId !== null} onOpenChange={o => { if (!o) setEditLinkId(null); }}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Edit Payment Link</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div><Label>Title</Label><Input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Product Purchase" /></div>
+                <div><Label>Description</Label><Textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} placeholder="What is this payment for?" /></div>
+                <div className="flex items-center justify-between">
+                  <Label>Fixed Amount</Label>
+                  <Switch checked={editFixedAmount} onCheckedChange={setEditFixedAmount} />
+                </div>
+                {editFixedAmount && <div><Label>Amount (ZMW)</Label><Input type="number" value={editForm.amount} onChange={e => setEditForm(p => ({ ...p, amount: e.target.value }))} /></div>}
+                <div><Label>Max Payments (optional)</Label><Input type="number" value={editForm.max_payments} onChange={e => setEditForm(p => ({ ...p, max_payments: e.target.value }))} placeholder="Unlimited" /></div>
+                <div>
+                  <Label>Settles Into</Label>
+                  <Select value={editSettleAccount} onValueChange={setEditSettleAccount}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={MAIN_ACCOUNT_VALUE}>Main account</SelectItem>
+                      {settlementOptions.map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.name}{a.status === 'frozen' ? ' (frozen)' : ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Payments to this link land in the chosen account's wallet.</p>
+                </div>
+                <Button onClick={handleEdit} disabled={updateLink.isPending || !editForm.title} className="w-full">
+                  {updateLink.isPending ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
             </DialogContent>
@@ -125,6 +211,10 @@ const PaymentLinks = () => {
                         <span>K{Number(link.total_collected || 0).toLocaleString()} collected</span>
                         <span>Created {format(new Date(link.created_at), 'MMM d, yyyy')}</span>
                       </div>
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+                        <Wallet className="h-3.5 w-3.5" />
+                        <span>Settles to: {settlementTargetLabel(link.account_id, accounts ?? [])}</span>
+                      </div>
                       <div className="mt-2 p-2 rounded bg-muted/50 text-xs font-mono truncate">
                         {window.location.origin}/pay/{link.link_code}
                       </div>
@@ -132,6 +222,7 @@ const PaymentLinks = () => {
                     <div className="flex gap-2 ml-4">
                       <Button size="sm" variant="outline" onClick={() => copyLink(link.link_code)}><Copy className="h-3 w-3" /></Button>
                       <Button size="sm" variant="outline" onClick={() => window.open(`/pay/${link.link_code}`, '_blank')}><ExternalLink className="h-3 w-3" /></Button>
+                      <Button size="sm" variant="outline" onClick={() => openEdit(link)}><Pencil className="h-3 w-3" /></Button>
                       {link.status === 'active' && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deactivateLink.mutate(link.id)}><XCircle className="h-3 w-3" /></Button>}
                     </div>
                   </div>

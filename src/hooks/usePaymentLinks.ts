@@ -27,6 +27,8 @@ export const useCreatePaymentLink = () => {
     mutationFn: async (link: {
       title: string; description?: string; amount?: number;
       currency?: string; max_payments?: number; expires_at?: string;
+      /** Settlement target account (Phase 1.5); null/omitted = Main. */
+      account_id?: string | null;
     }) => {
       const { data, error } = await supabase.from('payment_links').insert({
         user_id: user!.id, ...link,
@@ -35,6 +37,25 @@ export const useCreatePaymentLink = () => {
       return data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['payment-links'] }); toast.success('Payment link created'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+export const useUpdatePaymentLink = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: {
+      id: string;
+      title?: string; description?: string; amount?: number | null;
+      max_payments?: number | null;
+      /** Settlement target account (Phase 1.5); null = Main. */
+      account_id?: string | null;
+    }) => {
+      const { data, error } = await supabase.from('payment_links').update(updates).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payment-links'] }); toast.success('Payment link updated'); },
     onError: (e: Error) => toast.error(e.message),
   });
 };
