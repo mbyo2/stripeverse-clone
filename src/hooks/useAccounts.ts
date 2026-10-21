@@ -119,17 +119,35 @@ export const useInternalTransfer = () => {
       amount: number;
       description?: string;
     }) => {
-      const { data, error } = await supabase.rpc('execute_internal_transfer', {
-        p_from_wallet_id: params.fromWalletId,
-        p_to_wallet_id: params.toWalletId,
-        p_amount: params.amount,
-        // Fresh key per attempt: a manual retry is a new transfer, while a
-        // network-level retry of this same call reuses the key server-side
-        // handling in the function.
-        p_idempotency_key: crypto.randomUUID(),
-        p_description: params.description,
+      // Routed through the internal-transfer edge function, NOT a direct
+      // RPC: the balance-protection trigger neutralizes balance updates
+      // made under a user JWT, so the transfer must execute server-side
+      // with the service role (same pattern as atomic-transfer).
+      const { data, error } = await supabase.functions.invoke('internal-transfer', {
+        body: {
+          from_wallet_id: params.fromWalletId,
+          to_wallet_id: params.toWalletId,
+          amount: params.amount,
+          // Fresh key per attempt: a manual retry is a new transfer, while
+          // the server-side function makes a replayed key harmless.
+          idempotency_key: crypto.randomUUID(),
+          description: params.description ?? null,
+        },
       });
-      if (error) throw error;
+      if (error) {
+        // FunctionsHttpError carries the function's JSON response on
+        // `context`; surface its `error` message (e.g. an insufficient
+        // balance refusal) instead of the generic invoke failure text.
+        let message = error.message;
+        const context = (error as { context?: Response }).context;
+        if (context) {
+          try {
+            const payload = await context.clone().json();
+            if (payload && typeof payload.error === 'string') message = payload.error;
+          } catch { /* keep the generic message */ }
+        }
+        throw new Error(message);
+      }
       return data;
     },
     onSuccess: () => {

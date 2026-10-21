@@ -3475,6 +3475,7 @@ export type Database = {
           p_from_wallet_id: string
           p_idempotency_key: string
           p_to_wallet_id: string
+          p_user_id: string
         }
         Returns: {
           new_sender_balance: number
