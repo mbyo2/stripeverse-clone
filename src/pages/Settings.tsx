@@ -17,12 +17,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { CurrencySelector } from "@/components/CurrencySelector";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 const Settings = () => {
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('profile');
@@ -107,6 +109,8 @@ const Settings = () => {
         .eq('id', user.id);
 
       if (error) throw error;
+      // Keep every profile reader (dashboard greeting, headers) fresh.
+      queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
       toast({ title: "Profile Updated", description: "Your profile has been updated successfully." });
     } catch (error: any) {
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
