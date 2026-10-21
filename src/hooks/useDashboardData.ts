@@ -90,9 +90,22 @@ export const useDashboardData = () => {
     queryFn: async (): Promise<DashboardStats> => {
       if (!user?.id) throw new Error('User not authenticated');
 
-      const { data: balanceData, error: balanceError } = await supabase.rpc('get_user_wallet_balance', {
-        p_user_id: user.id
-      });
+      // The banner must report the ZMW MAIN wallet — the same figure
+      // the accounts list and the Wallet page show. It previously came
+      // from get_user_wallet_balance, whose definition picks ANY ONE
+      // of the user's ZMW wallets (LIMIT 1, no ORDER BY, no Main
+      // filter): once sub-account wallets exist it can return a
+      // sub-account's K0.00 while Main holds the real balance, which
+      // is exactly the contradiction QA saw on this page. Resolve the
+      // Main wallet the same way the rest of the app does
+      // (currency ZMW + account_id NULL).
+      const { data: mainWallet, error: balanceError } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', user.id)
+        .eq('currency', 'ZMW')
+        .is('account_id', null)
+        .maybeSingle();
       if (balanceError) throw balanceError;
 
       const { data: statsData, error: statsError } = await supabase.rpc('get_user_transaction_stats', {
@@ -101,7 +114,7 @@ export const useDashboardData = () => {
       if (statsError) throw statsError;
 
       return {
-        totalBalance: balanceData || 0,
+        totalBalance: mainWallet ? Number(mainWallet.balance) : 0,
         totalTransactions: statsData?.[0]?.total_transactions || 0,
         monthlyAmount: statsData?.[0]?.monthly_amount || 0,
         monthlyTransactions: statsData?.[0]?.monthly_transactions || 0,
