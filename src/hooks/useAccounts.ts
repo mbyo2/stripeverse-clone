@@ -41,6 +41,10 @@ const invalidateAccountMoney = (qc: ReturnType<typeof useQueryClient>) => {
   qc.invalidateQueries({ queryKey: ['accounts'] });
   qc.invalidateQueries({ queryKey: ['multi-wallets'] });
   qc.invalidateQueries({ queryKey: ['wallet'] });
+  // Force the visible accounts list to refetch immediately: with the
+  // app's 5-minute staleTime, QA saw pre-action values persist until a
+  // manual reload after sub-account creates and status changes.
+  qc.refetchQueries({ queryKey: ['accounts'], type: 'active' });
 };
 
 export const useCreateSubAccount = () => {
@@ -73,7 +77,11 @@ export const useRenameSubAccount = () => {
       });
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['accounts'] }); toast.success('Account renamed'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.refetchQueries({ queryKey: ['accounts'], type: 'active' });
+      toast.success('Account renamed');
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 };
@@ -90,6 +98,7 @@ export const useSetSubAccountStatus = () => {
     },
     onSuccess: (_data, { status }) => {
       qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.refetchQueries({ queryKey: ['accounts'], type: 'active' });
       toast.success(status === 'frozen' ? 'Account frozen' : 'Account unfrozen');
     },
     onError: (e: Error) => toast.error(e.message),

@@ -39,7 +39,15 @@ export const useSavings = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { toast.success('Savings account created'); queryClient.invalidateQueries({ queryKey: ['savings'] }); },
+    onSuccess: () => {
+      toast.success('Savings account created');
+      queryClient.invalidateQueries({ queryKey: ['savings'] });
+      // Force the visible list to refetch NOW (not just be marked
+      // stale): with the app's 5-minute staleTime, QA saw the page
+      // keep pre-action values until a manual reload after creates,
+      // deposits and withdrawals.
+      queryClient.refetchQueries({ queryKey: ['savings'], type: 'active' });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -91,6 +99,11 @@ export const useSavings = () => {
     queryClient.invalidateQueries({ queryKey: ['savings'] });
     queryClient.invalidateQueries({ queryKey: ['wallet'] });
     queryClient.invalidateQueries({ queryKey: ['multi-wallets'] });
+    queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    // Same stale-render fix as createAccount: refetch the visible
+    // lists immediately rather than leaving them to staleTime.
+    queryClient.refetchQueries({ queryKey: ['savings'], type: 'active' });
+    queryClient.refetchQueries({ queryKey: ['wallet'], type: 'active' });
   };
 
   const deposit = useMutation({

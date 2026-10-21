@@ -14,7 +14,8 @@ import QuickActions from "@/components/wallet/QuickActions";
 import VirtualCardManager from "@/components/wallet/VirtualCardManager";
 import PaymentMethodList from "@/components/wallet/PaymentMethodList";
 import TransactionHistory from "@/components/wallet/TransactionHistory";
-import { PlusCircle, Wallet as WalletIcon, CreditCard, Clock, ArrowRight, ChevronRight } from "lucide-react";
+import { PlusCircle, Wallet as WalletIcon, CreditCard, Clock, ArrowRight, ChevronRight, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -92,6 +93,16 @@ const Wallet = () => {
             ? "You'll be redirected to PayPal. Your wallet is credited once the payment is confirmed."
             : "Mobile money deposits are not live yet — you'll be told before anything is charged."}
         </p>
+        {depositMethod === 'paypal' && wallet?.currency === 'ZMW' && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              PayPal doesn't accept Zambian kwacha (ZMW), so this deposit will
+              be made in US dollars and credited to your USD wallet instead.
+              The amount you enter above is in USD.
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
       <Button 
         onClick={handleAddMoney} 

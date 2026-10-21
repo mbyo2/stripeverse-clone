@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, TransactionFilter } from "@/types/transaction";
+import { transactionCounterpartyLabel } from "@/utils/transactionLabels";
 import { format, subDays, isValid } from "date-fns";
 import { memoize } from "@/lib/cache";
 import { trackRender, measureExecutionTime } from "@/lib/performance";
@@ -34,6 +35,7 @@ const filterTransactionsBySearch = memoize(
     const search = searchTerm.toLowerCase();
     return transactions.filter(tx => (
       (tx.recipient_name && tx.recipient_name.toLowerCase().includes(search)) ||
+      (tx.description && tx.description.toLowerCase().includes(search)) ||
       (tx.reference && tx.reference.toLowerCase().includes(search)) ||
       tx.id.toString().includes(search) ||
       (tx.provider && tx.provider.toLowerCase().includes(search))
@@ -222,7 +224,7 @@ const EnhancedTransactionManager = ({
         new Date(tx.created_at).toLocaleDateString(),
         tx.direction === "incoming" ? "Received" : "Sent",
         `${tx.currency} ${tx.amount.toFixed(2)}`,
-        tx.recipient_name || "Unknown",
+        transactionCounterpartyLabel(tx),
         tx.status,
         tx.reference || "",
         tx.payment_method

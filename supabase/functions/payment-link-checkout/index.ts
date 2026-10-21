@@ -27,9 +27,20 @@
 //
 // Actions:
 //   { action: "describe", link_code }
-//       → { success, settlement_account_name } — lets the public page
-//         show where the money settles (accounts are owner-only under
-//         RLS, so the name is served from here, service-role side).
+//       → { success, settlement_account_name, link } — lets the public
+//         page render the link (title/amount/currency) AND show where
+//         the money settles. The page loads the link from HERE, not
+//         from a direct payment_links select: table RLS gives anon a
+//         public read but authenticated non-owners no read, so any
+//         signed-in third party — exactly who wallet payment is for —
+//         got "link not found" from the table while guests saw it
+//         fine. Accounts are owner-only under RLS, so the settlement
+//         name is also served from here, service-role side.
+//       → link carries only what the checkout page displays:
+//         { id, title, description, amount, currency, status,
+//           user_id, account_id }. user_id lets the page keep its
+//         client-side "you cannot pay your own link" pre-check; the
+//         pay action re-checks it server-side regardless.
 //   { link_code, payment_method, amount?, idempotency_key, email? }
 //       → wallet settlement or a truthful not_configured refusal.
 
@@ -72,7 +83,7 @@ serve(async (req) => {
 
     const { data: link, error: linkError } = await admin
       .from("payment_links")
-      .select("id, user_id, title, amount, currency, status, account_id, expires_at, max_payments, payment_count")
+      .select("id, user_id, title, description, amount, currency, status, account_id, expires_at, max_payments, payment_count")
       .eq("link_code", linkCode)
       .maybeSingle();
 
@@ -81,7 +92,7 @@ serve(async (req) => {
       return json({ success: false, status: "not_found", error: "Payment link not found or no longer active" }, 404);
     }
 
-    // ── describe: where will this link's money settle? ──
+    // ── describe: the public link payload + where its money settles ──
     if (body.action === "describe") {
       let settlementAccountName = "Main account";
       if (link.account_id) {
@@ -92,7 +103,20 @@ serve(async (req) => {
           .maybeSingle();
         if (account?.name) settlementAccountName = account.name;
       }
-      return json({ success: true, settlement_account_name: settlementAccountName });
+      return json({
+        success: true,
+        settlement_account_name: settlementAccountName,
+        link: {
+          id: link.id,
+          title: link.title,
+          description: link.description ?? null,
+          amount: link.amount != null ? Number(link.amount) : null,
+          currency: link.currency,
+          status: link.status,
+          user_id: link.user_id,
+          account_id: link.account_id,
+        },
+      });
     }
 
     // ── pay ──

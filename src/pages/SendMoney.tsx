@@ -35,7 +35,7 @@ const SendMoney = () => {
   const handleContinue = () => {
     if (step === 1) {
       if (!recipient) {
-        toast({ title: "Error", description: "Please enter a recipient phone number.", variant: "destructive" });
+        toast({ title: "Error", description: "Please enter the recipient's email address or phone number.", variant: "destructive" });
         return;
       }
       setStep(2);
@@ -81,32 +81,43 @@ const SendMoney = () => {
       const parsedAmount = parseFloat(amount);
       const ref = `BP${Date.now().toString(36).toUpperCase()}`;
 
-      // 1. Resolve recipient: registered user by phone
-      const digits = recipient.replace(/\D/g, "");
-      const { data: recipientProfile } = await supabase
-        .from("profiles")
-        .select("id")
-        .or(`phone.eq.${recipient},phone.eq.${digits}`)
-        .limit(1)
-        .maybeSingle();
+      // 1. Resolve the recipient by exact email or phone match.
+      // profiles RLS only ever shows a user their OWN profile, so a
+      // browser-side profiles select can never find another user —
+      // every send failed with "must have an account" even when the
+      // recipient existed. find_transfer_recipient is a SECURITY
+      // DEFINER RPC that answers an exact-match lookup (user id +
+      // display name only) without exposing the profiles table.
+      const { data: matches, error: lookupError } = await supabase
+        .rpc("find_transfer_recipient", { p_query: recipient.trim() });
 
-      if (!recipientProfile) {
+      if (lookupError) throw new Error(lookupError.message);
+
+      const recipientProfile = Array.isArray(matches) ? matches[0] : matches;
+
+      if (!recipientProfile?.user_id) {
         throw new Error("Recipient must have an account for wallet transfers.");
       }
+
+      // Prefer the platform display name for the recipient when the
+      // sender didn't type one — confirmations and ledger labels read
+      // better than a raw phone/email, and it proves who matched.
+      const resolvedRecipientName =
+        recipientName || recipientProfile.display_name || recipient;
 
       // 2. Execute atomically, server-side (amount + fee debited together)
       const idempotencyKey = `send-${user.id}-${Date.now()}`;
       const { data, error } = await supabase.functions.invoke("atomic-transfer", {
         body: {
           from_user_id: user.id,
-          to_user_id: recipientProfile.id,
+          to_user_id: recipientProfile.user_id,
           amount: total,
           currency: wallet.currency,
           reference_type: "transfer",
           reference_id: ref,
           idempotency_key: idempotencyKey,
-          description: `Send money to ${recipientName || recipient} (incl. K${fee} fee)`,
-          recipient_name: recipientName || recipient,
+          description: `Send money to ${resolvedRecipientName} (incl. K${fee} fee)`,
+          recipient_name: resolvedRecipientName,
           payment_method: "wallet",
         },
       });
@@ -119,7 +130,7 @@ const SendMoney = () => {
 
       toast({
         title: "Money sent successfully",
-        description: `You've sent ${formatAmount(parsedAmount)} to ${recipientName || recipient}`,
+        description: `You've sent ${formatAmount(parsedAmount)} to ${resolvedRecipientName}`,
       });
     } catch (error: any) {
       console.error("Send money error:", error);
@@ -168,10 +179,10 @@ const SendMoney = () => {
               {step === 1 && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="recipient">Phone Number</Label>
+                    <Label htmlFor="recipient">Recipient's email or phone number</Label>
                     <Input
                       id="recipient"
-                      placeholder="+260 XX XXX XXXX"
+                      placeholder="you@example.com or +260 XX XXX XXXX"
                       value={recipient}
                       onChange={(e) => setRecipient(e.target.value)}
                     />
