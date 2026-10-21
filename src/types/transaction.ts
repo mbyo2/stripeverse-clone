@@ -7,6 +7,8 @@ export interface Transaction {
   payment_method: string;
   direction: 'incoming' | 'outgoing';
   recipient_name?: string;
+  description?: string;
+  category?: string;
   recipient_account?: string;
   recipient_bank?: string;
   status: 'pending' | 'completed' | 'failed';

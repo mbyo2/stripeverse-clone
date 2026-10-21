@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { trackRender } from "@/lib/performance";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { transactionTitle } from "@/utils/transactionLabels";
 
 interface TransactionItemProps {
   transaction: Transaction;
@@ -39,8 +40,7 @@ const TransactionItem = React.memo(({ transaction, style }: TransactionItemProps
         </div>
         <div className="ml-4">
           <div className="font-medium text-[15px]">
-            {transaction.direction === 'outgoing' ? "Sent to" : "Received from"} {" "}
-            {transaction.recipient_name || "Unknown"}
+            {transactionTitle(transaction)}
           </div>
           <div className="text-[13px] text-muted-foreground flex items-center gap-2 flex-wrap">
             {transaction.created_at ? formatDistanceToNow(new Date(transaction.created_at), { addSuffix: true }) : 'Unknown date'}
