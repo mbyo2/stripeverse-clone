@@ -1,13 +1,17 @@
 // Unit tests for src/utils/splitPayments.ts — the client-side mirror of
 // the split-execution arithmetic implemented authoritatively in SQL by
-// supabase/migrations/20261022_split_payments_execution.sql. These pin
-// the leg math: percentage shares of the original amount rounded to
-// 2dp, flat legs as configured, every leg capped at the remainder, and
-// the owner keeping exactly what is left (legs + owner = payment).
+// supabase/migrations/20261022_split_payments_execution.sql and
+// 20261022_split_platform_fee.sql. These pin the leg math: the platform
+// fee (2.5% at launch) comes off the payment first, percentage shares
+// are of the original amount rounded to 2dp, flat legs are as
+// configured, every leg is capped at the remainder, and fee + legs +
+// owner always equals the payment exactly.
 
 import { describe, it, expect } from "vitest";
 import {
   computeSplitLegs,
+  computePlatformFee,
+  computeSplitPreview,
   committedPercentage,
   splitRulesWarning,
   roundMoney,
@@ -135,5 +139,100 @@ describe("committedPercentage / splitRulesWarning", () => {
   it("stays silent at or under 100%", () => {
     expect(splitRulesWarning([pct("r1", 60), pct("r2", 40)])).toBeNull();
     expect(splitRulesWarning([flat("r1", 500)])).toBeNull();
+  });
+
+  it("counts the platform fee toward the committed percentage", () => {
+    expect(committedPercentage([pct("r1", 30)], 2.5)).toBe(32.5);
+    expect(committedPercentage([pct("r1", 30)])).toBe(30);
+  });
+
+  it("warns when rules plus the platform fee exceed 100%", () => {
+    const warning = splitRulesWarning([pct("r1", 98)], 2.5);
+    expect(warning).toMatch(/100\.5%/);
+    expect(warning).toMatch(/platform fee/i);
+    expect(splitRulesWarning([pct("r1", 90)], 2.5)).toBeNull();
+  });
+});
+
+describe("computePlatformFee (rate 2.5%, the launch default)", () => {
+  it("takes 2.5% of the payment", () => {
+    expect(computePlatformFee(100, 2.5)).toBe(2.5);
+    expect(computePlatformFee(1000, 2.5)).toBe(25);
+  });
+
+  it("rounds the fee to 2dp, half-up", () => {
+    // 2.5% of K15 = K0.375 → K0.38.
+    expect(computePlatformFee(15, 2.5)).toBe(0.38);
+  });
+
+  it("is capped at the payment amount", () => {
+    expect(computePlatformFee(10, 150)).toBe(10);
+    expect(computePlatformFee(10, 100)).toBe(10);
+  });
+
+  it("is zero when the rate is zero or negative", () => {
+    expect(computePlatformFee(100, 0)).toBe(0);
+    expect(computePlatformFee(100, -2.5)).toBe(0);
+  });
+
+  it("is zero for a zero or invalid amount", () => {
+    expect(computePlatformFee(0, 2.5)).toBe(0);
+  });
+});
+
+describe("computeSplitPreview (platform fee first, then rules)", () => {
+  it("takes the fee before rules and still sums exactly to the payment", () => {
+    const { platformFee, legs, ownerKeeps } = computeSplitPreview(200, [pct("r1", 50)], 2.5);
+    expect(platformFee).toBe(5);
+    // The percentage leg is still a share of the ORIGINAL K200.
+    expect(legs).toEqual([{ ruleId: "r1", amount: 100 }]);
+    expect(ownerKeeps).toBe(95);
+    expect(platformFee + legs[0].amount + ownerKeeps).toBe(200);
+  });
+
+  it("caps a merchant leg at what the fee leaves behind (fee-first ordering)", () => {
+    // Without the fee first, the flat K99 leg would take K99.
+    const { platformFee, legs, ownerKeeps } = computeSplitPreview(100, [flat("r1", 99)], 2.5);
+    expect(platformFee).toBe(2.5);
+    expect(legs).toEqual([{ ruleId: "r1", amount: 97.5 }]);
+    expect(ownerKeeps).toBe(0);
+  });
+
+  it("caps a percentage leg at the post-fee remainder too", () => {
+    const { platformFee, legs, ownerKeeps } = computeSplitPreview(100, [pct("r1", 99)], 2.5);
+    expect(platformFee).toBe(2.5);
+    expect(legs).toEqual([{ ruleId: "r1", amount: 97.5 }]);
+    expect(ownerKeeps).toBe(0);
+  });
+
+  it("charges no fee at a zero rate", () => {
+    const { platformFee, legs, ownerKeeps } = computeSplitPreview(100, [pct("r1", 20)], 0);
+    expect(platformFee).toBe(0);
+    expect(legs).toEqual([{ ruleId: "r1", amount: 20 }]);
+    expect(ownerKeeps).toBe(80);
+  });
+
+  it("rounds the fee on a small payment and leaves the residue exact", () => {
+    // 2.5% of K15 = K0.38; with a 20% rule (K3.00) the owner keeps K11.62.
+    const { platformFee, legs, ownerKeeps } = computeSplitPreview(15, [pct("r1", 20)], 2.5);
+    expect(platformFee).toBe(0.38);
+    expect(legs).toEqual([{ ruleId: "r1", amount: 3 }]);
+    expect(ownerKeeps).toBe(11.62);
+    expect(roundMoney(platformFee + legs[0].amount + ownerKeeps)).toBe(15);
+  });
+
+  it("with no rules, the owner keeps the payment minus the fee", () => {
+    const { platformFee, legs, ownerKeeps } = computeSplitPreview(15, [], 2.5);
+    expect(platformFee).toBe(0.38);
+    expect(legs).toEqual([]);
+    expect(ownerKeeps).toBe(14.62);
+  });
+
+  it("handles a zero payment amount", () => {
+    expect(computeSplitPreview(0, [pct("r1", 50)], 2.5)).toEqual({
+      platformFee: 0,
+      legs: [],
+      ownerKeeps: 0,
+    });
   });
 });
