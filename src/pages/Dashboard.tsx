@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { transactionCounterpartyLabel } from "@/utils/transactionLabels";
 import { 
   BarChart as RechartsBarChart,
   Bar,
@@ -160,7 +161,7 @@ const Dashboard = () => {
                           )}
                         </div>
                         <div>
-                          <p className="text-[15px] font-medium text-foreground">{transaction.recipient_name}</p>
+                          <p className="text-[15px] font-medium text-foreground">{transactionCounterpartyLabel(transaction)}</p>
                           <p className="text-[13px] text-muted-foreground">
                             {new Date(transaction.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </p>

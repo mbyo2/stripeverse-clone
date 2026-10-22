@@ -74,4 +74,23 @@ describe("transactionCounterpartyLabel", () => {
     expect(transactionCounterpartyLabel({ direction: "incoming", category: "internal_transfer" }))
       .toBe("Transfer from own account");
   });
+
+  it("labels the dashboard Recent Activity rows (Money QA Round 2)", () => {
+    // qa@'s pre-existing savings rows reached the dashboard with
+    // recipient_name NULL and rendered "Unknown" there (the old
+    // get_recent_transactions RPC even pre-filled 'Unknown' in SQL).
+    // Fed the raw row, the shared rule yields the real descriptions.
+    expect(transactionCounterpartyLabel({
+      direction: "incoming",
+      category: "savings_withdrawal",
+      description: "Withdrawal from savings goal",
+      recipient_name: null,
+    })).toBe("Withdrawal from savings goal");
+    expect(transactionCounterpartyLabel({
+      direction: "outgoing",
+      category: "savings_deposit",
+      description: "Deposit to savings goal",
+      recipient_name: null,
+    })).toBe("Deposit to savings goal");
+  });
 });

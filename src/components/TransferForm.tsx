@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatCurrency, validateWalletTransfer, formatPhoneForDisplay } from "@/lib/utils";
 import { ArrowRight, CheckCircle2, AlertCircle, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 
 type TransferFormProps = {
   senderPhone: string;
@@ -75,19 +76,26 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be signed in to send money");
 
-      const digits = receiverPhone.replace(/\D/g, "");
-      const { data: recipientProfile, error: lookupError } = await supabase
-        .from("profiles")
-        .select("id, phone")
-        .or(`phone.eq.${receiverPhone},phone.eq.${digits}`)
-        .limit(1)
-        .maybeSingle();
+      // 1. Resolve the recipient to a real user by phone number.
+      // This used to select from public.profiles in the browser, but
+      // profiles RLS only ever returns the caller's OWN profile — so
+      // the lookup could never find any other user and every transfer
+      // failed with "No account found", even when the recipient
+      // existed. find_transfer_recipient is the SECURITY DEFINER RPC
+      // added for SendMoney (migration 20261022): exact match on email
+      // or digits-only phone equality, returning only the user id and
+      // a display name, without exposing the profiles table.
+      const { data: matches, error: lookupError } = await supabase
+        .rpc("find_transfer_recipient", { p_query: receiverPhone.trim() });
 
-      if (lookupError) throw lookupError;
-      if (!recipientProfile) {
+      if (lookupError) throw new Error(lookupError.message);
+
+      const recipientProfile = Array.isArray(matches) ? matches[0] : matches;
+
+      if (!recipientProfile?.user_id) {
         throw new Error("No account found for that phone number. The recipient must have an account.");
       }
-      if (recipientProfile.id === user.id) {
+      if (recipientProfile.user_id === user.id) {
         throw new Error("You cannot send money to yourself");
       }
 
@@ -96,7 +104,7 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
       const { data, error } = await supabase.functions.invoke("atomic-transfer", {
         body: {
           from_user_id: user.id,
-          to_user_id: recipientProfile.id,
+          to_user_id: recipientProfile.user_id,
           amount: numAmount,
           currency: "ZMW",
           reference_type: "transfer",
@@ -108,7 +116,7 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
         },
       });
 
-      if (error) throw new Error(error.message || "Transfer failed");
+      if (error) throw new Error(await resolveEdgeFunctionError(error, "Transfer failed"));
       if (data?.error) throw new Error(data.error);
 
       setIsProcessing(false);

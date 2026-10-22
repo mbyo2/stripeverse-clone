@@ -11,9 +11,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useWallet } from "@/hooks/useWallet";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
 const SendMoney = () => {
   const [step, setStep] = useState(1);
@@ -22,6 +24,7 @@ const SendMoney = () => {
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [transactionRef, setTransactionRef] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
@@ -59,7 +62,16 @@ const SendMoney = () => {
   };
 
   const handleSendMoney = async () => {
-    if (!user?.id || !wallet?.id) return;
+    // Never fail silently on a money action: this guard used to be a
+    // bare `return`, so if the auth/wallet context wasn't loaded the
+    // Confirm button appeared to do absolutely nothing (live QA
+    // Round 2 recorded exactly that symptom).
+    if (!user?.id || !wallet?.id) {
+      const message = "Your session or wallet isn't loaded. Refresh the page and try again — nothing has been charged.";
+      setSubmitError(message);
+      toast({ title: "Couldn't start the transfer", description: message, variant: "destructive" });
+      return;
+    }
 
     // Mobile money sending is NOT live: no disbursement gateway is
     // connected, so there is no queue this money could enter. Refuse
@@ -76,6 +88,7 @@ const SendMoney = () => {
     }
 
     setIsLoading(true);
+    setSubmitError("");
 
     try {
       const parsedAmount = parseFloat(amount);
@@ -122,7 +135,11 @@ const SendMoney = () => {
         },
       });
 
-      if (error) throw new Error(error.message || "Transfer failed");
+      // A non-2xx answer from the function only surfaces the generic
+      // "non-2xx status code" message through invoke's error — the
+      // function's real reason is in the response body. Extract it so
+      // the user (and support) sees what actually went wrong.
+      if (error) throw new Error(await resolveEdgeFunctionError(error, "Transfer failed"));
       if (data?.error) throw new Error(data.error);
 
       setTransactionRef(ref);
@@ -134,18 +151,26 @@ const SendMoney = () => {
       });
     } catch (error: any) {
       console.error("Send money error:", error);
-      toast({ title: "Transaction failed", description: error.message || "Something went wrong. Please try again.", variant: "destructive" });
+      const message = error?.message || "Something went wrong. Please try again.";
+      // Persistent on-screen error as well as the toast: a failed send
+      // must leave a visible trace on the form, not just a toast that
+      // auto-dismisses (QA Round 2 saw the form simply sitting there,
+      // indistinguishable from "nothing happened").
+      setSubmitError(message);
+      toast({ title: "Transaction failed", description: message, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleBack = () => {
+    setSubmitError("");
     if (step > 1) setStep(step - 1);
   };
 
   const handleNewTransfer = () => {
     setStep(1);
+    setSubmitError("");
     setRecipient("");
     setRecipientName("");
     setAmount("");
@@ -277,6 +302,14 @@ const SendMoney = () => {
                     Reference: #{transactionRef}
                   </p>
                 </div>
+              )}
+
+              {submitError && step < 4 && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Transaction failed</AlertTitle>
+                  <AlertDescription>{submitError}</AlertDescription>
+                </Alert>
               )}
             </CardContent>
             <CardFooter className="flex justify-between">

@@ -12,13 +12,28 @@
 //   }
 //
 // Auth: user JWT required. A user may only send from their OWN wallet.
-// (Internal service-role callers bypass this by design — the function runs
+// (Internal service-role callers bypass this by design — the RPC runs
 // with the service role key, but the from_user_id check below still applies
 // to JWT-authenticated callers.)
+//
+// ⚠️ The RPC MUST be executed with a dedicated service-role client that
+// does NOT forward the caller's JWT (same pattern as internal-transfer):
+// execute_atomic_transfer is EXECUTE-granted to service_role only, and
+// PostgREST runs a request carrying a user JWT in the `authenticated`
+// role — so the shared getSupabaseClient(req), which forwards the
+// caller's Authorization header, gets "permission denied for function
+// execute_atomic_transfer" on every call. The forwarded JWT would also
+// put auth.uid() in scope for the RPC, tripping the
+// protect_wallet_balance trigger that neutralizes balance UPDATEs made
+// under a user session. That combination is why user-to-user sends
+// failed server-side while the UI could only show a generic error
+// (found in Money QA Round 2, 2026-10-22). The request-scoped client
+// below is used ONLY to resolve the caller from their JWT.
 //
 // Returns: { success, transaction_id, new_sender_balance }
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
 
 const corsHeaders = {
@@ -70,7 +85,18 @@ serve(async (req) => {
     }
 
     // ── Execute atomically via Postgres function (row locking inside) ──
-    const { data, error } = await supabase.rpc("execute_atomic_transfer", {
+    // Dedicated service-role client — deliberately NOT the request-scoped
+    // one above: that one forwards the caller's Authorization header,
+    // which demotes this call to the `authenticated` role (the RPC is
+    // service_role-only → permission denied) and would put auth.uid()
+    // back in scope for the balance-protection trigger.
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+
+    const { data, error } = await admin.rpc("execute_atomic_transfer", {
       p_from_user_id: from_user_id,
       p_to_user_id: to_user_id || null,
       p_amount: amt,
