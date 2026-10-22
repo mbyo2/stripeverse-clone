@@ -69,8 +69,183 @@ export function sparkEnabled(): boolean {
 
 let sdkPromise: Promise<BreezSdk> | null = null;
 let connectedKeyFingerprint: string | null = null;
+let connectedStorageDir: string | null = null;
 let connectedAutoClaimSignature: string | null = null;
 let eventCallback: ((event: SdkEvent) => void) | null = null;
+
+/**
+ * The per-wallet SDK storage directory: two wallets used on one device
+ * never share SDK state. The fingerprint is a hash of the mnemonic,
+ * never the mnemonic itself. Pure — unit-tested.
+ */
+export function sparkStorageDir(keyFingerprint: string): string {
+  return `bmaglass-spark-${keyFingerprint.slice(0, 16)}`;
+}
+
+// ── Stale-chunk auto-recovery ──────────────────────────────────────────
+// After a redeploy, the page in an open tab still references the OLD
+// hashed JS chunks. The SDK is loaded with a dynamic import(), so the
+// first connect after a deploy can fail with "Failed to fetch
+// dynamically imported module" until the user reloads by hand (seen
+// twice in QA). Recovery: reload the page ONCE — the fresh HTML points
+// at the new chunks. A sessionStorage flag makes a loop impossible:
+// if the import still fails after one reload, the error surfaces
+// honestly instead of reloading forever.
+
+export const SPARK_CHUNK_RELOAD_KEY = "bmaglass.sparkChunkReload.v1";
+
+/** True when an error is a dynamic-import / lazy-chunk load failure. Pure — unit-tested. */
+export function isChunkLoadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /dynamically imported module|chunkloaderror|loading chunk .* failed|importing a module script failed/i.test(
+    message,
+  );
+}
+
+/**
+ * Reload is warranted only for a chunk-load failure that has not
+ * already been retried once. Pure — unit-tested.
+ */
+export function shouldReloadForChunkError(error: unknown, alreadyReloaded: boolean): boolean {
+  return !alreadyReloaded && isChunkLoadError(error);
+}
+
+function chunkReloadAttempted(): boolean {
+  try {
+    return sessionStorage.getItem(SPARK_CHUNK_RELOAD_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markChunkReloadAttempted(): void {
+  try {
+    sessionStorage.setItem(SPARK_CHUNK_RELOAD_KEY, "1");
+  } catch {
+    // Storage unavailable: the reload still happens once per import
+    // attempt; worst case the user sees the honest error afterwards.
+  }
+}
+
+function clearChunkReloadMark(): void {
+  try {
+    sessionStorage.removeItem(SPARK_CHUNK_RELOAD_KEY);
+  } catch {
+    // Non-fatal.
+  }
+}
+
+type SparkModule = typeof import("@breeztech/breez-sdk-spark/web");
+
+async function importSparkModule(): Promise<SparkModule> {
+  try {
+    const mod = await import("@breeztech/breez-sdk-spark/web");
+    // A successful load proves the chunks are current again: re-arm
+    // the one-time recovery for the NEXT deploy.
+    clearChunkReloadMark();
+    return mod;
+  } catch (e) {
+    if (shouldReloadForChunkError(e, chunkReloadAttempted()) && typeof window !== "undefined") {
+      markChunkReloadAttempted();
+      window.location.reload();
+      // The page is reloading; never settle, so no error UI flashes
+      // in the page that is about to be replaced.
+      return new Promise<SparkModule>(() => {});
+    }
+    throw e;
+  }
+}
+
+// ── SDK persisted-state wipe (H3) ──────────────────────────────────────
+// The web build persists wallet state in IndexedDB. Empirically
+// verified against the installed @breeztech/breez-sdk-spark@0.27.0 web
+// build (its own WASM + storage JS, run headlessly): for storageDir
+// `bmaglass-spark-<fp16>` on mainnet, connect() opens exactly two
+// databases —
+//   <storageDir>/mainnet/<id8>        (main storage, IDB version 23)
+//   <storageDir>/mainnet/<id8>-tree   (tree store, IDB version 6)
+// where <id8> is an 8-hex-char per-wallet identifier the SDK derives
+// internally. Disconnecting the SDK does NOT delete either database,
+// so without this wipe the wallet's state (payment history, deposit
+// records, sync state) sits in the browser indefinitely while the
+// wallet presents as "locked".
+//
+// Wipe strategy — discovery by exact prefix, never name computation:
+// every database belonging to this wallet starts with the storageDir
+// string followed by "/". We enumerate indexedDB.databases(), delete
+// every name matching that prefix (plus the bare storageDir, in case a
+// future SDK version uses it directly), and touch nothing else: other
+// wallets have a different fingerprint prefix, and our own encrypted
+// vault lives in localStorage, not IndexedDB, so unlock is unaffected
+// — the SDK re-derives and re-syncs everything from the mnemonic on
+// the next unlock. Names seen at connect time are also remembered, so
+// the wipe still has exact targets on browsers where databases() is
+// unavailable at lock time.
+
+const knownDbNamesByStorageDir = new Map<string, Set<string>>();
+
+/**
+ * From a list of all IndexedDB database names, select exactly those
+ * belonging to one wallet's storageDir. Pure — unit-tested.
+ */
+export function sparkStorageDbNames(allNames: string[], storageDir: string): string[] {
+  return allNames.filter((name) => name === storageDir || name.startsWith(`${storageDir}/`));
+}
+
+async function listIndexedDbNames(): Promise<string[]> {
+  try {
+    if (typeof indexedDB === "undefined" || typeof indexedDB.databases !== "function") return [];
+    const dbs = await indexedDB.databases();
+    return dbs.map((d) => d.name).filter((n): n is string => typeof n === "string" && n.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/** Remember the exact database names this wallet's SDK is using (called after a successful connect). */
+async function recordSparkStorageDbNames(storageDir: string): Promise<void> {
+  const names = sparkStorageDbNames(await listIndexedDbNames(), storageDir);
+  if (names.length > 0) knownDbNamesByStorageDir.set(storageDir, new Set(names));
+}
+
+function deleteIndexedDb(name: string): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+    try {
+      const request = indexedDB.deleteDatabase(name);
+      request.onsuccess = done;
+      request.onerror = done;
+      // Blocked = another connection (e.g. the just-disconnected SDK)
+      // has not closed yet. The deletion still completes once it does;
+      // never let it hang the lock flow.
+      request.onblocked = done;
+      setTimeout(done, 3000);
+    } catch {
+      done();
+    }
+  });
+}
+
+/**
+ * Delete the Spark SDK's persisted IndexedDB state for ONE wallet
+ * (identified by its storageDir). Best-effort and silent: a failed wipe
+ * must never break locking. Our own encrypted vault is NOT touched.
+ */
+export async function wipeSparkStorage(storageDir: string): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const targets = new Set<string>(knownDbNamesByStorageDir.get(storageDir) ?? []);
+  for (const name of sparkStorageDbNames(await listIndexedDbNames(), storageDir)) targets.add(name);
+  knownDbNamesByStorageDir.delete(storageDir);
+  for (const name of targets) {
+    await deleteIndexedDb(name);
+  }
+}
 
 async function fingerprint(mnemonic: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(mnemonic));
@@ -99,8 +274,10 @@ export async function connectSpark(
 
   connectedKeyFingerprint = fp;
   connectedAutoClaimSignature = autoClaimSignature;
+  connectedStorageDir = sparkStorageDir(fp);
+  const storageDir = connectedStorageDir;
   sdkPromise = (async () => {
-    const mod = await import("@breeztech/breez-sdk-spark/web");
+    const mod = await importSparkModule();
     await mod.default();
     const config = mod.defaultConfig("mainnet");
     config.apiKey = key;
@@ -116,8 +293,11 @@ export async function connectSpark(
       // Per-wallet storage so two seeds used on one device never share
       // SDK state. The fingerprint is a hash of the mnemonic, never the
       // mnemonic itself.
-      storageDir: `bmaglass-spark-${fp.slice(0, 16)}`,
+      storageDir,
     });
+    // Learn the exact IndexedDB database names the SDK opened for this
+    // wallet, so a later lock can wipe precisely them (see H3 above).
+    void recordSparkStorageDbNames(storageDir);
     await sdk.addEventListener({
       onEvent: (event) => {
         if (eventCallback) {
@@ -139,6 +319,7 @@ export async function disconnectSpark(): Promise<void> {
   const pending = sdkPromise;
   sdkPromise = null;
   connectedKeyFingerprint = null;
+  connectedStorageDir = null;
   connectedAutoClaimSignature = null;
   eventCallback = null;
   try {
@@ -147,6 +328,43 @@ export async function disconnectSpark(): Promise<void> {
   } catch {
     // Disconnect is best-effort; the instance is dropped regardless.
   }
+}
+
+/**
+ * The LOCK path: disconnect the SDK, then wipe its persisted IndexedDB
+ * state for the wallet that was connected, so a locked wallet leaves
+ * no SDK wallet state behind in the browser (H3). The next unlock
+ * re-derives and re-syncs from the mnemonic. No-op when no wallet was
+ * connected in this page session. Plain disconnectSpark() (used for
+ * wallet switches and preference reconnects) deliberately does NOT
+ * wipe — only locking does.
+ */
+export async function disconnectSparkAndWipeStorage(): Promise<void> {
+  const storageDir = connectedStorageDir;
+  await disconnectSpark();
+  if (storageDir) await wipeSparkStorage(storageDir);
+}
+
+/** True while an SDK instance exists for the current session (connected or connecting). */
+export function sparkConnectionActive(): boolean {
+  return sdkPromise !== null;
+}
+
+/**
+ * Whether returning to the wallet (tab focus / visibility) should
+ * trigger a reconnect: the wallet is unlocked, no refresh is already
+ * running, and either the SDK connection is down or no balance has
+ * been loaded yet (e.g. returning from the MoonPay tab, where the card
+ * was left showing "Spark balance: —"). Pure — unit-tested.
+ */
+export function shouldReconnectSpark(input: {
+  unlocked: boolean;
+  connectionActive: boolean;
+  balanceKnown: boolean;
+  busy: boolean;
+}): boolean {
+  if (!input.unlocked || input.busy) return false;
+  return !input.connectionActive || !input.balanceKnown;
 }
 
 // ── Info / balance ─────────────────────────────────────────────────────

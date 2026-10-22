@@ -1,14 +1,26 @@
 /**
- * Chain access for the SELF-CUSTODY wallet via the public mempool.space
- * esplora API. Everything sent here is public chain data by design:
- * addresses, txids, and ALREADY-SIGNED transaction hex for broadcast.
- * No key material, mnemonic, or xpub is ever transmitted (addresses are
- * derived locally and queried individually).
+ * Chain access for the SELF-CUSTODY wallet via public Esplora APIs
+ * (mempool.space primary, blockstream.info fallback — both speak the
+ * same Esplora REST dialect). Everything sent here is public chain data
+ * by design: addresses, txids, and ALREADY-SIGNED transaction hex for
+ * broadcast. No key material, mnemonic, or xpub is ever transmitted
+ * (addresses are derived locally and queried individually).
  */
 import type { HDKey } from "@scure/bip32";
 import { deriveAddress, deriveScript, type ClientUtxo } from "./wallet";
 
-const ESPLORA_BASE = "https://mempool.space/api";
+/**
+ * Esplora endpoints, in the order they are tried. The scan only reports
+ * the network unreachable when EVERY endpoint has failed — a single
+ * provider outage (or one provider being blocked on the user's network)
+ * must not strand the wallet when another public Esplora API can answer.
+ */
+export const ESPLORA_BASES = ["https://mempool.space/api", "https://blockstream.info/api"] as const;
+
+/** The full URL of `path` on every configured Esplora endpoint, in try-order. Pure — unit-tested. */
+export function esploraUrls(path: string): string[] {
+  return ESPLORA_BASES.map((base) => `${base}${path}`);
+}
 /** BIP44 gap limit: stop scanning a chain after this many unused addresses in a row. */
 export const GAP_LIMIT = 20;
 
@@ -48,14 +60,25 @@ async function esplora(path: string, init?: RequestInit): Promise<any> {
   // Hard timeout: a hung request must never stall the scan forever
   // (the custodial server twin uses 20s). Callers may pass their own
   // signal in init, which then wins.
-  const res = await fetch(`${ESPLORA_BASE}${path}`, { signal: AbortSignal.timeout(15_000), ...init });
-  if (!res.ok) throw new Error(`Chain data request failed (${res.status})`);
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
+  let lastError: unknown = null;
+  for (const url of esploraUrls(path)) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000), ...init });
+      if (!res.ok) throw new Error(`Chain data request failed (${res.status})`);
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
+    } catch (e) {
+      // One endpoint failed (unreachable, blocked, or erroring): fall
+      // through to the next. Only when every endpoint has failed does
+      // the last error surface to the caller.
+      lastError = e;
+    }
   }
+  throw lastError instanceof Error ? lastError : new Error("Chain data request failed");
 }
 
 function txCountOf(stats: AddressStats): number {
@@ -157,13 +180,25 @@ export async function fetchRecommendedFeeRate(): Promise<number> {
 }
 
 export async function broadcastTransaction(txHex: string): Promise<string> {
-  const res = await fetch(`${ESPLORA_BASE}/tx`, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain" },
-    body: txHex,
-    signal: AbortSignal.timeout(20_000),
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`Broadcast failed: ${text.slice(0, 200)}`);
-  return text.trim();
+  // Same fallback discipline as reads: a broadcast that one endpoint
+  // refuses to relay (or never hears) is offered to the next. The
+  // signed transaction is identical, so a duplicate relay is harmless —
+  // the network rejects an already-known txid, it can never double-spend.
+  let lastError: unknown = null;
+  for (const url of esploraUrls("/tx")) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: txHex,
+        signal: AbortSignal.timeout(20_000),
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(`Broadcast failed: ${text.slice(0, 200)}`);
+      return text.trim();
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Broadcast failed");
 }
