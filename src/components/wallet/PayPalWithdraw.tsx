@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -129,7 +130,7 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
       refreshHistory();
       toast({
         title: "Withdrawal not completed",
-        description: error.message || "An unknown error occurred",
+        description: toUserFacingError(error, "An unknown error occurred"),
         variant: "destructive",
       });
     },
@@ -149,7 +150,7 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
     onError: (error: any) => {
       toast({
         title: "Couldn't refresh status",
-        description: error.message || "An unknown error occurred",
+        description: toUserFacingError(error, "An unknown error occurred"),
         variant: "destructive",
       });
     },

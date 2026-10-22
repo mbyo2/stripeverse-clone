@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,7 +49,7 @@ export const useSavings = () => {
       // deposits and withdrawals.
       queryClient.refetchQueries({ queryKey: ['savings'], type: 'active' });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   // The wallet that funds / receives for a goal: the user's Main
@@ -109,13 +110,13 @@ export const useSavings = () => {
   const deposit = useMutation({
     mutationFn: ({ id, amount }: { id: string; amount: number }) => moveMoney({ id, amount, direction: 'deposit' }),
     onSuccess: () => { toast.success('Deposit successful — moved from your wallet'); invalidateMoney(); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const withdraw = useMutation({
     mutationFn: ({ id, amount }: { id: string; amount: number }) => moveMoney({ id, amount, direction: 'withdraw' }),
     onSuccess: () => { toast.success('Withdrawal successful — moved back to your wallet'); invalidateMoney(); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   return { accounts, createAccount, deposit, withdraw };

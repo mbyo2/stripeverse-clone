@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -105,7 +106,7 @@ const VirtualCardFund = () => {
       console.error('Fund card error:', err);
       toast({
         title: "Funding Failed",
-        description: err.message || 'An unknown error occurred',
+        description: toUserFacingError(err, 'An unknown error occurred'),
         variant: "destructive",
       });
     } finally {

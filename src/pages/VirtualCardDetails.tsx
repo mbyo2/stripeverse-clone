@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -142,7 +143,7 @@ const VirtualCardDetails = () => {
       });
     },
     onError: (err: any) => {
-      toast({ title: "Update Failed", description: err.message || "Could not update card status.", variant: "destructive" });
+      toast({ title: "Update Failed", description: toUserFacingError(err, "Could not update card status."), variant: "destructive" });
     }
   });
 
@@ -167,7 +168,7 @@ const VirtualCardDetails = () => {
       setFundAmount("50");
     },
     onError: (err: any) => {
-      toast({ title: "Funding Failed", description: err.message || "Could not fund card.", variant: "destructive" });
+      toast({ title: "Funding Failed", description: toUserFacingError(err, "Could not fund card."), variant: "destructive" });
     }
   });
 
@@ -190,7 +191,7 @@ const VirtualCardDetails = () => {
       navigate("/wallet");
     },
     onError: (err: any) => {
-      toast({ title: "Delete Failed", description: err.message || "Could not cancel card.", variant: "destructive" });
+      toast({ title: "Delete Failed", description: toUserFacingError(err, "Could not cancel card."), variant: "destructive" });
     }
   });
 
@@ -218,7 +219,7 @@ const VirtualCardDetails = () => {
       setShowLimitsDialog(false);
     },
     onError: (err: any) => {
-      toast({ title: "Update Failed", description: err.message || "Could not update limits.", variant: "destructive" });
+      toast({ title: "Update Failed", description: toUserFacingError(err, "Could not update limits."), variant: "destructive" });
     }
   });
 
@@ -247,7 +248,7 @@ const VirtualCardDetails = () => {
       });
     },
     onError: (err: any) => {
-      toast({ title: "Update Failed", description: err.message || "Could not update settings.", variant: "destructive" });
+      toast({ title: "Update Failed", description: toUserFacingError(err, "Could not update settings."), variant: "destructive" });
     }
   });
 

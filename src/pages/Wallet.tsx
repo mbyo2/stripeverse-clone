@@ -21,6 +21,7 @@ import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/hooks/useWallet";
+import PageErrorState from "@/components/PageErrorState";
 import { usePayPalDepositReturn } from "@/hooks/usePayPalDepositReturn";
 import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from "@/config/paypal";
 import PayPalWithdraw from "@/components/wallet/PayPalWithdraw";
@@ -31,7 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 const Wallet = () => {
   const navigate = useNavigate();
   const { selectedAccountId, selectedAccountName } = useAccount();
-  const { wallet, isLoading, deposit, isDepositing } = useWallet(selectedAccountId);
+  const { wallet, isLoading, walletError, refetchWallet, deposit, isDepositing } = useWallet(selectedAccountId);
   const { paymentMethods } = usePaymentMethods();
   const [amount, setAmount] = useState("");
   const [depositMethod, setDepositMethod] = useState("mobile_money");
@@ -144,6 +145,22 @@ const Wallet = () => {
             {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
           </div>
           <Skeleton className="h-64 rounded-xl mb-8" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (walletError) {
+    return (
+      <div className="min-h-screen flex flex-col bg-muted/30">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+          <PageErrorState
+            title="We couldn't load your wallet"
+            message="Your balance and cards didn't load. Check your connection and try again."
+            onRetry={() => refetchWallet()}
+          />
         </main>
         <Footer />
       </div>

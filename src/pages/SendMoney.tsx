@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -194,7 +195,7 @@ const SendMoney = () => {
       });
     } catch (error: any) {
       console.error("Send money error:", error);
-      const message = error?.message || "Something went wrong. Please try again.";
+      const message = toUserFacingError(error);
       // Persistent on-screen error as well as the toast: a failed send
       // must leave a visible trace on the form, not just a toast that
       // auto-dismisses (QA Round 2 saw the form simply sitting there,

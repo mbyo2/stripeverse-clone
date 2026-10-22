@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState } from "react";
 import { useAccount, useSignMessage, useChainId } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -48,7 +49,7 @@ export const LinkAddressCard = ({ onLinked }: { onLinked?: () => void }) => {
       setLabel("");
       onLinked?.();
     } catch (e: any) {
-      toast.error(e.message ?? "Failed to link wallet");
+      toast.error(toUserFacingError(e, "Failed to link wallet"));
     } finally {
       setBusy(false);
     }

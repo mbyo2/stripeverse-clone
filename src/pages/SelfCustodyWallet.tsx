@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
@@ -110,7 +111,7 @@ function friendlyScanError(e: any): string {
   if (!msg || /failed to fetch|networkerror|load failed|abort|timed? ?out/i.test(msg)) {
     return "Could not reach the Bitcoin network (mempool.space and blockstream.info both failed). Check your connection and try again.";
   }
-  return msg;
+  return toUserFacingError(e);
 }
 
 function SelfCustodyWallet() {
@@ -309,7 +310,7 @@ function SelfCustodyWallet() {
       setHasVault(true);
       toast.success("Self-custody wallet ready");
     } catch (e: any) {
-      toast.error(e?.message || "Could not create the wallet vault");
+      toast.error(toUserFacingError(e, "Could not create the wallet vault"));
     } finally {
       setBusy(false);
     }
@@ -332,7 +333,7 @@ function SelfCustodyWallet() {
       unlockSession(mnemonic);
       setUnlockPassword("");
     } catch (e: any) {
-      toast.error(e?.message || "Unlock failed");
+      toast.error(toUserFacingError(e, "Unlock failed"));
     } finally {
       setBusy(false);
     }
@@ -376,7 +377,7 @@ function SelfCustodyWallet() {
       setSendAmount("");
       doScan();
     } catch (e: any) {
-      toast.error(e?.message || "Send failed");
+      toast.error(toUserFacingError(e, "Send failed"));
     } finally {
       setSending(false);
     }
@@ -402,7 +403,7 @@ function SelfCustodyWallet() {
       if (payments) setSpPayments(payments);
       if (deposits) setUnclaimed(deposits);
     } catch (e: any) {
-      toast.error(e?.message || "Could not connect the Spark wallet");
+      toast.error(toUserFacingError(e, "Could not connect the Spark wallet"));
     } finally {
       setSpBusy(false);
     }
@@ -482,7 +483,7 @@ function SelfCustodyWallet() {
       toast.success("Deposit claimed into your Spark balance");
       refreshSpark();
     } catch (e: any) {
-      toast.error(e?.message || "Could not claim that deposit");
+      toast.error(toUserFacingError(e, "Could not claim that deposit"));
     } finally {
       setClaimingKey(null);
     }
@@ -511,7 +512,7 @@ function SelfCustodyWallet() {
       setReceiveDest(result.destination);
       setReceiveFee(result.feeSats);
     } catch (e: any) {
-      toast.error(e?.message || "Could not create that receive destination");
+      toast.error(toUserFacingError(e, "Could not create that receive destination"));
     } finally {
       setSpBusy(false);
     }
@@ -529,7 +530,7 @@ function SelfCustodyWallet() {
       setParsedInput(parsed);
       setSendParsedText(sendText.trim());
     } catch (e: any) {
-      toast.error(e?.message || "That destination could not be recognised");
+      toast.error(toUserFacingError(e, "That destination could not be recognised"));
     } finally {
       setSpBusy(false);
     }
@@ -554,7 +555,7 @@ function SelfCustodyWallet() {
         setPreparedSend(await sparkPrepareSend(session.mnemonic, sendParsedText, amount));
       }
     } catch (e: any) {
-      toast.error(e?.message || "Could not prepare that payment");
+      toast.error(toUserFacingError(e, "Could not prepare that payment"));
     } finally {
       setSpBusy(false);
     }
@@ -582,7 +583,7 @@ function SelfCustodyWallet() {
       setPreparedLnurl(null);
       refreshSpark();
     } catch (e: any) {
-      toast.error(e?.message || "Payment failed");
+      toast.error(toUserFacingError(e, "Payment failed"));
     } finally {
       setSpBusy(false);
     }
@@ -604,7 +605,7 @@ function SelfCustodyWallet() {
       setSendAmountSats("");
       refreshSpark();
     } catch (e: any) {
-      toast.error(e?.message || "Withdrawal failed");
+      toast.error(toUserFacingError(e, "Withdrawal failed"));
     } finally {
       setSpBusy(false);
     }
@@ -619,7 +620,7 @@ function SelfCustodyWallet() {
       setParsedInput(null);
       setSendText("");
     } catch (e: any) {
-      toast.error(e?.message || "Sign-in failed");
+      toast.error(toUserFacingError(e, "Sign-in failed"));
     } finally {
       setSpBusy(false);
     }
@@ -648,7 +649,7 @@ function SelfCustodyWallet() {
       }
     } catch (e: any) {
       if (tab) tab.close();
-      toast.error(e?.message || "Could not start the MoonPay purchase");
+      toast.error(toUserFacingError(e, "Could not start the MoonPay purchase"));
     } finally {
       setSpBusy(false);
     }

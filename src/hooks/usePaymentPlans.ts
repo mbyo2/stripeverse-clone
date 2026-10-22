@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,7 +38,7 @@ export const usePaymentPlans = () => {
       return data;
     },
     onSuccess: () => { toast.success('Payment plan created'); queryClient.invalidateQueries({ queryKey: ['payment-plans'] }); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   /** Record a collected installment: writes the payment row and advances the plan. */
@@ -89,7 +90,7 @@ export const usePaymentPlans = () => {
       queryClient.invalidateQueries({ queryKey: ['plan-payments'] });
       toast.success('Installment recorded');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   /** Payment history across the merchant's plans. */

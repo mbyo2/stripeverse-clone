@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState } from 'react';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,7 +53,7 @@ const Statements = () => {
         exportToPDF('Account Statement', rows, ['Date', 'Description', 'Direction', 'Amount', 'Currency', 'Fee', 'Status', 'Reference']);
       }
       toast.success(`${type.toUpperCase()} exported`);
-    } catch (e: any) { toast.error(e.message); } finally { setLoading(false); }
+    } catch (e: any) { toast.error(toUserFacingError(e)); } finally { setLoading(false); }
   };
 
   return (

@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -149,7 +150,7 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
       }
     } catch (err) {
       setIsProcessing(false);
-      const message = err instanceof Error ? err.message : "Transfer failed";
+      const message = toUserFacingError(err, "Transfer failed");
       setError(message);
       toast({ title: "Transfer failed", description: message, variant: "destructive" });
     }

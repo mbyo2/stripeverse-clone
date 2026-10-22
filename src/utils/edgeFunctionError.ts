@@ -13,6 +13,16 @@
 // This helper reads the body when one is available and otherwise
 // falls back to the error's own message, then to the caller's
 // fallback. It never throws.
+//
+// Whatever it extracts is passed through toUserFacingError before it
+// reaches the caller: the body's message can itself be raw system
+// text (an RPC's Postgres wording, e.g. "permission denied for
+// function ..."), and per the CEO's error-presentation rule
+// (2026-10-22) raw system text must never be what the user sees.
+// Crafted server messages pass through unchanged; technical text is
+// replaced with crafted plain language or the caller's fallback.
+
+import { toUserFacingError } from "./userFacingError";
 
 interface InvokeErrorLike {
   message?: string;
@@ -49,15 +59,17 @@ export async function resolveEdgeFunctionError(
   if (error && typeof error === "object") {
     const invokeError = error as InvokeErrorLike;
     const fromBody = await messageFromContext(invokeError.context);
-    if (fromBody) return fromBody;
+    if (fromBody) return toUserFacingError(fromBody, fallback);
     if (
       typeof invokeError.message === "string" &&
       invokeError.message.trim() &&
       invokeError.message !== GENERIC_INVOKE_MESSAGE
     ) {
-      return invokeError.message;
+      return toUserFacingError(invokeError.message, fallback);
     }
   }
-  if (error instanceof Error && error.message.trim()) return error.message;
+  if (error instanceof Error && error.message.trim()) {
+    return toUserFacingError(error, fallback);
+  }
   return fallback;
 }

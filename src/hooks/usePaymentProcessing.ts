@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -189,7 +190,7 @@ export const usePaymentProcessing = () => {
 
       return data;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Payment processing failed';
+      const errorMessage = toUserFacingError(error, 'Payment processing failed. Please try again.');
       
       console.error('Payment processing error:', error);
       

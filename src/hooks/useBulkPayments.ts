@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeZambianPhone } from '@/utils/phoneNumber';
@@ -69,7 +70,7 @@ export const useCreateBulkPayment = () => {
       return batch;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['bulk-payments'] }); toast.success('Bulk payment created'); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -177,7 +178,7 @@ export const useProcessBulkPayment = () => {
           }).eq('id', item.id);
           completed++;
         } catch (e) {
-          const message = e instanceof Error ? e.message : 'Processing failed';
+          const message = toUserFacingError(e, 'Processing failed');
           await supabase.from('bulk_payment_items').update({
             status: 'failed',
             error_message: message,
@@ -203,6 +204,6 @@ export const useProcessBulkPayment = () => {
       if (r.failed === 0) toast.success(`Bulk payment complete: ${r.completed} recipients paid`);
       else toast.warning(`Processed ${r.completed}/${r.total} — ${r.failed} failed`);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };

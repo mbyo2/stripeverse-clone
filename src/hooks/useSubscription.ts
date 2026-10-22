@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -117,7 +118,7 @@ export const useSubscription = () => {
     onError: (error: any) => {
       toast({
         title: "Checkout Failed",
-        description: error.message || "Failed to create checkout session",
+        description: toUserFacingError(error, "Failed to create checkout session"),
         variant: "destructive",
       });
     },
@@ -139,7 +140,7 @@ export const useSubscription = () => {
     onError: (error: any) => {
       toast({
         title: "Portal Access Failed",
-        description: error.message || "Failed to open customer portal",
+        description: toUserFacingError(error, "Failed to open customer portal"),
         variant: "destructive",
       });
     },

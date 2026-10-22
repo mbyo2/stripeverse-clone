@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -61,7 +62,7 @@ export const usePaymentRequests = () => {
       toast({ title: 'Payment request created', description: 'Share the link with your recipient.' });
     },
     onError: (error: any) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: 'Error', description: toUserFacingError(error), variant: 'destructive' });
     },
   });
 

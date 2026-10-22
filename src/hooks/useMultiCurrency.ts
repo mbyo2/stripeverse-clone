@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,7 +53,7 @@ export const useCreateWallet = () => {
       return data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['multi-wallets'] }); toast.success('Wallet created'); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -115,7 +116,7 @@ export const useConvertCurrency = () => {
           : 'Currency converted successfully',
       );
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 

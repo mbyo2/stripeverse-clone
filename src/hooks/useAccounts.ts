@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,7 +64,7 @@ export const useCreateSubAccount = () => {
       return row;
     },
     onSuccess: () => { invalidateAccountMoney(qc); toast.success('Sub-account created'); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -82,7 +83,7 @@ export const useRenameSubAccount = () => {
       qc.refetchQueries({ queryKey: ['accounts'], type: 'active' });
       toast.success('Account renamed');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -101,7 +102,7 @@ export const useSetSubAccountStatus = () => {
       qc.refetchQueries({ queryKey: ['accounts'], type: 'active' });
       toast.success(status === 'frozen' ? 'Account frozen' : 'Account unfrozen');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -115,7 +116,7 @@ export const useCloseSubAccount = () => {
       if (error) throw error;
     },
     onSuccess: () => { invalidateAccountMoney(qc); toast.success('Account closed'); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -164,6 +165,6 @@ export const useInternalTransfer = () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       toast.success('Transfer complete');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };

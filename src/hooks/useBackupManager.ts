@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -105,7 +106,7 @@ export const useBackupManager = () => {
     onError: (error) => {
       toast({
         title: "Backup Failed",
-        description: error instanceof Error ? error.message : "Failed to create backup",
+        description: toUserFacingError(error, "Failed to create backup"),
         variant: "destructive"
       });
       setIsCreatingBackup(false);
@@ -139,7 +140,7 @@ export const useBackupManager = () => {
     onError: (error) => {
       toast({
         title: "Restore Failed",
-        description: error instanceof Error ? error.message : "Failed to restore backup",
+        description: toUserFacingError(error, "Failed to restore backup"),
         variant: "destructive"
       });
     }

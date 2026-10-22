@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Shield,
@@ -119,7 +120,7 @@ const BusinessCompliance = () => {
     } catch (error: any) {
       toast({
         title: 'Upload failed',
-        description: error.message || 'An error occurred during upload.',
+        description: toUserFacingError(error, 'An error occurred during upload.'),
         variant: 'destructive',
       });
     } finally {

@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -166,7 +167,7 @@ const PublicCheckout = () => {
     } catch (err: any) {
       // NEVER fake a successful payment. Show the error and let the user retry.
       console.error('PublicCheckout payment failed:', err);
-      setPayErrorMsg(err?.message || 'Payment could not be processed. No money was charged.');
+      setPayErrorMsg(toUserFacingError(err, 'Payment could not be processed. No money was charged.'));
       toast({ title: 'Payment failed', description: 'No money was charged. Please try again.', variant: 'destructive' });
     } finally {
       setProcessing(false);

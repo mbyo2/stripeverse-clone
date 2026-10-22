@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -131,7 +132,7 @@ export const useBnpl = () => {
       queryClient.invalidateQueries({ queryKey: ['bnpl-autodebits'] });
       toast.success('Installment paid');
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(toUserFacingError(err)),
   });
 
   /** Enable auto-debit: creates a scheduled payment the runner collects. */
@@ -163,7 +164,7 @@ export const useBnpl = () => {
       queryClient.invalidateQueries({ queryKey: ['bnpl-autodebits'] });
       toast.success('Auto-debit enabled — installments will be collected automatically');
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(toUserFacingError(err)),
   });
 
   /** Disable auto-debit: pauses the linked scheduled payment. */
@@ -181,7 +182,7 @@ export const useBnpl = () => {
       queryClient.invalidateQueries({ queryKey: ['bnpl-autodebits'] });
       toast.success('Auto-debit disabled');
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(toUserFacingError(err)),
   });
 
   return {

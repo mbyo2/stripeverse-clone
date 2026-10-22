@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -59,7 +60,7 @@ const UpdatePassword = () => {
     } catch (error: any) {
       toast({
         title: "Password update failed",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
     } finally {

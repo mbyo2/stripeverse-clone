@@ -127,7 +127,7 @@ const TierFeatureMatrix = () => {
   if (error) {
     return (
       <div className="space-y-8">
-        <div className="text-center text-red-500">Error loading features: {error.message}</div>
+        <div className="text-center text-red-500">We couldn't load the plan features right now. Please try again later.</div>
       </div>
     );
   }

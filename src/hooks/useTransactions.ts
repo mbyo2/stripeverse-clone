@@ -25,7 +25,7 @@ export interface Transaction {
 export const useTransactions = (limit?: number, walletIds?: string[]) => {
   const { user } = useAuth();
 
-  const { data: transactions = [], isLoading, error } = useQuery({
+  const { data: transactions = [], isLoading, error, refetch } = useQuery({
     queryKey: ['transactions', user?.id, limit, walletIds],
     queryFn: async (): Promise<Transaction[]> => {
       if (!user?.id) throw new Error('User not authenticated');
@@ -75,5 +75,6 @@ export const useTransactions = (limit?: number, walletIds?: string[]) => {
     recentTransactions,
     isLoading,
     error,
+    refetch,
   };
 };

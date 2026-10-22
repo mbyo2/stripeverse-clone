@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,7 +31,7 @@ export const LinkedAddressList = ({ refreshKey }: { refreshKey?: number }) => {
       .select("id, chain_id, address, label, is_primary, verified_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    if (error) toast.error(error.message);
+    if (error) toast.error(toUserFacingError(error));
     else setWallets(data ?? []);
     setLoading(false);
   };
@@ -42,7 +43,7 @@ export const LinkedAddressList = ({ refreshKey }: { refreshKey?: number }) => {
 
   const remove = async (id: string) => {
     const { error } = await supabase.from("vendor_crypto_wallets").delete().eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(toUserFacingError(error));
     else {
       toast.success("Removed");
       load();
@@ -53,7 +54,7 @@ export const LinkedAddressList = ({ refreshKey }: { refreshKey?: number }) => {
     if (!user) return;
     await supabase.from("vendor_crypto_wallets").update({ is_primary: false }).eq("user_id", user.id);
     const { error } = await supabase.from("vendor_crypto_wallets").update({ is_primary: true }).eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(toUserFacingError(error));
     else {
       toast.success("Primary updated");
       load();

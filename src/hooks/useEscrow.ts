@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -92,7 +93,7 @@ export const useEscrow = () => {
       toast.success('Escrow created and funded');
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   // Release: buyer confirms → seller is credited via escrow-settle
@@ -108,7 +109,7 @@ export const useEscrow = () => {
       toast.success('Funds released to seller');
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   // Cancel/refund: buyer cancels → buyer is refunded via escrow-settle
@@ -124,7 +125,7 @@ export const useEscrow = () => {
       toast.success('Escrow cancelled — funds refunded');
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   // Dispute: either party flags for review (funds stay held)
@@ -140,7 +141,7 @@ export const useEscrow = () => {
       toast.success('Escrow marked as disputed — funds remain held');
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   return { escrows, createEscrow, releaseEscrow, cancelEscrow, disputeEscrow };

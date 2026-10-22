@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
@@ -224,7 +225,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       toast({
         title: "Sign in failed",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
     } finally {
@@ -262,7 +263,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       toast({
         title: "Registration failed",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
     } finally {
@@ -295,7 +296,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       toast({
         title: "Sign out failed",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
     } finally {
@@ -322,7 +323,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       toast({
         title: "Password reset failed",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
     } finally {
@@ -344,7 +345,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       toast({
         title: "Password update failed",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
     } finally {
@@ -372,7 +373,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       toast({
         title: "Failed to send verification email",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
     } finally {
@@ -392,7 +393,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       toast({
         title: "2FA setup failed",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
       throw error;
@@ -411,7 +412,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       toast({
         title: "2FA verification failed",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
       return false;
@@ -437,7 +438,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       toast({
         title: "Failed to disable 2FA",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
     }
@@ -456,7 +457,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       toast({
         title: "Failed to extend session",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
     }

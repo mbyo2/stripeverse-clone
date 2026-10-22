@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,7 +56,7 @@ export const useCardTokens = () => {
       throw new Error('Card storage is disabled until a PCI-compliant vault is connected');
     },
     onError: (error: any) => {
-      toast({ title: 'Card storage disabled', description: error.message, variant: 'destructive' });
+      toast({ title: 'Card storage disabled', description: toUserFacingError(error), variant: 'destructive' });
     },
   });
 

@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,7 +54,7 @@ export const useWallet = (accountId?: string | null) => {
   const scoped = accountId !== undefined;
 
   // Fetch wallet data with proper error handling
-  const { data: wallet, isLoading: walletLoading, error: walletError } = useQuery({
+  const { data: wallet, isLoading: walletLoading, error: walletError, refetch: refetchWallet } = useQuery({
     queryKey: scoped ? ['wallet', user?.id, accountId ?? 'main'] : ['wallet', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
@@ -136,7 +137,7 @@ export const useWallet = (accountId?: string | null) => {
       console.error('Create virtual card error:', error);
       toast({
         title: "Failed to Create Card",
-        description: error.message || "An unknown error occurred",
+        description: toUserFacingError(error, "An unknown error occurred"),
         variant: "destructive",
       });
     },
@@ -166,7 +167,7 @@ export const useWallet = (accountId?: string | null) => {
       console.error('Fund virtual card error:', error);
       toast({
         title: "Failed to Fund Card",
-        description: error.message || "An unknown error occurred",
+        description: toUserFacingError(error, "An unknown error occurred"),
         variant: "destructive",
       });
     },
@@ -269,7 +270,7 @@ export const useWallet = (accountId?: string | null) => {
       console.error('Deposit error:', error);
       toast({
         title: "Failed to Process Deposit",
-        description: error.message || "An unknown error occurred",
+        description: toUserFacingError(error, "An unknown error occurred"),
         variant: "destructive",
       });
     },
@@ -280,6 +281,7 @@ export const useWallet = (accountId?: string | null) => {
     virtualCards,
     isLoading: walletLoading || cardsLoading,
     walletError,
+    refetchWallet,
     createVirtualCard: createVirtualCardMutation.mutate,
     fundVirtualCard: fundVirtualCardMutation.mutate,
     deposit: depositMutation.mutate,

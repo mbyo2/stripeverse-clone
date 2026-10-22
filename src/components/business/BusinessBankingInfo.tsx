@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -113,7 +114,7 @@ export function BusinessBankingInfo({ onSave, initialValues, isLoading: external
       setTimeout(() => setSaved(false), 3000);
       toast({ title: "Banking information saved", description: "Your settlement bank account has been updated." });
     } catch (error: any) {
-      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+      toast({ title: "Save failed", description: toUserFacingError(error), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }

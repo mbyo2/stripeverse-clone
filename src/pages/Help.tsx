@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,7 +63,7 @@ const Help = () => {
       toast({ title: "Message Sent", description: "We'll get back to you within 24 hours." });
       setContactForm({ name: '', email: '', subject: '', message: '' });
     } catch (error: any) {
-      toast({ title: "Failed to send", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to send", description: toUserFacingError(error), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }

@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -123,7 +124,7 @@ const Checkout = () => {
         (data.error as string) || "PayPal could not start this payment. No money was charged.",
       );
     } catch (e) {
-      setPaypalError(e instanceof Error ? e.message : "PayPal could not start this payment.");
+      setPaypalError(toUserFacingError(e, "PayPal could not start this payment."));
     } finally {
       setStartingPaypal(false);
     }

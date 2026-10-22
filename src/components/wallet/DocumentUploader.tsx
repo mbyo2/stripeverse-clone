@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState } from "react";
 import { Upload, X, Check, Loader2 } from "lucide-react";
@@ -110,7 +111,7 @@ export function DocumentUploader({ userId, documentType, onUploadComplete, exist
       console.error("Error uploading document:", error);
       toast({
         title: "Upload failed",
-        description: error.message || "An error occurred during upload",
+        description: toUserFacingError(error, "An error occurred during upload"),
         variant: "destructive"
       });
     } finally {

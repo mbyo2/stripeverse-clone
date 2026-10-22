@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -82,7 +83,7 @@ const TwoFactorAuth = () => {
     } catch (error: any) {
       toast({
         title: "Error fetching 2FA status",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive"
       });
       setTwoFactorState(prev => ({ ...prev, isLoading: false }));
@@ -116,7 +117,7 @@ const TwoFactorAuth = () => {
     } catch (error: any) {
       toast({
         title: "Error generating 2FA secret",
-        description: error.message || "Failed to generate 2FA secret",
+        description: toUserFacingError(error, "Failed to generate 2FA secret"),
         variant: "destructive"
       });
       setTwoFactorState(prev => ({ ...prev, isLoading: false }));
@@ -176,7 +177,7 @@ const TwoFactorAuth = () => {
     } catch (error: any) {
       toast({
         title: "Verification failed",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive"
       });
       setTwoFactorState(prev => ({ ...prev, isVerifying: false }));
@@ -211,7 +212,7 @@ const TwoFactorAuth = () => {
     } catch (error: any) {
       toast({
         title: "Error disabling 2FA",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive"
       });
       setTwoFactorState(prev => ({ ...prev, isLoading: false }));

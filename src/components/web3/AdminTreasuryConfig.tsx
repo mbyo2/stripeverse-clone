@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +34,7 @@ export const AdminTreasuryConfig = () => {
       .from("crypto_treasury_config")
       .select("id, chain_id, safe_address, label, active")
       .order("chain_id");
-    if (error) toast.error(error.message);
+    if (error) toast.error(toUserFacingError(error));
     else setRows((data as Row[]) ?? []);
     setLoading(false);
   };
@@ -56,7 +57,7 @@ export const AdminTreasuryConfig = () => {
       { onConflict: "chain_id" }
     );
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(toUserFacingError(error));
     toast.success("Treasury saved");
     setSafeAddress("");
     setLabel("");
@@ -68,13 +69,13 @@ export const AdminTreasuryConfig = () => {
       .from("crypto_treasury_config")
       .update({ active: !r.active })
       .eq("id", r.id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(toUserFacingError(error));
     else load();
   };
 
   const remove = async (id: string) => {
     const { error } = await supabase.from("crypto_treasury_config").delete().eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(toUserFacingError(error));
     else { toast.success("Removed"); load(); }
   };
 

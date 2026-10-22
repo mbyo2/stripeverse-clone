@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -84,7 +85,7 @@ export const useWalletReconciliation = () => {
     onError: (error: any) => {
       toast({
         title: "Reconciliation Failed",
-        description: error.message || "Failed to reconcile wallet balance",
+        description: toUserFacingError(error, "Failed to reconcile wallet balance"),
         variant: "destructive",
       });
     },
@@ -120,7 +121,7 @@ export const useWalletReconciliation = () => {
     onError: (error: any) => {
       toast({
         title: "Balance Correction Failed",
-        description: error.message || "Failed to correct wallet balance",
+        description: toUserFacingError(error, "Failed to correct wallet balance"),
         variant: "destructive",
       });
     },

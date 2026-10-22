@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -24,7 +25,7 @@ export const useFraudRules = () => {
       return data;
     },
     onSuccess: () => { toast.success('Fraud rule created'); queryClient.invalidateQueries({ queryKey: ['fraud-rules'] }); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const toggleRule = useMutation({

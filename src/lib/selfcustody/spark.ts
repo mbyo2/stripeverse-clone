@@ -30,6 +30,7 @@
  * SparkNotEnabledError — the UI explains this plainly. Nothing in this
  * module simulates a payment.
  */
+import { toUserFacingError } from "@/utils/userFacingError";
 import type {
   BreezSdk,
   DepositInfo,
@@ -914,7 +915,7 @@ export function unclaimedDepositStatus(
         ? "This deposit is too small to claim — the network fee would cost more than it is worth."
         : error.type === "missingUtxo"
           ? "The deposit output could not be found on-chain."
-          : error.message;
+          : toUserFacingError(error, "That deposit couldn't be claimed. Please try again.");
     return { status: "claimFailed", requiredFeeSats: null, claimErrorMessage: message };
   }
   if (!deposit.isMature) {

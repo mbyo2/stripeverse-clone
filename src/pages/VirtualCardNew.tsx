@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -99,10 +100,10 @@ const VirtualCardNew = () => {
       navigate(`/card/${cardId}`);
     } catch (err: any) {
       console.error('Create virtual card error:', err);
-      setError(err.message || 'Failed to create virtual card. Please try again.');
+      setError(toUserFacingError(err, 'Failed to create virtual card. Please try again.'));
       toast({
         title: "Failed to Create Card",
-        description: err.message || 'An unknown error occurred',
+        description: toUserFacingError(err, 'An unknown error occurred'),
         variant: "destructive",
       });
     } finally {

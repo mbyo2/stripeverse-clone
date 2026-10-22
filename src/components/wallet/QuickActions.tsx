@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
   CreditCard, 
@@ -31,7 +32,7 @@ const QuickActions = () => {
       label: "QR Pay",
       description: "Scan & pay",
       onClick: () => {
-        alert("QR payment feature coming soon");
+        toast("QR payment feature coming soon");
       },
     },
     {

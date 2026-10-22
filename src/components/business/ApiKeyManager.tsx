@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useCallback, useEffect, useState } from "react";
 import { CopyIcon, RefreshCwIcon, TrashIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,7 @@ export function ApiKeyManager() {
     if (error) {
       toast({
         title: "Failed to load API keys",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
     } else {

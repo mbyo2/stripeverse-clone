@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -232,7 +233,7 @@ const QrPayments = () => {
       setPayDone(true);
       toast({ title: 'Payment sent', description: `You paid ZMW ${amt.toFixed(2)} by QR code.` });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Payment failed';
+      const message = toUserFacingError(err, 'Payment failed');
       setPayError(message);
       toast({ title: 'Payment failed', description: message, variant: 'destructive' });
     } finally {
@@ -248,6 +249,7 @@ const QrPayments = () => {
     { id: number; from: string; amount: number; currency: string; time: string; type: 'received' | 'paid' }[]
   >([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState(false);
 
   // Real QR payment history: the signed-in user's own transactions whose
   // payment method or category marks them as QR payments.
@@ -263,6 +265,9 @@ const QrPayments = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
+      if (error) {
+        setHistoryError(true);
+      }
       if (!error && data) {
         const qrRows = data.filter(t =>
           (t.payment_method || '').toLowerCase().includes('qr') ||
@@ -554,6 +559,10 @@ const QrPayments = () => {
               <CardContent>
                 {historyLoading ? (
                   <p className="text-sm text-muted-foreground text-center py-6">Loading history…</p>
+                ) : historyError ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    We couldn't load your QR payment history. Check your connection and reload the page to try again.
+                  </p>
                 ) : recentQrPayments.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">
                     No QR payments yet — payments you make or receive by QR code will appear here.
