@@ -5,11 +5,13 @@
 // function on top of the reserve/refund/complete RPCs
 // (supabase/migrations/20261024_paypal_withdrawals.sql): the RPC
 // computes the fee from platform_settings.paypal_payout_fee_percent,
-// enforces the provenance guardrail (you can withdraw to PayPal at
-// most what PayPal paid into your wallets), and enforces the
-// min/daily limits. This module exists so the Wallet page can
-// preview the exact same arithmetic and copy — the server never
-// trusts the preview: it recomputes everything itself.
+// enforces the provenance rule (you can withdraw to PayPal at most
+// the PayPal-sourced portion of your balance — the mark follows the
+// money when it's sent between users; the counter lives in
+// paypal_provenance_balances, 20261028) and the limits. This module
+// exists so the Wallet page can preview the exact same arithmetic
+// and copy — the server never trusts the preview: it recomputes
+// everything itself.
 //
 // The currency list and limits here MUST stay identical to
 // supabase/functions/_shared/paypal-payout.ts (the vitest suite
@@ -84,5 +86,8 @@ export const ZMW_PAYOUT_MESSAGE =
  * money goes in: how funds that arrive via PayPal can leave again.
  */
 export const PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE =
-  "How withdrawals work: money you deposit here can be withdrawn back to PayPal from a USD wallet " +
-  "(PayPal doesn't pay out in ZMW). Mobile money withdrawals are coming soon — they aren't live yet.";
+  "How withdrawals work: money that arrives via PayPal can be withdrawn back to PayPal — and it " +
+  "keeps that right when it's sent between BMaGlass users, so whoever holds it can withdraw it " +
+  "(from a USD wallet — PayPal doesn't pay out in ZMW). Money that arrived another way can be " +
+  "withdrawn once other payout methods are live. Mobile money withdrawals are coming soon — " +
+  "they aren't live yet.";

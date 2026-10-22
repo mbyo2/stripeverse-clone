@@ -8,14 +8,15 @@
 //      (refund happens on failure states only, terminal states
 //      never move — the exactly-once property), POST-failure
 //      classification, and the provenance cap arithmetic.
-//   2. The provenance guardrail at the level this repo can prove
-//      without a live database: the reserve RPC's SQL counts the
-//      right ledger rows (completed PayPal wallet deposits +
-//      checkout payments), subtracts the user's non-failed
-//      withdrawals (failed/refunded do NOT subtract), and refuses
-//      over-cap BEFORE any insert or debit — pinned by source
-//      order in the migration, the same readFileSync approach as
-//      tests/payments/sendMoneyFee.test.ts.
+//   2. The provenance rule at the level this repo can prove
+//      without a live database: since 20261028 the mark FOLLOWS THE
+//      MONEY — the reserve RPC reads the paypal_provenance_balances
+//      counter (locked) as the cap, refuses over-cap BEFORE any
+//      insert or debit, and decrements the counter by the payout
+//      amount only. Pinned by source order in the migration, the
+//      same readFileSync approach as
+//      tests/payments/sendMoneyFee.test.ts (hook-by-hook pins for
+//      every money path live in paypalProvenance.test.ts).
 //   3. Client mirror parity (src/utils/paypalPayout.ts) and the
 //      webhook / UI wiring, pinned at source level.
 
@@ -56,6 +57,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => fs.readFileSync(path.resolve(here, rel), "utf8");
 
 const migration = read("../../supabase/migrations/20261024_paypal_withdrawals.sql");
+const provenanceMigration = read(
+  "../../supabase/migrations/20261028_paypal_provenance_follows.sql",
+);
 const payoutFn = read("../../supabase/functions/paypal-payout/index.ts");
 const webhookFn = read("../../supabase/functions/paypal-webhook/index.ts");
 const walletPage = read("../../src/pages/Wallet.tsx");
@@ -222,28 +226,33 @@ describe("synchronous POST failure classification", () => {
   });
 });
 
-describe("provenance cap (the guardrail arithmetic)", () => {
-  it("available = completed PayPal credits minus active withdrawals", () => {
-    expect(provenanceAvailable(100, 30)).toBe(70);
-    expect(provenanceAvailable(100, 100)).toBe(0);
-    expect(provenanceAvailable(0, 0)).toBe(0);
+describe("provenance cap (the counter arithmetic)", () => {
+  it("available = the marked (PayPal-sourced) portion of the balance", () => {
+    // The counter already nets out reserves and payouts (reserve
+    // decrements, refund restores) — availability IS its value.
+    expect(provenanceAvailable(70)).toBe(70);
+    expect(provenanceAvailable(70.5)).toBe(70.5);
+    expect(provenanceAvailable(0)).toBe(0);
   });
 
-  it("never goes negative when withdrawals exceed the credit sum", () => {
-    expect(provenanceAvailable(50, 80)).toBe(0);
+  it("never goes negative and tolerates garbage input", () => {
+    expect(provenanceAvailable(-5)).toBe(0);
+    expect(provenanceAvailable(Number.NaN)).toBe(0);
   });
 
   it("allows a withdrawal up to the cap and refuses one cent over", () => {
-    expect(planProvenance(70, 100, 30)).toEqual({ ok: true, available: 70 });
-    expect(planProvenance(70.01, 100, 30)).toEqual({ ok: false, available: 70 });
-    expect(planProvenance(5, 0, 0)).toEqual({ ok: false, available: 0 });
+    expect(planProvenance(70, 70)).toEqual({ ok: true, available: 70 });
+    expect(planProvenance(70.01, 70)).toEqual({ ok: false, available: 70 });
+    expect(planProvenance(5, 0)).toEqual({ ok: false, available: 0 });
   });
 
   it("refusal copy states the true cap and the alternatives", () => {
     const message = provenanceRefusalMessage(70, "USD");
     expect(message).toContain("up to 70.00 USD");
-    expect(message).toContain("deposited via PayPal");
+    expect(message).toContain("how much of your balance arrived via PayPal");
     expect(message).toContain("other payout methods are live");
+    // The reversed strict-rule wording must not survive anywhere.
+    expect(message).not.toContain("that's what you've deposited");
   });
 
   it("validates recipient emails conservatively", () => {
@@ -256,48 +265,71 @@ describe("provenance cap (the guardrail arithmetic)", () => {
 });
 
 describe("provenance in the reserve RPC (source-pinned SQL)", () => {
-  it("counts completed PayPal wallet deposits AND checkout payments", () => {
-    expect(migration).toContain("t.payment_method = 'paypal'");
-    expect(migration).toContain("t.status = 'completed'");
-    expect(migration).toContain("t.direction = 'incoming'");
-    expect(migration).toContain(
-      "t.metadata ->> 'kind' IN ('wallet_deposit', 'checkout_payment')",
+  // Since 20261028 the cap is the paypal_provenance_balances
+  // counter; extract the rewritten reserve body from that migration.
+  const reserveBody = (() => {
+    const start = provenanceMigration.indexOf(
+      "CREATE OR REPLACE FUNCTION public.reserve_paypal_withdrawal(",
     );
-  });
+    const end = provenanceMigration.indexOf("\n$$;", start);
+    return provenanceMigration.slice(start, end);
+  })();
 
-  it("subtracts the user's withdrawals EXCEPT failed/refunded ones", () => {
-    // Only non-failed withdrawals count against the cap: a failed or
-    // refunded withdrawal returned its money to the wallet, so it
-    // must free its provenance again.
-    const withdrawnAt = migration.indexOf("INTO v_withdrawn");
-    const withdrawalsSum = migration.slice(
-      withdrawnAt,
-      migration.indexOf("provenance_available :=", withdrawnAt),
+  it("reads the counter (locked) as the cap — no ledger sums remain", () => {
+    expect(reserveBody).toContain("FROM public.paypal_provenance_balances b");
+    expect(reserveBody).toContain("FOR UPDATE");
+    expect(reserveBody).toContain(
+      "provenance_available := GREATEST(0, COALESCE(v_sourced, 0))",
     );
-    expect(withdrawalsSum).toContain("FROM public.paypal_withdrawals");
-    expect(withdrawalsSum).toContain("w.status NOT IN ('failed', 'refunded')");
-    const todayAt = migration.indexOf("INTO v_today");
-    const todaySum = migration.slice(
-      todayAt,
-      migration.indexOf("daily_remaining :=", todayAt),
-    );
-    expect(todaySum).toContain("w.status NOT IN ('failed', 'refunded')");
+    expect(reserveBody).not.toContain("v_deposits");
+    expect(reserveBody).not.toContain("metadata ->> 'kind'");
   });
 
   it("refuses over-cap BEFORE creating the row or debiting anything", () => {
-    const capCheck = migration.indexOf("outcome := 'over_provenance_cap'");
-    const insert = migration.indexOf("INSERT INTO public.paypal_withdrawals");
-    const debit = migration.indexOf("SET balance = balance - p_amount - v_fee");
+    const capCheck = reserveBody.indexOf("outcome := 'over_provenance_cap'");
+    const insert = reserveBody.indexOf("INSERT INTO public.paypal_withdrawals");
+    const debit = reserveBody.indexOf("SET balance = balance - p_amount - v_fee");
     expect(capCheck).toBeGreaterThan(-1);
     expect(capCheck).toBeLessThan(insert);
     expect(capCheck).toBeLessThan(debit);
   });
 
+  it("consumes the mark by the payout amount AFTER the debit", () => {
+    const debit = reserveBody.indexOf("SET balance = balance - p_amount - v_fee");
+    const consume = reserveBody.indexOf(
+      "SET sourced_amount = sourced_amount - p_amount",
+    );
+    expect(consume).toBeGreaterThan(debit);
+  });
+
+  it("keeps the daily limit counting non-failed withdrawals only", () => {
+    const todayAt = reserveBody.indexOf("INTO v_today");
+    const todaySum = reserveBody.slice(
+      todayAt,
+      reserveBody.indexOf("daily_remaining :=", todayAt),
+    );
+    expect(todaySum).toContain("FROM public.paypal_withdrawals");
+    expect(todaySum).toContain("w.status NOT IN ('failed', 'refunded')");
+  });
+
   it("enforces the shared limits in SQL too", () => {
-    expect(migration).toContain("p_amount < 5");
-    expect(migration).toContain("2000 - v_today");
+    expect(reserveBody).toContain("p_amount < 5");
+    expect(reserveBody).toContain("2000 - v_today");
     expect(PAYOUT_MIN_AMOUNT).toBe(5);
     expect(PAYOUT_DAILY_LIMIT).toBe(2000);
+  });
+
+  it("seeds the counter from the old computed definition", () => {
+    // The backfill counts the same rows the 20261024 cap counted:
+    // completed PayPal wallet deposits + checkout payments, minus
+    // withdrawals that are not failed/refunded.
+    const seedAt = provenanceMigration.indexOf(
+      "INSERT INTO public.paypal_provenance_balances (user_id, currency, sourced_amount)\nSELECT",
+    );
+    const seed = provenanceMigration.slice(seedAt, provenanceMigration.indexOf("ON CONFLICT", seedAt));
+    expect(seed).toContain("metadata ->> 'kind' IN ('wallet_deposit', 'checkout_payment')");
+    expect(seed).toContain("status NOT IN ('failed', 'refunded')");
+    expect(seed).toContain("GREATEST(0, COALESCE(c.credits, 0) - COALESCE(w.withdrawn, 0))");
   });
 });
 

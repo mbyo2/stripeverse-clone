@@ -60,8 +60,11 @@ async function functionErrorMessage(error: any, data: any): Promise<string> {
  * deposits. The form previews the fee and total; the server
  * (paypal-payout → reserve_paypal_withdrawal) recomputes
  * everything, enforces the provenance cap (you can withdraw to
- * PayPal at most what you've deposited via PayPal) and the limits,
- * and its refusal copy is shown verbatim.
+ * PayPal at most the PayPal-sourced portion of your balance — the
+ * mark follows the money when it's sent between users) and the
+ * limits, and its refusal copy is shown verbatim. The available
+ * figure below is an owner-read of that same counter
+ * (paypal_provenance_balances, RLS owner SELECT).
  */
 const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
   const { user } = useAuth();
@@ -94,8 +97,29 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
     },
   });
 
+  // How much of this wallet's currency balance arrived via PayPal
+  // and can therefore leave via PayPal — an owner-read of the
+  // provenance counter the reserve RPC enforces (RLS: own rows
+  // only). The table is not in the generated types yet, hence the
+  // untyped client, the same pattern other untyped tables use.
+  const provenanceQuery = useQuery({
+    queryKey: ["paypal-provenance", user?.id, currency],
+    enabled: !!user?.id && supported,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("paypal_provenance_balances")
+        .select("sourced_amount")
+        .eq("user_id", user!.id)
+        .eq("currency", currency)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? Number(data.sourced_amount) : 0;
+    },
+  });
+
   const refreshHistory = () => {
     queryClient.invalidateQueries({ queryKey: ["paypal-withdrawals"] });
+    queryClient.invalidateQueries({ queryKey: ["paypal-provenance"] });
     // A created/refunded withdrawal changes the wallet balance and
     // the activity list too — refresh all money state, not just the
     // wallet root.
@@ -210,8 +234,9 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
           className="h-12 rounded-lg"
         />
         <p className="text-xs text-muted-foreground">
-          The payout is sent to this PayPal account. You can withdraw up to what you've
-          deposited via PayPal.
+          The payout is sent to this PayPal account. You can withdraw up to the part of
+          your balance that arrived via PayPal — it keeps that right when it's sent
+          between users.
         </p>
       </div>
       <div className="space-y-2">
@@ -231,6 +256,11 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
           Minimum {PAYOUT_MIN_AMOUNT.toFixed(2)} {currency} · Daily limit{" "}
           {PAYOUT_DAILY_LIMIT.toLocaleString()}.00 {currency}
         </p>
+        {provenanceQuery.data !== undefined && (
+          <p className="text-xs text-muted-foreground text-center">
+            Available to withdraw to PayPal: {provenanceQuery.data.toFixed(2)} {currency}
+          </p>
+        )}
       </div>
       {parsedAmount > 0 && (
         <div className="rounded-lg bg-muted/50 p-3 space-y-1 text-sm">

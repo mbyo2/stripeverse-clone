@@ -7,9 +7,10 @@
 //   - RESERVE FIRST: the balance is debited inside
 //     reserve_paypal_withdrawal (service_role, row-locked,
 //     idempotent) BEFORE anything is sent to PayPal. The same RPC
-//     enforces the provenance guardrail (a user may withdraw to
-//     PayPal at most what PayPal paid into their wallets — see the
-//     20261024 migration), the min/daily limits, and the fee.
+//     enforces the provenance rule (a user may withdraw to PayPal
+//     at most the PayPal-sourced portion of their balance — the
+//     mark follows the money between users; see the 20261028
+//     migration), the min/daily limits, and the fee.
 //   - PENDING MEANS PENDING: an accepted payout is 'processing'
 //     until PayPal reports the item SUCCEEDED. Nothing here ever
 //     answers success early.
