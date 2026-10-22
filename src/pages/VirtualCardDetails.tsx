@@ -33,6 +33,8 @@ import { Label } from "@/components/ui/label";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useRoles } from "@/contexts/RoleContext";
+import VirtualCardsComingSoon from "@/components/VirtualCardsComingSoon";
 // In a real app, this would fetch from API
 const fetchVirtualCard = async (cardId: string) => {
   const { data: row, error } = await supabase
@@ -87,6 +89,7 @@ const VirtualCardDetails = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { hasRole, isLoading: rolesLoading } = useRoles();
   const [showCardDetails, setShowCardDetails] = useState(false);
   const [fundAmount, setFundAmount] = useState<string>("50");
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
@@ -299,6 +302,35 @@ const VirtualCardDetails = () => {
       updateCardSettingsMutation.mutate(updatedSettings);
     }
   };
+
+  // Virtual cards are "Coming soon" for the public (CEO decision,
+  // 2026-10-22): card details and every card action on this page stay
+  // admin-only until the Mastercard integration is built and tested.
+  if (rolesLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!hasRole("admin")) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+          <VirtualCardsComingSoon />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

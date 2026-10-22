@@ -1802,14 +1802,17 @@ export type Database = {
       platform_settings: {
         Row: {
           id: boolean
+          send_money_fee_percent: number
           split_platform_fee_percent: number
         }
         Insert: {
           id?: boolean
+          send_money_fee_percent?: number
           split_platform_fee_percent?: number
         }
         Update: {
           id?: boolean
+          send_money_fee_percent?: number
           split_platform_fee_percent?: number
         }
         Relationships: []

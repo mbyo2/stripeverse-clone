@@ -37,6 +37,28 @@ serve(async (req) => {
     if (!user?.id) throw new Error("User not authenticated");
     logStep("User authenticated", { userId: user.id });
 
+    // Virtual cards are "Coming soon" for the public (CEO decision,
+    // 2026-10-22): card creation stays admin-only until the Mastercard
+    // developer-platform integration is built and tested. The pages
+    // show a Coming Soon panel to everyone else; this is the same
+    // rule enforced server-side so the function cannot be invoked
+    // directly to bypass it.
+    const { data: adminRole } = await supabaseClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!adminRole) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Virtual cards are coming soon — they're not available yet.",
+        }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const requestBody = await req.json();
     
     // Validate input using schema

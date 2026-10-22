@@ -12,12 +12,15 @@ import { formatCurrency } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreditCard, WalletCards } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
+import { useRoles } from "@/contexts/RoleContext";
+import VirtualCardsComingSoon from "@/components/VirtualCardsComingSoon";
 import { supabase } from "@/integrations/supabase/client";
 
 const VirtualCardNew = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { wallet } = useWallet();
+  const { hasRole, isLoading: rolesLoading } = useRoles();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -106,6 +109,38 @@ const VirtualCardNew = () => {
       setLoading(false);
     }
   };
+
+  // Virtual cards are "Coming soon" for the public (CEO decision,
+  // 2026-10-22) until the Mastercard integration is built and tested:
+  // only admins reach the creation form. The create-virtual-card edge
+  // function enforces the same rule server-side.
+  if (rolesLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  if (!hasRole("admin")) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold">Virtual Cards</h1>
+          </div>
+          <VirtualCardsComingSoon />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
