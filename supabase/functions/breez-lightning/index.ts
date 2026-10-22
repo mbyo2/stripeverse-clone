@@ -44,6 +44,17 @@ const corsHeaders = {
  */
 class LightningNotConfiguredError extends Error {}
 
+/**
+ * Thrown when the Lightning provider cannot be reached or answers with
+ * an error. The Breez server API this function was built against does
+ * not exist (its host does not resolve), so EVERY upstream call fails
+ * this way today. Mapped in the top-level catch to a plain-language
+ * 503 refusal — the raw fetch/DNS error must never reach the user
+ * (proven live 2026-10-22: create_invoice returned the verbatim DNS
+ * failure text and the wallet UI showed the user nothing useful).
+ */
+class LightningUpstreamError extends Error {}
+
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
@@ -63,6 +74,13 @@ const LIGHTNING_DEPOSITS_NOT_CONFIGURED =
   "Lightning deposits are not available yet — Lightning is not configured on this deployment.";
 const LIGHTNING_PAYMENTS_NOT_CONFIGURED =
   "Lightning payments are not available yet — Lightning is not configured on this deployment.";
+// Upstream-unreachable refusals: truthful and plain. Lightning deposits
+// and payments are not available on the custodial wallet yet (Lightning
+// lives in the self-custody Spark wallet); on-chain Bitcoin works.
+const LIGHTNING_DEPOSITS_UNAVAILABLE =
+  "Lightning deposits are not available yet — please use an on-chain Bitcoin deposit for now.";
+const LIGHTNING_PAYMENTS_UNAVAILABLE =
+  "Lightning payments are not available yet — please use an on-chain Bitcoin payment for now.";
 
 // Returns the designed 503 refusal while the key is absent, else null.
 function lightningKeyGate(refusal: string): Response | null {
@@ -88,18 +106,28 @@ function thrownMessage(e: unknown, fallback: string): string {
 async function breezFetch(path: string, method: string, body?: unknown) {
   const apiKey = Deno.env.get("BREEZ_API_KEY");
   if (!apiKey) throw new LightningNotConfiguredError("BREEZ_API_KEY not configured");
-  const res = await fetch(`${BREEZ_API}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-KEY": apiKey,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(30_000),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BREEZ_API}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": apiKey,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (e) {
+    // Network/DNS/timeout: the provider could not be reached at all.
+    // Tag it so the top-level catch answers in plain language; the raw
+    // message stays server-side in the logs.
+    throw new LightningUpstreamError(
+      `Breez upstream unreachable: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Breez API ${res.status}: ${text.slice(0, 200)}`);
+    throw new LightningUpstreamError(`Breez API ${res.status}: ${text.slice(0, 200)}`);
   }
   return res.json();
 }
@@ -109,6 +137,7 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  let currentAction = "";
   try {
     const supabase = getSupabaseClient(req);
     // All DB work below runs through the dedicated service-role client:
@@ -125,6 +154,7 @@ serve(async (req) => {
     }
 
     const { action, amount_sats, description, bolt11, breez_invoice_id } = await req.json();
+    currentAction = typeof action === "string" ? action : "";
 
     // ── Create inbound Lightning invoice ──
     if (action === "create_invoice") {
@@ -143,7 +173,7 @@ serve(async (req) => {
       const bolt11Invoice = invoice.bolt11 || invoice.invoice;
       const breezId = invoice.id || invoice.invoice_id;
       if (!bolt11Invoice || !breezId) {
-        throw new Error("Breez returned an incomplete invoice");
+        throw new LightningUpstreamError("Breez returned an incomplete invoice");
       }
 
       const { data: payment, error } = await admin.from("lightning_payments").insert({
@@ -329,6 +359,19 @@ serve(async (req) => {
     if (e instanceof LightningNotConfiguredError) {
       console.error("breez-lightning: BREEZ_API_KEY not configured");
       return json(503, { error: "Lightning is not available yet — it is not configured on this deployment." });
+    }
+    if (e instanceof LightningUpstreamError) {
+      // The provider could not be reached or answered with an error.
+      // Log the real cause server-side; the user gets the plain truth:
+      // Lightning is not available on the custodial wallet yet. Never
+      // leak the raw network/provider error (live-proven leak,
+      // 2026-10-22: verbatim DNS failure text reached the API caller).
+      console.error("breez-lightning: Lightning provider unavailable:", e.message);
+      return json(503, {
+        error: currentAction === "pay_invoice"
+          ? LIGHTNING_PAYMENTS_UNAVAILABLE
+          : LIGHTNING_DEPOSITS_UNAVAILABLE,
+      });
     }
     console.error("breez-lightning error:", e);
     return json(500, { error: thrownMessage(e, "Lightning operation failed") });
