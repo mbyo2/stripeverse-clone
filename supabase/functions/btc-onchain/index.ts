@@ -6,9 +6,10 @@
 //                   esplora API, record deposits, credit at 1 confirmation
 //   send            (user JWT)  → withdraw to an external mainnet address;
 //                   reserved → built → signed → broadcast → finalized,
-//                   with automatic refund ONLY when broadcast provably
-//                   fails; ambiguous broadcast outcomes leave the row
-//                   'reserved' for reconciliation (never refunded —
+//                   with automatic refund ONLY for failures BEFORE
+//                   broadcast; a broadcast that is not positively
+//                   confirmed leaves the row 'reserved' for manual
+//                   reconciliation (never auto-refunded —
 //                   see classifyBroadcastOutcome in btc-core)
 //
 // Secrets (capability-gated — see bitcoinCapabilities in btc-core):
@@ -448,15 +449,13 @@ async function send(supabase: any, userId: string, body: any) {
   }
 
   // Broadcast. The outcome is classified by the pure policy in btc-core
-  // (classifyBroadcastOutcome); only a PROVABLE failure refunds.
+  // (classifyBroadcastOutcome), which has NO refunding outcome: no
+  // network response can prove the transaction was not accepted, so
+  // anything short of positive confirmation leaves the withdrawal
+  // 'reserved' for a human refund decision (runbook §8). Automatic
+  // refunds happen only before this point, where non-broadcast is
+  // proven by construction (reserve/build failures above).
   const broadcast = await broadcastTx(built.hex, built.txid);
-  if (broadcast.outcome === "definite_failure") {
-    await supabase.rpc("btc_fail_withdrawal", {
-      p_withdrawal_id: withdrawalId,
-      p_error: broadcast.error,
-    });
-    return json(502, { error: "Broadcast failed; your balance was refunded" });
-  }
   if (broadcast.outcome === "unknown") {
     // The signed transaction MAY be on the network despite the ambiguous
     // answer. Refunding here is the one unforgivable outcome: if the tx
@@ -579,19 +578,19 @@ async function lookupTx(txid: string): Promise<boolean> {
 
 type BroadcastResult =
   | { outcome: "confirmed" }
-  | { outcome: "definite_failure"; error: string }
   | { outcome: "unknown"; detail: string };
 
 /**
  * Broadcast a signed withdrawal and classify what the network proved.
  *
- * The DECISION — above all, whether refunding is provably safe — is the
- * pure classifyBroadcastOutcome policy in btc-core; this function only
- * gathers observations: one POST /tx, then GET /tx/{txid} lookups for
- * OUR txid (never the txid a response happened to name). An UNKNOWN
- * verdict is double-checked with two more lookups a short interval
- * apart (indexing lag is seconds-scale) before it is returned — a
- * refund must never rest on a single lookup miss.
+ * The DECISION — above all, that no network observation may authorise
+ * a refund — is the pure classifyBroadcastOutcome policy in btc-core;
+ * this function only gathers observations: one POST /tx, then
+ * GET /tx/{txid} lookups for OUR txid (never the txid a response
+ * happened to name). An UNKNOWN verdict is double-checked with two
+ * more lookups a short interval apart (indexing lag is seconds-scale)
+ * before it is returned — the lookups hunt for positive confirmation;
+ * their absence proves nothing and refunds nothing.
  */
 async function broadcastTx(hex: string, expectedTxid: string): Promise<BroadcastResult> {
   let postStatus: number | null = null;
@@ -629,12 +628,6 @@ async function broadcastTx(hex: string, expectedTxid: string): Promise<Broadcast
     cls = classify(lookupFound);
   }
   if (cls.outcome === "confirmed") return { outcome: "confirmed" };
-  if (cls.outcome === "definite_failure") {
-    return {
-      outcome: "definite_failure",
-      error: `Broadcast rejected: ${postStatus} ${postBody.slice(0, 200)}`,
-    };
-  }
 
   // UNKNOWN: bounded double-check — two further lookups ~1.5s apart
   // (~3s total) — before the withdrawal is left reserved for
@@ -646,12 +639,6 @@ async function broadcastTx(hex: string, expectedTxid: string): Promise<Broadcast
   }
   cls = classify(lookupFound);
   if (cls.outcome === "confirmed") return { outcome: "confirmed" };
-  if (cls.outcome === "definite_failure") {
-    return {
-      outcome: "definite_failure",
-      error: `Broadcast rejected: ${postStatus} ${postBody.slice(0, 200)}`,
-    };
-  }
   const postDesc = postStatus === null
     ? `no response (${postError ?? "request failed"})`
     : `HTTP ${postStatus}${postTxid ? ` txid ${postTxid}` : ""}${postBody ? ` ${postBody.slice(0, 200)}` : ""}`;

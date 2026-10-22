@@ -506,7 +506,7 @@ describe("bitcoinCapabilities (per-capability gates)", () => {
   });
 });
 
-describe("classifyBroadcastOutcome (refund only on PROVABLE failure)", () => {
+describe("classifyBroadcastOutcome (no broadcast outcome may authorise a refund)", () => {
   const TXID = "aa".repeat(32);
   const OTHER_TXID = "bb".repeat(32);
   const classify = (
@@ -538,29 +538,23 @@ describe("classifyBroadcastOutcome (refund only on PROVABLE failure)", () => {
     expect(cls.outcome).toBe("confirmed");
   });
 
-  it("definite failure: 400 deterministic validation rejection + lookup miss", () => {
+  it("unknown: 400 rejections of EVERY class — no rejection authorises a refund", () => {
+    // A 400 is one endpoint's answer about its own mempool view; even
+    // structural classes (bad-txns, bad-witness, missingorspent) and
+    // policy classes (nonstandard, dust, bare 'invalid') cannot prove
+    // the signed transaction can never be accepted anywhere. The
+    // withdrawal stays reserved for a human refund decision.
     for (const postBody of [
       "bad-txns-inputs-missingorspent", // already-spent / missing inputs
       "bad-txns-vout-toolarge",
       "bad-witness-nonstandard",
-    ]) {
-      const cls = classify({ postStatus: 400, postBody, lookupFound: false });
-      expect(cls.outcome, postBody).toBe("definite_failure");
-      expect(cls.reason).toBe("validation_rejected");
-    }
-  });
-
-  it("unknown: 400 POLICY rejections (nonstandard / dust / bare 'invalid') — never refunded", () => {
-    // These are one node's mempool policy, not proof the signed
-    // transaction can never be accepted anywhere. Refunding on them
-    // could pay twice; the withdrawal stays reserved instead.
-    for (const postBody of [
       "non-standard transaction input",
       "dust output below the dust limit",
       "invalid transaction: bad sig",
     ]) {
       const cls = classify({ postStatus: 400, postBody, lookupFound: false });
       expect(cls.outcome, postBody).toBe("unknown");
+      expect(cls.reason).toBe("post_http_400");
     }
   });
 

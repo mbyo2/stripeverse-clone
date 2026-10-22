@@ -527,17 +527,22 @@ export function decodeBolt11Msat(bolt11: string): bigint | null {
  * What a withdrawal broadcast attempt PROVED about the transaction.
  *
  * The stakes are asymmetric: refunding a withdrawal whose transaction
- * actually reached the network pays the user twice (refund + BTC), so
- * "definite_failure" is reserved for the one provable case — the
- * broadcast endpoint returned a deterministic validation rejection
- * (HTTP 400 whose body names a class of error that means THIS signed
- * transaction can never be accepted) AND the network does not hold the
- * transaction. Everything else ambiguous — timeouts, network errors,
- * 5xx, unexpected-txid responses, non-deterministic rejections, lookup
- * misses after such errors — is "unknown" and must NEVER trigger a
- * refund; the withdrawal stays reserved for reconciliation.
+ * actually reached the network pays the user twice (refund + BTC).
+ * And no observation available to the broadcaster can prove a
+ * negative: an HTTP 400 rejection — even one naming a structural
+ * error class — is one endpoint's answer about its own mempool view
+ * at one moment; it cannot establish that the signed transaction can
+ * never be accepted anywhere. So there is deliberately NO
+ * "definite failure" outcome here (removed 2026-10-22 after two
+ * review rounds): a broadcast that is not positively confirmed is
+ * "unknown", the withdrawal stays 'reserved', and the refund decision
+ * is a human reconciliation step (runbook §8), never an automatic
+ * consequence of a network response. Automatic refunds remain only
+ * where non-broadcast is proven by construction — failures BEFORE
+ * broadcast (build/sign/reserve errors), which never reach this
+ * classifier.
  */
-export type BroadcastOutcome = "confirmed" | "definite_failure" | "unknown";
+export type BroadcastOutcome = "confirmed" | "unknown";
 
 export interface BroadcastObservation {
   /** HTTP status of POST /tx; null when the request itself failed (timeout / network error). */
@@ -556,36 +561,17 @@ export interface BroadcastClassification {
   reason: string;
 }
 
-// Bitcoin Core validation-error classes that mean this signed
-// transaction can never be accepted, no matter when or where it is
-// retried — STRUCTURAL / consensus classes only: the bad-txns-*
-// family (malformed transaction, empty or oversized inputs/outputs,
-// missing inputs), bad-witness-* (witness/signature violations) and
-// missingorspent (the inputs do not exist or are already spent — a
-// transaction spending spent inputs can never become valid).
-//
-// POLICY classes are deliberately NOT deterministic (reviewed
-// 2026-10-22): non-standardness and dust are one node's mempool
-// policy, not a property of the transaction — a differently
-// configured node or a miner could still accept the transaction —
-// and the bare word "invalid" appears in policy and descriptive
-// error text as well as consensus failures. Fee-policy rejections
-// ("min relay fee not met", "insufficient fee") fail the same way:
-// they describe the mempool of the moment, not the transaction.
-// All of those classify as "unknown" instead: the withdrawal stays
-// reserved for manual reconciliation rather than risking a refund
-// of a transaction that could still confirm.
-const DETERMINISTIC_REJECTION_PATTERNS: readonly RegExp[] = [
-  /bad-txns/i,
-  /bad-witness/i,
-  /missingorspent/i,
-];
-
 /**
  * Classify a broadcast attempt from everything the caller observed.
  * Pure: the network calls live in the edge function; the DECISION —
- * above all, whether a refund is provably safe — lives here, so the
- * whole outcome matrix is unit-testable (tests/bitcoin/).
+ * above all, that nothing here may authorise a refund — lives here,
+ * so the whole outcome matrix is unit-testable (tests/bitcoin/).
+ *
+ * Only two outcomes exist. "confirmed" requires positive evidence:
+ * the network holds our exact txid, or the POST's 2xx answer named
+ * it. EVERYTHING else — every rejection class (structural,
+ * witness, missing/spent inputs, policy, fee), timeouts, 5xx,
+ * unexpected-txid responses — is "unknown".
  */
 export function classifyBroadcastOutcome(
   obs: BroadcastObservation,
@@ -605,12 +591,6 @@ export function classifyBroadcastOutcome(
     // A 2xx naming a DIFFERENT transaction (or none) proves nothing
     // about ours — with the lookup missing it may still propagate.
     return { outcome: "unknown", reason: "unexpected_txid" };
-  }
-  if (
-    obs.postStatus === 400 &&
-    DETERMINISTIC_REJECTION_PATTERNS.some((p) => p.test(obs.postBody))
-  ) {
-    return { outcome: "definite_failure", reason: "validation_rejected" };
   }
   if (obs.postStatus === null) {
     return { outcome: "unknown", reason: "post_no_response" };
