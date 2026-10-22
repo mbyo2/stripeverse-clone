@@ -45,8 +45,9 @@ const Wallet = () => {
   };
   
   const handleAddMoney = () => {
-    // PayPal is gated off (coming soon) — the SelectItem is disabled,
-    // and this guard keeps the redirect flow unreachable regardless.
+    // PayPal gate: while PAYPAL_AVAILABLE is off the SelectItem is
+    // disabled, and this guard keeps the redirect flow unreachable
+    // regardless. (The gate is ON — PayPal went live 2026-10-22.)
     if (depositMethod === 'paypal' && !PAYPAL_AVAILABLE) return;
     const parsedAmount = parseFloat(amount);
     if (!isNaN(parsedAmount) && parsedAmount > 0) {

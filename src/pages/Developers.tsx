@@ -627,7 +627,7 @@ app.post('/webhook', (req, res) => {
                           { method: "bank_transfer", label: "Bank Transfer", providers: "All Zambian banks" },
                           { method: "ussd", label: "USSD", providers: "Feature phone support" },
                           { method: "bitcoin", label: "Bitcoin", providers: "On-chain + Lightning" },
-                          { method: "paypal", label: "PayPal", providers: "International payments — coming soon" },
+                          { method: "paypal", label: "PayPal", providers: "International payments" },
                           { method: "qr_code", label: "QR Code", providers: "Scan & pay" },
                           { method: "bnpl", label: "Pay in 4", providers: "Installment payments" },
                           { method: "wallet", label: "BMaGlass Wallet", providers: "Instant transfers" },

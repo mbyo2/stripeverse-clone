@@ -45,8 +45,8 @@ const CheckoutWidget = () => {
 
   const supabase = createClient('${projectUrl}', '${config.publicKey}');
 
-  // NOTE: PayPal is coming soon and not yet available. 'mobile',
-  // 'card' and 'bank' also return { status: 'not_configured' } today.
+  // NOTE: 'mobile', 'card' and 'bank' return { status: 'not_configured' }
+  // today. PayPal is live: pass provider: 'paypal' to process-payment.
   async function payWithBMaGlass({ amount, currency, method, phone }) {
     const { data, error } = await supabase.functions.invoke('process-payment', {
       body: {
@@ -133,8 +133,8 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
     "callback_url": "${config.callbackUrl}"
   }'
 
-<!-- Response: methods that are not live yet — including PayPal, which is
-     coming soon — return status "not_configured"; no payment is taken. -->`;
+<!-- Response: methods that are not live yet return status
+     "not_configured"; no payment is taken. PayPal is live. -->`;
 
   const copyCode = (code: string, label: string) => {
     navigator.clipboard.writeText(code);
@@ -156,7 +156,7 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
           <AlertDescription>
             This builder is a visual preview. The card, mobile-money and bank-transfer methods it can
             display are not enabled for guest checkout: today, payment links settle wallet-to-wallet
-            between BMaGlass accounts. PayPal is coming soon. The code snippets call the live process-payment function, which
+            between BMaGlass accounts. PayPal is live for wallet deposits and checkout payments. The code snippets call the live process-payment function, which
             answers truthfully and returns "not configured" for methods that are not live.
           </AlertDescription>
         </Alert>

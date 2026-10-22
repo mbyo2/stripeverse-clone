@@ -1,10 +1,19 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { confirmPayPalDeposit, findDepositTransaction } from "../_shared/paypal-deposit.ts";
+import {
+  confirmPayPalDeposit,
+  findDepositTransaction,
+  getPayPalAccessToken,
+  paypalBaseUrl,
+} from "../_shared/paypal-deposit.ts";
 import {
   confirmPayPalCheckoutPayment,
   findCheckoutPaymentTransaction,
 } from "../_shared/paypal-checkout.ts";
+import {
+  extractPayPalWebhookSignatureHeaders,
+  verifyPayPalWebhookSignature,
+} from "../_shared/paypal-webhook-verify.ts";
 import { orderIdFromWebhookEvent } from "../_shared/deposit-capture.ts";
 
 const corsHeaders = {
@@ -37,7 +46,7 @@ serve(async (req) => {
     logStep("Webhook data", webhookData);
 
     // Verify webhook signature for security
-    const isValid = await verifyWebhookSignature(req, body);
+    const isValid = await verifyWebhookSignature(req, webhookData);
     if (!isValid) {
       logStep("Invalid webhook signature");
       return new Response(JSON.stringify({ error: "Invalid signature" }), {
@@ -115,60 +124,56 @@ serve(async (req) => {
   }
 });
 
-async function verifyWebhookSignature(req: Request, body: string): Promise<boolean> {
-  const webhookSecret = Deno.env.get("PAYPAL_WEBHOOK_SECRET");
-  
-  // Always require webhook secret
-  if (!webhookSecret) {
-    logStep("ERROR: No webhook secret configured");
-    return false;
-  }
-  
+/**
+ * Prove the event really came from PayPal, using PayPal's own
+ * verification API — POST /v1/notifications/verify-webhook-signature
+ * (see _shared/paypal-webhook-verify.ts). The previous implementation
+ * HMAC-verified against a PAYPAL_WEBHOOK_SECRET: PayPal has no such
+ * secret (its webhook signatures are RSA against a hosted cert), and
+ * it called crypto.createHash, which does not exist on Deno's Web
+ * Crypto — so it threw on every event and every genuine webhook was
+ * rejected. Fails closed: missing headers, no PAYPAL_WEBHOOK_ID, no
+ * access token, or any answer other than verification_status
+ * "SUCCESS" returns false, the caller responds 401, and no state
+ * changes.
+ */
+async function verifyWebhookSignature(req: Request, webhookEvent: unknown): Promise<boolean> {
   try {
-    // Get PayPal headers required for verification
-    const transmissionId = req.headers.get("PAYPAL-TRANSMISSION-ID");
-    const transmissionTime = req.headers.get("PAYPAL-TRANSMISSION-TIME");
-    const certUrl = req.headers.get("PAYPAL-CERT-URL");
-    const authAlgo = req.headers.get("PAYPAL-AUTH-ALGO");
-    const transmissionSig = req.headers.get("PAYPAL-TRANSMISSION-SIG");
-    
-    if (!transmissionId || !transmissionTime || !certUrl || !authAlgo || !transmissionSig) {
+    const headers = extractPayPalWebhookSignatureHeaders((name) => req.headers.get(name));
+    if (!headers) {
       logStep("Missing required PayPal webhook headers");
       return false;
     }
-    
-    // Construct the expected signature message
+
     const webhookId = Deno.env.get("PAYPAL_WEBHOOK_ID");
     if (!webhookId) {
       logStep("No webhook ID configured");
       return false;
     }
-    
-    const expectedMsg = `${transmissionId}|${transmissionTime}|${webhookId}|${crypto.createHash('sha256').update(body).digest('hex')}`;
-    
-    // Verify the signature using crypto
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      "raw",
-      encoder.encode(webhookSecret),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["verify"]
+
+    const accessToken = await getPayPalAccessToken();
+    if (!accessToken) {
+      logStep("Could not obtain a PayPal access token for verification");
+      return false;
+    }
+
+    const isValid = await verifyPayPalWebhookSignature(
+      {
+        headers,
+        webhookId,
+        webhookEvent,
+        accessToken,
+        baseUrl: paypalBaseUrl(),
+      },
+      (url, init) => fetch(url, init),
     );
-    
-    const signatureBuffer = Uint8Array.from(atob(transmissionSig), c => c.charCodeAt(0));
-    const isValid = await crypto.subtle.verify(
-      "HMAC",
-      key,
-      signatureBuffer,
-      encoder.encode(expectedMsg)
-    );
-    
+
     logStep("Webhook signature verification", { isValid });
     return isValid;
-    
   } catch (error) {
-    logStep("Error verifying webhook signature", { error: error.message });
+    logStep("Error verifying webhook signature", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return false;
   }
 }
