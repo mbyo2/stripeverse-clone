@@ -321,3 +321,132 @@ describe("custodyStatus (seed⇄xpub interlock)", () => {
     }
   });
 });
+
+describe("receiveStatus (xpub-only receiving)", () => {
+  it("refuses when the xpub is absent or blank", () => {
+    expect(core.receiveStatus(undefined)).toEqual({
+      configured: false,
+      reason: "missing_xpub",
+    });
+    expect(core.receiveStatus(null)).toEqual({
+      configured: false,
+      reason: "missing_xpub",
+    });
+    expect(core.receiveStatus("   ")).toEqual({
+      configured: false,
+      reason: "missing_xpub",
+    });
+  });
+
+  it("refuses an unparseable xpub", () => {
+    expect(core.receiveStatus("zpubINVALIDCHECKSUM")).toEqual({
+      configured: false,
+      reason: "invalid_xpub",
+    });
+    expect(core.receiveStatus("garbage")).toEqual({
+      configured: false,
+      reason: "invalid_xpub",
+    });
+  });
+
+  it("accepts a parseable xpub with NO seed involved", () => {
+    const status = core.receiveStatus(ACCOUNT_ZPUB);
+    expect(status.configured).toBe(true);
+    if (status.configured) {
+      // The watch-only key derives the same receiving address the
+      // matched seed derives — receiving needs nothing more.
+      expect(core.deriveAddress(status.accountPub, 0, 0)).toBe(ADDR_0_0);
+    }
+  });
+});
+
+describe("bitcoinCapabilities (per-capability gates)", () => {
+  const OTHER_MNEMONIC =
+    "legal winner thank year wave sausage worth useful legal winner thank yellow";
+  const KEY = "test-breez-key";
+
+  it("nothing present → nothing enabled", () => {
+    const caps = core.bitcoinCapabilities({});
+    expect(caps.canReceive).toBe(false);
+    expect(caps.canLightning).toBe(false);
+    expect(caps.canSpend).toBe(false);
+  });
+
+  it("xpub only (the production state): receive on, spend off", () => {
+    const caps = core.bitcoinCapabilities({ xpub: ACCOUNT_ZPUB });
+    expect(caps.canReceive).toBe(true);
+    expect(caps.canSpend).toBe(false);
+    expect(caps.spend).toEqual({ configured: false, reason: "missing_seed" });
+    expect(caps.canLightning).toBe(false);
+  });
+
+  it("xpub + Breez key: receive and Lightning on, spend still off", () => {
+    const caps = core.bitcoinCapabilities({
+      xpub: ACCOUNT_ZPUB,
+      breezApiKey: KEY,
+    });
+    expect(caps.canReceive).toBe(true);
+    expect(caps.canLightning).toBe(true);
+    expect(caps.canSpend).toBe(false);
+  });
+
+  it("Breez key alone enables Lightning without any custody secrets", () => {
+    const caps = core.bitcoinCapabilities({ breezApiKey: KEY });
+    expect(caps.canLightning).toBe(true);
+    expect(caps.canReceive).toBe(false);
+    expect(caps.canSpend).toBe(false);
+  });
+
+  it("a blank Breez key does not enable Lightning", () => {
+    const caps = core.bitcoinCapabilities({
+      xpub: ACCOUNT_ZPUB,
+      breezApiKey: "   ",
+    });
+    expect(caps.canLightning).toBe(false);
+  });
+
+  it("matched seed + xpub + key: everything on", () => {
+    const caps = core.bitcoinCapabilities({
+      mnemonic: MNEMONIC,
+      xpub: ACCOUNT_ZPUB,
+      breezApiKey: KEY,
+    });
+    expect(caps.canReceive).toBe(true);
+    expect(caps.canLightning).toBe(true);
+    expect(caps.canSpend).toBe(true);
+    expect(caps.spend.configured).toBe(true);
+  });
+
+  it("mismatched seed + xpub: receive stays on, spend refuses", () => {
+    const caps = core.bitcoinCapabilities({
+      mnemonic: OTHER_MNEMONIC,
+      xpub: ACCOUNT_ZPUB,
+      breezApiKey: KEY,
+    });
+    expect(caps.canReceive).toBe(true);
+    expect(caps.canLightning).toBe(true);
+    expect(caps.canSpend).toBe(false);
+    expect(caps.spend).toEqual({
+      configured: false,
+      reason: "seed_xpub_mismatch",
+    });
+  });
+
+  it("invalid xpub: receive and spend both off, Lightning unaffected", () => {
+    const caps = core.bitcoinCapabilities({
+      mnemonic: MNEMONIC,
+      xpub: "garbage",
+      breezApiKey: KEY,
+    });
+    expect(caps.canReceive).toBe(false);
+    expect(caps.canSpend).toBe(false);
+    expect(caps.canLightning).toBe(true);
+  });
+
+  it("seed only: nothing on (receive needs the xpub, spend needs both)", () => {
+    const caps = core.bitcoinCapabilities({ mnemonic: MNEMONIC });
+    expect(caps.canReceive).toBe(false);
+    expect(caps.canSpend).toBe(false);
+    expect(caps.spend).toEqual({ configured: false, reason: "missing_xpub" });
+  });
+});

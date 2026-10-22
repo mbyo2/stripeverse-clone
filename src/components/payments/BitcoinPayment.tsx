@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,8 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
   const [timeRemaining, setTimeRemaining] = useState(900); // 15 minutes in seconds
   const [copied, setCopied] = useState(false);
   const [invoiceId, setInvoiceId] = useState("");
-  const [checkoutUrl, setCheckoutUrl] = useState("");
+  const [lightningPaymentId, setLightningPaymentId] = useState("");
+  const confirmedRef = useRef(false);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -52,8 +53,6 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
           throw new Error('No address returned from payment server');
         }
 
-        // Convert fiat amount to sats (approximate — uses a fixed rate;
-        // production should fetch live BTC/ZMW rate)
         setBitcoinAddress(data.address);
         setInvoiceId(data.record?.id || `btc-${Date.now()}`);
         setTimeRemaining(900); // 15 min invoice window
@@ -66,10 +65,18 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
             body: { action: 'quote', side: 'buy', amount_zmw: amount }
           });
           if (quote?.amount_sats) {
+            // The quote is the authoritative BTC amount for this
+            // checkout — display it so the payer sends the right sum
+            // (previously fetched but never shown: the UI said 0 BTC).
+            setBitcoinAmount(quote.amount_sats / 100_000_000);
             const { data: lnData } = await supabase.functions.invoke('breez-lightning', {
               body: { action: 'create_invoice', amount_sats: quote.amount_sats }
             });
-            if (lnData?.bolt11) setLightningInvoice(lnData.bolt11);
+            if (lnData?.bolt11) {
+              setLightningInvoice(lnData.bolt11);
+              // Kept so the status poller below can settle THIS invoice.
+              if (lnData.payment_id) setLightningPaymentId(lnData.payment_id);
+            }
           }
         } catch {
           // Lightning optional — on-chain still works
@@ -109,15 +116,19 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
   }, [amount, toast]);
   
   useEffect(() => {
-    if (!invoiceId || isLoading) return;
-    
-    const checkPaymentStatus = async () => {
+    if ((!bitcoinAddress && !lightningPaymentId) || isLoading) return;
+
+    const checkOnchainStatus = async () => {
+      if (confirmedRef.current || !bitcoinAddress) return;
       try {
-        // Check on-chain deposit status via btc-watcher-tracked addresses.
-        // The btc-watcher cron credits deposits automatically; we poll
-        // the btc_onchain_deposits table for this address.
-        const { data, error } = await supabase
-          .from('btc_onchain_deposits')
+        // Deposit detection runs server-side: the btc-onchain
+        // check_deposits pg_cron scans assigned addresses every
+        // 5 minutes and records credited deposits in btc_deposits
+        // (credited at 1 confirmation). Poll for this address's row.
+        // btc_deposits is not in the generated types — untyped access
+        // is the codebase pattern for such tables.
+        const { data, error } = await (supabase as any)
+          .from('btc_deposits')
           .select('status')
           .eq('address', bitcoinAddress)
           .eq('status', 'credited')
@@ -129,29 +140,52 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         }
 
         if (data && data.length > 0) {
-          handlePaymentConfirmed();
+          handlePaymentConfirmed("bitcoin");
         }
       } catch (error) {
         console.error("Error checking payment status:", error);
       }
     };
-    
-    const statusInterval = setInterval(checkPaymentStatus, 30000);
-    
-    checkPaymentStatus();
-    
+
+    const checkLightningStatus = async () => {
+      if (confirmedRef.current || !lightningPaymentId) return;
+      try {
+        // Settlement happens inside breez-lightning's check_status
+        // (exactly-once RPC); 'paid' here means the wallet was
+        // actually credited.
+        const { data } = await supabase.functions.invoke('breez-lightning', {
+          body: { action: 'check_status', breez_invoice_id: lightningPaymentId }
+        });
+        if (data?.status === 'paid') {
+          handlePaymentConfirmed("lightning");
+        }
+      } catch (error) {
+        console.error("Error checking Lightning status:", error);
+      }
+    };
+
+    const statusInterval = setInterval(() => {
+      checkOnchainStatus();
+      checkLightningStatus();
+    }, 15000);
+
+    checkOnchainStatus();
+    checkLightningStatus();
+
     return () => clearInterval(statusInterval);
-  }, [invoiceId, isLoading]);
-  
-  const handlePaymentConfirmed = () => {
+  }, [bitcoinAddress, lightningPaymentId, isLoading]);
+
+  const handlePaymentConfirmed = (method: "bitcoin" | "lightning") => {
+    if (confirmedRef.current) return;
+    confirmedRef.current = true;
     toast({
       title: "Payment Received!",
       description: "Your Bitcoin payment has been confirmed.",
     });
-    
+
     onSuccess({
       paymentId: invoiceId,
-      method: paymentMethod === "bitcoin" ? "bitcoin" : "lightning",
+      method,
       status: "success",
     });
   };
@@ -297,20 +331,9 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         </TabsContent>
       </Tabs>
       
-      <div className="flex justify-between pt-4">
+      <div className="flex justify-start pt-4">
         <Button variant="outline" onClick={onCancel}>
           Cancel
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => {
-            if (checkoutUrl) {
-              window.open(checkoutUrl, "_blank");
-            }
-          }}
-        >
-          Open in BTCPay Server
-          <ExternalLink className="ml-2 h-4 w-4" />
         </Button>
       </div>
     </div>

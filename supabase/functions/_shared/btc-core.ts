@@ -131,6 +131,78 @@ export function custodyStatus(
   return { configured: true, accountPriv, accountPub };
 }
 
+// ── Capability checks (per-feature gates) ──────────────────────────────────
+//
+// Custody is not all-or-nothing. Each Bitcoin capability has its own
+// minimum requirement, and the edge functions gate on the capability
+// they actually need:
+//
+//   RECEIVE (deposit addresses + deposit detection/crediting)
+//     needs ONLY the account zpub. Receiving is watch-only: funds land
+//     in the wallet the zpub came from, and no spending is possible
+//     from a zpub. Requiring the seed here would needlessly take
+//     deposits offline whenever the seed is not installed.
+//
+//   LIGHTNING (custodial, via Breez)
+//     needs ONLY BREEZ_API_KEY. Breez runs its own nodeless wallet
+//     server-side; the on-chain seed is never involved. The sats still
+//     settle into the same crypto_wallets BTC balance in our ledger.
+//
+//   SPEND (on-chain withdrawals + buy/sell trades)
+//     needs the FULL custodyStatus interlock above: seed present,
+//     xpub present, and the two proven to control the same account.
+//     Anything less must refuse — this is the path that moves money.
+
+export type ReceiveStatus =
+  | { configured: true; accountPub: HDKey }
+  | { configured: false; reason: "missing_xpub" | "invalid_xpub" };
+
+/** Receiving capability: a present, parseable account zpub is enough. */
+export function receiveStatus(
+  xpub: string | null | undefined,
+): ReceiveStatus {
+  if (!xpub || !xpub.trim()) {
+    return { configured: false, reason: "missing_xpub" };
+  }
+  try {
+    return { configured: true, accountPub: parseAccountKey(xpub) };
+  } catch {
+    return { configured: false, reason: "invalid_xpub" };
+  }
+}
+
+export interface BitcoinCapabilities {
+  /** Deposit addresses + deposit crediting (xpub only). */
+  canReceive: boolean;
+  /** Custodial Lightning via Breez (BREEZ_API_KEY only). */
+  canLightning: boolean;
+  /** Withdrawals + buy/sell (full seed⇄xpub interlock). */
+  canSpend: boolean;
+  receive: ReceiveStatus;
+  spend: CustodyStatus;
+}
+
+/**
+ * Evaluate every capability from the deployment's secrets in one call,
+ * so the gates can never drift apart. `spend` carries the full
+ * custodyStatus result for its detailed operator-facing reason.
+ */
+export function bitcoinCapabilities(input: {
+  mnemonic?: string | null;
+  xpub?: string | null;
+  breezApiKey?: string | null;
+}): BitcoinCapabilities {
+  const receive = receiveStatus(input.xpub);
+  const spend = custodyStatus(input.mnemonic, input.xpub);
+  return {
+    canReceive: receive.configured,
+    canLightning: Boolean(input.breezApiKey && input.breezApiKey.trim()),
+    canSpend: spend.configured,
+    receive,
+    spend,
+  };
+}
+
 export function deriveChildKey(
   account: HDKey,
   chain: 0 | 1,

@@ -8,21 +8,25 @@
 //                   reserved → built → signed → broadcast → finalized,
 //                   with automatic refund if broadcast provably fails
 //
-// Secrets (no defaults, hard-fail when absent):
-//   BTC_XPUB           account zpub (watch-only derivation for receive)
-//   BTC_SEED_MNEMONIC  master seed (send signing) — must match BTC_XPUB
+// Secrets (capability-gated — see bitcoinCapabilities in btc-core):
+//   BTC_XPUB           account zpub — ALONE enables receive +
+//                      check_deposits (watch-only; funds land in the
+//                      wallet the zpub came from)
+//   BTC_SEED_MNEMONIC  master seed — additionally enables send, and
+//                      only when it matches BTC_XPUB (the interlock)
 // Optional config:
 //   ESPLORA_API_URL    default https://mempool.space/api
 //   BTC_MIN_WITHDRAWAL_SATS (10000), BTC_MAX_TX_SATS (2000000),
 //   BTC_MAX_DAILY_SATS (5000000)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getSupabaseClient } from "../_shared/supabase-client.ts";
+import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
 import {
   buildWithdrawalTx,
   custodyStatus,
   deriveAddress,
   deriveScript,
+  receiveStatus,
   selectCoins,
   validateMainnetAddress,
   type Utxo,
@@ -44,11 +48,12 @@ function json(status: number, body: unknown) {
   });
 }
 
-// Designed refusals: while custody is not genuinely configured (seed and
-// MATCHED xpub both present — see custodyStatus in btc-core), every
-// custodial operation answers 503 with one of these plain-language
-// messages, in the { error } shape the frontend surfaces verbatim. The
-// specific failed check is operator detail and goes to the logs only.
+// Designed refusals, in the { error } shape the frontend surfaces
+// verbatim. Capabilities gate SEPARATELY (bitcoinCapabilities in
+// btc-core): deposits refuse only when no parseable xpub is configured
+// — receiving is watch-only and needs nothing more — while withdrawals
+// refuse until the full seed⇄xpub interlock holds. The specific failed
+// check is operator detail and goes to the logs only.
 const DEPOSITS_NOT_CONFIGURED =
   "Bitcoin deposits are not available yet — Bitcoin custody is not configured on this deployment.";
 const WITHDRAWALS_NOT_CONFIGURED =
@@ -103,6 +108,13 @@ serve(async (req) => {
 
   try {
     const supabase = getSupabaseClient(req);
+    // All DB work below runs through the dedicated service-role client:
+    // the btc_* RPCs are service_role-only and the btc_* tables are
+    // service-write-only under RLS, while the request client forwards
+    // the caller's JWT (PostgREST would run as `authenticated` and be
+    // denied). Identity is verified from the JWT via `supabase`; money
+    // and rows move via `admin`. (Pattern: atomic-transfer.)
+    const admin = getServiceRoleClient();
     const body = await req.json().catch(() => ({}));
     const action = body?.action as string | undefined;
 
@@ -113,17 +125,17 @@ serve(async (req) => {
       if (!serviceKey || !timingSafeEqual(token, serviceKey)) {
         return json(401, { error: "Service role required" });
       }
-      // Never credit deposits while custody is unconfigured: the only
-      // addresses that can exist in that state were derived from an
-      // unproven key, and accepting real deposits against it is exactly
-      // what the custody rule forbids. Skip quietly (scheduler context —
-      // a 200 with the reason, not an error).
-      const c = custody();
-      if (!c.configured) {
-        console.error("btc-onchain check_deposits skipped: custody not configured (" + c.reason + ")");
-        return json(200, { skipped: true, reason: "custody_not_configured" });
+      // Deposit detection needs only the zpub: crediting a deposit
+      // moves no platform funds — it records BTC that already arrived
+      // in the wallet the zpub watches. Without a parseable xpub there
+      // are no legitimate addresses to scan, so skip quietly
+      // (scheduler context — a 200 with the reason, not an error).
+      const r = receiveStatus(Deno.env.get("BTC_XPUB"));
+      if (!r.configured) {
+        console.error("btc-onchain check_deposits skipped: receiving not configured (" + r.reason + ")");
+        return json(200, { skipped: true, reason: "receive_not_configured" });
       }
-      return await checkDeposits(supabase);
+      return await checkDeposits(admin);
     }
 
     // ── Everything else needs a real user ──────────────────────────────────
@@ -133,8 +145,8 @@ serve(async (req) => {
       return json(401, { error: "Unauthorized" });
     }
 
-    if (action === "receive") return await receive(supabase, user.id);
-    if (action === "send") return await send(supabase, user.id, body);
+    if (action === "receive") return await receive(admin, user.id);
+    if (action === "send") return await send(admin, user.id, body);
 
     return json(400, { error: `Unknown action: ${action}` });
   } catch (e) {
@@ -146,21 +158,21 @@ serve(async (req) => {
 // ── receive ────────────────────────────────────────────────────────────────
 
 async function receive(supabase: any, userId: string) {
-  // Custody gate FIRST — before any assignment lookup or allocation.
-  // Custody counts as configured only when the seed AND its matched
-  // xpub are both present and interlocked (custodyStatus). Checking
-  // BTC_XPUB alone was the original defect: with an xpub present but no
-  // seed, execution fell through into the DB allocation path and died
-  // there, so the designed refusal never reached the user. An address
-  // issued in the unconfigured state would invite real deposits to a
-  // wallet the platform cannot prove it controls — never issue one,
-  // and never hand back a previously assigned one either.
-  const c = custody();
-  if (!c.configured) {
-    console.error("btc-onchain receive: custody not configured (" + c.reason + ")");
+  // Receive gate FIRST — before any assignment lookup or allocation.
+  // A parseable account zpub ALONE enables deposits: receiving is
+  // watch-only (the address derives from the public key, funds land in
+  // the wallet the zpub came from, and no spending is possible from a
+  // zpub), so the seed is neither required nor wanted on this path.
+  // Only a missing/unparseable xpub refuses, with the designed
+  // message. An address is never issued from an unparseable key, and a
+  // previously assigned one is not handed back either — it came from
+  // the same key that just failed to parse.
+  const r = receiveStatus(Deno.env.get("BTC_XPUB"));
+  if (!r.configured) {
+    console.error("btc-onchain receive: receiving not configured (" + r.reason + ")");
     return json(503, { error: DEPOSITS_NOT_CONFIGURED });
   }
-  const account = c.accountPub;
+  const account = r.accountPub;
 
   const { data: existing } = await supabase
     .from("btc_address_assignments")

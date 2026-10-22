@@ -15,6 +15,21 @@
 4. The **zpub** is watch-only: it creates deposit addresses and views balances, but cannot spend. Treat it as sensitive anyway — it reveals all addresses and balances.
 5. Withdrawals are signed **server-side** from the seed. Lightning runs through **Breez**, with its own separate API key secret.
 
+### Capability gates — what each secret unlocks
+
+The functions gate **per capability**, not all-or-nothing, so each
+feature goes live the moment its own secret is correctly installed:
+
+| Capability | Secret(s) required | Notes |
+|---|---|---|
+| Deposit addresses + deposit detection/crediting | `BTC_XPUB` only | Watch-only. Funds land in the wallet the zpub came from; no spending is possible from a zpub. Works before the seed is installed. |
+| Custodial Lightning (invoices + payments) | `BREEZ_API_KEY` only | Breez runs its own nodeless wallet; the on-chain seed is never involved. |
+| Withdrawals + buy/sell trades | `BTC_SEED_MNEMONIC` **and** the matching `BTC_XPUB` | Interlocked: the platform refuses to spend unless the seed provably controls the same account as the installed zpub. |
+
+While a capability's secret is missing or wrong, that capability — and
+only that capability — answers with a plain-language "not available
+yet" message. Nothing fails silently and nothing pretends to succeed.
+
 ### What the seed controls
 **Everything.** Whoever has the master seed can move all Bitcoin in the hot wallet to any address, with no one else's approval. There is no bank, chargeback, or reset. Treat the seed like the only key to a vault holding other people's money.
 
@@ -47,6 +62,17 @@ Deposits/withdrawals move real BTC in/out, so wallet total and user totals move 
 | `btc_treasury` | Singleton `id = 1`, `float_sats` |
 
 Deploy to project paymentgetway: `btc-onchain`, `btc-trade`, plus updated `breez-lightning` and `btc-payment`.
+
+Implementation note (for developers): every `btc_*` RPC is granted to
+the service role only and the `btc_*` tables are service-write-only
+under RLS, so the edge functions perform all money-path database work
+through a dedicated service-role client that does **not** forward the
+caller's JWT. Routing the same calls through the request client runs
+them as the `authenticated` role and they are denied (42501) — the
+exact failure the atomic-transfer function hit and documented.
+Inbound Lightning settlement is exactly-once via the
+`btc_settle_lightning_deposit` RPC: claim, wallet credit and ledger
+row commit in a single transaction, idempotent on the payment id.
 
 ## 2. Generating the Master Seed — Offline Only
 
@@ -81,6 +107,15 @@ Do this once before launch, and again only for an incident (Section 9) or a plan
 2. Transfer **only the zpub** to your connected computer (type it by hand and double-check, or use the manufacturer's companion app on a computer you trust). The seed words never make this trip.
 3. In the Supabase dashboard: project **paymentgetway** → **Edge Functions** → **Secrets**. Add/update the secret named `BTC_XPUB` with the zpub. Save. Confirm you are on the correct project — setting it elsewhere does nothing for the live app.
 
+Installing the zpub **on its own switches deposits on** — Receive and
+the Section 7 deposit detection need nothing else. Funds sent to these
+addresses land in the wallet the zpub came from (e.g. your Sparrow
+wallet) and deposit crediting works immediately; spending them from
+the platform side additionally needs the matching seed (Section 4).
+If an xpub is already installed from an earlier setup, the drill below
+is what proves it is really yours — an xpub whose addresses do not
+match your wallet must be replaced before any real deposit.
+
 ### Verification drill — do not skip, before any real deposit
 1. In the app, as a test user, open Bitcoin **Receive** and get a deposit address.
 2. On a separate computer, open a watch-only wallet (e.g. **Sparrow Wallet**) and import **only the zpub** — never the seed.
@@ -88,6 +123,11 @@ Do this once before launch, and again only for an incident (Section 9) or a plan
 4. If they do not match, **stop** and do not accept deposits. Usual causes: wrong account path, wrong zpub, or the secret set on the wrong project. Fix the cause and repeat the drill. Repeat once more for a second test user's index for confidence.
 
 ## 4. Installing the Seed Secret
+
+Installing the seed is what unlocks **spending**: withdrawals and
+buy/sell trades. Deposits and Lightning do not wait for it (Sections 3
+and 5). The platform verifies the seed⇄zpub match itself and refuses
+to spend if the two control different accounts.
 
 From this moment, anyone with the right dashboard or service-role access can move all funds. Treat dashboard access like bank-signing authority.
 
@@ -111,6 +151,12 @@ From this moment, anyone with the right dashboard or service-role access can mov
 1. Obtain the key from Breez via its official onboarding channel, through a secure channel where possible.
 2. Dashboard → project **paymentgetway** → **Edge Functions** → **Secrets**. Add/update `BREEZ_API_KEY`. Save.
 3. Test one tiny Lightning payment in the app in each direction the product supports, and confirm balances update. If dashboard access is ever suspected compromised, rotate this key too (Section 9e).
+
+The key **on its own switches custodial Lightning on** — invoices and
+payments do not need the seed. The tiny-payment test in step 3 is the
+deciding verification of the Breez server integration: if it fails,
+Lightning stays honestly unavailable while the failure is investigated
+— nothing about it is simulated in the meantime.
 
 ### Optional secrets (safe defaults — set only to override deliberately)
 | Secret | Default | Meaning |
@@ -152,7 +198,7 @@ The float must match real BTC actually sent in. Setting `float_sats` without fun
 
 Deposits are not detected automatically. The `btc-onchain` function must be **called every ~5 minutes**; each call scans assigned addresses and credits at 1 confirmation. If the schedule stops, BTC still arrives on-chain but users are not credited until it runs again.
 
-- Function: `btc-onchain`, action: `check_deposits`, authenticated with the project's **service-role key**. It scans via the Esplora API (`ESPLORA_API_URL`) and writes `btc_deposits` rows.
+- Function: `btc-onchain`, action: `check_deposits`, authenticated with the project's **service-role key**. It scans via the Esplora API (`ESPLORA_API_URL`) and writes `btc_deposits` rows. It needs only `BTC_XPUB`; while no parseable zpub is installed it skips quietly (logged reason `receive_not_configured`) instead of erroring every 5 minutes.
 
 ### Setup (Supabase pg_cron + pg_net)
 The real project URL and service-role key live in the dashboard (**Project Settings → API**) — copy them from there at setup time; never copy them into this document, a ticket, or a chat. The service-role key bypasses row-level security: anyone with it has full database access.
