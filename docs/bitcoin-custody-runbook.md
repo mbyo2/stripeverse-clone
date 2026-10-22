@@ -341,13 +341,69 @@ that runs entirely in the user's browser:
 - The two wallets are labelled everywhere in the UI (CUSTODIAL vs
   SELF-CUSTODY) and are fully independent; moving funds between them is an
   ordinary on-chain send.
-- **Self-custody Lightning** uses the Breez SDK on the Liquid network,
-  in-browser, under the user's own seed. It activates only when the
-  deployment is built with a **dedicated client-scoped Breez API key**
-  (`VITE_BREEZ_LIQUID_API_KEY`). NEVER put the platform's server-side
-  `BREEZ_API_KEY` into the web bundle — that key also controls the
-  custodial Lightning integration. Until a separate client key is
-  provisioned, the self-custody wallet is on-chain only and the UI says so.
+- **Self-custody Lightning & Spark** uses the **Breez SDK – Spark**
+  (`@breeztech/breez-sdk-spark`, `src/lib/selfcustody/spark.ts`), running
+  in-browser under the user's own seed — the same architecture as Glow,
+  Breez's reference wallet app. One Spark balance covers Lightning
+  invoices, on-chain Bitcoin deposits (auto-claimed into the balance,
+  after 3 confirmations by default) and Spark transfers; sending uses a
+  single paste-anything flow (the SDK's `parse()` + `prepareSendPayment()`
+  quote the exact fee before the user confirms), plus LNURL-pay /
+  withdraw / auth and a MoonPay buy button.
+
+  > **Do not resurrect the old Liquid integration.** Breez has deprecated
+  > the Breez SDK – Liquid (its documentation site now only carries a
+  > notice steering all partners to Spark) and Glow is a Spark app, not a
+  > Liquid app. The former `VITE_BREEZ_LIQUID_API_KEY` gate and the
+  > `lightning.ts` module were removed with the Spark migration.
+
+### Enabling Spark / Lightning / MoonPay buy (go-live)
+
+One step, done by the CEO:
+
+1. Set the app environment variable **`VITE_BREEZ_API_KEY`** (Vercel →
+   project → Settings → Environment Variables, production) to **the
+   existing Breez API key** and redeploy. The Breez API key is a single
+   per-app developer credential — the same Breez-issued key already
+   stored in the project's Supabase secrets as `BREEZ_API_KEY` is the key
+   the Spark web integration uses as `VITE_BREEZ_API_KEY`. Note that
+   Supabase never reveals stored secret values, so the value must come
+   from the CEO's own copy of the key (the one Breez emailed when it was
+   issued) — never request it over chat or any other channel.
+2. Until the variable is set, the Spark features stay honestly disabled:
+   the wallet explains why, and on-chain self-custody is unaffected.
+   Nothing is simulated.
+
+Key safety notes:
+
+- The Breez API key is a partner/app identifier: it gates SDK access and
+  **cannot move funds** (only a wallet's mnemonic can). Breez's own Spark
+  examples ship it in the client bundle via `VITE_BREEZ_API_KEY` by
+  design. If a new key is ever needed, it is free from
+  breez.technology/request-api-key.
+- The SDK persists its state in the browser (IndexedDB) under a
+  per-wallet storage directory. Browser storage is evictable — the user's
+  seed phrase (in their encrypted vault / paper backup) remains the only
+  durable recovery root, exactly as for the on-chain wallet above.
+- A browser tab that is closed cannot sync or finish claims; pending
+  receives resolve when the user next opens the wallet and the SDK syncs.
+
+### MoonPay buy — what users should expect
+
+- The Buy button calls the SDK's `buyBitcoin({ type: 'moonpay', … })`,
+  which returns a MoonPay checkout URL under **Breez's own MoonPay
+  partner arrangement** — the app needs no MoonPay account or keys of its
+  own. On web the tab is pre-opened inside the click (mobile browsers
+  block `window.open()` after an await).
+- Purchased Bitcoin is delivered to the wallet's on-chain deposit
+  address and claimed into the Spark balance automatically.
+- **Zambia is supported** for MoonPay Buy and cards work — but **ZMW is
+  not a supported MoonPay currency**: users pay in USD/EUR/GBP and their
+  card issuer converts. Expect a **~$20 minimum** ticket, MoonPay fees of
+  **up to 4.5%** (plus a partner minimum on small purchases and Breez's
+  ecosystem fee), and **full KYC run by MoonPay** (government ID +
+  liveness check, questionnaire, proof of address for higher tiers).
+  The UI states the currency and minimum facts before redirecting.
 
 ---
 *End of runbook. This file is safe to keep in the repo because it contains no secrets. Keep the secrets out of the repo, always.*
