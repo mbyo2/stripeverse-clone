@@ -14,6 +14,7 @@ import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTransactions } from '@/hooks/useTransactions';
+import { transactionTitle } from "@/utils/transactionLabels";
 import TransactionReceipt from '@/components/TransactionReceipt';
 
 interface Transaction {
@@ -197,7 +198,14 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-[15px] truncate">
-                      {transaction.description || 'Transaction'}
+                      {/* Incoming rows go through the shared direction-aware
+                          labelling: a transfer's description is written from
+                          the sender's side and names the recipient, so echoing
+                          it verbatim mislabels money the user received.
+                          Outgoing rows keep their description as written. */}
+                      {transaction.direction === 'incoming'
+                        ? transactionTitle(transaction)
+                        : transaction.description || 'Transaction'}
                     </p>
                     {transaction.recipient_name && (
                       <p className="text-[13px] text-muted-foreground">

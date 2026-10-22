@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { exportToCSV, exportToPDF } from '@/utils/exportUtils';
+import { transactionTitle } from '@/utils/transactionLabels';
 import { Search, FileDown, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -97,7 +98,7 @@ const TransactionSearch = () => {
             <Card key={t.uuid_id}>
               <CardContent className="p-3 flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-sm">{t.description || t.recipient_name || 'Transaction'}</p>
+                  <p className="font-medium text-sm">{t.direction === 'incoming' ? transactionTitle(t) : (t.description || t.recipient_name || 'Transaction')}</p>
                   <p className="text-xs text-muted-foreground">{format(new Date(t.created_at), 'MMM d, yyyy HH:mm')} • {t.reference || '-'}</p>
                 </div>
                 <div className="text-right">

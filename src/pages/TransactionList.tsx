@@ -14,6 +14,7 @@ import { formatCurrency } from "@/utils/walletUtils";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { transactionTitle } from "@/utils/transactionLabels";
 
 type DisplayType = 'send' | 'receive' | 'deposit' | 'withdrawal' | 'card_payment';
 
@@ -63,11 +64,16 @@ const mapRow = (row: TransactionRow): Transaction => {
     amount: Number(row.amount),
     currency: row.currency,
     status: row.status,
+    // Incoming rows use the shared direction-aware labelling (a
+    // transfer's stored description is the sender's phrasing and
+    // names this user); outgoing rows keep the description as written.
     description:
-      row.description ||
-      row.recipient_name ||
-      row.category ||
-      'Transaction',
+      row.direction === 'incoming'
+        ? transactionTitle(row)
+        : row.description ||
+          row.recipient_name ||
+          row.category ||
+          'Transaction',
     date: row.created_at || new Date().toISOString(),
     recipient: row.direction === 'outgoing' ? row.recipient_name || undefined : undefined,
     sender: row.direction === 'incoming' ? row.recipient_name || undefined : undefined,

@@ -12,6 +12,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
+import { planSendMoneyLegs } from "@/utils/sendMoneyLegs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -25,6 +26,7 @@ const SendMoney = () => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [feeWarning, setFeeWarning] = useState("");
   const [transactionRef, setTransactionRef] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
@@ -89,6 +91,7 @@ const SendMoney = () => {
 
     setIsLoading(true);
     setSubmitError("");
+    setFeeWarning("");
 
     try {
       const parsedAmount = parseFloat(amount);
@@ -118,37 +121,68 @@ const SendMoney = () => {
       const resolvedRecipientName =
         recipientName || recipientProfile.display_name || recipient;
 
-      // 2. Execute atomically, server-side (amount + fee debited together)
+      // 2. Execute the send as TWO atomic legs, in order (planned by
+      // planSendMoneyLegs):
+      //   a. Amount leg — the recipient is credited EXACTLY the
+      //      entered amount. The previous single call passed
+      //      amount + fee here, so the recipient received the fee too
+      //      (K15 credited on a K10 send — Money QA re-test).
+      //   b. Fee leg — a separate debit-only atomic-transfer with
+      //      to_user_id null (external/platform payment): the sender
+      //      is debited the fee and NO user wallet is credited.
+      // If the amount leg fails, nothing is charged and the real error
+      // is thrown. If the fee leg fails AFTER the amount leg moved the
+      // money, the send STANDS — no rollback is attempted; the user
+      // is told the fee could not be collected.
       const idempotencyKey = `send-${user.id}-${Date.now()}`;
-      const { data, error } = await supabase.functions.invoke("atomic-transfer", {
-        body: {
-          from_user_id: user.id,
-          to_user_id: recipientProfile.user_id,
-          amount: total,
-          currency: wallet.currency,
-          reference_type: "transfer",
-          reference_id: ref,
-          idempotency_key: idempotencyKey,
-          description: `Send money to ${resolvedRecipientName} (incl. K${fee} fee)`,
-          recipient_name: resolvedRecipientName,
-          payment_method: "wallet",
-        },
+      const legs = planSendMoneyLegs({
+        amount: parsedAmount,
+        fee,
+        senderUserId: user.id,
+        recipientUserId: recipientProfile.user_id,
+        recipientName: resolvedRecipientName,
+        currency: wallet.currency,
+        referenceId: ref,
+        idempotencyKey,
       });
 
-      // A non-2xx answer from the function only surfaces the generic
-      // "non-2xx status code" message through invoke's error — the
-      // function's real reason is in the response body. Extract it so
-      // the user (and support) sees what actually went wrong.
-      if (error) throw new Error(await resolveEdgeFunctionError(error, "Transfer failed"));
-      if (data?.error) throw new Error(data.error);
+      let collectedFeeWarning = "";
+      for (const leg of legs) {
+        const { data, error } = await supabase.functions.invoke("atomic-transfer", {
+          body: leg.body,
+        });
+
+        // A non-2xx answer from the function only surfaces the generic
+        // "non-2xx status code" message through invoke's error — the
+        // function's real reason is in the response body. Extract it
+        // so the user (and support) sees what actually went wrong.
+        const legError = error
+          ? await resolveEdgeFunctionError(error, "Transfer failed")
+          : data?.error
+            ? String(data.error)
+            : null;
+
+        if (legError) {
+          if (leg.kind === "amount") throw new Error(legError);
+          collectedFeeWarning = legError;
+        }
+      }
 
       setTransactionRef(ref);
+      if (collectedFeeWarning) setFeeWarning(collectedFeeWarning);
       setStep(4);
 
-      toast({
-        title: "Money sent successfully",
-        description: `You've sent ${formatAmount(parsedAmount)} to ${resolvedRecipientName}`,
-      });
+      if (collectedFeeWarning) {
+        toast({
+          title: "Money sent — fee not collected",
+          description: `${formatAmount(parsedAmount)} reached ${resolvedRecipientName}, but the ${formatAmount(fee)} send fee could not be collected (${collectedFeeWarning}). You have not been charged the fee.`,
+        });
+      } else {
+        toast({
+          title: "Money sent successfully",
+          description: `You've sent ${formatAmount(parsedAmount)} to ${resolvedRecipientName}`,
+        });
+      }
     } catch (error: any) {
       console.error("Send money error:", error);
       const message = error?.message || "Something went wrong. Please try again.";
@@ -171,6 +205,7 @@ const SendMoney = () => {
   const handleNewTransfer = () => {
     setStep(1);
     setSubmitError("");
+    setFeeWarning("");
     setRecipient("");
     setRecipientName("");
     setAmount("");
@@ -301,6 +336,17 @@ const SendMoney = () => {
                   <p className="text-sm text-muted-foreground">
                     Reference: #{transactionRef}
                   </p>
+                  {feeWarning && (
+                    <Alert className="mt-4 text-left border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Send fee not collected</AlertTitle>
+                      <AlertDescription>
+                        Your money was sent, but the {formatAmount(fee)} send fee could not be
+                        collected ({feeWarning}). You have not been charged the fee — no action
+                        is needed.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
               )}
 

@@ -23,6 +23,7 @@ import { ApiKeyManager } from "@/components/business/ApiKeyManager";
 import { WebhookManager } from "@/components/business/WebhookManager";
 import { ApiDocs } from "@/components/business/ApiDocs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { transactionTitle } from "@/utils/transactionLabels";
 
 const Business = () => {
   const { user } = useAuth();
@@ -341,7 +342,7 @@ const Business = () => {
                                 </div>
                                 <div>
                                   <p className="text-sm font-medium text-foreground">
-                                    {tx.recipient_name || tx.description || tx.payment_method}
+                                    {tx.direction === 'incoming' ? transactionTitle(tx) : (tx.recipient_name || tx.description || tx.payment_method)}
                                   </p>
                                   <p className="text-xs text-muted-foreground capitalize">
                                     {tx.payment_method?.replace('_', ' ')} · {new Date(tx.created_at || '').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
