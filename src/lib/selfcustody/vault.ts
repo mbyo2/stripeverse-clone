@@ -21,7 +21,7 @@
 
 const VAULT_STORAGE_KEY = "bmaglass.sc.vault.v1";
 const PBKDF2_ITERATIONS = 600_000;
-const MIN_PASSWORD_LENGTH = 8;
+const MIN_PASSWORD_LENGTH = 12;
 
 export interface VaultMeta {
   createdAt: string;

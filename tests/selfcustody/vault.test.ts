@@ -63,9 +63,63 @@ describe("vault (PBKDF2 + AES-GCM)", () => {
     expect(first).not.toBe(second);
   });
 
-  it("enforces a minimum password length", async () => {
-    await expect(createVault(MNEMONIC, "short")).rejects.toThrow(/at least 8 characters/);
+  it("enforces a minimum password length of 12 characters", async () => {
+    await expect(createVault(MNEMONIC, "short")).rejects.toThrow(/at least 12 characters/);
     expect(vaultExists()).toBe(false);
+    // 11 characters is still too short; exactly 12 is accepted.
+    await expect(createVault(MNEMONIC, "12345678901")).rejects.toThrow(/at least 12 characters/);
+    expect(vaultExists()).toBe(false);
+    await createVault(MNEMONIC, "123456789012");
+    expect(vaultExists()).toBe(true);
+    expect(await unlockVault("123456789012")).toBe(MNEMONIC);
+  });
+
+  it("unlock does not re-check the minimum (a legacy vault with a shorter password still opens)", async () => {
+    // Build a vault blob by hand with an 8-character password — the
+    // shape createVault produced before the minimum was raised to 12 —
+    // and prove unlockVault still decrypts it: the length rule gates
+    // creation only, so nobody is locked out of an existing vault.
+    const password = "oldpass8";
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const material = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(password),
+      "PBKDF2",
+      false,
+      ["deriveKey"],
+    );
+    const key = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt, iterations: 600_000, hash: "SHA-256" },
+      material,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"],
+    );
+    const cipher = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      new TextEncoder().encode(JSON.stringify({ mnemonic: MNEMONIC })),
+    );
+    const b64 = (bytes: Uint8Array) => {
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      return btoa(binary);
+    };
+    localStorage.setItem(
+      "bmaglass.sc.vault.v1",
+      JSON.stringify({
+        v: 1,
+        kdf: "PBKDF2-SHA256",
+        iterations: 600_000,
+        salt: b64(salt),
+        iv: b64(iv),
+        data: b64(new Uint8Array(cipher)),
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    expect(vaultExists()).toBe(true);
+    expect(await unlockVault(password)).toBe(MNEMONIC);
   });
 
   it("deleteVault removes the vault; unlock then fails as 'no wallet'", async () => {
