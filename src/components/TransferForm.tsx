@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatCurrency, validateWalletTransfer, formatPhoneForDisplay } from "@/lib/utils";
 import { ArrowRight, CheckCircle2, AlertCircle, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 
 type TransferFormProps = {
   senderPhone: string;
@@ -115,7 +116,7 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
         },
       });
 
-      if (error) throw new Error(error.message || "Transfer failed");
+      if (error) throw new Error(await resolveEdgeFunctionError(error, "Transfer failed"));
       if (data?.error) throw new Error(data.error);
 
       setIsProcessing(false);
