@@ -558,19 +558,27 @@ export interface BroadcastClassification {
 
 // Bitcoin Core validation-error classes that mean this signed
 // transaction can never be accepted, no matter when or where it is
-// retried: the bad-txns-* family (malformed transaction, empty or
-// oversized inputs/outputs, missing or ALREADY-SPENT inputs),
-// witness/programme violations, policy non-standardness and dust.
-// Fee-policy rejections ("min relay fee not met", "insufficient fee")
-// are deliberately NOT deterministic: they describe the mempool of the
-// moment, not the transaction, and classify as unknown instead.
+// retried — STRUCTURAL / consensus classes only: the bad-txns-*
+// family (malformed transaction, empty or oversized inputs/outputs,
+// missing inputs), bad-witness-* (witness/signature violations) and
+// missingorspent (the inputs do not exist or are already spent — a
+// transaction spending spent inputs can never become valid).
+//
+// POLICY classes are deliberately NOT deterministic (reviewed
+// 2026-10-22): non-standardness and dust are one node's mempool
+// policy, not a property of the transaction — a differently
+// configured node or a miner could still accept the transaction —
+// and the bare word "invalid" appears in policy and descriptive
+// error text as well as consensus failures. Fee-policy rejections
+// ("min relay fee not met", "insufficient fee") fail the same way:
+// they describe the mempool of the moment, not the transaction.
+// All of those classify as "unknown" instead: the withdrawal stays
+// reserved for manual reconciliation rather than risking a refund
+// of a transaction that could still confirm.
 const DETERMINISTIC_REJECTION_PATTERNS: readonly RegExp[] = [
   /bad-txns/i,
   /bad-witness/i,
-  /non-?standard/i,
-  /\bdust\b/i,
   /missingorspent/i,
-  /invalid/i,
 ];
 
 /**

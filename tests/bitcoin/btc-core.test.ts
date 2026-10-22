@@ -543,13 +543,24 @@ describe("classifyBroadcastOutcome (refund only on PROVABLE failure)", () => {
       "bad-txns-inputs-missingorspent", // already-spent / missing inputs
       "bad-txns-vout-toolarge",
       "bad-witness-nonstandard",
+    ]) {
+      const cls = classify({ postStatus: 400, postBody, lookupFound: false });
+      expect(cls.outcome, postBody).toBe("definite_failure");
+      expect(cls.reason).toBe("validation_rejected");
+    }
+  });
+
+  it("unknown: 400 POLICY rejections (nonstandard / dust / bare 'invalid') — never refunded", () => {
+    // These are one node's mempool policy, not proof the signed
+    // transaction can never be accepted anywhere. Refunding on them
+    // could pay twice; the withdrawal stays reserved instead.
+    for (const postBody of [
       "non-standard transaction input",
       "dust output below the dust limit",
       "invalid transaction: bad sig",
     ]) {
       const cls = classify({ postStatus: 400, postBody, lookupFound: false });
-      expect(cls.outcome, postBody).toBe("definite_failure");
-      expect(cls.reason).toBe("validation_rejected");
+      expect(cls.outcome, postBody).toBe("unknown");
     }
   });
 
