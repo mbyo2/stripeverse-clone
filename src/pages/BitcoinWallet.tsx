@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBitcoinWallet } from "@/hooks/useBitcoinWallet";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { formatBitcoinAmount, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -34,7 +35,7 @@ function OnchainDeposit({ onDone }: { onDone: () => void }) {
       if (error) throw error;
       setAddress(data.address);
     } catch (e: any) {
-      toast({ title: "Failed to generate address", description: e.message, variant: "destructive" });
+      toast({ title: "Failed to generate address", description: await resolveEdgeFunctionError(e, "Could not generate a deposit address. Please try again."), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -91,7 +92,7 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
       if (error) throw error;
       setInvoice(data);
     } catch (e: any) {
-      toast({ title: "Failed to create invoice", description: e.message, variant: "destructive" });
+      toast({ title: "Failed to create invoice", description: await resolveEdgeFunctionError(e, "Could not create a Lightning invoice. Please try again."), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -112,7 +113,7 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
         toast({ title: "Still pending", description: "The invoice hasn't been paid yet." });
       }
     } catch (e: any) {
-      toast({ title: "Check failed", description: e.message, variant: "destructive" });
+      toast({ title: "Check failed", description: await resolveEdgeFunctionError(e, "Could not check the payment status. Please try again."), variant: "destructive" });
     } finally {
       setChecking(false);
     }
@@ -188,7 +189,7 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
       setIdemKey(crypto.randomUUID());
       onDone();
     } catch (e: any) {
-      toast({ title: "Withdrawal failed", description: e.message, variant: "destructive" });
+      toast({ title: "Withdrawal failed", description: await resolveEdgeFunctionError(e, "The withdrawal could not be completed."), variant: "destructive" });
     } finally {
       setSending(false);
     }
@@ -275,7 +276,7 @@ function TradePanel({ onDone }: { onDone: () => void }) {
       setQuote(data as TradeQuote);
       setIdemKey(crypto.randomUUID());
     } catch (e: any) {
-      toast({ title: "Could not get a quote", description: e.message, variant: "destructive" });
+      toast({ title: "Could not get a quote", description: await resolveEdgeFunctionError(e, "Could not get a quote right now. Please try again."), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -302,7 +303,7 @@ function TradePanel({ onDone }: { onDone: () => void }) {
       await refetchFiat();
       onDone();
     } catch (e: any) {
-      toast({ title: "Trade failed", description: e.message, variant: "destructive" });
+      toast({ title: "Trade failed", description: await resolveEdgeFunctionError(e, "The trade could not be completed."), variant: "destructive" });
     } finally {
       setExecuting(false);
     }
