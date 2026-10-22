@@ -68,9 +68,38 @@ export function parseAccountKey(extendedKey: string): HDKey {
   );
 }
 
+/**
+ * Normalize a mnemonic as typed/pasted by an operator into the bare
+ * space-separated word list BIP39 validation expects.
+ *
+ * Operators copy seed phrases out of wallet apps and documents where the
+ * words arrive decorated: numbered lists ("1. abandon, 2. ability …"),
+ * commas, line breaks, tabs, ALL-CAPS emphasis, stray punctuation,
+ * invisible characters riding along in a paste. None of that is part of
+ * the phrase — only the words are. So normalization is deliberately
+ * maximal: lowercase, then treat ANY run of characters that is not a
+ * lowercase ASCII letter as a separator, and drop the empty pieces.
+ * Digits, punctuation, whitespace and zero-width characters all vanish;
+ * the word sequence that remains is the phrase.
+ *
+ * This forgives formatting ONLY. Validation after normalization is the
+ * full BIP39 check (every word on the English wordlist AND the embedded
+ * checksum) in accountKeyFromMnemonic, and custodyStatus still requires
+ * the seed to derive the very account BTC_XPUB watches before any
+ * spending path unlocks. A wrong word, a missing word or an extra word
+ * still fails — normalization never invents, drops or reorders words.
+ */
+export function normalizeMnemonic(raw: string): string {
+  return raw
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((word) => word.length > 0)
+    .join(" ");
+}
+
 /** Derive the account key (with private keys) from the master mnemonic. */
 export function accountKeyFromMnemonic(mnemonic: string): HDKey {
-  const clean = mnemonic.trim().toLowerCase().replace(/\s+/g, " ");
+  const clean = normalizeMnemonic(mnemonic);
   if (!validateMnemonic(clean, wordlist)) {
     throw new Error("BTC_SEED_MNEMONIC is not a valid BIP39 mnemonic");
   }

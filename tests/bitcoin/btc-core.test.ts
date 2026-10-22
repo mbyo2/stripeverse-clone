@@ -87,6 +87,61 @@ describe("BIP84 derivation (published test vectors)", () => {
   });
 });
 
+describe("mnemonic normalization (operator paste forgiveness)", () => {
+  const WORDS = MNEMONIC.split(" ");
+  const numbered = WORDS.map((w, i) => `${i + 1}. ${w}`).join(", ");
+  const commaSeparated = WORDS.join(", ");
+  const newlineSeparated = WORDS.join("\n");
+  const shouty = "  " + WORDS.join("   ").toUpperCase() + "  ";
+
+  it("normalizes a numbered, comma-separated list to the bare words", () => {
+    expect(core.normalizeMnemonic(numbered)).toBe(MNEMONIC);
+  });
+
+  it("normalizes comma / newline / mixed-case extra-space forms identically", () => {
+    expect(core.normalizeMnemonic(commaSeparated)).toBe(MNEMONIC);
+    expect(core.normalizeMnemonic(newlineSeparated)).toBe(MNEMONIC);
+    expect(core.normalizeMnemonic(shouty)).toBe(MNEMONIC);
+    expect(core.normalizeMnemonic(MNEMONIC)).toBe(MNEMONIC);
+  });
+
+  it("accepts every decorated form through the full custody interlock", () => {
+    for (const variant of [numbered, commaSeparated, newlineSeparated, shouty]) {
+      const status = core.custodyStatus(variant, ACCOUNT_ZPUB);
+      expect(status.configured).toBe(true);
+      const key = core.accountKeyFromMnemonic(variant);
+      expect(core.deriveAddress(key, 0, 0)).toBe(ADDR_0_0);
+    }
+  });
+
+  it("still rejects a non-wordlist word outright, decorated or not", () => {
+    const bogusWords = [...WORDS.slice(0, 11), "bitcoin"]; // not a BIP39 word
+    const bogus = bogusWords.join(" ");
+    const bogusNumbered = bogusWords.map((w, i) => `${i + 1}. ${w}`).join(", ");
+    expect(() => core.accountKeyFromMnemonic(bogus)).toThrow();
+    expect(core.custodyStatus(bogus, ACCOUNT_ZPUB)).toEqual({
+      configured: false,
+      reason: "invalid_seed",
+    });
+    expect(core.custodyStatus(bogusNumbered, ACCOUNT_ZPUB)).toEqual({
+      configured: false,
+      reason: "invalid_seed",
+    });
+  });
+
+  it("still rejects a real wordlist word in the wrong place", () => {
+    const swapped = [...WORDS.slice(0, 11), "zoo"].join(" ");
+    expect(core.custodyStatus(swapped, ACCOUNT_ZPUB).configured).toBe(false);
+  });
+
+  it("still rejects 13-word and 25-word inputs", () => {
+    expect(() => core.accountKeyFromMnemonic(MNEMONIC + " abandon")).toThrow();
+    expect(() =>
+      core.accountKeyFromMnemonic(MNEMONIC + " " + MNEMONIC + " abandon"),
+    ).toThrow();
+  });
+});
+
 describe("address validation", () => {
   it("accepts mainnet SegWit and returns a 22-byte script", () => {
     const v = core.validateMainnetAddress(ADDR_0_0);
