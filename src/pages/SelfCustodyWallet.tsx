@@ -42,12 +42,30 @@ import { scanWallet, fetchRecommendedFeeRate, broadcastTransaction, type WalletS
 import { loadLastKnown, saveLastKnown, clearLastKnown, type LastKnownWalletData } from "@/lib/selfcustody/lastKnown";
 import { useSession, unlockSession, lockSession, touchSession } from "@/lib/selfcustody/session";
 import {
-  liquidLightningEnabled,
-  liquidBalanceSat,
-  liquidCreateInvoice,
-  liquidPayInvoice,
-  disconnectLiquid,
-} from "@/lib/selfcustody/lightning";
+  sparkEnabled,
+  sparkBalanceSat,
+  sparkReceiveBolt11,
+  sparkReceiveBitcoinAddress,
+  sparkReceiveSparkAddress,
+  sparkParseInput,
+  parsedFlow,
+  parsedInputLabel,
+  lnurlPayDetails,
+  sparkPrepareSend,
+  sparkSendPrepared,
+  sparkPrepareLnurlPay,
+  sparkSendLnurlPay,
+  sparkLnurlWithdraw,
+  sparkLnurlAuth,
+  sparkListPayments,
+  sparkBuyBitcoinUrl,
+  disconnectSpark,
+  type PreparedSend,
+  type PreparedLnurlPay,
+  type PaymentSummary,
+} from "@/lib/selfcustody/spark";
+import type { InputType } from "@breeztech/breez-sdk-spark/web";
+import QRCode from "qrcode.react";
 
 /**
  * SELF-CUSTODY Bitcoin wallet — keys exist only on this device.
@@ -106,12 +124,24 @@ function SelfCustodyWallet() {
   const [sendAmount, setSendAmount] = useState("");
   const [sending, setSending] = useState(false);
 
-  // Self-custody Lightning (Breez SDK – Liquid) state.
-  const [lnBalance, setLnBalance] = useState<number | null>(null);
-  const [lnBusy, setLnBusy] = useState(false);
-  const [lnInvoiceAmount, setLnInvoiceAmount] = useState("");
-  const [lnCreatedInvoice, setLnCreatedInvoice] = useState<string | null>(null);
-  const [lnPayText, setLnPayText] = useState("");
+  // Self-custody Lightning & Spark (Breez SDK – Spark) state.
+  const [spBalance, setSpBalance] = useState<number | null>(null);
+  const [spBusy, setSpBusy] = useState(false);
+  const [spPayments, setSpPayments] = useState<PaymentSummary[] | null>(null);
+  // Receive: one of three destination types, each rendered with a QR.
+  const [receiveKind, setReceiveKind] = useState<"bolt11" | "bitcoin" | "spark">("bolt11");
+  const [receiveAmount, setReceiveAmount] = useState("");
+  const [receiveDest, setReceiveDest] = useState<string | null>(null);
+  const [receiveFee, setReceiveFee] = useState<number | null>(null);
+  // Send: paste anything → parse → prepare (fee preview) → confirm.
+  const [sendText, setSendText] = useState("");
+  const [sendParsedText, setSendParsedText] = useState<string | null>(null);
+  const [parsedInput, setParsedInput] = useState<InputType | null>(null);
+  const [sendAmountSats, setSendAmountSats] = useState("");
+  const [preparedSend, setPreparedSend] = useState<PreparedSend | null>(null);
+  const [preparedLnurl, setPreparedLnurl] = useState<PreparedLnurlPay | null>(null);
+  // Buy (MoonPay).
+  const [buyAmount, setBuyAmount] = useState("");
 
   const account = useMemo(
     () => (session.mnemonic ? accountFromMnemonic(session.mnemonic) : null),
@@ -122,10 +152,14 @@ function SelfCustodyWallet() {
     if (session.mnemonic) {
       setStage("wallet");
     } else {
-      // Locked or removed: drop any Liquid SDK instance bound to the seed.
-      disconnectLiquid();
-      setLnBalance(null);
-      setLnCreatedInvoice(null);
+      // Locked or removed: drop any Spark SDK instance bound to the seed.
+      disconnectSpark();
+      setSpBalance(null);
+      setSpPayments(null);
+      setReceiveDest(null);
+      setParsedInput(null);
+      setPreparedSend(null);
+      setPreparedLnurl(null);
       if (stage === "wallet") setStage(hasVault ? "locked" : "choose");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -288,6 +322,186 @@ function SelfCustodyWallet() {
   const copy = async (text: string, label: string) => {
     await navigator.clipboard.writeText(text);
     toast.success(`${label} copied`);
+  };
+
+  // ── Spark wallet (Breez SDK – Spark, Glow-style) ───────────────────────
+
+  const refreshSpark = async () => {
+    if (!session.mnemonic) return;
+    setSpBusy(true);
+    try {
+      const [balance, payments] = await Promise.all([
+        sparkBalanceSat(session.mnemonic),
+        sparkListPayments(session.mnemonic).catch(() => null),
+      ]);
+      setSpBalance(balance);
+      if (payments) setSpPayments(payments);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not connect the Spark wallet");
+    } finally {
+      setSpBusy(false);
+    }
+  };
+
+  const doSparkReceive = async () => {
+    if (!session.mnemonic) return;
+    setSpBusy(true);
+    setReceiveDest(null);
+    try {
+      const result =
+        receiveKind === "bolt11"
+          ? await sparkReceiveBolt11(
+              session.mnemonic,
+              receiveAmount ? Number(receiveAmount) : undefined,
+              "BMaGlass Pay",
+            )
+          : receiveKind === "bitcoin"
+            ? await sparkReceiveBitcoinAddress(session.mnemonic)
+            : await sparkReceiveSparkAddress(session.mnemonic);
+      setReceiveDest(result.destination);
+      setReceiveFee(result.feeSats);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not create that receive destination");
+    } finally {
+      setSpBusy(false);
+    }
+  };
+
+  /** Step 1 of sending: parse the pasted input so the UI drives the right flow. */
+  const doParseSend = async () => {
+    if (!session.mnemonic || !sendText.trim()) return;
+    setSpBusy(true);
+    setParsedInput(null);
+    setPreparedSend(null);
+    setPreparedLnurl(null);
+    try {
+      const parsed = await sparkParseInput(session.mnemonic, sendText);
+      setParsedInput(parsed);
+      setSendParsedText(sendText.trim());
+    } catch (e: any) {
+      toast.error(e?.message || "That destination could not be recognised");
+    } finally {
+      setSpBusy(false);
+    }
+  };
+
+  /** Step 2 (unified send + LNURL-pay): prepare, so the exact fee is shown before confirming. */
+  const doPrepareSend = async () => {
+    if (!session.mnemonic || !parsedInput || !sendParsedText) return;
+    const flow = parsedFlow(parsedInput);
+    const amount = sendAmountSats ? Number(sendAmountSats) : undefined;
+    setSpBusy(true);
+    try {
+      if (flow === "lnurlPay") {
+        const details = lnurlPayDetails(parsedInput);
+        if (!details) throw new Error("That input has no LNURL payment details");
+        if (amount === undefined) {
+          toast.error("Enter an amount in sats for this payment");
+          return;
+        }
+        setPreparedLnurl(await sparkPrepareLnurlPay(session.mnemonic, details, amount));
+      } else {
+        setPreparedSend(await sparkPrepareSend(session.mnemonic, sendParsedText, amount));
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Could not prepare that payment");
+    } finally {
+      setSpBusy(false);
+    }
+  };
+
+  /** Step 3: execute exactly what was previewed. */
+  const doConfirmSend = async () => {
+    if (!session.mnemonic) return;
+    setSpBusy(true);
+    try {
+      if (preparedLnurl) {
+        await sparkSendLnurlPay(session.mnemonic, preparedLnurl);
+        toast.success("Payment sent");
+      } else if (preparedSend) {
+        await sparkSendPrepared(session.mnemonic, preparedSend);
+        toast.success("Payment sent");
+      } else {
+        return;
+      }
+      setSendText("");
+      setSendParsedText(null);
+      setParsedInput(null);
+      setSendAmountSats("");
+      setPreparedSend(null);
+      setPreparedLnurl(null);
+      refreshSpark();
+    } catch (e: any) {
+      toast.error(e?.message || "Payment failed");
+    } finally {
+      setSpBusy(false);
+    }
+  };
+
+  const doLnurlWithdraw = async () => {
+    if (!session.mnemonic || !parsedInput) return;
+    const amount = Number(sendAmountSats);
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
+      toast.error("Enter the amount to withdraw, in sats");
+      return;
+    }
+    setSpBusy(true);
+    try {
+      await sparkLnurlWithdraw(session.mnemonic, parsedInput, amount);
+      toast.success("Withdrawal claimed into your Spark wallet");
+      setParsedInput(null);
+      setSendText("");
+      setSendAmountSats("");
+      refreshSpark();
+    } catch (e: any) {
+      toast.error(e?.message || "Withdrawal failed");
+    } finally {
+      setSpBusy(false);
+    }
+  };
+
+  const doLnurlAuth = async () => {
+    if (!session.mnemonic || !parsedInput) return;
+    setSpBusy(true);
+    try {
+      const status = await sparkLnurlAuth(session.mnemonic, parsedInput);
+      toast.success(`Sign-in answer sent (${status})`);
+      setParsedInput(null);
+      setSendText("");
+    } catch (e: any) {
+      toast.error(e?.message || "Sign-in failed");
+    } finally {
+      setSpBusy(false);
+    }
+  };
+
+  /**
+   * MoonPay buy, the way Breez documents it for web: pre-open a blank
+   * tab SYNCHRONOUSLY inside the click handler (mobile browsers block
+   * window.open after an await), then navigate it once the SDK returns
+   * the MoonPay URL. Falls back to same-tab navigation if the pre-open
+   * was blocked.
+   */
+  const doBuyBitcoin = async () => {
+    if (!session.mnemonic) return;
+    const tab = window.open("", "_blank");
+    setSpBusy(true);
+    try {
+      const url = await sparkBuyBitcoinUrl(session.mnemonic, {
+        amountSat: buyAmount ? Number(buyAmount) : undefined,
+        redirectUrl: window.location.href,
+      });
+      if (tab) {
+        tab.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+    } catch (e: any) {
+      if (tab) tab.close();
+      toast.error(e?.message || "Could not start the MoonPay purchase");
+    } finally {
+      setSpBusy(false);
+    }
   };
 
   // The receive address is derived LOCALLY from the account key — it
@@ -603,109 +817,208 @@ function SelfCustodyWallet() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  Lightning <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY</Badge>
+                  Lightning &amp; Spark <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY</Badge>
                 </CardTitle>
                 <CardDescription>
-                  Self-custody Lightning runs in your browser via the Breez SDK on the Liquid
-                  network, under the same seed phrase as this wallet — no BMaGlass server is
+                  Lightning, on-chain deposits and Spark transfers in one balance, powered by the
+                  Breez SDK – Spark (the same SDK as Breez&apos;s Glow wallet) running entirely in
+                  your browser under the same seed phrase as this wallet — no BMaGlass server is
                   involved.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {!liquidLightningEnabled() ? (
+              <CardContent className="space-y-4">
+                {!sparkEnabled() ? (
                   <p className="text-sm text-muted-foreground">
-                    Lightning for the self-custody wallet is not enabled on this deployment yet:
-                    it requires a dedicated client-scoped Breez API key, separate from the
-                    platform's server-side Lightning key (which must never be embedded in a web
-                    page). On-chain self-custody above is fully functional. Your custodial
-                    account's Lightning works as before.
+                    This part of the self-custody wallet is not enabled on this deployment yet: it
+                    needs the app&apos;s Breez API key (VITE_BREEZ_API_KEY), the per-app developer
+                    key Breez issues for this app. On-chain self-custody above is fully functional
+                    in the meantime, and your custodial account works as before.
                   </p>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-sm text-muted-foreground">
-                        Liquid balance: {lnBalance === null ? "—" : `${lnBalance.toLocaleString()} sats`}
+                        Spark balance: {spBalance === null ? "—" : `${spBalance.toLocaleString()} sats`}
                       </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={lnBusy || !session.mnemonic}
-                        onClick={async () => {
-                          if (!session.mnemonic) return;
-                          setLnBusy(true);
-                          try {
-                            setLnBalance(await liquidBalanceSat(session.mnemonic));
-                          } catch (e: any) {
-                            toast.error(e?.message || "Could not connect the Lightning wallet");
-                          } finally {
-                            setLnBusy(false);
-                          }
-                        }}
-                      >
-                        {lnBusy ? "Connecting…" : "Connect / refresh"}
+                      <div className="flex gap-2">
+                        <Button
+                          className="rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90"
+                          size="sm"
+                          disabled={spBusy || !session.mnemonic}
+                          onClick={doBuyBitcoin}
+                        >
+                          Buy Bitcoin
+                        </Button>
+                        <Button variant="outline" size="sm" disabled={spBusy || !session.mnemonic} onClick={refreshSpark}>
+                          {spBusy ? "Connecting…" : "Connect / refresh"}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="buy-amt">Buy amount (sats, optional — MoonPay sets the final fiat amount)</Label>
+                      <Input id="buy-amt" type="number" min="1" placeholder="Leave blank to choose on MoonPay" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} />
+                      <p className="text-xs text-muted-foreground">
+                        Buying opens MoonPay in a new tab (via Breez). MoonPay handles payment and
+                        identity checks; purchases are paid in USD/EUR/GBP (ZMW is not supported by
+                        MoonPay), with a minimum of about $20. Bought Bitcoin lands on this
+                        wallet&apos;s Bitcoin deposit address and is added to the balance
+                        automatically.
+                      </p>
+                    </div>
+
+                    <div className="border-t pt-4 space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant={receiveKind === "bolt11" ? "default" : "outline"} onClick={() => { setReceiveKind("bolt11"); setReceiveDest(null); }}>
+                          Lightning invoice
+                        </Button>
+                        <Button size="sm" variant={receiveKind === "bitcoin" ? "default" : "outline"} onClick={() => { setReceiveKind("bitcoin"); setReceiveDest(null); }}>
+                          Bitcoin address
+                        </Button>
+                        <Button size="sm" variant={receiveKind === "spark" ? "default" : "outline"} onClick={() => { setReceiveKind("spark"); setReceiveDest(null); }}>
+                          Spark address
+                        </Button>
+                      </div>
+                      {receiveKind === "bolt11" && (
+                        <div className="space-y-1">
+                          <Label htmlFor="rcv-amt">Invoice amount (sats, optional)</Label>
+                          <Input id="rcv-amt" type="number" min="1" placeholder="Blank = any amount" value={receiveAmount} onChange={(e) => setReceiveAmount(e.target.value)} />
+                        </div>
+                      )}
+                      {receiveKind === "bitcoin" && (
+                        <p className="text-xs text-muted-foreground">
+                          Your Bitcoin deposit address. Deposits are detected and added to your
+                          Spark balance automatically after 3 confirmations. MoonPay purchases are
+                          delivered here too.
+                        </p>
+                      )}
+                      {receiveKind === "spark" && (
+                        <p className="text-xs text-muted-foreground">
+                          Your Spark address — instant transfers from other Spark wallets.
+                        </p>
+                      )}
+                      <Button variant="outline" className="w-full" disabled={spBusy || !session.mnemonic} onClick={doSparkReceive}>
+                        {receiveKind === "bolt11" ? "Create invoice" : "Show address"}
                       </Button>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="ln-amt">Create invoice (sats)</Label>
-                        <Input id="ln-amt" type="number" min="1" value={lnInvoiceAmount} onChange={(e) => setLnInvoiceAmount(e.target.value)} />
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          disabled={lnBusy || !session.mnemonic || !lnInvoiceAmount}
-                          onClick={async () => {
-                            if (!session.mnemonic) return;
-                            setLnBusy(true);
-                            try {
-                              const { invoice, feesSat } = await liquidCreateInvoice(
-                                session.mnemonic,
-                                Number(lnInvoiceAmount),
-                              );
-                              setLnCreatedInvoice(invoice);
-                              toast.success(`Invoice created (network/swap fee ${feesSat} sats)`);
-                            } catch (e: any) {
-                              toast.error(e?.message || "Could not create the invoice");
-                            } finally {
-                              setLnBusy(false);
-                            }
-                          }}
-                        >
-                          Create invoice
-                        </Button>
-                        {lnCreatedInvoice && (
-                          <>
-                            <p className="font-mono text-[10px] break-all rounded bg-muted p-2">{lnCreatedInvoice}</p>
-                            <Button variant="outline" size="sm" onClick={() => copy(lnCreatedInvoice, "Invoice")}>
-                              <Copy className="h-4 w-4 mr-1" /> Copy invoice
+                      {receiveDest && (
+                        <div className="space-y-2">
+                          <div className="flex justify-center rounded bg-white p-3">
+                            <QRCode value={receiveDest} size={180} />
+                          </div>
+                          <p className="font-mono text-[10px] break-all rounded bg-muted p-2">{receiveDest}</p>
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => copy(receiveDest, "Destination")}>
+                              <Copy className="h-4 w-4 mr-1" /> Copy
                             </Button>
-                          </>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="ln-pay">Pay an invoice</Label>
-                        <Textarea id="ln-pay" rows={3} placeholder="lnbc…" value={lnPayText} onChange={(e) => setLnPayText(e.target.value)} />
-                        <Button
-                          className="w-full"
-                          disabled={lnBusy || !session.mnemonic || !lnPayText.trim()}
-                          onClick={async () => {
-                            if (!session.mnemonic) return;
-                            setLnBusy(true);
-                            try {
-                              const { feesSat } = await liquidPayInvoice(session.mnemonic, lnPayText);
-                              toast.success(`Invoice paid (fees ${feesSat ?? 0} sats)`);
-                              setLnPayText("");
-                              setLnBalance(await liquidBalanceSat(session.mnemonic));
-                            } catch (e: any) {
-                              toast.error(e?.message || "Payment failed");
-                            } finally {
-                              setLnBusy(false);
-                            }
-                          }}
-                        >
-                          Pay invoice
-                        </Button>
-                      </div>
+                            {receiveFee !== null && receiveFee > 0 && (
+                              <span className="text-xs text-muted-foreground">Receive fee: {receiveFee.toLocaleString()} sats</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
+
+                    <div className="border-t pt-4 space-y-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="sp-send">Send to — paste any destination</Label>
+                        <Textarea
+                          id="sp-send"
+                          rows={3}
+                          placeholder="Lightning invoice, Lightning address, LNURL, Bitcoin address, Spark address…"
+                          value={sendText}
+                          onChange={(e) => { setSendText(e.target.value); setParsedInput(null); setPreparedSend(null); setPreparedLnurl(null); }}
+                        />
+                      </div>
+                      <Button variant="outline" className="w-full" disabled={spBusy || !session.mnemonic || !sendText.trim()} onClick={doParseSend}>
+                        Review destination
+                      </Button>
+                      {parsedInput && (
+                        <div className="space-y-3 rounded border p-3">
+                          <p className="text-sm">
+                            Recognised: <strong>{parsedInputLabel(parsedInput)}</strong>
+                          </p>
+                          {parsedFlow(parsedInput) === "unsupported" && (
+                            <p className="text-sm text-muted-foreground">
+                              This kind of input can&apos;t be paid from the wallet yet. Nothing has been sent.
+                            </p>
+                          )}
+                          {parsedFlow(parsedInput) === "lnurlAuth" && (
+                            <Button className="w-full" disabled={spBusy} onClick={doLnurlAuth}>
+                              Sign in with this wallet
+                            </Button>
+                          )}
+                          {parsedFlow(parsedInput) === "lnurlWithdraw" && (
+                            <>
+                              <div className="space-y-1">
+                                <Label htmlFor="wd-amt">Amount to withdraw (sats)</Label>
+                                <Input id="wd-amt" type="number" min="1" value={sendAmountSats} onChange={(e) => setSendAmountSats(e.target.value)} />
+                              </div>
+                              <Button className="w-full" disabled={spBusy} onClick={doLnurlWithdraw}>
+                                Claim withdrawal
+                              </Button>
+                            </>
+                          )}
+                          {(parsedFlow(parsedInput) === "send" || parsedFlow(parsedInput) === "lnurlPay") && (
+                            <>
+                              <div className="space-y-1">
+                                <Label htmlFor="sp-amt">Amount (sats{parsedFlow(parsedInput) === "lnurlPay" ? "" : " — only for destinations without a fixed amount"})</Label>
+                                <Input id="sp-amt" type="number" min="1" value={sendAmountSats} onChange={(e) => setSendAmountSats(e.target.value)} />
+                              </div>
+                              {!preparedSend && !preparedLnurl && (
+                                <Button variant="outline" className="w-full" disabled={spBusy} onClick={doPrepareSend}>
+                                  Prepare — show me the fee first
+                                </Button>
+                              )}
+                              {preparedLnurl && (
+                                <div className="space-y-2 text-sm">
+                                  <p>Amount: <strong>{preparedLnurl.amountSats.toLocaleString()} sats</strong></p>
+                                  <p>Fee: <strong>{preparedLnurl.feeSats.toLocaleString()} sats</strong></p>
+                                  <Button className="w-full rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90" disabled={spBusy} onClick={doConfirmSend}>
+                                    Confirm &amp; pay {(preparedLnurl.amountSats + preparedLnurl.feeSats).toLocaleString()} sats
+                                  </Button>
+                                </div>
+                              )}
+                              {preparedSend && (
+                                <div className="space-y-2 text-sm">
+                                  <p>Amount: <strong>{preparedSend.amountSats.toLocaleString()} sats</strong></p>
+                                  {preparedSend.fee.lines.map((line) => (
+                                    <p key={line.label}>{line.label}: <strong>{line.feeSats.toLocaleString()} sats</strong></p>
+                                  ))}
+                                  {preparedSend.fee.isEstimate && (
+                                    <p className="text-xs text-amber-600">Fee shown is an estimate — the final fee is confirmed by the network when sending.</p>
+                                  )}
+                                  <Button className="w-full rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90" disabled={spBusy} onClick={doConfirmSend}>
+                                    Confirm &amp; send
+                                  </Button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {spPayments && (
+                      <div className="border-t pt-4 space-y-2">
+                        <p className="text-sm font-medium">Spark wallet activity</p>
+                        {spPayments.length === 0 && (
+                          <p className="text-sm text-muted-foreground">No Spark payments yet.</p>
+                        )}
+                        {spPayments.map((p) => (
+                          <div key={p.id} className="flex items-center justify-between rounded border p-2 text-sm">
+                            <div>
+                              <div className="capitalize">{p.direction} · {p.method}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(p.timestamp * 1000).toLocaleString()} · {p.status}
+                                {p.feesSats > 0 ? ` · fee ${p.feesSats.toLocaleString()} sats` : ""}
+                              </div>
+                            </div>
+                            <div className={p.direction === "receive" ? "text-green-600 font-medium" : "font-medium"}>
+                              {p.direction === "receive" ? "+" : "−"}{p.amountSats.toLocaleString()} sats
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
               </CardContent>
