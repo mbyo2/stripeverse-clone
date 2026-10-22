@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { Mail, Phone, MapPin } from 'lucide-react';
+import { Mail, MessageCircle, MapPin } from 'lucide-react';
 import { useContactForm } from '@/hooks/useContactForm';
 import { FadeIn, StaggerChildren, StaggerItem, MotionCard } from '@/components/animations';
 
@@ -39,14 +39,14 @@ const Contact = () => {
       content: <>Cairo Road, Lusaka<br />Zambia</>,
     },
     {
-      title: 'Email Mr. Banda',
+      title: 'Message Us',
       icon: Mail,
-      content: <>mabvuto@bmaglasspay.com<br />support@bmaglasspay.com</>,
+      content: <>Send a message via the contact form at<br />bmaglasspay.online/contact</>,
     },
     {
-      title: 'Call Us',
-      icon: Phone,
-      content: <>+260 976 123 456<br />Mon-Fri, 8:30am-5pm CAT</>,
+      title: 'Support Tickets',
+      icon: MessageCircle,
+      content: <>Account holders: open a ticket from<br />the Support Centre in the app</>,
     },
   ];
 

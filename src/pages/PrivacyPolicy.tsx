@@ -1,5 +1,6 @@
 
 import React from "react";
+import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -86,7 +87,7 @@ const PrivacyPolicy = () => {
               <li>Data portability</li>
               <li>Withdraw consent at any time</li>
             </ul>
-            <p className="text-muted-foreground">Contact privacy@bmaglasspay.com to exercise these rights.</p>
+            <p className="text-muted-foreground">To exercise these rights, send us a message through the <Link to="/contact" className="text-primary hover:underline">contact form</Link>.</p>
           </section>
           
           <section className="mb-8">
@@ -96,7 +97,7 @@ const PrivacyPolicy = () => {
           
           <section>
             <h2 className="text-xl font-semibold mb-4">9. Contact Us</h2>
-            <p className="text-muted-foreground">For privacy questions, contact us at privacy@bmaglasspay.com or write to: BMaGlass Pay, Cairo Road, Lusaka, Zambia.</p>
+            <p className="text-muted-foreground">For privacy questions, contact us through the <Link to="/contact" className="text-primary hover:underline">contact form</Link> or write to: BMaGlass Pay, Cairo Road, Lusaka, Zambia.</p>
           </section>
         </div>
       </main>

@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MessageCircle, Phone, Mail, Search, Clock, Loader2, Send } from "lucide-react";
+import { MessageCircle, Mail, Search, Clock, Loader2, Send, BookOpen } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -125,15 +126,15 @@ const Support = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Mail className="h-5 w-5 text-primary" />
-                Email Support
+                Contact Form
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Send us an email for detailed support
+                No account needed — send a message through our contact page
               </p>
               <Button variant="outline" className="w-full" asChild>
-                <a href="mailto:support@bmaglasspay.com">support@bmaglasspay.com</a>
+                <Link to="/contact">Send a Message</Link>
               </Button>
             </CardContent>
           </Card>
@@ -141,16 +142,16 @@ const Support = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Phone className="h-5 w-5 text-primary" />
-                Phone Support
+                <BookOpen className="h-5 w-5 text-primary" />
+                Help Centre
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                Mon-Fri 8:00 AM – 6:00 PM CAT
+              <p className="text-sm text-muted-foreground mb-4">
+                Guides and answers to common questions
               </p>
               <Button variant="outline" className="w-full" asChild>
-                <a href="tel:+260976123456">+260 976 123 456</a>
+                <Link to="/help">Visit the Help Centre</Link>
               </Button>
             </CardContent>
           </Card>

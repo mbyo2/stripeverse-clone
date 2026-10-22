@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Search, MessageCircle, Phone, Mail, ExternalLink, ChevronRight, BookOpen, Shield, CreditCard, Smartphone, Users, Loader2 } from "lucide-react";
+import { Search, MessageCircle, Mail, ExternalLink, ChevronRight, BookOpen, Shield, CreditCard, Smartphone, Users, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -184,28 +184,22 @@ const Help = () => {
                   <CardHeader><CardTitle>Reach us directly</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center space-x-3">
-                      <Phone className="h-5 w-5 text-primary" />
-                      <div>
-                        <p className="font-medium">Phone</p>
-                        <p className="text-sm text-muted-foreground">+260 976 123 456</p>
-                        <p className="text-xs text-muted-foreground">Mon-Fri 8AM-6PM CAT</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <Mail className="h-5 w-5 text-primary" />
-                      <div>
-                        <p className="font-medium">Email</p>
-                        <p className="text-sm text-muted-foreground">support@bmaglasspay.com</p>
-                        <p className="text-xs text-muted-foreground">Response within 24hrs</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
                       <MessageCircle className="h-5 w-5 text-primary" />
                       <div>
                         <p className="font-medium">Support Tickets</p>
                         <p className="text-sm text-muted-foreground">Send us a message — we reply by email</p>
                         <Link to="/support">
                           <Button variant="outline" size="sm" className="mt-1">Contact Support</Button>
+                        </Link>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <Mail className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-medium">Contact Form</p>
+                        <p className="text-sm text-muted-foreground">No account needed — use the form on our contact page</p>
+                        <Link to="/contact">
+                          <Button variant="outline" size="sm" className="mt-1">Send a Message</Button>
                         </Link>
                       </div>
                     </div>

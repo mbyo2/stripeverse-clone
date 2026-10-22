@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/accordion";
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ComplianceRequirement {
@@ -235,7 +236,8 @@ const BusinessCompliance = () => {
             <h4 className="font-medium text-foreground mb-1">Need Help With Compliance?</h4>
             <p className="text-sm text-muted-foreground">
               Our compliance team is available to assist you with meeting all regulatory requirements.
-              Contact us at <span className="font-medium">compliance@bmaglasspay.com</span>.
+              Contact us through the{" "}
+              <Link to="/support" className="font-medium text-primary hover:underline">Support Centre</Link>.
             </p>
           </div>
         </div>

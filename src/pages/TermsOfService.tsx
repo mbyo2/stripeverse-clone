@@ -1,5 +1,6 @@
 
 import React from "react";
+import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -77,7 +78,7 @@ const TermsOfService = () => {
           
           <section>
             <h2 className="text-xl font-semibold mb-4">11. Contact Us</h2>
-            <p className="text-muted-foreground">For questions about these Terms, contact legal@bmaglasspay.com or write to: BMaGlass Pay, Cairo Road, Lusaka, Zambia.</p>
+            <p className="text-muted-foreground">For questions about these Terms, contact us through the <Link to="/contact" className="text-primary hover:underline">contact form</Link> or write to: BMaGlass Pay, Cairo Road, Lusaka, Zambia.</p>
           </section>
         </div>
       </main>

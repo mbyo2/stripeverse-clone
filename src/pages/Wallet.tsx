@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/hooks/useWallet";
 import { usePayPalDepositReturn } from "@/hooks/usePayPalDepositReturn";
+import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from "@/config/paypal";
 import { useAccount } from "@/contexts/AccountContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -44,6 +45,9 @@ const Wallet = () => {
   };
   
   const handleAddMoney = () => {
+    // PayPal is gated off (coming soon) — the SelectItem is disabled,
+    // and this guard keeps the redirect flow unreachable regardless.
+    if (depositMethod === 'paypal' && !PAYPAL_AVAILABLE) return;
     const parsedAmount = parseFloat(amount);
     if (!isNaN(parsedAmount) && parsedAmount > 0) {
       // Target the wallet of the account the user is viewing — never
@@ -85,15 +89,19 @@ const Wallet = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="mobile_money">Mobile Money</SelectItem>
-            <SelectItem value="paypal">PayPal</SelectItem>
+            <SelectItem value="paypal" disabled={!PAYPAL_AVAILABLE}>
+              PayPal{!PAYPAL_AVAILABLE && ` — ${PAYPAL_COMING_SOON_LABEL}`}
+            </SelectItem>
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground text-center">
-          {depositMethod === 'paypal'
+          {depositMethod === 'paypal' && !PAYPAL_AVAILABLE
+            ? "PayPal deposits are coming soon — they aren't available yet."
+            : depositMethod === 'paypal'
             ? "You'll be redirected to PayPal. Your wallet is credited once the payment is confirmed."
             : "Mobile money deposits are not live yet — you'll be told before anything is charged."}
         </p>
-        {depositMethod === 'paypal' && wallet?.currency === 'ZMW' && (
+        {depositMethod === 'paypal' && PAYPAL_AVAILABLE && wallet?.currency === 'ZMW' && (
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
