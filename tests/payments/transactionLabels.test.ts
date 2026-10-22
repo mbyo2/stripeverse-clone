@@ -63,6 +63,59 @@ describe("transactionTitle", () => {
   it("keeps the legacy Unknown only for rows with no name and no description", () => {
     expect(transactionTitle({ direction: "outgoing" })).toBe("Sent to Unknown");
   });
+
+  it("does not echo the sender's description on the recipient's incoming row (Money QA send re-test)", () => {
+    // The atomic-transfer RPC copies the sender's one description
+    // onto both rows; qa2's incoming row literally read
+    // "Send money to QA Business (incl. K5 fee)" — naming qa2
+    // themselves and claiming the fee arrived. The row carries no
+    // sender name, so the honest label names the platform counterparty.
+    expect(transactionTitle({
+      direction: "incoming",
+      category: "transfer",
+      description: "Send money to QA Business (incl. K5 fee)",
+      recipient_name: null,
+    })).toBe("Received from BMaGlass user");
+    expect(transactionTitle({
+      direction: "incoming",
+      category: "transfer",
+      description: "Transfer to +260 97 000 0001",
+      recipient_name: null,
+    })).toBe("Received from BMaGlass user");
+  });
+
+  it("keeps sender-side rendering of the same description unchanged", () => {
+    expect(transactionTitle({
+      direction: "outgoing",
+      category: "transfer",
+      description: "Send money to QA Business",
+      recipient_name: null,
+    })).toBe("Send money to QA Business");
+    expect(transactionTitle({
+      direction: "outgoing",
+      category: "transfer",
+      description: "Send money to QA Business",
+      recipient_name: "QA Business",
+    })).toBe("Sent to QA Business");
+  });
+
+  it("still uses a genuine incoming description that is not sender-voice", () => {
+    expect(transactionTitle({
+      direction: "incoming",
+      category: "transfer",
+      description: "Rent for June",
+      recipient_name: null,
+    })).toBe("Rent for June");
+  });
+
+  it("does not apply the sender-voice rule to internal rows", () => {
+    expect(transactionTitle({
+      direction: "incoming",
+      category: "internal_transfer",
+      description: "Transfer to own account",
+      recipient_name: null,
+    })).toBe("Transfer to own account");
+  });
 });
 
 describe("transactionCounterpartyLabel", () => {
@@ -92,5 +145,23 @@ describe("transactionCounterpartyLabel", () => {
       description: "Deposit to savings goal",
       recipient_name: null,
     })).toBe("Deposit to savings goal");
+  });
+
+  it("labels an incoming transfer's counterparty without echoing the sender's note", () => {
+    expect(transactionCounterpartyLabel({
+      direction: "incoming",
+      category: "transfer",
+      description: "Send money to QA Business (incl. K5 fee)",
+      recipient_name: null,
+    })).toBe("BMaGlass user");
+    // Sender side untouched: the outgoing row's counterparty is the
+    // recipient_name, and a sender-voice description on an OUTGOING
+    // row still reads as written.
+    expect(transactionCounterpartyLabel({
+      direction: "outgoing",
+      category: "transfer",
+      description: "Send money to QA Business",
+      recipient_name: null,
+    })).toBe("Send money to QA Business");
   });
 });

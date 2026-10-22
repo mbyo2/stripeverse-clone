@@ -14,7 +14,16 @@
 //   1. A real recipient_name wins: "Sent to X" / "Received from X".
 //   2. Internal categories (own-account movements) use the row's
 //      description, falling back to a category label — never "Unknown".
-//   3. Any other row with a description uses it (matching the Wallet
+//   3. A user-to-user transfer writes ONE description from the
+//      SENDER's side ("Send money to X", "Transfer to X") and the RPC
+//      copies it onto the recipient's incoming row, where it names
+//      the RECIPIENT, not the sender — and the row carries no sender
+//      name at all. Echoing it verbatim made the recipient's history
+//      read "Send money to QA Business (incl. K5 fee)" for money they
+//      RECEIVED (Money QA send re-test). An incoming row with a
+//      sender-voice description therefore reads "Received from
+//      BMaGlass user" — the counterparty the data can honestly name.
+//   4. Any other row with a description uses it (matching the Wallet
 //      page); only a row with neither keeps the legacy "Unknown".
 
 export interface LabelableTransaction {
@@ -32,6 +41,25 @@ const INTERNAL_CATEGORIES = new Set([
 
 export function isInternalTransaction(tx: LabelableTransaction): boolean {
   return !!tx.category && INTERNAL_CATEGORIES.has(tx.category);
+}
+
+const SENDER_VOICE_DESCRIPTION = /^(send money|transfer) to\s/i;
+
+/**
+ * True when an INCOMING row's description was written from the
+ * sender's perspective ("Send money to …" / "Transfer to …"). The
+ * atomic-transfer RPC copies the sender's single description onto
+ * both ledger rows and stores no sender name on the incoming row, so
+ * the description names the viewer themselves — it must not be
+ * echoed as the row's label.
+ */
+export function hasSenderVoiceDescription(tx: LabelableTransaction): boolean {
+  return (
+    tx.direction === "incoming" &&
+    !isInternalTransaction(tx) &&
+    !!tx.description &&
+    SENDER_VOICE_DESCRIPTION.test(tx.description.trim())
+  );
 }
 
 /** Category label for an internal row that carries no description. */
@@ -57,6 +85,7 @@ export function internalCategoryLabel(tx: LabelableTransaction): string {
 export function transactionCounterpartyLabel(tx: LabelableTransaction): string {
   if (tx.recipient_name) return tx.recipient_name;
   if (isInternalTransaction(tx)) return tx.description || internalCategoryLabel(tx);
+  if (hasSenderVoiceDescription(tx)) return "BMaGlass user";
   if (tx.description) return tx.description;
   return "Unknown";
 }
@@ -67,6 +96,7 @@ export function transactionTitle(tx: LabelableTransaction): string {
     return `${tx.direction === "outgoing" ? "Sent to" : "Received from"} ${tx.recipient_name}`;
   }
   if (isInternalTransaction(tx)) return tx.description || internalCategoryLabel(tx);
+  if (hasSenderVoiceDescription(tx)) return "Received from BMaGlass user";
   if (tx.description) return tx.description;
   return `${tx.direction === "outgoing" ? "Sent to" : "Received from"} Unknown`;
 }
