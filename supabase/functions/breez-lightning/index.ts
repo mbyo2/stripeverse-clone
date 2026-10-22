@@ -21,7 +21,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
-import { decodeBolt11Msat } from "../_shared/btc-core.ts";
+import { custodyStatus, decodeBolt11Msat } from "../_shared/btc-core.ts";
 
 const BREEZ_API = "https://api.breez.technology";
 const MAX_SATS = (() => {
@@ -48,6 +48,41 @@ function json(status: number, body: unknown) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Designed refusals: Lightning deposits/payments credit and debit the
+// SAME custodial BTC balance as on-chain custody, so while custody is
+// not genuinely configured (seed and MATCHED xpub both present — see
+// custodyStatus in btc-core) they refuse with these plain-language
+// messages, in the { error } shape the frontend surfaces verbatim.
+// Gating creation is also what closes the deposit-credit failure
+// window for new invoices: no invoice can be created — and therefore
+// no paid invoice can be stranded awaiting its credit — until custody
+// is configured and the credit path is reviewed for live funds.
+const LIGHTNING_DEPOSITS_NOT_CONFIGURED =
+  "Lightning deposits are not available yet — Bitcoin custody is not configured on this deployment.";
+const LIGHTNING_PAYMENTS_NOT_CONFIGURED =
+  "Lightning payments are not available yet — Bitcoin custody is not configured on this deployment.";
+
+function custodyGate(refusal: string): Response | null {
+  const c = custodyStatus(
+    Deno.env.get("BTC_SEED_MNEMONIC"),
+    Deno.env.get("BTC_XPUB"),
+  );
+  if (c.configured) return null;
+  console.error("breez-lightning: custody not configured (" + c.reason + ")");
+  return json(503, { error: refusal });
+}
+
+// PostgREST/RPC failures are plain objects with a message, not Error
+// instances — an `instanceof Error` test alone collapses them into a
+// contentless fallback and the user learns nothing. Extract the real
+// message from any thrown value that carries one.
+function thrownMessage(e: unknown, fallback: string): string {
+  if (e instanceof Error && e.message.trim()) return e.message;
+  const m = (e as { message?: unknown } | null | undefined)?.message;
+  if (typeof m === "string" && m.trim()) return m;
+  return fallback;
 }
 
 async function breezFetch(path: string, method: string, body?: unknown) {
@@ -86,6 +121,9 @@ serve(async (req) => {
 
     // ── Create inbound Lightning invoice ──
     if (action === "create_invoice") {
+      const gate = custodyGate(LIGHTNING_DEPOSITS_NOT_CONFIGURED);
+      if (gate) return gate;
+
       const sats = Number(amount_sats);
       if (!Number.isInteger(sats) || sats <= 0 || sats > MAX_SATS) {
         return json(400, { error: `amount_sats must be an integer between 1 and ${MAX_SATS}` });
@@ -122,6 +160,9 @@ serve(async (req) => {
 
     // ── Pay an outbound Lightning invoice (from wallet balance) ──
     if (action === "pay_invoice") {
+      const gate = custodyGate(LIGHTNING_PAYMENTS_NOT_CONFIGURED);
+      if (gate) return gate;
+
       if (!bolt11 || typeof bolt11 !== "string") {
         return json(400, { error: "bolt11 required" });
       }
@@ -252,6 +293,17 @@ serve(async (req) => {
       // CLAIM before crediting: only the caller that flips
       // pending → paid (conditional on the row still being pending)
       // may credit. Concurrent polls lose the claim and skip crediting.
+      //
+      // RESIDUAL WINDOW (known, accepted for now): if the process is
+      // hard-stopped BETWEEN the claim commit and the credit RPC — not
+      // a clean error, which rolls the claim back below — the row stays
+      // 'paid' uncredited and later polls early-return at the status
+      // check above. Exactly-once credit cannot be built from separate
+      // non-atomic calls; the real fix is a single-transaction
+      // claim+credit RPC, to land before Lightning handles live funds.
+      // Until then this window can only contain invoices created while
+      // custody was configured — creation is gated (see create_invoice),
+      // so no new invoice can enter it in the unconfigured state.
       const { data: claimed, error: claimErr } = await supabase
         .from("lightning_payments")
         .update({ status: "paid", settled_at: new Date().toISOString() })
@@ -305,6 +357,6 @@ serve(async (req) => {
       return json(503, { error: "Lightning is not available yet — it is not configured on this deployment." });
     }
     console.error("breez-lightning error:", e);
-    return json(500, { error: e instanceof Error ? e.message : "Lightning operation failed" });
+    return json(500, { error: thrownMessage(e, "Lightning operation failed") });
   }
 });
