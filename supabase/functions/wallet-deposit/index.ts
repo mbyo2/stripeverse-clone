@@ -42,6 +42,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyProvider } from "../_shared/payment-providers.ts";
+import { paypalErrorTrace } from "../_shared/deposit-capture.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -325,7 +326,8 @@ async function createPayPalOrder(
       }),
     });
     if (!response.ok) {
-      console.error("PayPal order failed:", response.status, await response.text());
+      // Trace fields only (audit L1) — never the raw error body.
+      console.error("PayPal order failed:", paypalErrorTrace(response.status, await response.text()));
       return null;
     }
     const data = await response.json();

@@ -15,6 +15,7 @@ import {
   moneyEquals,
   orderIdFromWebhookEvent,
   parseMoney,
+  paypalErrorTrace,
   paypalOrderStatus,
   planCompletion,
   verifyCapture,
@@ -208,5 +209,38 @@ describe("planCompletion", () => {
   it("refuses deposits that are no longer pending", () => {
     expect(planCompletion({ ...pending, status: "failed" }, "CAPTURE123")).toBe("not_pending");
     expect(planCompletion({ ...pending, status: "cancelled" }, "CAPTURE123")).toBe("not_pending");
+  });
+});
+
+describe("paypalErrorTrace (audit L1: logs carry trace fields, never raw bodies)", () => {
+  it("extracts only status, error name and debug_id from a PayPal error body", () => {
+    const body = JSON.stringify({
+      name: "UNPROCESSABLE_ENTITY_ERROR",
+      message: "The requested action could not be performed.",
+      debug_id: "deadbeef1234",
+      details: [{ issue: "INVALID_EMAIL", value: "payer@example.com" }],
+    });
+    const trace = paypalErrorTrace(422, body);
+    expect(trace).toEqual({
+      status: 422,
+      name: "UNPROCESSABLE_ENTITY_ERROR",
+      debugId: "deadbeef1234",
+    });
+    // The whole point: nothing else from the body survives — no
+    // message, no details, no echoed field values.
+    expect(JSON.stringify(trace)).not.toContain("payer@example.com");
+    expect(JSON.stringify(trace)).not.toContain("requested action");
+  });
+
+  it("falls back to status alone for non-JSON or field-less bodies", () => {
+    expect(paypalErrorTrace(500, "Internal Server Error")).toEqual({
+      status: 500, name: null, debugId: null,
+    });
+    expect(paypalErrorTrace(400, "")).toEqual({
+      status: 400, name: null, debugId: null,
+    });
+    expect(paypalErrorTrace(403, JSON.stringify({ error: "forbidden" }))).toEqual({
+      status: 403, name: null, debugId: null,
+    });
   });
 });

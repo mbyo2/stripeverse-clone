@@ -54,8 +54,16 @@ serve(async (req) => {
 
     const body = await req.text();
     const webhookData = JSON.parse(body);
-    
-    logStep("Webhook data", webhookData);
+
+    // Log ONLY the trace identifiers (audit L1): the full payload
+    // carries payer PII (emails, names, addresses) and must never
+    // reach the function logs. Event type + event id + resource id
+    // are enough to trace an event end to end.
+    logStep("Webhook event", {
+      eventType: webhookData.event_type ?? null,
+      eventId: webhookData.id ?? null,
+      resourceId: webhookData.resource?.id ?? null,
+    });
 
     // Verify webhook signature for security
     const isValid = await verifyWebhookSignature(req, webhookData);

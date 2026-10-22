@@ -169,3 +169,36 @@ export function planCompletion(pending: PendingDeposit, captureId: string): Comp
   if (pending.status !== "pending") return "not_pending";
   return "credit";
 }
+
+/** Trace fields for a failed PayPal API call, safe to write to logs. */
+export interface PayPalErrorTrace {
+  status: number;
+  /** PayPal's error name (e.g. "UNPROCESSABLE_ENTITY_ERROR"), if any. */
+  name: string | null;
+  /** PayPal's debug_id — the id PayPal support traces by, if any. */
+  debugId: string | null;
+}
+
+/**
+ * Reduce a PayPal error response body to the fields that may be
+ * logged (audit L1): the HTTP status, PayPal's error name, and its
+ * debug_id. The raw body is NEVER logged — PayPal error `details`
+ * can echo request field values (amounts, emails), and webhook /
+ * capture payloads carry full payer PII. Status + name + debug_id
+ * are enough to trace any failure with PayPal support.
+ */
+export function paypalErrorTrace(status: number, bodyText: string): PayPalErrorTrace {
+  let name: string | null = null;
+  let debugId: string | null = null;
+  try {
+    const parsed: unknown = JSON.parse(bodyText);
+    if (parsed !== null && typeof parsed === "object") {
+      const rec = parsed as Record<string, unknown>;
+      if (typeof rec.name === "string") name = rec.name;
+      if (typeof rec.debug_id === "string") debugId = rec.debug_id;
+    }
+  } catch {
+    // Not JSON — the status alone is the trace.
+  }
+  return { status, name, debugId };
+}

@@ -142,7 +142,15 @@ export async function createPayPalPayout(
     });
     const body = await response.json().catch(() => null);
     if (!response.ok) {
-      console.error("PayPal payout create failed:", response.status, body);
+      // Log only the trace fields (audit L1): the raw error body can
+      // echo request field values (including the receiver email) and
+      // must not reach the logs. Status + PayPal's error name +
+      // debug_id trace the failure with PayPal support.
+      const errBody = body as Record<string, unknown> | null;
+      console.error("PayPal payout create failed:", response.status, {
+        name: typeof errBody?.name === "string" ? errBody.name : null,
+        debugId: typeof errBody?.debug_id === "string" ? errBody.debug_id : null,
+      });
       const failure = classifyPayoutPostFailure(response.status, body);
       if (failure.kind === "not_enabled") return { kind: "not_enabled" };
       if (failure.kind === "insufficient_funds") return { kind: "insufficient_funds" };

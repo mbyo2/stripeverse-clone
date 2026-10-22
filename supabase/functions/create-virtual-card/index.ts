@@ -98,15 +98,22 @@ serve(async (req) => {
     const maskedNumber = await supabaseClient
       .rpc('mask_card_number', { card_number: cardNumber });
 
-    // Generate CVV and expiry
+    // Generate CVV and expiry. The CVV is revealed ONCE, in this
+    // function's creation response below, and is NEVER logged and
+    // NEVER persisted (audit CVV hygiene): the row stores only the
+    // masked number, so there is no CVV store to leak ahead of the
+    // real Mastercard integration.
     const cvv = Math.floor(Math.random() * 900 + 100).toString();
     const expiryDate = new Date();
     expiryDate.setFullYear(expiryDate.getFullYear() + 3);
     const expiry = `${(expiryDate.getMonth() + 1).toString().padStart(2, '0')}/${expiryDate.getFullYear().toString().slice(-2)}`;
 
-    logStep("Generated card details", { cardNumber: maskedNumber.data, cvv, expiry });
+    logStep("Generated card details", { cardNumber: maskedNumber.data });
 
-    // Create virtual card in database
+    // Create virtual card in database. NOTE: no `cvv` value is
+    // stored — the column is nullable since migration
+    // 20261026_virtual_cards_cvv_hygiene (which also purges the
+    // CVVs stored by earlier versions of this function).
     const { data: newCard, error: createError } = await supabaseClient
       .from('virtual_cards')
       .insert({
@@ -114,7 +121,7 @@ serve(async (req) => {
         name: name,
         card_number: cardNumber,
         masked_number: maskedNumber.data,
-        cvv: cvv,
+        cvv: null,
         expiry_date: expiry,
         provider: provider,
         card_type: cardType,
@@ -143,7 +150,14 @@ serve(async (req) => {
         status: newCard.status,
         provider: newCard.provider,
         balance: newCard.balance,
-        created_at: newCard.created_at
+        created_at: newCard.created_at,
+        // One-time reveal: the full number, CVV and expiry are
+        // returned ONLY here, in the creation response to the
+        // authenticated owner. The CVV is not stored anywhere, so
+        // once this response is gone it cannot be shown again.
+        card_number: cardNumber,
+        cvv: cvv,
+        expiry_date: expiry
       }
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

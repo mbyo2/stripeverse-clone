@@ -204,6 +204,103 @@ describe("coin selection", () => {
   });
 });
 
+describe("spent-outpoint tracking (audit M1: concurrent sends share one UTXO pool)", () => {
+  const utxo = (txid: string, vout: number, value: number, index: number) => ({
+    txid, vout, value, chain: 0 as const, index,
+  });
+
+  it("parses the spent outpoints from an esplora transaction's vin", () => {
+    const tx = {
+      vin: [
+        { txid: "aa".repeat(32), vout: 0 },
+        { txid: "bb".repeat(32), vout: 3 },
+      ],
+      vout: [{ value: 1000 }],
+    };
+    expect(core.spentOutpointsFromTx(tx)).toEqual([
+      { txid: "aa".repeat(32), vout: 0 },
+      { txid: "bb".repeat(32), vout: 3 },
+    ]);
+  });
+
+  it("skips malformed vin entries instead of throwing", () => {
+    const tx = {
+      vin: [
+        { txid: "aa".repeat(32), vout: 1 },
+        { txid: "", vout: 0 },
+        { vout: 2 },
+        { txid: "cc".repeat(32), vout: 1.5 },
+        { txid: "dd".repeat(32), vout: "0" },
+        null,
+        "garbage",
+      ],
+    };
+    expect(core.spentOutpointsFromTx(tx)).toEqual([
+      { txid: "aa".repeat(32), vout: 1 },
+    ]);
+    expect(core.spentOutpointsFromTx(null)).toEqual([]);
+    expect(core.spentOutpointsFromTx({})).toEqual([]);
+    expect(core.spentOutpointsFromTx({ vin: "nope" })).toEqual([]);
+  });
+
+  it("excludes committed outpoints and preserves order (deterministic selection)", () => {
+    const pool = [
+      utxo("aa".repeat(32), 0, 90_000, 0),
+      utxo("bb".repeat(32), 1, 50_000, 1),
+      utxo("cc".repeat(32), 0, 20_000, 2),
+    ];
+    const filtered = core.filterUncommittedUtxos(pool, [
+      { txid: "bb".repeat(32), vout: 1 },
+    ]);
+    expect(filtered.map((u) => u.txid)).toEqual(["aa".repeat(32), "cc".repeat(32)]);
+    // The same outpoint at a DIFFERENT vout is a different coin.
+    const untouched = core.filterUncommittedUtxos(pool, [
+      { txid: "bb".repeat(32), vout: 9 },
+    ]);
+    expect(untouched).toHaveLength(3);
+  });
+
+  it("an unaffected re-selection after filtering is identical (same fee)", () => {
+    const script = new Uint8Array(22);
+    const pool = [
+      utxo("aa".repeat(32), 0, 90_000, 0),
+      utxo("bb".repeat(32), 1, 50_000, 1),
+    ];
+    const before = core.selectCoins(pool, 50_000, 10, script, script);
+    // Committed outpoint is NOT one the selection needs.
+    const after = core.selectCoins(
+      core.filterUncommittedUtxos(pool, [{ txid: "bb".repeat(32), vout: 1 }]),
+      50_000, 10, script, script,
+    );
+    expect(after).not.toBeNull();
+    expect(after!.feeSats).toBe(before!.feeSats);
+    expect(after!.selected.map((u) => u.txid)).toEqual(before!.selected.map((u) => u.txid));
+  });
+
+  it("filtering out the selected coin forces a different, valid selection or none", () => {
+    const script = new Uint8Array(22);
+    const pool = [
+      utxo("aa".repeat(32), 0, 90_000, 0),
+      utxo("bb".repeat(32), 1, 50_000, 1),
+    ];
+    // The largest coin is committed to another withdrawal: selection
+    // must fall back to the smaller coin (fee too large here → null),
+    // never silently reuse the committed coin.
+    const filtered = core.filterUncommittedUtxos(pool, [
+      { txid: "aa".repeat(32), vout: 0 },
+    ]);
+    expect(core.selectCoins(filtered, 50_000, 10, script, script)).toBeNull();
+    // With a smaller target the fallback coin IS used.
+    const fallback = core.selectCoins(filtered, 40_000, 10, script, script);
+    expect(fallback!.selected.map((u) => u.txid)).toEqual(["bb".repeat(32)]);
+  });
+
+  it("outpointKey distinguishes txid and vout", () => {
+    expect(core.outpointKey("ab", 0)).not.toBe(core.outpointKey("ab", 1));
+    expect(core.outpointKey("ab", 0)).not.toBe(core.outpointKey("ac", 0));
+  });
+});
+
 describe("withdrawal building & signing (offline, fabricated UTXO)", () => {
   it("builds a signed tx whose id is the double-SHA256 of the raw tx", () => {
     const accountPriv = core.accountKeyFromMnemonic(MNEMONIC);

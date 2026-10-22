@@ -12,6 +12,14 @@
 //                   reconciliation (never auto-refunded —
 //                   see classifyBroadcastOutcome in btc-core)
 //
+// Concurrency (audit M1): the reservation is the serialization
+// point. After reserving, send() re-validates against state that
+// includes every reservation made so far — coin selection excludes
+// outpoints already spent by another in-flight withdrawal's known
+// transaction, the daily-cap is re-checked immediately before
+// broadcast, and the built inputs are re-confirmed unspent — with
+// every refusal still pre-broadcast, hence refundable.
+//
 // Secrets (capability-gated — see bitcoinCapabilities in btc-core):
 //   BTC_XPUB           account zpub — ALONE enables receive +
 //                      check_deposits (watch-only; funds land in the
@@ -31,10 +39,13 @@ import {
   custodyStatus,
   deriveAddress,
   deriveScript,
+  filterUncommittedUtxos,
   receiveStatus,
   selectCoins,
+  spentOutpointsFromTx,
   validateMainnetAddress,
   type BroadcastClassification,
+  type Outpoint,
   type Utxo,
 } from "../_shared/btc-core.ts";
 
@@ -367,13 +378,7 @@ async function send(supabase: any, userId: string, body: any) {
     return json(400, { error: `Maximum per-transaction withdrawal is ${maxTxSats} sats` });
   }
   const dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-  const { data: recent } = await supabase
-    .from("btc_withdrawals")
-    .select("amount_sats")
-    .eq("user_id", userId)
-    .in("status", ["reserved", "broadcast", "confirmed"])
-    .gte("created_at", dayAgo);
-  const sentToday = (recent ?? []).reduce((s: number, r: any) => s + Number(r.amount_sats), 0);
+  const sentToday = await sumRecentWithdrawalSats(supabase, userId, dayAgo);
   if (sentToday + amountSats > maxDailySats) {
     return json(400, { error: `Daily withdrawal limit is ${maxDailySats} sats` });
   }
@@ -429,12 +434,36 @@ async function send(supabase: any, userId: string, body: any) {
   }
   const changeIndex = Number(changeIdx);
 
+  // ── Concurrency hardening (audit M1) ─────────────────────────────────
+  // Two sends racing through this function share one pooled UTXO set,
+  // and both selected coins from the same pre-reservation snapshot.
+  // The btc_withdrawals schema records no per-withdrawal input set,
+  // so the committed set is reconstructed from what IS recorded: any
+  // OTHER withdrawal in 'reserved' (broadcast outcome unresolved) or
+  // 'broadcast' carrying a txid has a transaction on the network
+  // whose inputs are spoken for. Exclude those outpoints and re-run
+  // selection; if the spendable remainder no longer covers the
+  // reserved amount at the reserved fee, fail honestly — still
+  // pre-broadcast, so btc_fail_withdrawal refunds in full.
+  const committed = await committedOutpoints(supabase, withdrawalId);
+  const spendableUtxos = filterUncommittedUtxos(utxos, committed);
+  const reselection = selectCoins(
+    spendableUtxos, amountSats, feeRate, recipient.script, deriveScript(accountPub, 1, 0),
+  );
+  if (!reselection || reselection.feeSats !== selection.feeSats) {
+    await supabase.rpc("btc_fail_withdrawal", {
+      p_withdrawal_id: withdrawalId,
+      p_error: "coin selection changed after reservation",
+    });
+    return json(500, { error: "Could not prepare the withdrawal; your balance was refunded" });
+  }
+
   // Build + sign. A build failure here is safe: nothing was broadcast, so
   // the reservation is refunded by btc_fail_withdrawal.
   let built;
   try {
     built = buildWithdrawalTx({
-      accountPriv, accountPub, utxos,
+      accountPriv, accountPub, utxos: spendableUtxos,
       toAddress, amountSats, feeRateSatVb: feeRate, changeIndex,
     });
     if (built.feeSats !== selection.feeSats) {
@@ -446,6 +475,46 @@ async function send(supabase: any, userId: string, body: any) {
       p_error: e instanceof Error ? e.message : "build failed",
     });
     return json(500, { error: "Could not build the withdrawal transaction; your balance was refunded" });
+  }
+
+  // ── Pre-broadcast re-validation (audit M1), the last free exit ──────
+  // (a) Daily-cap re-check. The pre-reservation check ran against a
+  // snapshot a concurrent send from the same user could also have
+  // passed; this sum counts every 'reserved' row — this withdrawal
+  // and any racer's — and a reservation cannot slip between the two
+  // racers' re-checks uncounted: reservations precede re-checks, so
+  // whoever re-checks with the higher total already on the books
+  // fails their own withdrawal and is refunded here, pre-broadcast.
+  const sentAfterReserve = await sumRecentWithdrawalSats(supabase, userId, dayAgo);
+  if (sentAfterReserve > maxDailySats) {
+    await supabase.rpc("btc_fail_withdrawal", {
+      p_withdrawal_id: withdrawalId,
+      p_error: "daily withdrawal limit exceeded",
+    });
+    return json(400, { error: `Daily withdrawal limit is ${maxDailySats} sats` });
+  }
+
+  // (b) Input re-confirmation. Every input of the built transaction
+  // must still be unspent. If a concurrent withdrawal won the race
+  // to broadcast, the shared input disappears from the UTXO set once
+  // the indexer sees its transaction; catching that here converts a
+  // stuck 'reserved' row into a clean pre-broadcast refund. A lookup
+  // failure proves nothing and blocks nothing (the broadcast
+  // classification below remains the safety net), so errors are
+  // logged and treated as "still unspent".
+  const spentInput = await firstSpentInput(accountPub, reselection.selected);
+  if (spentInput) {
+    console.error(
+      "btc-onchain send: built input already spent, refunding before broadcast",
+      withdrawalId, spentInput.txid, spentInput.vout,
+    );
+    await supabase.rpc("btc_fail_withdrawal", {
+      p_withdrawal_id: withdrawalId,
+      p_error: "input already committed to another withdrawal",
+    });
+    return json(409, {
+      error: "Could not complete the withdrawal safely; your balance was refunded — please try again",
+    });
   }
 
   // Broadcast. The outcome is classified by the pure policy in btc-core
@@ -465,6 +534,12 @@ async function send(supabase: any, userId: string, body: any) {
     // finalize-failure path below. 202, not 5xx: the request was
     // accepted and its verification is ongoing — a failure status would
     // invite a retry, and a retry could pay out twice.
+    // Record the txid on the row (status untouched — still
+    // 'reserved', still no refund): reconciliation can then find
+    // the transaction in the table rather than only in logs, and
+    // later sends exclude this transaction's inputs from coin
+    // selection via committedOutpoints above.
+    await recordWithdrawalTxid(supabase, withdrawalId, built.txid);
     console.error(
       "CRITICAL: broadcast outcome unknown — withdrawal left 'reserved' for reconciliation (do NOT refund)",
       withdrawalId, built.txid, broadcast.detail,
@@ -485,6 +560,10 @@ async function send(supabase: any, userId: string, body: any) {
   if (finErr) {
     // The BTC has left the wallet but the ledger row is still 'reserved'.
     // Do NOT refund. Surface loudly for manual reconciliation (runbook §8).
+    // Record the txid on the row first (status untouched) so the
+    // transaction is findable in the table and its inputs are
+    // excluded from later coin selections.
+    await recordWithdrawalTxid(supabase, withdrawalId, built.txid);
     console.error("CRITICAL: broadcast succeeded but finalize failed", withdrawalId, built.txid, finErr);
     return json(500, {
       error: "Withdrawal broadcast but not yet recorded — support has the txid",
@@ -516,6 +595,108 @@ async function send(supabase: any, userId: string, body: any) {
     fee_sats: selection.feeSats,
     status: "broadcast",
   });
+}
+
+// ── send helpers (audit M1) ──────────────────────────────────────────────
+
+/**
+ * Sum of a user's withdrawals in the window across every status that
+ * still commits funds ('reserved' included, so a freshly created
+ * reservation counts the moment it exists). Used by both the
+ * pre-reservation cap check and the pre-broadcast re-check.
+ */
+async function sumRecentWithdrawalSats(supabase: any, userId: string, sinceIso: string): Promise<number> {
+  const { data: recent } = await supabase
+    .from("btc_withdrawals")
+    .select("amount_sats")
+    .eq("user_id", userId)
+    .in("status", ["reserved", "broadcast", "confirmed"])
+    .gte("created_at", sinceIso);
+  return (recent ?? []).reduce((s: number, r: any) => s + Number(r.amount_sats), 0);
+}
+
+/**
+ * Outpoints already committed to OTHER in-flight withdrawals: every
+ * 'reserved' (broadcast outcome unresolved) or 'broadcast' row that
+ * carries a txid has a transaction on the network, and its inputs
+ * are spoken for. The txids are resolved through esplora; a lookup
+ * failure is logged and skipped — the UTXO endpoint the caller
+ * gathered from is the same provider, and the broadcast
+ * classification remains the safety net for anything missed here.
+ */
+async function committedOutpoints(supabase: any, excludeWithdrawalId: string): Promise<Outpoint[]> {
+  const { data: rows } = await supabase
+    .from("btc_withdrawals")
+    .select("id, txid")
+    .in("status", ["reserved", "broadcast"])
+    .not("txid", "is", null)
+    .neq("id", excludeWithdrawalId);
+  const out: Outpoint[] = [];
+  for (const row of rows ?? []) {
+    if (!row.txid) continue;
+    try {
+      const res = await esplora(`/tx/${row.txid}`);
+      if (!res.ok) {
+        console.error(
+          "btc-onchain: could not fetch in-flight withdrawal tx for coin exclusion",
+          row.id, row.txid, res.status,
+        );
+        continue;
+      }
+      out.push(...spentOutpointsFromTx(await res.json()));
+    } catch (e) {
+      console.error("btc-onchain: coin exclusion lookup failed", row.id, row.txid, e);
+    }
+  }
+  return out;
+}
+
+/**
+ * The first of `selected` that esplora no longer lists as an unspent
+ * output of its address, or null when all are still unspent. Per-input
+ * lookup errors are logged and treated as "still unspent": a failed
+ * lookup proves nothing, and the broadcast classification below —
+ * never this check — is what guards the money.
+ */
+async function firstSpentInput(accountPub: any, selected: Utxo[]): Promise<Utxo | null> {
+  for (const u of selected) {
+    try {
+      const address = deriveAddress(accountPub, u.chain, u.index);
+      const res = await esplora(`/address/${address}/utxo`);
+      if (!res.ok) {
+        console.error("btc-onchain: input re-check UTXO fetch failed", address, res.status);
+        continue;
+      }
+      const entries = await res.json();
+      const stillUnspent = (entries ?? []).some(
+        (e: any) => e.txid === u.txid && Number(e.vout) === u.vout,
+      );
+      if (!stillUnspent) return u;
+    } catch (e) {
+      console.error("btc-onchain: input re-check failed", u.txid, u.vout, e);
+    }
+  }
+  return null;
+}
+
+/**
+ * Best-effort: record a broadcast transaction's txid on its
+ * withdrawal row WITHOUT changing the row's status. Only used on
+ * paths where the row deliberately stays 'reserved' (unknown
+ * broadcast outcome, finalize failure) — the recorded txid lets
+ * reconciliation find the transaction in the table instead of only
+ * in logs, and lets later sends exclude its inputs via
+ * committedOutpoints. A failed write changes nothing about the
+ * outcome returned to the user.
+ */
+async function recordWithdrawalTxid(supabase: any, withdrawalId: string, txid: string): Promise<void> {
+  const { error } = await supabase
+    .from("btc_withdrawals")
+    .update({ txid, updated_at: new Date().toISOString() })
+    .eq("id", withdrawalId);
+  if (error) {
+    console.error("CRITICAL: could not record txid on withdrawal row", withdrawalId, txid, error);
+  }
 }
 
 async function gatherUtxos(supabase: any, accountPub: any): Promise<Utxo[]> {

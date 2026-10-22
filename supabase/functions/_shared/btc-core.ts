@@ -360,6 +360,57 @@ export function selectCoins(
   return null;
 }
 
+// ── Spent-outpoint tracking (send concurrency, audit M1) ─────────────────
+
+/** A reference to one transaction output. */
+export interface Outpoint {
+  txid: string;
+  vout: number;
+}
+
+/** Canonical key for an outpoint (map/set membership). */
+export function outpointKey(txid: string, vout: number): string {
+  return `${txid}:${vout}`;
+}
+
+/**
+ * The outpoints a transaction spends, parsed from an esplora
+ * transaction object (`vin[].txid` / `vin[].vout`). Defensive by
+ * design: malformed entries are skipped rather than thrown — this
+ * feeds a safety filter in the send path, and a parse hiccup must
+ * never take a withdrawal down with it.
+ */
+export function spentOutpointsFromTx(tx: unknown): Outpoint[] {
+  const vin = (tx as { vin?: unknown } | null | undefined)?.vin;
+  if (!Array.isArray(vin)) return [];
+  const out: Outpoint[] = [];
+  for (const entry of vin) {
+    const txid = (entry as { txid?: unknown } | null | undefined)?.txid;
+    const vout = (entry as { vout?: unknown } | null | undefined)?.vout;
+    if (typeof txid === "string" && txid.length > 0 && Number.isInteger(vout)) {
+      out.push({ txid, vout: Number(vout) });
+    }
+  }
+  return out;
+}
+
+/**
+ * A UTXO set minus every outpoint already committed elsewhere — the
+ * inputs of in-flight withdrawals whose transactions are known to be
+ * on the network. Order is preserved: coin selection is
+ * deterministic, so filtering (never reordering) keeps an unaffected
+ * selection identical.
+ */
+export function filterUncommittedUtxos(
+  utxos: Utxo[],
+  committed: Iterable<Outpoint>,
+): Utxo[] {
+  const spent = new Set<string>();
+  for (const o of committed) spent.add(outpointKey(o.txid, o.vout));
+  if (spent.size === 0) return [...utxos];
+  return utxos.filter((u) => !spent.has(outpointKey(u.txid, u.vout)));
+}
+
 // ── Withdrawal transaction building & signing ──────────────────────────────
 
 export interface BuiltWithdrawal {
