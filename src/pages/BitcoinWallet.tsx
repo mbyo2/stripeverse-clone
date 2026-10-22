@@ -82,17 +82,29 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
   const [invoice, setInvoice] = useState<{ bolt11: string; payment_id: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
+  // Persistent in-dialog error: a transient toast alone left users
+  // staring at an unchanged form with no explanation when invoice
+  // creation failed (live QA, 2026-10-22 — the failure was invisible).
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const create = async () => {
     setLoading(true);
+    setErrorMsg(null);
     try {
       const { data, error } = await supabase.functions.invoke("breez-lightning", {
         body: { action: "create_invoice", amount_sats: sats },
       });
       if (error) throw error;
+      // A 2xx with an incomplete payload is still a failure — never
+      // treat it as a created invoice.
+      if (!data?.bolt11 || !data?.payment_id) {
+        throw new Error("Lightning deposits are not available yet — please use an on-chain Bitcoin deposit for now.");
+      }
       setInvoice(data);
     } catch (e: any) {
-      toast({ title: "Failed to create invoice", description: await resolveEdgeFunctionError(e, "Could not create a Lightning invoice. Please try again."), variant: "destructive" });
+      const msg = await resolveEdgeFunctionError(e, "Could not create a Lightning invoice. Please try again.");
+      setErrorMsg(msg);
+      toast({ title: "Failed to create invoice", description: msg, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -133,6 +145,11 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
       </p>
       {!invoice ? (
         <>
+          {errorMsg && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              {errorMsg}
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="sats">Amount (sats)</Label>
             <Input id="sats" type="number" min={1} value={sats} onChange={(e) => setSats(Number(e.target.value))} />

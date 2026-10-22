@@ -32,10 +32,12 @@
  */
 import type {
   BreezSdk,
+  DepositInfo,
   InputType,
   LnurlAuthRequestDetails,
   LnurlPayRequestDetails,
   LnurlWithdrawRequestDetails,
+  MaxFee,
   Payment,
   PrepareLnurlPayResponse,
   PrepareSendPaymentResponse,
@@ -67,6 +69,7 @@ export function sparkEnabled(): boolean {
 
 let sdkPromise: Promise<BreezSdk> | null = null;
 let connectedKeyFingerprint: string | null = null;
+let connectedAutoClaimSignature: string | null = null;
 let eventCallback: ((event: SdkEvent) => void) | null = null;
 
 async function fingerprint(mnemonic: string): Promise<string> {
@@ -86,16 +89,27 @@ export async function connectSpark(
   const key = breezApiKey();
   if (!key) throw new SparkNotEnabledError();
   if (onEvent) eventCallback = onEvent;
+  const autoClaim = loadAutoClaimPreference();
+  const autoClaimSignature = JSON.stringify(autoClaim);
   const fp = await fingerprint(mnemonic);
-  if (sdkPromise && connectedKeyFingerprint === fp) return sdkPromise;
+  if (sdkPromise && connectedKeyFingerprint === fp && connectedAutoClaimSignature === autoClaimSignature) {
+    return sdkPromise;
+  }
   if (sdkPromise) await disconnectSpark();
 
   connectedKeyFingerprint = fp;
+  connectedAutoClaimSignature = autoClaimSignature;
   sdkPromise = (async () => {
     const mod = await import("@breeztech/breez-sdk-spark/web");
     await mod.default();
     const config = mod.defaultConfig("mainnet");
     config.apiKey = key;
+    // Automatic claims: the SDK claims on-chain deposits on its own only
+    // while the claim's network fee fits this cap (see the Automatic
+    // Claims section below). Read fresh at every connect, so a changed
+    // preference reconnects with the new cap instead of silently keeping
+    // the old one.
+    config.maxDepositClaimFee = maxFeeForAutoClaim(autoClaim);
     const sdk = await mod.connect({
       config,
       seed: { type: "mnemonic", mnemonic },
@@ -125,6 +139,7 @@ export async function disconnectSpark(): Promise<void> {
   const pending = sdkPromise;
   sdkPromise = null;
   connectedKeyFingerprint = null;
+  connectedAutoClaimSignature = null;
   eventCallback = null;
   try {
     const sdk = await pending;
@@ -180,8 +195,10 @@ export async function sparkReceiveBolt11(
 
 /**
  * The wallet's on-chain Bitcoin deposit address. Deposits are detected
- * and claimed into the Spark balance by the SDK automatically (after 3
- * confirmations by default). This is also where MoonPay purchases land.
+ * by the SDK and claimed into the Spark balance automatically while the
+ * claim fee fits the user's Automatic Claims limit (standard claim at 3
+ * confirmations; earlier when an instant/expedited claim fits the cap).
+ * This is also where MoonPay purchases land.
  */
 export async function sparkReceiveBitcoinAddress(mnemonic: string): Promise<SparkReceiveResult> {
   const sdk = await connectSpark(mnemonic);
@@ -538,4 +555,297 @@ export async function sparkBuyBitcoinUrl(
     redirectUrl: opts?.redirectUrl,
   });
   return response.url;
+}
+
+// ── Automatic Claims (on-chain deposit claiming) ───────────────────────
+//
+// Product default (CEO): Automatic Claims ON — on-chain deposits are
+// claimed automatically while the network fee stays under a FIXED limit
+// of 500 sats; the user can change the limit or turn it off.
+//
+// SDK ground truth (@breeztech/breez-sdk-spark 0.27.0 types + the
+// official "Claiming on-chain deposits" guide): the SDK claims deposits
+// on its own (instant/expedited when offered, standard at 3
+// confirmations) as long as the claim fee fits `Config.maxDepositClaimFee`
+// — a `MaxFee { onchain: MaxOnchainFee }` where MaxOnchainFee includes
+// `{ type: "fixed", amount }`, an absolute cap in sats. connectSpark sets
+// it from the preference below on every connect. A claim fee above the
+// cap leaves the deposit unclaimed (DepositClaimError
+// "maxDepositClaimFeeExceeded" / a claim deferred with reason
+// "maxFeeExceeded") until fees fall or the user claims it manually via
+// claimDeposit — which is what the wallet UI surfaces.
+//
+// "Off" is expressed as a fixed cap of 0 sats: a real claim always costs
+// at least 1 sat of network fee, so no automatic claim can fit, while
+// manual claims remain available. The preference lives ONLY on this
+// device (localStorage) — SDK deposit max-fees are per-device by design.
+
+export interface AutoClaimPreference {
+  enabled: boolean;
+  /** Fixed fee limit in sats. Claims at or under this fee auto-claim. */
+  maxFeeSats: number;
+}
+
+export const AUTO_CLAIM_STORAGE_KEY = "bmaglass.sparkAutoClaim";
+
+export const DEFAULT_AUTO_CLAIM_PREFERENCE: AutoClaimPreference = {
+  enabled: true,
+  maxFeeSats: 500,
+};
+
+/**
+ * Parse a stored preference, falling back to the product default on
+ * anything missing or malformed. Pure — unit-tested.
+ */
+export function parseAutoClaimPreference(raw: string | null): AutoClaimPreference {
+  if (!raw) return { ...DEFAULT_AUTO_CLAIM_PREFERENCE };
+  try {
+    const parsed = JSON.parse(raw) as Partial<AutoClaimPreference>;
+    const maxFeeSats = Number(parsed.maxFeeSats);
+    return {
+      enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : DEFAULT_AUTO_CLAIM_PREFERENCE.enabled,
+      maxFeeSats:
+        Number.isSafeInteger(maxFeeSats) && maxFeeSats > 0 ? maxFeeSats : DEFAULT_AUTO_CLAIM_PREFERENCE.maxFeeSats,
+    };
+  } catch {
+    return { ...DEFAULT_AUTO_CLAIM_PREFERENCE };
+  }
+}
+
+export function loadAutoClaimPreference(): AutoClaimPreference {
+  try {
+    return parseAutoClaimPreference(localStorage.getItem(AUTO_CLAIM_STORAGE_KEY));
+  } catch {
+    return { ...DEFAULT_AUTO_CLAIM_PREFERENCE };
+  }
+}
+
+export function saveAutoClaimPreference(pref: AutoClaimPreference): void {
+  try {
+    localStorage.setItem(AUTO_CLAIM_STORAGE_KEY, JSON.stringify(pref));
+  } catch {
+    // Storage unavailable (private mode): the preference simply will not
+    // persist; the running session still applies it on the next connect.
+  }
+}
+
+/**
+ * The SDK config value for a preference: a FIXED sats cap on the
+ * on-chain claim fee (the product's "Fixed — N sats" behaviour). Pure —
+ * unit-tested.
+ */
+export function maxFeeForAutoClaim(pref: AutoClaimPreference): MaxFee {
+  return { onchain: { type: "fixed", amount: pref.enabled ? pref.maxFeeSats : 0 } };
+}
+
+/**
+ * The auto-claim decision for a single claim fee: claim automatically
+ * only while the fee is at or under the user's limit. Pure —
+ * unit-tested. All thresholds stay in sats, always.
+ */
+export function shouldAutoClaim(feeSats: number, pref: AutoClaimPreference): boolean {
+  return (
+    pref.enabled &&
+    Number.isSafeInteger(feeSats) &&
+    feeSats >= 0 &&
+    Number.isSafeInteger(pref.maxFeeSats) &&
+    feeSats <= pref.maxFeeSats
+  );
+}
+
+export type UnclaimedDepositStatus =
+  | "confirming" // not yet at standard claim depth; SDK claims when ready if the fee fits
+  | "withinLimit" // mature, nothing blocks the SDK's automatic claim under the current settings
+  | "overLimit" // claim fee is above the user's limit (or automatic claims are off): stays unclaimed until fees fall or the user claims manually
+  | "claimFailed"; // the SDK tried and failed for a reason other than the fee cap
+
+export interface UnclaimedDepositSummary {
+  txid: string;
+  vout: number;
+  amountSats: number;
+  isMature: boolean;
+  /** Standard (3-confirmation) claim fee from the SDK quote, sats; null when the quote was unavailable. */
+  claimFeeSats: number | null;
+  /** Instant/expedited claim fee when the provider offers one, sats. */
+  instantFeeSats: number | null;
+  /** What the user would receive from a standard claim (amount − fee), sats. */
+  creditSats: number | null;
+  status: UnclaimedDepositStatus;
+  /** Fee the claim actually requires when the SDK reported the cap was exceeded, sats. */
+  requiredFeeSats: number | null;
+  /** Plain-language claim failure, when the deposit carries one. */
+  claimErrorMessage: string | null;
+}
+
+/**
+ * Derive the display status of an unclaimed deposit from its SDK record
+ * and the standard-claim fee quote. Pure — unit-tested.
+ */
+export function unclaimedDepositStatus(
+  deposit: DepositInfo,
+  pref: AutoClaimPreference,
+  standardFeeSats: number | null,
+): Pick<UnclaimedDepositSummary, "status" | "requiredFeeSats" | "claimErrorMessage"> {
+  const error = deposit.claimError;
+  if (error) {
+    if (error.type === "maxDepositClaimFeeExceeded") {
+      return { status: "overLimit", requiredFeeSats: error.requiredFeeSats, claimErrorMessage: null };
+    }
+    const message =
+      error.type === "depositTooSmall"
+        ? "This deposit is too small to claim — the network fee would cost more than it is worth."
+        : error.type === "missingUtxo"
+          ? "The deposit output could not be found on-chain."
+          : error.message;
+    return { status: "claimFailed", requiredFeeSats: null, claimErrorMessage: message };
+  }
+  if (!deposit.isMature) {
+    return { status: "confirming", requiredFeeSats: null, claimErrorMessage: null };
+  }
+  if (standardFeeSats !== null && !shouldAutoClaim(standardFeeSats, pref)) {
+    return { status: "overLimit", requiredFeeSats: standardFeeSats, claimErrorMessage: null };
+  }
+  return { status: "withinLimit", requiredFeeSats: null, claimErrorMessage: null };
+}
+
+/**
+ * Deposits the SDK is tracking but has not claimed yet, each priced with
+ * the documented quote (`fetchClaimDepositQuote`): the standard claim's
+ * fee and the instant fee when offered. A failed quote never hides the
+ * deposit — its fee fields come back null instead.
+ */
+export async function sparkListUnclaimedDeposits(mnemonic: string): Promise<UnclaimedDepositSummary[]> {
+  const sdk = await connectSpark(mnemonic);
+  const pref = loadAutoClaimPreference();
+  const { deposits } = await sdk.listUnclaimedDeposits({});
+  const summaries: UnclaimedDepositSummary[] = [];
+  for (const deposit of deposits) {
+    let claimFeeSats: number | null = null;
+    let instantFeeSats: number | null = null;
+    let creditSats: number | null = null;
+    try {
+      const quote = await sdk.fetchClaimDepositQuote({ txid: deposit.txid, vout: deposit.vout });
+      claimFeeSats = quote.mature.feeSats;
+      creditSats = quote.mature.creditAmountSats;
+      instantFeeSats = quote.instant ? quote.instant.feeSats : null;
+    } catch {
+      // Quote unavailable (e.g. provider offline): show the deposit with
+      // unknown fees rather than dropping it.
+    }
+    summaries.push({
+      txid: deposit.txid,
+      vout: deposit.vout,
+      amountSats: deposit.amountSats,
+      isMature: deposit.isMature,
+      claimFeeSats,
+      instantFeeSats,
+      creditSats,
+      ...unclaimedDepositStatus(deposit, pref, claimFeeSats),
+    });
+  }
+  return summaries;
+}
+
+/**
+ * Claim one deposit manually at a fee the user has seen and accepted.
+ * The accepted fee is passed as the claim's own max fee: per the SDK
+ * docs it is recorded on the deposit and governs the SDK's later
+ * automatic attempts on it — and if the real fee has risen above it by
+ * the time the claim runs, the SDK defers instead of overcharging
+ * silently, which this surfaces as an error.
+ */
+export async function sparkClaimDeposit(
+  mnemonic: string,
+  txid: string,
+  vout: number,
+  acceptedFeeSats: number,
+): Promise<"settled" | "submitted"> {
+  if (!Number.isSafeInteger(acceptedFeeSats) || acceptedFeeSats <= 0) {
+    throw new Error("A claim fee must be a positive whole number of sats");
+  }
+  const sdk = await connectSpark(mnemonic);
+  const { outcome } = await sdk.claimDeposit({
+    txid,
+    vout,
+    maxFee: { onchain: { type: "fixed", amount: acceptedFeeSats } },
+  });
+  if (outcome.type === "deferred") {
+    if (outcome.reason.type === "maxFeeExceeded") {
+      throw new Error(
+        `The claim fee rose to ${outcome.reason.requiredFeeSats} sats, above the ${acceptedFeeSats} sats you accepted — the deposit was not claimed.`,
+      );
+    }
+    if (outcome.reason.type === "providerDeclined") {
+      throw new Error(`The claim was declined by the provider: ${outcome.reason.message}`);
+    }
+    throw new Error("No early claim is available for this deposit yet — it can be claimed once it reaches 3 confirmations.");
+  }
+  return outcome.type;
+}
+
+// ── Fiat value display (display-only, user-controlled) ─────────────────
+//
+// The user can opt in to seeing approximate fiat equivalents next to sat
+// figures. Conversion is DISPLAY-ONLY: operations, thresholds (incl. the
+// auto-claim limit) and tests always stay in sats. The fiat-per-BTC rate
+// is composed by the UI from the app's existing price machinery (BTC/USD
+// spot — the same Coinbase source the trade function uses — times the
+// exchange_rates USD→user-currency rate). When no rate is available the
+// helpers return null and the UI shows the sats figure alone — never a
+// stale or fabricated value.
+
+export const SHOW_FIAT_STORAGE_KEY = "bmaglass.sparkShowFiat";
+
+/** Parse the stored fiat-display preference (default: off). Pure — unit-tested. */
+export function parseShowFiatPreference(raw: string | null): boolean {
+  return raw === "true" || raw === "1";
+}
+
+export function loadShowFiatPreference(): boolean {
+  try {
+    return parseShowFiatPreference(localStorage.getItem(SHOW_FIAT_STORAGE_KEY));
+  } catch {
+    return false;
+  }
+}
+
+export function saveShowFiatPreference(on: boolean): void {
+  try {
+    localStorage.setItem(SHOW_FIAT_STORAGE_KEY, on ? "true" : "false");
+  } catch {
+    // As with the auto-claim preference: non-persistence is acceptable.
+  }
+}
+
+/** Fiat value of a sat amount at a fiat-per-BTC rate, or null when it cannot be computed honestly. Pure — unit-tested. */
+export function satsToFiatAmount(sats: number, fiatPerBtc: number | null | undefined): number | null {
+  if (fiatPerBtc === null || fiatPerBtc === undefined) return null;
+  if (!Number.isFinite(fiatPerBtc) || fiatPerBtc <= 0) return null;
+  if (!Number.isFinite(sats) || sats < 0) return null;
+  return (sats / 100_000_000) * fiatPerBtc;
+}
+
+/**
+ * "≈ K1,234.56"-style equivalent for a sat amount, or null when no
+ * honest value exists (no/invalid rate). Pure — unit-tested.
+ */
+export function formatFiatEquivalent(
+  sats: number,
+  fiatPerBtc: number | null | undefined,
+  currency: string,
+  locale?: string,
+): string | null {
+  const amount = satsToFiatAmount(sats, fiatPerBtc);
+  if (amount === null) return null;
+  try {
+    const formatted = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+    return `≈ ${formatted}`;
+  } catch {
+    return null;
+  }
 }

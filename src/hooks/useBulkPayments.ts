@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeZambianPhone } from '@/utils/phoneNumber';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -125,12 +126,29 @@ export const useProcessBulkPayment = () => {
           // funds leave the sender's wallet and the disbursement is recorded.
           let toUserId: string | null = null;
           if (item.recipient_phone || item.recipient_email) {
+            // Match the phone in the form it was entered AND in its
+            // canonical +260… form (shared rule, utils/phoneNumber) —
+            // profiles.phone is free text, so either form may be the
+            // stored one. Strictly additive vs the previous raw-only
+            // comparison. NOTE: this select is still limited by
+            // profiles RLS (a sender can only ever see their own
+            // profile), unlike /transfer and /send-money, which resolve
+            // recipients through the find_transfer_recipient RPC.
+            const phoneForms = Array.from(
+              new Set(
+                [item.recipient_phone, normalizeZambianPhone(item.recipient_phone ?? "")].filter(
+                  (p): p is string => !!p,
+                ),
+              ),
+            );
+            const orFilter = [
+              ...phoneForms.map((p) => `phone.eq.${p}`),
+              `email.eq.${item.recipient_email || ''}`,
+            ].join(',');
             const { data: profile } = await supabase
               .from('profiles')
               .select('id')
-              .or(
-                `phone.eq.${item.recipient_phone || ''},email.eq.${item.recipient_email || ''}`
-              )
+              .or(orFilter)
               .limit(1)
               .maybeSingle();
             if (profile) toUserId = profile.id;
