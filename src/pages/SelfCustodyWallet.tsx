@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AlertTriangle,
@@ -60,10 +61,22 @@ import {
   sparkListPayments,
   sparkBuyBitcoinUrl,
   disconnectSpark,
+  loadAutoClaimPreference,
+  saveAutoClaimPreference,
+  sparkListUnclaimedDeposits,
+  sparkClaimDeposit,
+  loadShowFiatPreference,
+  saveShowFiatPreference,
+  formatFiatEquivalent,
   type PreparedSend,
   type PreparedLnurlPay,
   type PaymentSummary,
+  type AutoClaimPreference,
+  type UnclaimedDepositSummary,
 } from "@/lib/selfcustody/spark";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { useExchangeRates } from "@/hooks/useMultiCurrency";
+import { resolveExchangeRate } from "@/utils/exchangeRates";
 import type { InputType } from "@breeztech/breez-sdk-spark/web";
 import QRCode from "qrcode.react";
 
@@ -142,6 +155,50 @@ function SelfCustodyWallet() {
   const [preparedLnurl, setPreparedLnurl] = useState<PreparedLnurlPay | null>(null);
   // Buy (MoonPay).
   const [buyAmount, setBuyAmount] = useState("");
+  // Automatic Claims preference (device-local; default ON, fixed 500-sat limit).
+  const [autoClaimPref, setAutoClaimPref] = useState<AutoClaimPreference>(() => loadAutoClaimPreference());
+  const [autoClaimLimitDraft, setAutoClaimLimitDraft] = useState<string>(
+    () => String(loadAutoClaimPreference().maxFeeSats),
+  );
+  const [unclaimed, setUnclaimed] = useState<UnclaimedDepositSummary[] | null>(null);
+  const [claimingKey, setClaimingKey] = useState<string | null>(null);
+  // Fiat value display (opt-in, display-only). The rate is composed from
+  // the app's existing price machinery: BTC/USD spot from Coinbase (the
+  // same source the btc-trade function uses) × the exchange_rates
+  // USD→currency rate. No rate → sats shown alone, never a guess.
+  const { currency, currencyConfig } = useCurrency();
+  const { data: exchangeRateRows } = useExchangeRates();
+  const [showFiat, setShowFiat] = useState<boolean>(() => loadShowFiatPreference());
+  const [btcUsd, setBtcUsd] = useState<number | null>(null);
+
+  const usdToCurrency = resolveExchangeRate(exchangeRateRows, "USD", currency);
+  const fiatPerBtc = btcUsd !== null && usdToCurrency !== null ? btcUsd * usdToCurrency : null;
+  const fiat = (sats: number): string | null =>
+    showFiat ? formatFiatEquivalent(sats, fiatPerBtc, currency, currencyConfig.locale) : null;
+
+  // Fetch the BTC/USD spot price only when the user has opted into fiat
+  // display. Display-only: a failure leaves the sats figures untouched
+  // and never blocks any wallet operation.
+  useEffect(() => {
+    if (!showFiat || btcUsd !== null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("https://api.coinbase.com/v2/prices/BTC-USD/spot", {
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const spot = Number.parseFloat(data?.data?.amount);
+        if (!cancelled && Number.isFinite(spot) && spot > 0) setBtcUsd(spot);
+      } catch {
+        // Price unavailable: sats figures are shown alone.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showFiat, btcUsd]);
 
   const account = useMemo(
     () => (session.mnemonic ? accountFromMnemonic(session.mnemonic) : null),
@@ -156,6 +213,7 @@ function SelfCustodyWallet() {
       disconnectSpark();
       setSpBalance(null);
       setSpPayments(null);
+      setUnclaimed(null);
       setReceiveDest(null);
       setParsedInput(null);
       setPreparedSend(null);
@@ -330,17 +388,71 @@ function SelfCustodyWallet() {
     if (!session.mnemonic) return;
     setSpBusy(true);
     try {
-      const [balance, payments] = await Promise.all([
+      const [balance, payments, deposits] = await Promise.all([
         sparkBalanceSat(session.mnemonic),
         sparkListPayments(session.mnemonic).catch(() => null),
+        sparkListUnclaimedDeposits(session.mnemonic).catch(() => null),
       ]);
       setSpBalance(balance);
       if (payments) setSpPayments(payments);
+      if (deposits) setUnclaimed(deposits);
     } catch (e: any) {
       toast.error(e?.message || "Could not connect the Spark wallet");
     } finally {
       setSpBusy(false);
     }
+  };
+
+  // ── Automatic Claims settings + manual claims ──────────────────────────
+
+  const applyAutoClaimPref = (next: AutoClaimPreference) => {
+    saveAutoClaimPreference(next);
+    setAutoClaimPref(next);
+    setAutoClaimLimitDraft(String(next.maxFeeSats));
+    // connectSpark reads the preference fresh and reconnects with the
+    // new fee cap when it has changed, so refreshing applies the new
+    // setting now rather than on the next visit.
+    refreshSpark();
+  };
+
+  const toggleAutoClaim = (on: boolean) => applyAutoClaimPref({ ...autoClaimPref, enabled: on });
+
+  const commitAutoClaimLimit = () => {
+    const value = Number(autoClaimLimitDraft);
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      toast.error("Enter the fee limit as a whole number of sats (1 or more)");
+      setAutoClaimLimitDraft(String(autoClaimPref.maxFeeSats));
+      return;
+    }
+    if (value !== autoClaimPref.maxFeeSats) {
+      applyAutoClaimPref({ ...autoClaimPref, maxFeeSats: value });
+    }
+  };
+
+  /** The fee a manual claim would run at for this deposit, if one is quotable. */
+  const manualClaimFee = (d: UnclaimedDepositSummary): number | null =>
+    d.isMature ? (d.claimFeeSats ?? d.requiredFeeSats) : (d.instantFeeSats ?? d.requiredFeeSats);
+
+  const doClaimDeposit = async (d: UnclaimedDepositSummary) => {
+    if (!session.mnemonic) return;
+    const fee = manualClaimFee(d);
+    if (fee === null) return;
+    const key = `${d.txid}:${d.vout}`;
+    setClaimingKey(key);
+    try {
+      await sparkClaimDeposit(session.mnemonic, d.txid, d.vout, fee);
+      toast.success("Deposit claimed into your Spark balance");
+      refreshSpark();
+    } catch (e: any) {
+      toast.error(e?.message || "Could not claim that deposit");
+    } finally {
+      setClaimingKey(null);
+    }
+  };
+
+  const toggleShowFiat = (on: boolean) => {
+    saveShowFiatPreference(on);
+    setShowFiat(on);
   };
 
   const doSparkReceive = async () => {
@@ -839,6 +951,9 @@ function SelfCustodyWallet() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-sm text-muted-foreground">
                         Spark balance: {spBalance === null ? "—" : `${spBalance.toLocaleString()} sats`}
+                        {spBalance !== null && fiat(spBalance) && (
+                          <span> · {fiat(spBalance)}</span>
+                        )}
                       </span>
                       <div className="flex gap-2">
                         <Button
@@ -867,6 +982,53 @@ function SelfCustodyWallet() {
                     </div>
 
                     <div className="border-t pt-4 space-y-3">
+                      <p className="text-sm font-medium">Claims &amp; display</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="auto-claim">Automatic Claims</Label>
+                          <p className="text-xs text-muted-foreground">
+                            On-chain deposits are claimed automatically while the network fee stays
+                            under this limit.
+                          </p>
+                        </div>
+                        <Switch
+                          id="auto-claim"
+                          checked={autoClaimPref.enabled}
+                          onCheckedChange={toggleAutoClaim}
+                          disabled={!session.mnemonic}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="auto-claim-limit">Fee limit — fixed (sats)</Label>
+                        <Input
+                          id="auto-claim-limit"
+                          type="number"
+                          min="1"
+                          value={autoClaimLimitDraft}
+                          disabled={!autoClaimPref.enabled || !session.mnemonic}
+                          onChange={(e) => setAutoClaimLimitDraft(e.target.value)}
+                          onBlur={commitAutoClaimLimit}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {autoClaimPref.enabled
+                            ? `A deposit whose claim fee is above ${autoClaimPref.maxFeeSats.toLocaleString()} sats waits unclaimed until fees fall or you claim it yourself below.`
+                            : "Automatic claims are off. Deposits wait until you claim them yourself below."}
+                        </p>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="show-fiat">Show fiat value</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Show approximate {currency} values next to sat amounts, using the live
+                            Bitcoin price. Display only — nothing is ever charged or limited in
+                            fiat.
+                          </p>
+                        </div>
+                        <Switch id="show-fiat" checked={showFiat} onCheckedChange={toggleShowFiat} />
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4 space-y-3">
                       <div className="flex flex-wrap gap-2">
                         <Button size="sm" variant={receiveKind === "bolt11" ? "default" : "outline"} onClick={() => { setReceiveKind("bolt11"); setReceiveDest(null); }}>
                           Lightning invoice
@@ -886,8 +1048,10 @@ function SelfCustodyWallet() {
                       )}
                       {receiveKind === "bitcoin" && (
                         <p className="text-xs text-muted-foreground">
-                          Your Bitcoin deposit address. Deposits are detected and added to your
-                          Spark balance automatically after 3 confirmations. MoonPay purchases are
+                          Your Bitcoin deposit address. Deposits are detected as soon as they are
+                          sent and claimed into your Spark balance automatically under your
+                          Automatic Claims setting above (standard claim at 3 confirmations, sooner
+                          when an instant claim fits your fee limit). MoonPay purchases are
                           delivered here too.
                         </p>
                       )}
@@ -910,7 +1074,10 @@ function SelfCustodyWallet() {
                               <Copy className="h-4 w-4 mr-1" /> Copy
                             </Button>
                             {receiveFee !== null && receiveFee > 0 && (
-                              <span className="text-xs text-muted-foreground">Receive fee: {receiveFee.toLocaleString()} sats</span>
+                              <span className="text-xs text-muted-foreground">
+                                Receive fee: {receiveFee.toLocaleString()} sats
+                                {fiat(receiveFee) ? ` (${fiat(receiveFee)})` : ""}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -970,8 +1137,8 @@ function SelfCustodyWallet() {
                               )}
                               {preparedLnurl && (
                                 <div className="space-y-2 text-sm">
-                                  <p>Amount: <strong>{preparedLnurl.amountSats.toLocaleString()} sats</strong></p>
-                                  <p>Fee: <strong>{preparedLnurl.feeSats.toLocaleString()} sats</strong></p>
+                                  <p>Amount: <strong>{preparedLnurl.amountSats.toLocaleString()} sats</strong>{fiat(preparedLnurl.amountSats) ? <span className="text-muted-foreground"> ({fiat(preparedLnurl.amountSats)})</span> : null}</p>
+                                  <p>Fee: <strong>{preparedLnurl.feeSats.toLocaleString()} sats</strong>{fiat(preparedLnurl.feeSats) ? <span className="text-muted-foreground"> ({fiat(preparedLnurl.feeSats)})</span> : null}</p>
                                   <Button className="w-full rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90" disabled={spBusy} onClick={doConfirmSend}>
                                     Confirm &amp; pay {(preparedLnurl.amountSats + preparedLnurl.feeSats).toLocaleString()} sats
                                   </Button>
@@ -979,9 +1146,9 @@ function SelfCustodyWallet() {
                               )}
                               {preparedSend && (
                                 <div className="space-y-2 text-sm">
-                                  <p>Amount: <strong>{preparedSend.amountSats.toLocaleString()} sats</strong></p>
+                                  <p>Amount: <strong>{preparedSend.amountSats.toLocaleString()} sats</strong>{fiat(preparedSend.amountSats) ? <span className="text-muted-foreground"> ({fiat(preparedSend.amountSats)})</span> : null}</p>
                                   {preparedSend.fee.lines.map((line) => (
-                                    <p key={line.label}>{line.label}: <strong>{line.feeSats.toLocaleString()} sats</strong></p>
+                                    <p key={line.label}>{line.label}: <strong>{line.feeSats.toLocaleString()} sats</strong>{fiat(line.feeSats) ? <span className="text-muted-foreground"> ({fiat(line.feeSats)})</span> : null}</p>
                                   ))}
                                   {preparedSend.fee.isEstimate && (
                                     <p className="text-xs text-amber-600">Fee shown is an estimate — the final fee is confirmed by the network when sending.</p>
@@ -996,6 +1163,63 @@ function SelfCustodyWallet() {
                         </div>
                       )}
                     </div>
+
+                    {unclaimed && unclaimed.length > 0 && (
+                      <div className="border-t pt-4 space-y-2">
+                        <p className="text-sm font-medium">On-chain deposits waiting to be claimed</p>
+                        {unclaimed.map((d) => {
+                          const fee = manualClaimFee(d);
+                          const canClaim =
+                            (d.status === "overLimit" || d.status === "claimFailed") && fee !== null;
+                          return (
+                            <div key={`${d.txid}:${d.vout}`} className="rounded border p-2 text-sm space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-medium">
+                                  {d.amountSats.toLocaleString()} sats
+                                  {fiat(d.amountSats) ? (
+                                    <span className="text-muted-foreground font-normal"> ({fiat(d.amountSats)})</span>
+                                  ) : null}
+                                </span>
+                                <span className="font-mono text-[10px] text-muted-foreground">
+                                  {d.txid.slice(0, 12)}…:{d.vout}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {d.status === "confirming" &&
+                                  (autoClaimPref.enabled
+                                    ? "Confirming — it will be claimed automatically once ready, while the fee fits your limit."
+                                    : "Confirming — automatic claims are off; you can claim it here once it is ready.")}
+                                {d.status === "withinLimit" && "Ready — being claimed automatically under your fee limit."}
+                                {d.status === "overLimit" &&
+                                  (autoClaimPref.enabled
+                                    ? `The claim fee (${(d.requiredFeeSats ?? fee ?? 0).toLocaleString()} sats) is above your ${autoClaimPref.maxFeeSats.toLocaleString()}-sat limit, so it has not been claimed. It will claim automatically if fees fall — or claim it now at that fee.`
+                                    : `Automatic claims are off, so this deposit is waiting.${fee !== null ? ` Claim fee: ${fee.toLocaleString()} sats.` : ""}`)}
+                                {d.status === "claimFailed" &&
+                                  (d.claimErrorMessage ?? "The last claim attempt failed.")}
+                              </p>
+                              {canClaim && (
+                                <Button
+                                  size="sm"
+                                  className="rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90"
+                                  disabled={claimingKey === `${d.txid}:${d.vout}` || !session.mnemonic}
+                                  onClick={() => doClaimDeposit(d)}
+                                >
+                                  {claimingKey === `${d.txid}:${d.vout}`
+                                    ? "Claiming…"
+                                    : `Claim now — fee ${fee.toLocaleString()} sats`}
+                                </Button>
+                              )}
+                              {(d.status === "overLimit" || d.status === "claimFailed") && fee === null && (
+                                <p className="text-xs text-muted-foreground">
+                                  The claim fee could not be quoted right now — use Connect / refresh
+                                  above to try again.
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
                     {spPayments && (
                       <div className="border-t pt-4 space-y-2">
@@ -1014,6 +1238,9 @@ function SelfCustodyWallet() {
                             </div>
                             <div className={p.direction === "receive" ? "text-green-600 font-medium" : "font-medium"}>
                               {p.direction === "receive" ? "+" : "−"}{p.amountSats.toLocaleString()} sats
+                              {fiat(p.amountSats) ? (
+                                <div className="text-xs text-muted-foreground font-normal">{fiat(p.amountSats)}</div>
+                              ) : null}
                             </div>
                           </div>
                         ))}
