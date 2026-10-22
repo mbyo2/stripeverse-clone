@@ -85,6 +85,39 @@ serve(async (req) => {
     
     const { name, provider, cardType, dailyLimit, monthlyLimit, transactionLimit, allowOnline, allowInternational } = requestBody;
 
+    // ── Resolve the wallet this card binds to ──
+    // Live schema: public.virtual_cards.wallet_id is NOT NULL with an
+    // FK to wallets. A card binds to the caller's Main wallet
+    // (account_id IS NULL) in the card's currency — the same
+    // deterministic resolution wallet-deposit uses. Cards are
+    // ZMW-denominated across the platform (fund-virtual-card writes
+    // 'ZMW', the card pages price in K) and the creation request
+    // carries no currency, so the card currency is ZMW; the Main ZMW
+    // wallet is created on demand if the caller has none yet.
+    const CARD_CURRENCY = "ZMW";
+    let { data: cardWallet } = await supabaseClient
+      .from("wallets")
+      .select("id, currency, status")
+      .eq("user_id", user.id)
+      .eq("currency", CARD_CURRENCY)
+      .is("account_id", null)
+      .maybeSingle();
+    if (!cardWallet) {
+      const { data: createdWallet, error: walletCreateError } = await supabaseClient
+        .from("wallets")
+        .insert({ user_id: user.id, balance: 0, currency: CARD_CURRENCY, status: "active" })
+        .select("id, currency, status")
+        .single();
+      if (walletCreateError) {
+        logStep("Error creating wallet for card", walletCreateError);
+        throw new Error("Failed to resolve wallet for card");
+      }
+      cardWallet = createdWallet;
+    }
+    if (cardWallet.status !== "active") {
+      throw new Error("Wallet is not active");
+    }
+
     // Generate card details
     const { data: cardNumberData, error: cardNumberError } = await supabaseClient
       .rpc('generate_card_number');
@@ -100,29 +133,38 @@ serve(async (req) => {
 
     // Generate CVV and expiry. The CVV is revealed ONCE, in this
     // function's creation response below, and is NEVER logged and
-    // NEVER persisted (audit CVV hygiene): the row stores only the
-    // masked number, so there is no CVV store to leak ahead of the
-    // real Mastercard integration.
+    // NEVER persisted (audit CVV hygiene): the live virtual_cards
+    // table has no cvv column (and no card_number column) at all —
+    // verified against information_schema 2026-10-23 — so there is
+    // nowhere to store either secret. Only the masked number and
+    // expiry are written down.
     const cvv = Math.floor(Math.random() * 900 + 100).toString();
-    const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + 3);
-    const expiry = `${(expiryDate.getMonth() + 1).toString().padStart(2, '0')}/${expiryDate.getFullYear().toString().slice(-2)}`;
+    // Live expiry_date is a DATE: 3 years out, last day of that month.
+    const now = new Date();
+    const expiryYear = now.getUTCFullYear() + 3;
+    const expiryMonth = now.getUTCMonth(); // 0-based
+    const expiryDate = new Date(Date.UTC(expiryYear, expiryMonth + 1, 0))
+      .toISOString()
+      .slice(0, 10); // YYYY-MM-DD
+    const expiry = `${String(expiryMonth + 1).padStart(2, "0")}/${String(expiryYear).slice(-2)}`;
 
     logStep("Generated card details", { cardNumber: maskedNumber.data });
 
-    // Create virtual card in database. NOTE: no `cvv` value is
-    // stored — the column is nullable since migration
-    // 20261026_virtual_cards_cvv_hygiene (which also purges the
-    // CVVs stored by earlier versions of this function).
+    // Create virtual card in database — exactly the live columns
+    // (verified 2026-10-23): no card_number, no cvv; wallet_id,
+    // balance, currency and status are NOT NULL live, so they are
+    // set explicitly rather than relying on defaults.
     const { data: newCard, error: createError } = await supabaseClient
       .from('virtual_cards')
       .insert({
         user_id: user.id,
+        wallet_id: cardWallet.id,
         name: name,
-        card_number: cardNumber,
         masked_number: maskedNumber.data,
-        cvv: null,
-        expiry_date: expiry,
+        expiry_date: expiryDate,
+        balance: 0,
+        currency: cardWallet.currency,
+        status: 'active',
         provider: provider,
         card_type: cardType,
         daily_limit: dailyLimit,
@@ -153,11 +195,13 @@ serve(async (req) => {
         created_at: newCard.created_at,
         // One-time reveal: the full number, CVV and expiry are
         // returned ONLY here, in the creation response to the
-        // authenticated owner. The CVV is not stored anywhere, so
-        // once this response is gone it cannot be shown again.
+        // authenticated owner. Neither the number nor the CVV is
+        // stored anywhere (the live table has no column for them),
+        // so once this response is gone they cannot be shown again.
         card_number: cardNumber,
         cvv: cvv,
-        expiry_date: expiry
+        expiry_date: expiryDate,
+        expiry: expiry
       }
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

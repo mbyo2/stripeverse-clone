@@ -17,15 +17,16 @@ export type KycMetadata = {
   [key: string]: any;
 };
 
-// Helper type for virtual card data
+// Helper type for virtual card data. Mirrors the LIVE virtual_cards
+// columns (verified 2026-10-23): the full card number and CVV are
+// never stored, so they are not part of a stored card's shape.
 export interface VirtualCard {
   id: string;
   user_id: string;
+  wallet_id: string;
   name: string;
-  number: string;
   masked_number: string;
-  cvv: string;
-  expiry: string;
+  expiry_date: string;
   balance: number;
   status: 'active' | 'frozen' | 'cancelled';
   provider: string;
