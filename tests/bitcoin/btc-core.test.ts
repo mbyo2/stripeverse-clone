@@ -248,3 +248,76 @@ describe("BOLT11 amount decoding (integer math)", () => {
     expect(core.decodeBolt11Msat("lnbc20p1pj9nzfq")).toBe(2n);
   });
 });
+
+describe("custodyStatus (seed⇄xpub interlock)", () => {
+  const OTHER_MNEMONIC =
+    "legal winner thank year wave sausage worth useful legal winner thank yellow";
+
+  it("refuses when both secrets are absent or blank", () => {
+    expect(core.custodyStatus(undefined, undefined)).toEqual({
+      configured: false,
+      reason: "missing_seed",
+    });
+    expect(core.custodyStatus("", "   ")).toEqual({
+      configured: false,
+      reason: "missing_seed",
+    });
+  });
+
+  it("refuses when only the xpub is present (the production state)", () => {
+    expect(core.custodyStatus(null, ACCOUNT_ZPUB)).toEqual({
+      configured: false,
+      reason: "missing_seed",
+    });
+  });
+
+  it("refuses when only the seed is present", () => {
+    expect(core.custodyStatus(MNEMONIC, null)).toEqual({
+      configured: false,
+      reason: "missing_xpub",
+    });
+    expect(core.custodyStatus(MNEMONIC, "")).toEqual({
+      configured: false,
+      reason: "missing_xpub",
+    });
+  });
+
+  it("refuses an invalid mnemonic", () => {
+    expect(core.custodyStatus("not a real mnemonic at all", ACCOUNT_ZPUB)).toEqual({
+      configured: false,
+      reason: "invalid_seed",
+    });
+  });
+
+  it("refuses an invalid xpub", () => {
+    expect(core.custodyStatus(MNEMONIC, "zpubINVALIDCHECKSUM")).toEqual({
+      configured: false,
+      reason: "invalid_xpub",
+    });
+    expect(core.custodyStatus(MNEMONIC, "garbage")).toEqual({
+      configured: false,
+      reason: "invalid_xpub",
+    });
+  });
+
+  it("refuses a valid seed paired with a DIFFERENT account's key", () => {
+    const otherPub = core.accountKeyFromMnemonic(OTHER_MNEMONIC).publicExtendedKey;
+    expect(core.custodyStatus(MNEMONIC, otherPub)).toEqual({
+      configured: false,
+      reason: "seed_xpub_mismatch",
+    });
+    expect(core.custodyStatus(OTHER_MNEMONIC, ACCOUNT_ZPUB)).toEqual({
+      configured: false,
+      reason: "seed_xpub_mismatch",
+    });
+  });
+
+  it("accepts the matched published test-vector pair", () => {
+    const status = core.custodyStatus(MNEMONIC, ACCOUNT_ZPUB);
+    expect(status.configured).toBe(true);
+    if (status.configured) {
+      expect(core.deriveAddress(status.accountPub, 0, 0)).toBe(ADDR_0_0);
+      expect(core.deriveAddress(status.accountPriv, 0, 0)).toBe(ADDR_0_0);
+    }
+  });
+});

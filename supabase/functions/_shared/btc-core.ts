@@ -78,6 +78,59 @@ export function accountKeyFromMnemonic(mnemonic: string): HDKey {
   return root.derive(ACCOUNT_PATH);
 }
 
+// ── Custody configuration ──────────────────────────────────────────────
+
+export type CustodyStatus =
+  | { configured: true; accountPriv: HDKey; accountPub: HDKey }
+  | {
+      configured: false;
+      reason:
+        | "missing_seed"
+        | "missing_xpub"
+        | "invalid_seed"
+        | "invalid_xpub"
+        | "seed_xpub_mismatch";
+    };
+
+/**
+ * Custody is "configured" only when BOTH secrets are present, both
+ * parse, AND the seed controls the same account the zpub watches (the
+ * seed⇄xpub interlock: first receiving addresses must match). Anything
+ * else — a missing secret, a malformed one, or a mismatched pair — is
+ * NOT configured, and every custodial operation must refuse with the
+ * designed plain-language message instead of touching money paths.
+ *
+ * The `reason` is operator-facing detail for server logs only; users
+ * always see the same truthful refusal regardless of which check failed.
+ */
+export function custodyStatus(
+  mnemonic: string | null | undefined,
+  xpub: string | null | undefined,
+): CustodyStatus {
+  if (!mnemonic || !mnemonic.trim()) {
+    return { configured: false, reason: "missing_seed" };
+  }
+  if (!xpub || !xpub.trim()) {
+    return { configured: false, reason: "missing_xpub" };
+  }
+  let accountPriv: HDKey;
+  try {
+    accountPriv = accountKeyFromMnemonic(mnemonic);
+  } catch {
+    return { configured: false, reason: "invalid_seed" };
+  }
+  let accountPub: HDKey;
+  try {
+    accountPub = parseAccountKey(xpub);
+  } catch {
+    return { configured: false, reason: "invalid_xpub" };
+  }
+  if (deriveAddress(accountPriv, 0, 0) !== deriveAddress(accountPub, 0, 0)) {
+    return { configured: false, reason: "seed_xpub_mismatch" };
+  }
+  return { configured: true, accountPriv, accountPub };
+}
+
 export function deriveChildKey(
   account: HDKey,
   chain: 0 | 1,
