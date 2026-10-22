@@ -11,13 +11,17 @@
 //     pays out in. ZMW is not one of them — there is no code path
 //     here, in the function, or in the UI that implies a direct
 //     ZMW -> PayPal payout.
-//   - PROVENANCE (CEO compliance guardrail, 2026-10-22): a user may
-//     withdraw to PayPal at most what PayPal itself paid INTO their
-//     wallets, minus what they have already withdrawn to PayPal.
-//     The authoritative sums are computed inside the
-//     reserve_paypal_withdrawal RPC (see the 20261024 migration);
-//     this module carries the same arithmetic for previews and for
-//     the function's fast, honest refusal copy.
+//   - PROVENANCE (CEO decision, 2026-10-23 — follows the money):
+//     PayPal-sourced money is a marked portion of a user's balance
+//     (public.paypal_provenance_balances, maintained by the taint
+//     helpers in the 20261028 migration). The mark is created only
+//     by verified PayPal captures, moves spent-first when the money
+//     moves between users, and is consumed by withdrawing to
+//     PayPal — so a user may withdraw at most the marked portion
+//     of their balance. The authoritative counter is read and
+//     decremented inside the reserve_paypal_withdrawal RPC; this
+//     module carries the same cap arithmetic over a counter value
+//     for previews and for the function's fast, honest refusal copy.
 //   - Finalization is a one-way state machine: pending/processing
 //     may become completed (PayPal says the item SUCCEEDED) or
 //     failed+refunded (PayPal says it FAILED / was RETURNED /
@@ -104,22 +108,20 @@ export function isPlausibleEmail(email: unknown): email is string {
     && !/\s/.test(trimmed);
 }
 
-// ── Provenance guardrail ─────────────────────────────────────────────
+// ── Provenance (the mark that follows the money) ─────────────────────
 
 /**
  * How much more this user may withdraw to PayPal in one currency:
- * completed PayPal-sourced credits (computed by the RPC from the
- * ledger: payment_method 'paypal', status 'completed', metadata.kind
- * 'wallet_deposit' or 'checkout_payment') minus their PayPal
- * withdrawals that are not failed/refunded. Never negative.
+ * the paypal_provenance_balances counter — the marked,
+ * PayPal-sourced portion of their balance. The counter already nets
+ * out everything reserved or paid out (reserve decrements it,
+ * refunds restore it), so the availability IS the counter value,
+ * floored at zero. The RPC re-reads it under a row lock; this is
+ * the preview-side mirror of that read.
  */
-export function provenanceAvailable(
-  completedPayPalCredits: number,
-  activePayPalWithdrawals: number,
-): number {
-  const credits = Number.isFinite(completedPayPalCredits) ? completedPayPalCredits : 0;
-  const withdrawn = Number.isFinite(activePayPalWithdrawals) ? activePayPalWithdrawals : 0;
-  return Math.max(0, roundMoney(credits - withdrawn));
+export function provenanceAvailable(sourcedAmount: number): number {
+  const sourced = Number.isFinite(sourcedAmount) ? sourcedAmount : 0;
+  return Math.max(0, roundMoney(sourced));
 }
 
 export type ProvenancePlan =
@@ -127,12 +129,8 @@ export type ProvenancePlan =
   | { ok: false; available: number };
 
 /** Decide whether a payout of `amount` fits inside the provenance cap. */
-export function planProvenance(
-  amount: number,
-  completedPayPalCredits: number,
-  activePayPalWithdrawals: number,
-): ProvenancePlan {
-  const available = provenanceAvailable(completedPayPalCredits, activePayPalWithdrawals);
+export function planProvenance(amount: number, sourcedAmount: number): ProvenancePlan {
+  const available = provenanceAvailable(sourcedAmount);
   return roundMoney(amount) <= available ? { ok: true, available } : { ok: false, available };
 }
 
@@ -140,7 +138,7 @@ export function planProvenance(
 export function provenanceRefusalMessage(available: number, currency: string): string {
   return (
     `You can withdraw up to ${formatPayPalMoney(available)} ${normalizeCurrency(currency)} to PayPal — ` +
-    "that's what you've deposited via PayPal. Money that arrived another way can be sent to other " +
+    "that's how much of your balance arrived via PayPal. Money that arrived another way can be sent to other " +
     "BMaGlass users, converted, or withdrawn once other payout methods are live."
   );
 }
