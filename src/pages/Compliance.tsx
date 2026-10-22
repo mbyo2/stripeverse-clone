@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import KycVerificationStatus, { KycLevel, KycStatus } from '@/components/wallet/KycVerificationStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -485,8 +485,10 @@ const Compliance = () => {
                           Our compliance team, led by Mabvuto Banda, is available to assist you with any compliance-related questions or concerns. We offer resources and guidance to help you maintain compliance with all relevant regulations.
                         </p>
                         <p className="text-foreground/70">
-                          For compliance inquiries, please contact:<br />
-                          <span className="font-medium">compliance@bmaglasspay.com</span> or call <span className="font-medium">+260 976 123 456</span>
+                          For compliance inquiries, please reach us through the{" "}
+                          <Link to="/contact" className="font-medium text-primary hover:underline">contact form</Link>{" "}
+                          or a{" "}
+                          <Link to="/support" className="font-medium text-primary hover:underline">support ticket</Link>.
                         </p>
                       </div>
                     </div>

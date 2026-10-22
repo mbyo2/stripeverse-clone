@@ -1,12 +1,13 @@
 
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mail, MapPin, Phone } from "lucide-react";
+import { Mail, MapPin } from "lucide-react";
 import { useContactForm } from "@/hooks/useContactForm";
 
 const Contact = () => {
@@ -127,23 +128,19 @@ const Contact = () => {
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <Phone className="h-5 w-5 text-primary mt-0.5" />
-                    <div>
-                      <h3 className="font-medium">Phone</h3>
-                      <p className="text-muted-foreground">
-                        +260 97 1234567<br />
-                        Mon-Fri, 8am to 6pm
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
                     <Mail className="h-5 w-5 text-primary mt-0.5" />
                     <div>
-                      <h3 className="font-medium">Email</h3>
+                      <h3 className="font-medium">Message Us</h3>
                       <p className="text-muted-foreground">
-                        support@bmaglasspay.com<br />
-                        info@bmaglasspay.com
+                        Use the message form on this page — it goes straight
+                        to our team, and we reply to the email address you
+                        provide.
+                      </p>
+                      <p className="text-muted-foreground mt-2">
+                        Already have an account?{" "}
+                        <Link to="/support" className="text-primary hover:underline">
+                          Open a support ticket
+                        </Link>
                       </p>
                     </div>
                   </div>

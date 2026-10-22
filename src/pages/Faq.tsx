@@ -113,7 +113,7 @@ const Faq = () => {
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Button asChild><Link to="/support">Contact Support</Link></Button>
-            <Button variant="outline" asChild><a href="mailto:support@bmaglasspay.com">Email Us</a></Button>
+            <Button variant="outline" asChild><Link to="/contact">Send a Message</Link></Button>
           </div>
         </div>
       </main>

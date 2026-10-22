@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Mail, MapPin, Phone } from 'lucide-react';
+import { Mail, MapPin } from 'lucide-react';
 import Logo from '@/components/Logo';
 
 const Footer = () => {
@@ -64,14 +64,10 @@ const Footer = () => {
                 <MapPin className="h-3.5 w-3.5" />
                 <span>Cairo Road, Lusaka</span>
               </div>
-              <a href="mailto:info@bmaglasspay.com" className="flex items-center gap-2 hover:text-white transition-colors">
+              <Link to="/contact" className="flex items-center gap-2 hover:text-white transition-colors">
                 <Mail className="h-3.5 w-3.5" />
-                <span>info@bmaglasspay.com</span>
-              </a>
-              <a href="tel:+260976123456" className="flex items-center gap-2 hover:text-white transition-colors">
-                <Phone className="h-3.5 w-3.5" />
-                <span>+260 976 123 456</span>
-              </a>
+                <span>Contact us</span>
+              </Link>
             </div>
           </div>
 
