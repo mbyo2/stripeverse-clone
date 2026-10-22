@@ -4,6 +4,7 @@
 import { type ClassValue, clsx } from "clsx";
 import { formatDistanceToNow } from 'date-fns';
 import { twMerge } from "tailwind-merge";
+import { canonicalZambianPhoneDigits, phonesMatch } from "@/utils/phoneNumber";
 
 /**
  * Utility function for merging class names with Tailwind CSS
@@ -157,8 +158,10 @@ export const validateWalletTransfer = (
   receiverPhone: string, 
   amount: number
 ): { valid: boolean; message?: string } => {
-  // Check if sender and receiver are the same
-  if (senderPhone === receiverPhone) {
+  // Check if sender and receiver are the same — compared canonically,
+  // so the same number typed in a different format (097… vs +260 97…)
+  // is still recognised as a self-transfer.
+  if (senderPhone === receiverPhone || phonesMatch(senderPhone, receiverPhone)) {
     return { 
       valid: false, 
       message: "You cannot transfer money to yourself" 
@@ -174,9 +177,14 @@ export const validateWalletTransfer = (
   }
   
   // In a real app, we would validate that receiver exists in our system
-  // For now, we'll just check if it looks like a valid phone number
+  // For now, we'll just check if it looks like a valid phone number —
+  // via the shared Zambian normalization (any accepted format), with a
+  // generic digit-length fallback for anything non-Zambian.
   const cleanReceiverPhone = receiverPhone.replace(/\D/g, '');
-  if (cleanReceiverPhone.length < 10 || cleanReceiverPhone.length > 12) {
+  const looksLikePhone =
+    canonicalZambianPhoneDigits(receiverPhone) !== null ||
+    (cleanReceiverPhone.length >= 7 && cleanReceiverPhone.length <= 15);
+  if (!looksLikePhone) {
     return {
       valid: false,
       message: "Please enter a valid receiver phone number"

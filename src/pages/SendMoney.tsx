@@ -12,6 +12,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
+import { prepareRecipientQuery } from "@/utils/phoneNumber";
 import { planSendMoneyLegs } from "@/utils/sendMoneyLegs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Header from "@/components/Header";
@@ -104,8 +105,19 @@ const SendMoney = () => {
       // recipient existed. find_transfer_recipient is a SECURITY
       // DEFINER RPC that answers an exact-match lookup (user id +
       // display name only) without exposing the profiles table.
+      //
+      // prepareRecipientQuery canonicalizes a Zambian phone typed in
+      // any format (097…, +260 97 …, spaced) to +260… first, and
+      // refuses garbage input with an invalid-format message — the
+      // shared rule in utils/phoneNumber (live QA 2026-10-22: the
+      // local format was refused on /transfer while the stored
+      // international format worked; same lookup, same fix).
+      const prepared = prepareRecipientQuery(recipient);
+      if (prepared.ok === false) {
+        throw new Error(prepared.message);
+      }
       const { data: matches, error: lookupError } = await supabase
-        .rpc("find_transfer_recipient", { p_query: recipient.trim() });
+        .rpc("find_transfer_recipient", { p_query: prepared.query });
 
       if (lookupError) throw new Error(lookupError.message);
 

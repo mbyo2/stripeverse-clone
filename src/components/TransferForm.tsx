@@ -10,6 +10,7 @@ import { formatCurrency, validateWalletTransfer, formatPhoneForDisplay } from "@
 import { ArrowRight, CheckCircle2, AlertCircle, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
+import { prepareRecipientQuery } from "@/utils/phoneNumber";
 
 type TransferFormProps = {
   senderPhone: string;
@@ -83,10 +84,23 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
       // failed with "No account found", even when the recipient
       // existed. find_transfer_recipient is the SECURITY DEFINER RPC
       // added for SendMoney (migration 20261022): exact match on email
-      // or digits-only phone equality, returning only the user id and
-      // a display name, without exposing the profiles table.
+      // or phone equality, returning only the user id and a display
+      // name, without exposing the profiles table.
+      //
+      // The query is prepared with prepareRecipientQuery first: a
+      // Zambian number typed in ANY format (097…, +260 97 …, spaced)
+      // is canonicalized to +260… before the lookup, and garbage input
+      // is refused here with an invalid-format message instead of a
+      // misleading "No account found" (live QA 2026-10-22: the local
+      // format 0970000000 was refused while the stored format
+      // +260 97 000 0000 worked). The RPC canonicalizes the stored
+      // side too — the two rules are twins, keep them in sync.
+      const prepared = prepareRecipientQuery(receiverPhone);
+      if (prepared.ok === false) {
+        throw new Error(prepared.message);
+      }
       const { data: matches, error: lookupError } = await supabase
-        .rpc("find_transfer_recipient", { p_query: receiverPhone.trim() });
+        .rpc("find_transfer_recipient", { p_query: prepared.query });
 
       if (lookupError) throw new Error(lookupError.message);
 
