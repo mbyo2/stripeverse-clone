@@ -1,23 +1,26 @@
 // PayPal availability gate.
 //
-// CEO order (2026-10-22): PayPal is presented to users as "Coming
-// soon" until the live PayPal credentials are configured. Production
-// currently holds SANDBOX credentials, so an ungated PayPal button
-// would walk a real user into the PayPal sandbox — that must not be
-// reachable.
+// History: until 2026-10-22 PayPal was presented to users as
+// "Coming soon" on CEO order, because production then held SANDBOX
+// credentials — an ungated PayPal button would have walked a real
+// user into the PayPal sandbox.
 //
-// Every user-facing PayPal entry point (wallet Add Money, the
+// GO-LIVE (2026-10-22): the CEO has set the LIVE PayPal app
+// credentials as the PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET function
+// secrets with PAYPAL_ENV=production, plus PAYPAL_WEBHOOK_ID for the
+// webhook listener (whose signature verification now runs through
+// PayPal's verify-webhook-signature API). This gate is therefore ON:
+// every user-facing PayPal entry point (wallet Add Money, the
 // /checkout page, Pricing's PayPal checkout dialog, and the
-// checkout-widget / developer copy) consults this constant. The
-// machinery behind it — the wallet-deposit PayPal path,
-// paypal-deposit-capture, the checkout capture path and the
-// webhook routing — stays fully built behind the gate.
+// checkout-widget / developer copy) offers PayPal for real.
 //
-// GO-LIVE: once the live PayPal app credentials are set as the
-// PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET function secrets (and
-// PAYPAL_ENV=production), flip this to `true`. No other code change is
-// required.
-export const PAYPAL_AVAILABLE = false;
+// If PayPal ever has to be pulled again, flip this back to `false` —
+// the entry points above all consult this one constant, the deposit
+// mutation in useWallet refuses PayPal while it is off, and the
+// machinery behind the gate (wallet-deposit PayPal path,
+// paypal-deposit-capture, paypal-checkout-capture and the webhook
+// routing) stays built and harmless while it is off.
+export const PAYPAL_AVAILABLE = true;
 
 /** Label shown wherever PayPal is offered while the gate is off. */
 export const PAYPAL_COMING_SOON_LABEL = "Coming soon";
