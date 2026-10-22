@@ -65,9 +65,13 @@
     --paypal-gold: 38 92% 50%;
   }
 
-  * {
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, transform 0.15s ease;
-  }
+  /* No universal transition rule: animating background-color/color
+     on EVERY element made theme switches resolve element-by-element
+     instead of atomically — in dark mode a panel could sit at its
+     light colours until a repaint (QA Wave 4, Wallet page), and the
+     global transform transition interfered with component motion.
+     Components that want a transition declare it themselves
+     (transition-colors, transition-transform, ...). */
 
   body {
     @apply bg-background text-foreground antialiased;

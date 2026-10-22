@@ -63,7 +63,7 @@ const Register = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4">
               <UserPlus className="h-7 w-7 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-display font-bold tracking-tight text-paypal-dark">Create your account</h1>
+            <h1 className="text-2xl font-display font-bold tracking-tight text-foreground">Create your account</h1>
             <p className="text-muted-foreground mt-1 text-sm">Start sending and receiving money today</p>
           </div>
 

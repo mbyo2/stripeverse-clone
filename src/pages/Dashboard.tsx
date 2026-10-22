@@ -37,6 +37,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { RoleBadge } from "@/components/FeatureAccess";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { useProfile, resolveFirstName } from "@/hooks/useProfile";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useAccount } from "@/contexts/AccountContext";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
@@ -56,7 +57,11 @@ const Dashboard = () => {
   const { data: allWallets = [] } = useMultiCurrencyWallets();
   const accountGroups = groupWalletsByAccount(allWallets, accounts);
 
-  const firstName = user?.user_metadata?.first_name || "there";
+  // Greet from the profiles row the user edits in Settings — auth
+  // user_metadata is creation-time only and misses dashboard-created
+  // accounts entirely ("Welcome back, there", QA Wave 4).
+  const { data: profile } = useProfile();
+  const firstName = resolveFirstName(profile, user);
 
   if (isLoading) {
     return (
