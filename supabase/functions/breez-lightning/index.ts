@@ -35,6 +35,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Thrown when the Breez server key is absent. Mapped in the top-level
+ * catch to a designed 503 refusal — Lightning being unconfigured is a
+ * deployment state the user should be told about truthfully, not a
+ * bare 500 leaking the secret's name.
+ */
+class LightningNotConfiguredError extends Error {}
+
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
@@ -44,7 +52,7 @@ function json(status: number, body: unknown) {
 
 async function breezFetch(path: string, method: string, body?: unknown) {
   const apiKey = Deno.env.get("BREEZ_API_KEY");
-  if (!apiKey) throw new Error("BREEZ_API_KEY not configured");
+  if (!apiKey) throw new LightningNotConfiguredError("BREEZ_API_KEY not configured");
   const res = await fetch(`${BREEZ_API}${path}`, {
     method,
     headers: {
@@ -292,6 +300,10 @@ serve(async (req) => {
 
     return json(400, { error: `Unknown action: ${action}` });
   } catch (e) {
+    if (e instanceof LightningNotConfiguredError) {
+      console.error("breez-lightning: BREEZ_API_KEY not configured");
+      return json(503, { error: "Lightning is not available yet — it is not configured on this deployment." });
+    }
     console.error("breez-lightning error:", e);
     return json(500, { error: e instanceof Error ? e.message : "Lightning operation failed" });
   }
