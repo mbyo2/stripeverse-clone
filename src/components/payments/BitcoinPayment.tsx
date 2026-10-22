@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import QRCode from 'qrcode.react';
 import { supabase } from "@/integrations/supabase/client";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 
 interface BitcoinPaymentProps {
   amount: number;
@@ -40,7 +41,11 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         });
 
         if (error) {
-          throw new Error(error.message || 'Failed to generate Bitcoin payment details');
+          // Rethrow the invoke error untouched: wrapping it in a new
+          // Error would discard error.context, which is where the
+          // function's own { error } message lives (e.g. the custody
+          // refusal) — resolveEdgeFunctionError needs it intact.
+          throw error;
         }
 
         if (!data || !data.address) {
@@ -78,7 +83,7 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         console.error("Error fetching payment details:", error);
         toast({
           title: "Error",
-          description: "Failed to generate payment details. Please try again.",
+          description: await resolveEdgeFunctionError(error, "Failed to generate payment details. Please try again."),
           variant: "destructive",
         });
       } finally {

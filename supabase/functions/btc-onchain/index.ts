@@ -19,11 +19,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
 import {
-  accountKeyFromMnemonic,
   buildWithdrawalTx,
+  custodyStatus,
   deriveAddress,
   deriveScript,
-  parseAccountKey,
   selectCoins,
   validateMainnetAddress,
   type Utxo,
@@ -43,6 +42,34 @@ function json(status: number, body: unknown) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Designed refusals: while custody is not genuinely configured (seed and
+// MATCHED xpub both present — see custodyStatus in btc-core), every
+// custodial operation answers 503 with one of these plain-language
+// messages, in the { error } shape the frontend surfaces verbatim. The
+// specific failed check is operator detail and goes to the logs only.
+const DEPOSITS_NOT_CONFIGURED =
+  "Bitcoin deposits are not available yet — Bitcoin custody is not configured on this deployment.";
+const WITHDRAWALS_NOT_CONFIGURED =
+  "Bitcoin withdrawals are not available yet — Bitcoin custody is not configured on this deployment.";
+
+function custody() {
+  return custodyStatus(
+    Deno.env.get("BTC_SEED_MNEMONIC"),
+    Deno.env.get("BTC_XPUB"),
+  );
+}
+
+// PostgREST/RPC failures are plain objects with a message, not Error
+// instances — an `instanceof Error` test alone collapses them into a
+// contentless fallback and the user learns nothing. Extract the real
+// message from any thrown value that carries one.
+function thrownMessage(e: unknown, fallback: string): string {
+  if (e instanceof Error && e.message.trim()) return e.message;
+  const m = (e as { message?: unknown } | null | undefined)?.message;
+  if (typeof m === "string" && m.trim()) return m;
+  return fallback;
 }
 
 function envInt(name: string, fallback: number): number {
@@ -86,6 +113,16 @@ serve(async (req) => {
       if (!serviceKey || !timingSafeEqual(token, serviceKey)) {
         return json(401, { error: "Service role required" });
       }
+      // Never credit deposits while custody is unconfigured: the only
+      // addresses that can exist in that state were derived from an
+      // unproven key, and accepting real deposits against it is exactly
+      // what the custody rule forbids. Skip quietly (scheduler context —
+      // a 200 with the reason, not an error).
+      const c = custody();
+      if (!c.configured) {
+        console.error("btc-onchain check_deposits skipped: custody not configured (" + c.reason + ")");
+        return json(200, { skipped: true, reason: "custody_not_configured" });
+      }
       return await checkDeposits(supabase);
     }
 
@@ -102,13 +139,29 @@ serve(async (req) => {
     return json(400, { error: `Unknown action: ${action}` });
   } catch (e) {
     console.error("btc-onchain error:", e);
-    return json(500, { error: e instanceof Error ? e.message : "Bitcoin operation failed" });
+    return json(500, { error: thrownMessage(e, "Bitcoin operation failed") });
   }
 });
 
 // ── receive ────────────────────────────────────────────────────────────────
 
 async function receive(supabase: any, userId: string) {
+  // Custody gate FIRST — before any assignment lookup or allocation.
+  // Custody counts as configured only when the seed AND its matched
+  // xpub are both present and interlocked (custodyStatus). Checking
+  // BTC_XPUB alone was the original defect: with an xpub present but no
+  // seed, execution fell through into the DB allocation path and died
+  // there, so the designed refusal never reached the user. An address
+  // issued in the unconfigured state would invite real deposits to a
+  // wallet the platform cannot prove it controls — never issue one,
+  // and never hand back a previously assigned one either.
+  const c = custody();
+  if (!c.configured) {
+    console.error("btc-onchain receive: custody not configured (" + c.reason + ")");
+    return json(503, { error: DEPOSITS_NOT_CONFIGURED });
+  }
+  const account = c.accountPub;
+
   const { data: existing } = await supabase
     .from("btc_address_assignments")
     .select("*")
@@ -116,21 +169,6 @@ async function receive(supabase: any, userId: string) {
     .maybeSingle();
   if (existing) {
     return json(200, { address: existing.address, record: existing });
-  }
-
-  const xpub = Deno.env.get("BTC_XPUB");
-  if (!xpub) {
-    // Missing prerequisite, not a user error: answer with a truthful
-    // refusal the UI can show as-is (operator detail stays in the logs).
-    console.error("btc-onchain receive: BTC_XPUB is not configured");
-    return json(503, { error: "Bitcoin deposits are not available yet — Bitcoin custody is not configured on this deployment." });
-  }
-  let account;
-  try {
-    account = parseAccountKey(xpub);
-  } catch (e) {
-    console.error("btc-onchain receive: BTC_XPUB is invalid:", e);
-    return json(503, { error: "Bitcoin deposits are not available yet — Bitcoin custody is not configured on this deployment." });
   }
 
   // Allocate (index, address) atomically-ish: the sequence guarantees a
@@ -245,6 +283,19 @@ async function fetchAddressTxs(address: string): Promise<any[]> {
 // ── send ───────────────────────────────────────────────────────────────────
 
 async function send(supabase: any, userId: string, body: any) {
+  // Custody gate FIRST: while custody is not genuinely configured, every
+  // withdrawal attempt gets the designed refusal — never a simulation,
+  // never a later failure from a half-configured money path. The gate
+  // includes the seed⇄xpub interlock (custodyStatus), so the keys used
+  // below are guaranteed to control the same wallet.
+  const c = custody();
+  if (!c.configured) {
+    console.error("btc-onchain send: custody not configured (" + c.reason + ")");
+    return json(503, { error: WITHDRAWALS_NOT_CONFIGURED });
+  }
+  const accountPriv = c.accountPriv;
+  const accountPub = c.accountPub;
+
   const toAddress = typeof body?.to_address === "string" ? body.to_address.trim() : "";
   const amountSats = Number(body?.amount_sats);
   const idempotencyKey = typeof body?.idempotency_key === "string" ? body.idempotency_key : "";
@@ -309,30 +360,8 @@ async function send(supabase: any, userId: string, body: any) {
     return json(400, { error: `Daily withdrawal limit is ${maxDailySats} sats` });
   }
 
-  // Keys: hard-fail if either secret is absent. Never simulate a send.
-  // The refusal is a designed 503 with a user-truthful message (this is
-  // the state of every deployment until the custody seed is provisioned);
-  // the operator-facing detail goes to the logs only.
-  const mnemonic = Deno.env.get("BTC_SEED_MNEMONIC");
-  const xpub = Deno.env.get("BTC_XPUB");
-  if (!mnemonic || !xpub) {
-    console.error("btc-onchain send: seed/xpub secret missing (mnemonic:", !!mnemonic, ", xpub:", !!xpub, ")");
-    return json(503, { error: "Bitcoin withdrawals are not available yet — Bitcoin custody is not configured on this deployment." });
-  }
-  let accountPriv, accountPub;
-  try {
-    accountPriv = accountKeyFromMnemonic(mnemonic);
-    accountPub = parseAccountKey(xpub);
-  } catch (e) {
-    console.error("btc-onchain send: configured seed/xpub is invalid:", e);
-    return json(503, { error: "Bitcoin withdrawals are not available yet — Bitcoin custody is not configured on this deployment." });
-  }
-  // Safety interlock: the seed must control the same wallet the zpub watches,
-  // otherwise deposits and withdrawals would silently use different wallets.
-  if (deriveAddress(accountPriv, 0, 0) !== deriveAddress(accountPub, 0, 0)) {
-    console.error("btc-onchain send: BTC_SEED_MNEMONIC and BTC_XPUB do not match");
-    return json(503, { error: "Bitcoin withdrawals are not available yet — Bitcoin custody is not configured on this deployment." });
-  }
+  // (Keys and the seed⇄xpub interlock were verified by the custody gate
+  // at the top of this function — accountPriv/accountPub come from it.)
 
   // Fee rate from the network (hard-fail if unavailable — never guess fees).
   const feeRes = await esplora("/v1/fees/recommended");
