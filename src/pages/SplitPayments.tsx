@@ -10,16 +10,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Plus, Percent, DollarSign, GitBranch, Info } from 'lucide-react';
-import { useSubaccounts, useCreateSubaccount, useSplitRules, useCreateSplitRule } from '@/hooks/useSubaccounts';
-import { committedPercentage, splitRulesWarning } from '@/utils/splitPayments';
+import { useSubaccounts, useCreateSubaccount, useSplitRules, useCreateSplitRule, usePlatformSettings } from '@/hooks/useSubaccounts';
+import { committedPercentage, splitRulesWarning, computeSplitPreview } from '@/utils/splitPayments';
 
 const SplitPayments = () => {
   const { data: subaccounts, isLoading } = useSubaccounts();
   const { data: rules } = useSplitRules();
+  const { data: platformSettings } = usePlatformSettings();
+  // The platform fee rate is set by BMaGlass Pay in platform_settings
+  // (2.5% at launch; the server falls back to 2.5 if the row is ever
+  // missing). It is displayed, never editable here.
+  const platformFeeRate = Number(platformSettings?.split_platform_fee_percent ?? 2.5);
   const createSub = useCreateSubaccount();
   const createRule = useCreateSplitRule();
   const [subOpen, setSubOpen] = useState(false);
   const [ruleOpen, setRuleOpen] = useState(false);
+  const [previewAmount, setPreviewAmount] = useState('100');
   const [subForm, setSubForm] = useState({ account_name: '', account_email: '', split_type: 'percentage', split_value: '' });
   const [ruleForm, setRuleForm] = useState({ name: '', subaccount_id: '', split_type: 'percentage', split_value: '' });
 
@@ -34,6 +40,22 @@ const SplitPayments = () => {
       onSuccess: () => { setRuleOpen(false); setRuleForm({ name: '', subaccount_id: '', split_type: 'percentage', split_value: '' }); }
     });
   };
+
+  // Active rules in the server's execution order (created_at, then id),
+  // and the settlement preview for the amount typed below: platform fee
+  // first, then the rules — fee + legs + what you keep = the payment.
+  const activeRules = (rules ?? [])
+    .filter((r: any) => r.is_active)
+    .slice()
+    .sort((a: any, b: any) =>
+      String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)));
+  const preview = computeSplitPreview(
+    Number(previewAmount) || 0,
+    activeRules.map((r: any) => ({ id: r.id, split_type: r.split_type, split_value: Number(r.split_value) })),
+    platformFeeRate,
+  );
+  const ruleNameById = new Map(activeRules.map((r: any) => [r.id, r.name]));
+  const fmtK = (n: number) => `K${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -52,9 +74,10 @@ const SplitPayments = () => {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>When a payment settles through one of your payment links — paid from a BMaGlass wallet or through a gateway — your active rules run in the same moment, before the money is yours to spend.</p>
+            <p>First, BMaGlass Pay takes a <span className="text-foreground font-medium">platform fee of {platformFeeRate}%</span> of the payment — the same way PayPal or Stripe take their cut. It is taken from <span className="text-foreground font-medium">every payment-link settlement, before your split rules are paid out</span>, and shows in your history as "Platform fee". Transfers between BMaGlass users and Bitcoin wallet payments are not split and carry no platform fee.</p>
             <p>Each rule moves its share out of the wallet the payment landed in and into the recipient's <span className="text-foreground font-medium">BMaGlass Main wallet</span>, in the payment's currency. Every split shows in both your history and the recipient's, and counts toward their "Total received" below.</p>
             <p>Recipients are matched by email: the email saved on a recipient must be the email of their BMaGlass account. If there is no BMaGlass account under that email, that share is <span className="text-foreground font-medium">not sent anywhere — it stays in your wallet</span>. Splits are never paid out to bank accounts.</p>
-            <p>Rules are paid in the order they were created and can never add up to more than the payment itself. Whatever is left after every rule is yours.</p>
+            <p>Rules are paid in the order they were created. The platform fee and your rules together can never add up to more than the payment itself. Whatever is left after the fee and every rule is yours.</p>
           </CardContent>
         </Card>
 
@@ -165,7 +188,7 @@ const SplitPayments = () => {
                           ? [{ id: 'new', split_type: 'percentage', split_value: Number(ruleForm.split_value) }]
                           : []),
                       ];
-                      const warning = splitRulesWarning(prospective);
+                      const warning = splitRulesWarning(prospective, platformFeeRate);
                       return warning ? <p className="text-xs text-amber-600 dark:text-amber-400">{warning}</p> : null;
                     })()}
                     <Button onClick={handleCreateRule} disabled={createRule.isPending || !ruleForm.name || !ruleForm.subaccount_id} className="w-full">
@@ -176,21 +199,34 @@ const SplitPayments = () => {
               </Dialog>
             </div>
             <div className="space-y-3">
+              <Card>
+                <CardContent className="pt-6 flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold">BMaGlass Pay platform fee</p>
+                    <p className="text-sm text-muted-foreground">Taken from every payment-link settlement before your split rules are paid out. Set by BMaGlass Pay — it can't be changed or removed here.</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline">{platformFeeRate}%</Badge>
+                    <Badge variant="secondary">Fixed</Badge>
+                  </div>
+                </CardContent>
+              </Card>
               {rules && rules.length > 0 && (() => {
-                const activeRules = rules.filter((r: any) => r.is_active);
                 const pctTotal = committedPercentage(activeRules);
+                const combinedPct = committedPercentage(activeRules, platformFeeRate);
                 const flatTotal = activeRules
                   .filter((r: any) => r.split_type === 'flat' && Number(r.split_value) > 0)
                   .reduce((s: number, r: any) => s + Number(r.split_value), 0);
-                const warning = splitRulesWarning(activeRules);
+                const warning = splitRulesWarning(activeRules, platformFeeRate);
                 return (
                   <div className="text-sm text-muted-foreground space-y-1">
                     <p>
-                      Your active rules divert{' '}
+                      BMaGlass Pay takes its <span className="text-foreground font-medium">{platformFeeRate}% platform fee</span> first.
+                      Your active rules then divert{' '}
                       <span className="text-foreground font-medium">
                         {pctTotal > 0 ? `${pctTotal}%` : ''}{pctTotal > 0 && flatTotal > 0 ? ' plus ' : ''}{flatTotal > 0 ? `K${flatTotal} flat` : ''}{pctTotal === 0 && flatTotal === 0 ? 'nothing' : ''}
                       </span>{' '}
-                      of every payment-link payment you receive, paid in creation order. The rest is yours.
+                      of every payment-link payment you receive, paid in creation order — {combinedPct}% committed in percentage terms before the rest is yours.
                     </p>
                     {warning && <p className="text-amber-600 dark:text-amber-400">{warning}</p>}
                   </div>
@@ -212,6 +248,30 @@ const SplitPayments = () => {
                   </CardContent>
                 </Card>
               ))}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Preview a payment</CardTitle>
+                  <CardDescription>Exactly how a payment-link payment would be divided: the platform fee first, then your active rules in creation order.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="max-w-xs">
+                    <Label>Payment amount (ZMW)</Label>
+                    <Input type="number" min="0" value={previewAmount} onChange={e => setPreviewAmount(e.target.value)} />
+                  </div>
+                  {(Number(previewAmount) || 0) > 0 ? (
+                    <div className="text-sm space-y-1 max-w-md">
+                      <p className="flex justify-between gap-4"><span className="text-muted-foreground">BMaGlass Pay platform fee ({platformFeeRate}%)</span><span>−{fmtK(preview.platformFee)}</span></p>
+                      {preview.legs.map(leg => (
+                        <p key={leg.ruleId} className="flex justify-between gap-4"><span className="text-muted-foreground">{ruleNameById.get(leg.ruleId) ?? 'Split rule'}</span><span>−{fmtK(leg.amount)}</span></p>
+                      ))}
+                      <p className="flex justify-between gap-4 font-medium border-t pt-1"><span>You keep</span><span>{fmtK(preview.ownerKeeps)}</span></p>
+                      <p className="text-xs text-muted-foreground pt-1">On a real payment, a recipient whose email doesn't match a BMaGlass account is skipped and their share stays with you.</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Type an amount to see the breakdown.</p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>

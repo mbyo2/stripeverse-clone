@@ -1799,6 +1799,21 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_settings: {
+        Row: {
+          id: boolean
+          split_platform_fee_percent: number
+        }
+        Insert: {
+          id?: boolean
+          split_platform_fee_percent?: number
+        }
+        Update: {
+          id?: boolean
+          split_platform_fee_percent?: number
+        }
+        Relationships: []
+      }
       pricing_tiers: {
         Row: {
           created_at: string

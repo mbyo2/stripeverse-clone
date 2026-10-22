@@ -40,6 +40,21 @@ export const useCreateSubaccount = () => {
   });
 };
 
+export const usePlatformSettings = () => {
+  return useQuery({
+    queryKey: ['platform-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('platform_settings')
+        .select('split_platform_fee_percent')
+        .eq('id', true)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+};
+
 export const useSplitRules = () => {
   const { user } = useAuth();
   return useQuery({
