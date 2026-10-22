@@ -10,6 +10,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { countActiveUsers, activityWindowStart } from "@/utils/adminStats";
 import { Link } from "react-router-dom";
 import { Users, Shield, Activity, AlertTriangle, Settings, Database } from "lucide-react";
 
@@ -101,9 +102,32 @@ const AdminDashboard = () => {
       const businessUsers = userRoles?.filter(ur => ur.role === 'business').length || 0;
       const adminUsers = userRoles?.filter(ur => ur.role === 'admin').length || 0;
 
+      // Active users, honestly defined: distinct users with at least
+      // one transaction in the trailing 30 days (see utils/adminStats —
+      // the label on the tile says exactly this). Paginated so the
+      // count stays exact past PostgREST's 1000-row default page. This
+      // replaces the old `active_users: totalUsers` simplification,
+      // which presented every registered user as active.
+      const now = new Date();
+      const windowStart = activityWindowStart(now).toISOString();
+      const activityRows: { user_id: string | null; created_at: string }[] = [];
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data: page } = await supabase
+          .from('transactions')
+          .select('user_id, created_at')
+          .gte('created_at', windowStart)
+          .order('created_at', { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (!page?.length) break;
+        activityRows.push(...page);
+        if (page.length < PAGE) break;
+      }
+      const activeUsers = countActiveUsers(activityRows, now);
+
       setUserStats({
         total_users: totalUsers,
-        active_users: totalUsers, // Simplified - in real app would check last activity
+        active_users: activeUsers,
         business_users: businessUsers,
         admin_users: adminUsers
       });
@@ -261,7 +285,7 @@ const AdminDashboard = () => {
                     <Badge variant="default">{userStats.total_users}</Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Active Users</span>
+                    <span>Active Users (last 30 days)</span>
                     <Badge variant="default">{userStats.active_users}</Badge>
                   </div>
                   <div className="flex items-center justify-between">
