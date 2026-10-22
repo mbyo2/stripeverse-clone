@@ -39,6 +39,7 @@ import {
   buildSignedTransaction,
 } from "@/lib/selfcustody/wallet";
 import { scanWallet, fetchRecommendedFeeRate, broadcastTransaction, type WalletScan } from "@/lib/selfcustody/chain";
+import { loadLastKnown, saveLastKnown, clearLastKnown, type LastKnownWalletData } from "@/lib/selfcustody/lastKnown";
 import { useSession, unlockSession, lockSession, touchSession } from "@/lib/selfcustody/session";
 import {
   liquidLightningEnabled,
@@ -64,6 +65,21 @@ function formatBtc(sats: number): string {
   return (sats / 100_000_000).toFixed(8).replace(/0+$/, "").replace(/\.$/, ".0");
 }
 
+/**
+ * Turn a chain-scan failure into something a user can act on. A blocked
+ * or unreachable mempool.space surfaces from fetch() as the raw
+ * TypeError "Failed to fetch" — meaningless on a money screen. HTTP
+ * failures ("Chain data request failed (429)") are already informative
+ * and pass through untouched.
+ */
+function friendlyScanError(e: any): string {
+  const msg = typeof e?.message === "string" ? e.message : "";
+  if (!msg || /failed to fetch|networkerror|load failed|abort|timed? ?out/i.test(msg)) {
+    return "Could not reach the Bitcoin network (mempool.space). Check your connection and try again.";
+  }
+  return msg;
+}
+
 function SelfCustodyWallet() {
   const session = useSession();
   const [hasVault, setHasVault] = useState<boolean>(() => vaultExists());
@@ -82,6 +98,7 @@ function SelfCustodyWallet() {
 
   // Wallet state.
   const [scan, setScan] = useState<WalletScan | null>(null);
+  const [lastKnown, setLastKnown] = useState<LastKnownWalletData | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [feeRate, setFeeRate] = useState<number | null>(null);
@@ -121,13 +138,28 @@ function SelfCustodyWallet() {
     try {
       const [result, rate] = await Promise.all([scanWallet(account), fetchRecommendedFeeRate().catch(() => null)]);
       setScan(result);
+      // Persist the good reading on-device: if the network later fails,
+      // the wallet still shows its last-known balance and receive index
+      // instead of blanking out (see lastKnown.ts).
+      const reading: LastKnownWalletData = {
+        receiveIndex: result.nextReceiveIndex,
+        balanceSats: result.balanceSats,
+        updatedAt: Date.now(),
+      };
+      saveLastKnown(accountXpub(account), reading);
+      setLastKnown(reading);
       if (rate) setFeeRate(rate);
     } catch (e: any) {
-      setScanError(e?.message || "Could not load wallet data from the network");
+      setScanError(friendlyScanError(e));
     } finally {
       setScanning(false);
     }
   };
+
+  // Load the last-known reading for whichever wallet is unlocked.
+  useEffect(() => {
+    setLastKnown(account ? loadLastKnown(accountXpub(account)) : null);
+  }, [account]);
 
   useEffect(() => {
     if (stage === "wallet" && account) doScan();
@@ -210,10 +242,12 @@ function SelfCustodyWallet() {
   };
 
   const doDelete = () => {
+    if (account) clearLastKnown(accountXpub(account));
     deleteVault();
     lockSession();
     setHasVault(false);
     setScan(null);
+    setLastKnown(null);
     setConfirmDelete(false);
     setStage("choose");
     toast.success("Wallet removed from this device. Funds remain on-chain, recoverable only with your seed phrase.");
@@ -256,7 +290,14 @@ function SelfCustodyWallet() {
     toast.success(`${label} copied`);
   };
 
-  const receiveAddress = account && scan ? deriveAddress(account, 0, scan.nextReceiveIndex) : null;
+  // The receive address is derived LOCALLY from the account key — it
+  // must never wait on the network scan. The scan only refines WHICH
+  // index is next (first unused); until a scan lands we use the
+  // last-known index, then index 0. Any of these is the user's own
+  // address, so showing it early can never misdirect funds.
+  const receiveAddress = account
+    ? deriveAddress(account, 0, scan?.nextReceiveIndex ?? lastKnown?.receiveIndex ?? 0)
+    : null;
   const vaultMeta = getVaultMeta();
 
   return (
@@ -462,17 +503,47 @@ function SelfCustodyWallet() {
                 </div>
               </CardHeader>
               <CardContent>
-                {scanError && (
-                  <p className="text-sm text-destructive flex items-center gap-1">
-                    <AlertTriangle className="h-4 w-4" /> {scanError}
-                  </p>
-                )}
-                {scanning && !scan && <p className="text-sm text-muted-foreground">Scanning the blockchain for your addresses…</p>}
-                {scan && (
+                {scan ? (
                   <div>
                     <div className="text-3xl font-bold">{formatBtc(scan.balanceSats)} BTC</div>
                     <div className="text-sm text-muted-foreground">{scan.balanceSats.toLocaleString()} sats confirmed</div>
+                    {scanError && (
+                      <p className="text-sm text-amber-600 flex items-center gap-1 mt-2">
+                        <AlertTriangle className="h-4 w-4" /> Couldn't refresh just now — {scanError} Showing your last successful reading.
+                      </p>
+                    )}
                   </div>
+                ) : lastKnown ? (
+                  <div>
+                    <div className="text-3xl font-bold">{formatBtc(lastKnown.balanceSats)} BTC</div>
+                    <div className="text-sm text-muted-foreground">
+                      {lastKnown.balanceSats.toLocaleString()} sats — last known, {new Date(lastKnown.updatedAt).toLocaleString()}
+                    </div>
+                    {scanError ? (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-sm text-amber-600 flex items-center gap-1">
+                          <AlertTriangle className="h-4 w-4" /> {scanError}
+                        </p>
+                        <Button variant="outline" size="sm" onClick={doScan} disabled={scanning}>
+                          <RefreshCw className={`h-4 w-4 mr-1 ${scanning ? "animate-spin" : ""}`} /> Retry
+                        </Button>
+                      </div>
+                    ) : scanning ? (
+                      <p className="text-sm text-muted-foreground mt-2">Refreshing from the network…</p>
+                    ) : null}
+                  </div>
+                ) : scanError ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium flex items-center gap-1">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" /> Balance unavailable
+                    </p>
+                    <p className="text-sm text-muted-foreground">{scanError}</p>
+                    <Button variant="outline" size="sm" onClick={doScan} disabled={scanning}>
+                      <RefreshCw className={`h-4 w-4 mr-1 ${scanning ? "animate-spin" : ""}`} /> Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Scanning the blockchain for your addresses…</p>
                 )}
               </CardContent>
             </Card>

@@ -45,7 +45,10 @@ export interface WalletScan {
 }
 
 async function esplora(path: string, init?: RequestInit): Promise<any> {
-  const res = await fetch(`${ESPLORA_BASE}${path}`, init);
+  // Hard timeout: a hung request must never stall the scan forever
+  // (the custodial server twin uses 20s). Callers may pass their own
+  // signal in init, which then wins.
+  const res = await fetch(`${ESPLORA_BASE}${path}`, { signal: AbortSignal.timeout(15_000), ...init });
   if (!res.ok) throw new Error(`Chain data request failed (${res.status})`);
   const text = await res.text();
   try {
@@ -158,6 +161,7 @@ export async function broadcastTransaction(txHex: string): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "text/plain" },
     body: txHex,
+    signal: AbortSignal.timeout(20_000),
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`Broadcast failed: ${text.slice(0, 200)}`);
