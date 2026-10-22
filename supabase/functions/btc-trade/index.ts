@@ -16,7 +16,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
-import { quoteBuySats, quoteSellZmw } from "../_shared/btc-core.ts";
+import { custodyStatus, quoteBuySats, quoteSellZmw } from "../_shared/btc-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,6 +35,25 @@ function json(status: number, body: unknown) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Designed refusal: while custody is not genuinely configured (seed and
+// MATCHED xpub both present — see custodyStatus in btc-core), buying and
+// selling answer 503 with this plain-language message, in the { error }
+// shape the frontend surfaces verbatim. There is no treasury to settle
+// against before then, so quoting would be theatre.
+const TRADE_NOT_CONFIGURED =
+  "Bitcoin buying and selling are not available yet — Bitcoin custody is not configured on this deployment.";
+
+// PostgREST/RPC failures are plain objects with a message, not Error
+// instances — an `instanceof Error` test alone collapses them into a
+// contentless fallback and the user learns nothing. Extract the real
+// message from any thrown value that carries one.
+function thrownMessage(e: unknown, fallback: string): string {
+  if (e instanceof Error && e.message.trim()) return e.message;
+  const m = (e as { message?: unknown } | null | undefined)?.message;
+  if (typeof m === "string" && m.trim()) return m;
+  return fallback;
 }
 
 function feeBps(): number {
@@ -101,6 +120,18 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body?.action as string | undefined;
 
+    // Custody gate: quotes and executions both refuse while custody is
+    // not configured. This runs BEFORE any price fetch — a feature that
+    // is off should not depend on external price sources being up.
+    const custody = custodyStatus(
+      Deno.env.get("BTC_SEED_MNEMONIC"),
+      Deno.env.get("BTC_XPUB"),
+    );
+    if (!custody.configured) {
+      console.error("btc-trade: custody not configured (" + custody.reason + ")");
+      return json(503, { error: TRADE_NOT_CONFIGURED });
+    }
+
     if (action === "quote") {
       const side = body?.side;
       if (side !== "buy" && side !== "sell") {
@@ -111,7 +142,11 @@ serve(async (req) => {
       try {
         [btcUsd, usdZmw] = await Promise.all([fetchBtcUsd(), fetchUsdZmw(supabase)]);
       } catch (e) {
-        return json(503, { error: e instanceof Error ? e.message : "Price unavailable" });
+        // Every fetch is bounded (AbortSignal.timeout in fetchJson), so
+        // a failure here is a definitive answer, not a hang. The user
+        // gets plain language; the technical detail goes to the logs.
+        console.error("btc-trade price fetch failed:", e);
+        return json(503, { error: "Bitcoin prices are unavailable right now. Please try again in a few minutes." });
       }
       const midRate = btcUsd * usdZmw;
       const bps = feeBps();
@@ -160,7 +195,14 @@ serve(async (req) => {
         })
         .select()
         .single();
-      if (error) throw error;
+      if (error) {
+        // Do NOT `throw` this: a PostgREST error is a plain object, and
+        // the outer catch used to collapse it into a contentless
+        // "Trade failed". Answer with an honest, specific message and
+        // keep the technical detail in the logs.
+        console.error("btc-trade quote insert failed:", error);
+        return json(500, { error: "Could not save your quote. Please try again." });
+      }
 
       return json(200, {
         quote_id: quote.id,
@@ -206,6 +248,6 @@ serve(async (req) => {
     return json(400, { error: `Unknown action: ${action}` });
   } catch (e) {
     console.error("btc-trade error:", e);
-    return json(500, { error: e instanceof Error ? e.message : "Trade failed" });
+    return json(500, { error: thrownMessage(e, "Trade failed") });
   }
 });
