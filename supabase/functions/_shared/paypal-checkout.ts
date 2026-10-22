@@ -88,7 +88,7 @@ export type ConfirmCheckoutResult =
 // deno-lint-ignore no-explicit-any
 type AdminClient = any;
 
-function rowToPending(row: CheckoutPaymentRow): PendingDeposit {
+function checkoutRowToPending(row: CheckoutPaymentRow): PendingDeposit {
   const captureId =
     (typeof row.metadata?.capture_id === "string" ? row.metadata.capture_id : null) ??
     row.external_reference;
@@ -136,7 +136,7 @@ export async function confirmPayPalCheckoutPayment(
     return { kind: "forbidden", transactionId: row.uuid_id };
   }
 
-  const pending = rowToPending(row);
+  const pending = checkoutRowToPending(row);
 
   // Already settled: report the truth without touching PayPal or money.
   if (row.status === "completed") {
