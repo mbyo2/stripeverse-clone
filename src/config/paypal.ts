@@ -6,10 +6,11 @@
 // would walk a real user into the PayPal sandbox — that must not be
 // reachable.
 //
-// Every user-facing PayPal entry point (wallet Add Money, checkout,
-// Pricing's PayPal checkout, PaymentServices, developer copy) consults
-// this constant. The machinery behind it — the wallet-deposit PayPal
-// path, paypal-deposit-capture, the checkout capture path and the
+// Every user-facing PayPal entry point (wallet Add Money, the
+// /checkout page, Pricing's PayPal checkout dialog, and the
+// checkout-widget / developer copy) consults this constant. The
+// machinery behind it — the wallet-deposit PayPal path,
+// paypal-deposit-capture, the checkout capture path and the
 // webhook routing — stays fully built behind the gate.
 //
 // GO-LIVE: once the live PayPal app credentials are set as the
