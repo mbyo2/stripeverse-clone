@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ensureWalletExists } from '@/utils/walletUtils';
 import { resolveDepositTarget } from '@/utils/depositTarget';
+import { PAYPAL_AVAILABLE } from '@/config/paypal';
 
 export interface Wallet {
   id: string;
@@ -190,6 +191,14 @@ export const useWallet = (accountId?: string | null) => {
       walletId?: string; currency?: string; provider?: string;
     }) => {
       if (!user?.id) throw new Error('User not authenticated');
+
+      // PayPal gate (defense in depth): while PAYPAL_AVAILABLE is off
+      // the dialog cannot select PayPal, and any direct call with
+      // paymentMethod 'paypal' stops here — no order is created and
+      // nobody is redirected to the (sandbox) PayPal environment.
+      if (paymentMethod === 'paypal' && !PAYPAL_AVAILABLE) {
+        throw new Error('PayPal is coming soon — deposits by PayPal are not available yet.');
+      }
 
       let targetWalletId = walletId;
       let targetCurrency = currency;
