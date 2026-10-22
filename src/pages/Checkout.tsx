@@ -11,6 +11,7 @@ import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { usePayPalCheckoutReturn } from "@/hooks/usePayPalCheckoutReturn";
+import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from "@/config/paypal";
 import MobileMoneyPayment from "@/components/payments/MobileMoneyPayment";
 import UssdPayment from "@/components/payments/UssdPayment";
 import BitcoinPayment from "@/components/payments/BitcoinPayment";
@@ -61,7 +62,12 @@ const Checkout = () => {
 
   const methodParam = searchParams.get("method");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>(
-    methodParam && (METHODS as readonly string[]).includes(methodParam) ? methodParam : "",
+    // A ?method=paypal preselect is honoured only while PayPal is
+    // available; while the gate is off PayPal cannot become selected.
+    methodParam && (METHODS as readonly string[]).includes(methodParam) &&
+      !(methodParam === "paypal" && !PAYPAL_AVAILABLE)
+      ? methodParam
+      : "",
   );
   const [paymentComplete, setPaymentComplete] = useState<CheckoutResponse | null>(null);
   const [startingPaypal, setStartingPaypal] = useState(false);
@@ -76,6 +82,10 @@ const Checkout = () => {
   };
 
   const startPayPal = async () => {
+    // PayPal gate: unreachable while PAYPAL_AVAILABLE is off (the
+    // method button is disabled then) — this guard keeps it that way
+    // for any other caller of this handler.
+    if (!PAYPAL_AVAILABLE) return;
     if (!merchantUserId || amount === null || !productName) return;
     setStartingPaypal(true);
     setPaypalError(null);
@@ -283,8 +293,9 @@ const Checkout = () => {
             <Button
               variant={selectedPaymentMethod === "paypal" ? "default" : "outline"}
               onClick={() => setSelectedPaymentMethod("paypal")}
+              disabled={!PAYPAL_AVAILABLE}
             >
-              PayPal
+              PayPal{!PAYPAL_AVAILABLE && ` — ${PAYPAL_COMING_SOON_LABEL}`}
             </Button>
           </div>
 

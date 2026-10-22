@@ -87,7 +87,7 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
                 <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
                   <p className="text-sm font-medium text-amber-700">Card payments are not available yet</p>
                   <p className="text-sm text-amber-700/80 mt-1">
-                    Direct card processing is coming soon. Please use mobile money, USSD, or Bitcoin for now — or check out with PayPal.
+                    Direct card processing is coming soon. Please use mobile money, USSD, or Bitcoin for now.
                   </p>
                 </div>
 

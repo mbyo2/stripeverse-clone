@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { usePayPalPayments } from '@/hooks/usePayPalPayments';
+import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from '@/config/paypal';
 import { Check, CreditCard, Zap } from 'lucide-react';
 
 interface PayPalCheckoutProps {
@@ -31,6 +32,10 @@ export const PayPalCheckout: React.FC<PayPalCheckoutProps> = ({
   const [paymentInitiated, setPaymentInitiated] = useState(false);
 
   const handlePayment = async () => {
+    // PayPal gate: while PAYPAL_AVAILABLE is off the button below is
+    // disabled; this guard keeps the checkout function unreachable
+    // from this component regardless.
+    if (!PAYPAL_AVAILABLE) return;
     const result = await processPayment({
       amount,
       currency,
@@ -107,22 +112,26 @@ export const PayPalCheckout: React.FC<PayPalCheckoutProps> = ({
       )}
 
       <CardFooter className="flex flex-col gap-3 pt-6">
-        <Button 
+        <Button
           onClick={handlePayment}
-          disabled={isProcessing}
+          disabled={isProcessing || !PAYPAL_AVAILABLE}
           className="w-full"
           size="lg"
         >
           <CreditCard className="w-4 h-4 mr-2" />
-          {isProcessing 
-            ? 'Processing...' 
+          {!PAYPAL_AVAILABLE
+            ? `PayPal — ${PAYPAL_COMING_SOON_LABEL}`
+            : isProcessing
+            ? 'Processing...'
             : `Pay with PayPal - ${formatPrice(amount, currency)}`
           }
         </Button>
 
         <p className="text-xs text-muted-foreground text-center">
-          Secure payment powered by PayPal.
-          {type === 'subscription' && ' You can cancel anytime from your account settings.'}
+          {PAYPAL_AVAILABLE
+            ? <>Secure payment powered by PayPal.
+              {type === 'subscription' && ' You can cancel anytime from your account settings.'}</>
+            : 'PayPal payments are coming soon — this checkout is not available yet.'}
         </p>
       </CardFooter>
     </Card>
