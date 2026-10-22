@@ -24,7 +24,9 @@ interface SpendingData {
 interface RecentTransaction {
   id: number;
   direction: string;
-  recipient_name: string;
+  recipient_name: string | null;
+  description: string | null;
+  category: string | null;
   amount: number;
   currency: string;
   created_at: string;
@@ -56,7 +58,7 @@ export const useDashboardData = () => {
         () => {
           // Invalidate all dashboard queries on transaction changes
           queryClient.invalidateQueries({ queryKey: ['dashboard-stats', user.id] });
-          queryClient.invalidateQueries({ queryKey: ['recent-transactions', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard-recent-transactions', user.id] });
           queryClient.invalidateQueries({ queryKey: ['monthly-data', user.id] });
           queryClient.invalidateQueries({ queryKey: ['spending-data', user.id] });
         }
@@ -147,10 +149,25 @@ export const useDashboardData = () => {
   });
 
   const { data: recentTransactions, isLoading: transactionsLoading } = useQuery({
-    queryKey: ['recent-transactions', user?.id],
+    // Distinct key: useTransactions uses ['recent-transactions', ...]
+    // for a different row shape (its get_recent_transactions RPC rows).
+    queryKey: ['dashboard-recent-transactions', user?.id],
     queryFn: async (): Promise<RecentTransaction[]> => {
       if (!user?.id) throw new Error('User not authenticated');
-      const { data, error } = await supabase.rpc('get_recent_transactions', { p_user_id: user.id, p_limit: 4 });
+      // Direct table read (RLS: own rows only), NOT the
+      // get_recent_transactions RPC: that function returns
+      // COALESCE(recipient_name, 'Unknown') and no description/category,
+      // so internal movements (savings, own-account transfers) could
+      // only ever render as "Unknown" here no matter what the client
+      // did — while the Transactions and Wallet lists showed their real
+      // descriptions. The shared labelling rule (transactionLabels)
+      // needs the raw fields.
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('id, direction, recipient_name, description, category, amount, currency, created_at, status')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(4);
       if (error) throw error;
       return data || [];
     },
