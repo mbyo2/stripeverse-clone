@@ -3195,11 +3195,9 @@ export type Database = {
       virtual_cards: {
         Row: {
           balance: number
-          card_number: string
           card_type: string
           created_at: string
           currency: string
-          cvv: string
           daily_limit: number | null
           expiry_date: string
           id: string
@@ -3217,11 +3215,9 @@ export type Database = {
         }
         Insert: {
           balance?: number
-          card_number: string
           card_type?: string
           created_at?: string
           currency?: string
-          cvv: string
           daily_limit?: number | null
           expiry_date: string
           id?: string
@@ -3239,11 +3235,9 @@ export type Database = {
         }
         Update: {
           balance?: number
-          card_number?: string
           card_type?: string
           created_at?: string
           currency?: string
-          cvv?: string
           daily_limit?: number | null
           expiry_date?: string
           id?: string

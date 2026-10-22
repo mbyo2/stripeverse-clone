@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreditCard, Plus, Eye, EyeOff, Settings, Snowflake, Power } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { formatCurrency } from "@/utils/walletUtils";
+import { formatCardExpiry } from "@/utils/cardDisplay";
 
 interface VirtualCardManagerProps {
   maxCards?: number;
@@ -55,10 +56,11 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
     setVisibleCards(newVisible);
   };
 
-  // Secure card number display - always use masked format
+  // Card display — only the masked number exists. The full number is
+  // never stored (the live table has no card_number column), so there
+  // is no unmasked form to fall back to.
   const getSecureCardDisplay = (card: any) => {
-    // Card data is now encrypted in database, so we use masked_number
-    return card.masked_number || `**** **** **** ${card.card_number?.slice(-4) || '****'}`;
+    return card.masked_number;
   };
 
   return (
@@ -188,7 +190,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                     </div>
                     <div className="flex justify-between mt-2 text-sm">
                       <span>CVV: ***</span>
-                      <span>Exp: {card.expiry_date}</span>
+                      <span>Exp: {formatCardExpiry(card.expiry_date)}</span>
                     </div>
                     <div className="mt-1">
                       <p className="text-xs opacity-60">

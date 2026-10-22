@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowUpRight, ArrowDownLeft, ShieldCheck, Copy, Eye, EyeOff, RefreshCw, Trash2, Lock, Settings } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, ShieldCheck, RefreshCw, Trash2, Lock, Settings } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRoles } from "@/contexts/RoleContext";
+import { formatCardExpiry } from "@/utils/cardDisplay";
 import VirtualCardsComingSoon from "@/components/VirtualCardsComingSoon";
 // In a real app, this would fetch from API
 const fetchVirtualCard = async (cardId: string) => {
@@ -63,8 +64,11 @@ const fetchVirtualCard = async (cardId: string) => {
 
   return {
     ...row,
-    number: row.card_number,
-    expiry: row.expiry_date,
+    // The live table stores only the masked number and expiry —
+    // there is no full card_number or cvv column (verified
+    // 2026-10-23), so there is nothing further to reveal here; the
+    // full details are shown once, at creation.
+    expiry: formatCardExpiry(row.expiry_date),
     limits: {
       daily: Number(row.daily_limit ?? 0),
       monthly: Number(row.monthly_limit ?? 0),
@@ -91,7 +95,6 @@ const VirtualCardDetails = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { hasRole, isLoading: rolesLoading } = useRoles();
-  const [showCardDetails, setShowCardDetails] = useState(false);
   const [fundAmount, setFundAmount] = useState<string>("50");
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showLimitsDialog, setShowLimitsDialog] = useState(false);
@@ -266,16 +269,6 @@ const VirtualCardDetails = () => {
     deleteCardMutation.mutate();
   };
 
-  const handleCopyCardNumber = () => {
-    if (card) {
-      navigator.clipboard.writeText(card.number);
-      toast({
-        title: "Copied to Clipboard",
-        description: "Card number has been copied to clipboard.",
-      });
-    }
-  };
-
   const handleFundCard = () => {
     const amount = parseFloat(fundAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -415,21 +408,9 @@ const VirtualCardDetails = () => {
               </div>
               
               <div className="font-mono text-xl mt-8 mb-6">
-                {showCardDetails ? card.number : card.masked_number}
-                <button 
-                  onClick={() => setShowCardDetails(!showCardDetails)}
-                  className="ml-2 text-white/70 hover:text-white transition-colors"
-                >
-                  {showCardDetails ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-                <button 
-                  onClick={handleCopyCardNumber}
-                  className="ml-2 text-white/70 hover:text-white transition-colors"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
+                {card.masked_number}
               </div>
-              
+
               <div className="flex justify-between text-sm">
                 <div>
                   <div className="text-white/70">Card Holder</div>
@@ -441,7 +422,7 @@ const VirtualCardDetails = () => {
                 </div>
                 <div>
                   <div className="text-white/70">CVV</div>
-                  <div>{showCardDetails ? card.cvv : "***"}</div>
+                  <div>***</div>
                 </div>
               </div>
             </div>
@@ -449,6 +430,7 @@ const VirtualCardDetails = () => {
         </Card>
         <p className="text-xs text-muted-foreground -mt-4 mb-6">
           This is an internal BMaGlass wallet card. It isn't a Visa, Mastercard, or bank card and can't be used on card networks or for purchases outside BMaGlass Pay.
+          The full card number and CVV were shown once when this card was created — they aren't stored, so they can't be displayed again.
         </p>
         
         {/* Card Details */}

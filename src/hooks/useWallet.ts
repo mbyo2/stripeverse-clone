@@ -23,10 +23,12 @@ export interface Wallet {
 export interface VirtualCard {
   id: string;
   user_id: string;
+  wallet_id: string;
   name: string;
-  card_number: string;
   masked_number: string;
-  cvv: string;
+  // Live schema (verified 2026-10-23): no card_number / cvv columns —
+  // the full number and CVV are revealed once at creation and never
+  // stored. expiry_date is a DATE, arriving as 'YYYY-MM-DD'.
   expiry_date: string;
   balance: number;
   currency: string;

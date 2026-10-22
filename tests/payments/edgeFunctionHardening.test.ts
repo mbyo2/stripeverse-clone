@@ -157,23 +157,78 @@ describe("CVV hygiene — create-virtual-card", () => {
     expect(createCard).toContain('logStep("Generated card details", { cardNumber: maskedNumber.data })');
   });
 
-  it("does not persist the CVV (stores NULL; migration drops NOT NULL + purges old rows)", () => {
-    const insert = between(createCard, ".insert({", "})\n      .select()");
-    expect(insert).toContain("cvv: null,");
-    expect(insert).not.toContain("cvv: cvv");
-    expect(cvvMigration).toContain("ALTER TABLE public.virtual_cards ALTER COLUMN cvv DROP NOT NULL");
-    expect(cvvMigration).toContain("UPDATE public.virtual_cards SET cvv = NULL WHERE cvv IS NOT NULL");
+  it("binds the card to the caller's Main wallet (account_id IS NULL) in ZMW", () => {
+    // The same deterministic Main-wallet resolution wallet-deposit
+    // uses; live virtual_cards.wallet_id is NOT NULL.
+    expect(createCard).toContain('const CARD_CURRENCY = "ZMW";');
+    expect(createCard).toContain('.eq("currency", CARD_CURRENCY)');
+    expect(createCard).toContain('.is("account_id", null)');
+    // Resolution happens before the card insert.
+    expect(createCard.indexOf('.is("account_id", null)')).toBeLessThan(
+      createCard.indexOf(".from('virtual_cards')"),
+    );
+  });
+
+  it("inserts exactly the live columns — no card_number, no cvv anywhere in the row", () => {
+    const insert = between(createCard, ".from('virtual_cards')", ".select()");
+    expect(insert).toContain("user_id: user.id,");
+    expect(insert).toContain("wallet_id: cardWallet.id,");
+    expect(insert).toContain("masked_number: maskedNumber.data,");
+    // NOT NULL live columns are set explicitly, not left to defaults.
+    expect(insert).toContain("balance: 0,");
+    expect(insert).toContain("currency: cardWallet.currency,");
+    expect(insert).toContain("status: 'active',");
+    // The secret fields are absent from the row entirely — the live
+    // table has no columns for them.
+    expect(insert).not.toContain("card_number");
+    expect(insert).not.toContain("cvv");
+  });
+
+  it("writes expiry as a real DATE (3 years out, last day of the month)", () => {
+    expect(createCard).toContain("Date.UTC(expiryYear, expiryMonth + 1, 0)");
+    const insert = between(createCard, ".from('virtual_cards')", ".select()");
+    expect(insert).toContain("expiry_date: expiryDate,");
+    expect(insert).not.toContain("expiry_date: expiry,");
+  });
+
+  it("migration reconciles repo -> live idempotently and is a no-op on live", () => {
+    expect(cvvMigration).toContain("ALTER TABLE public.virtual_cards DROP COLUMN IF EXISTS cvv;");
+    expect(cvvMigration).toContain("ALTER TABLE public.virtual_cards DROP COLUMN IF EXISTS card_number;");
+    expect(cvvMigration).toContain("ADD COLUMN IF NOT EXISTS wallet_id");
+    // The old repo-schema assumptions are gone.
+    expect(cvvMigration).not.toContain("DROP NOT NULL");
+    expect(cvvMigration).not.toContain("SET cvv = NULL");
   });
 
   it("reveals the full details exactly once — in the creation response", () => {
     const responseCard = between(createCard, "return new Response(JSON.stringify({", "}), {");
     expect(responseCard).toContain("card_number: cardNumber,");
     expect(responseCard).toContain("cvv: cvv,");
-    expect(responseCard).toContain("expiry_date: expiry");
+    expect(responseCard).toContain("expiry_date: expiryDate,");
     // The single `cvv: cvv` in the file is that reveal (the insert
-    // above stores null; nothing else may carry the value).
+    // above has no cvv key at all; nothing else may carry the value).
     expect(createCard.split("cvv: cvv").length - 1).toBe(1);
     // The masked number remains the stored/displayed form.
     expect(responseCard).toContain("masked_number: newCard.masked_number,");
+  });
+});
+
+describe("Virtual-card consumers match the live columns", () => {
+  const cardDetails = read("../../src/pages/VirtualCardDetails.tsx");
+  const cardManager = read("../../src/components/wallet/VirtualCardManager.tsx");
+
+  it("details page has no full-number or CVV reveal (nothing stored to reveal)", () => {
+    expect(cardDetails).not.toContain("row.card_number");
+    expect(cardDetails).not.toContain("card.cvv");
+    expect(cardDetails).not.toContain("card.number");
+    expect(cardDetails).not.toContain("showCardDetails");
+    // Expiry arrives as a DATE and is displayed MM/YY.
+    expect(cardDetails).toContain("formatCardExpiry(row.expiry_date)");
+  });
+
+  it("wallet card manager never falls back to a stored full number", () => {
+    expect(cardManager).not.toContain("card.card_number");
+    expect(cardManager).not.toContain("card_number?.");
+    expect(cardManager).toContain("formatCardExpiry(card.expiry_date)");
   });
 });
