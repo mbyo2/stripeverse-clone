@@ -18,10 +18,13 @@
 // arithmetic and build the single call — the server never trusts the
 // preview: it recomputes the fee itself.
 //
-// The phone-number Transfer flow is a different product surface and
-// stays fee-free by the same CEO decision: it keeps calling
-// atomic-transfer with reference_type "transfer" (the generic
-// execute_atomic_transfer RPC) and never comes near this module.
+// The phone-number Transfer flow is a different product surface with
+// its own fee: 1.5% since the CEO decision of 2026-10-23 (which
+// superseded the 2026-10-22 decision that kept it free). It calls
+// atomic-transfer with reference_type "transfer", routed server-side
+// to its own execute_transfer_with_fee RPC, and previews through
+// utils/transferFee — it never comes near this module, and this
+// module's 2.5% never leaks into it.
 
 import { roundMoney } from "./splitPayments";
 

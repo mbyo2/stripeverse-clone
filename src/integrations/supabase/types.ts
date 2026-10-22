@@ -1865,18 +1865,21 @@ export type Database = {
           paypal_payout_fee_percent: number
           send_money_fee_percent: number
           split_platform_fee_percent: number
+          transfer_fee_percent: number
         }
         Insert: {
           id?: boolean
           paypal_payout_fee_percent?: number
           send_money_fee_percent?: number
           split_platform_fee_percent?: number
+          transfer_fee_percent?: number
         }
         Update: {
           id?: boolean
           paypal_payout_fee_percent?: number
           send_money_fee_percent?: number
           split_platform_fee_percent?: number
+          transfer_fee_percent?: number
         }
         Relationships: []
       }

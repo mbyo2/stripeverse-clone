@@ -13,6 +13,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { prepareRecipientQuery } from "@/utils/phoneNumber";
 import { useInvalidateMoneyState } from "@/utils/moneyFreshness";
+import { usePlatformSettings } from "@/hooks/useSubaccounts";
+import {
+  computeTransferFee,
+  TRANSFER_FEE_PERCENT_DEFAULT,
+} from "@/utils/transferFee";
+import { roundMoney } from "@/utils/splitPayments";
 
 type TransferFormProps = {
   senderPhone: string;
@@ -35,6 +41,21 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
   const { toast } = useToast();
   const invalidateMoney = useInvalidateMoneyState();
 
+  // Transfer fee: 1.5% of the amount (CEO decision, 2026-10-23),
+  // set by the platform in platform_settings.transfer_fee_percent.
+  // This preview mirrors the server: the execute_transfer_with_fee
+  // RPC recomputes the fee from the same setting and charges it
+  // atomically with the transfer — the numbers below are display
+  // only. The fee rides ON TOP: the recipient receives exactly the
+  // entered amount and the sender is debited amount + fee.
+  const { data: platformSettings } = usePlatformSettings();
+  const feeRate = Number(
+    platformSettings?.transfer_fee_percent ?? TRANSFER_FEE_PERCENT_DEFAULT
+  );
+  const amountValue = parseFloat(amount || "0");
+  const fee = computeTransferFee(amountValue, feeRate);
+  const total = roundMoney(amountValue + fee);
+
   const handleContinue = () => {
     setError(null);
     
@@ -51,8 +72,10 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
         return;
       }
       
-      if (numAmount > walletBalance) {
-        setError(`Insufficient balance. Your current balance is ${formatCurrency(walletBalance)}`);
+      // The sender is debited amount + fee, so the balance must
+      // cover the total — the RPC enforces the same check server-side.
+      if (total > walletBalance) {
+        setError(`Insufficient balance. Your current balance is ${formatCurrency(walletBalance)} — this transfer needs ${formatCurrency(total)} including the ${feeRate}% fee`);
         return;
       }
       
@@ -257,13 +280,13 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
               </div>
               
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Fee</span>
-                <span className="font-medium">K 0.00</span>
+                <span className="text-muted-foreground">Transfer fee ({feeRate}%)</span>
+                <span className="font-medium">{formatCurrency(fee)}</span>
               </div>
               
               <div className="pt-2 border-t flex items-center justify-between">
                 <span className="font-bold">Total</span>
-                <span className="font-bold">{formatCurrency(parseFloat(amount))}</span>
+                <span className="font-bold">{formatCurrency(total)}</span>
               </div>
             </div>
             

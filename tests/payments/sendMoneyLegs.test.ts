@@ -97,8 +97,9 @@ describe("planSendMoneyCall", () => {
   it("routes the call to the fee-charging server path", () => {
     const plan = planSendMoneyCall(base)!;
     // "send_money" is the marker the atomic-transfer function routes
-    // to execute_send_money_transfer. The generic "transfer" type is
-    // the fee-free Transfer path and must never appear here.
+    // to execute_send_money_transfer. The "transfer" marker is the
+    // separate Transfer flow (its own 1.5% fee RPC since 2026-10-23)
+    // and must never appear here.
     expect(plan.body.reference_type).toBe("send_money");
     expect(plan.body.reference_type).not.toBe("transfer");
   });

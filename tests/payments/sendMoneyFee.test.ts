@@ -1,7 +1,9 @@
 // Source-level tests for the Send Money fee (CEO decision,
-// 2026-10-22): 2.5% on Send Money only, computed and collected by the
-// server, credited to the platform — and the phone-number Transfer
-// stays fee-free.
+// 2026-10-22): 2.5% on Send Money, computed and collected by the
+// server, credited to the platform. The phone-number Transfer was
+// fee-free under that decision until the CEO superseded it on
+// 2026-10-23 (Transfer = 1.5%); the transfer fee has its own suite,
+// tests/payments/transferFee.test.ts.
 //
 // There is no live database in this suite, so these tests pin the
 // contract at the level the repo can prove: the migration defines the
@@ -100,7 +102,7 @@ describe("execute_send_money_transfer migration", () => {
 });
 
 describe("atomic-transfer edge function routing", () => {
-  it("routes only reference_type 'send_money' to the fee RPC", () => {
+  it("routes reference_type 'send_money' to the send-fee RPC", () => {
     expect(atomicTransferFn).toContain('reference_type === "send_money"');
     expect(atomicTransferFn).toContain(
       'admin.rpc("execute_send_money_transfer"',
@@ -145,27 +147,26 @@ describe("send-money client mirror", () => {
   });
 });
 
-describe("Transfer (phone-number path) stays fee-free", () => {
-  it("still sends with the generic 'transfer' reference type", () => {
+describe("Transfer (phone-number path) — fee-free era ended 2026-10-23", () => {
+  // The pins in this block used to assert Transfer stayed fee-free
+  // (CEO decision 2026-10-22). The CEO superseded that on 2026-10-23:
+  // Transfer charges 1.5%, collected by execute_transfer_with_fee.
+  // The full transfer-fee contract is pinned in
+  // tests/payments/transferFee.test.ts; what remains pinned here is
+  // that the two flows stay SEPARATE — Transfer keeps its own marker
+  // and never borrows Send Money's RPC, rate, or machinery.
+  it("still sends with its own 'transfer' reference type", () => {
     expect(transferForm).toContain('reference_type: "transfer"');
   });
 
-  it("shows an honest zero fee on its confirmation screen", () => {
-    expect(transferForm).toContain("K 0.00");
-  });
-
-  it("contains no send-fee machinery at all", () => {
-    expect(transferForm).not.toContain("send_money");
+  it("never routes through Send Money's RPC or rate", () => {
     expect(transferForm).not.toContain("execute_send_money_transfer");
     expect(transferForm).not.toContain("computeSendFee");
     expect(transferForm).not.toContain("send_money_fee_percent");
-    expect(transferForm).not.toContain("transfer_fee");
+    expect(transferForm).not.toContain("SEND_MONEY_FEE_PERCENT_DEFAULT");
   });
 
-  it("moves exactly the entered amount — total equals amount", () => {
-    expect(transferForm).toContain("amount: numAmount");
-    expect(transferForm).toContain(
-      "{formatCurrency(parseFloat(amount))}",
-    );
+  it("no longer claims the transfer is free", () => {
+    expect(transferForm).not.toContain("K 0.00");
   });
 });

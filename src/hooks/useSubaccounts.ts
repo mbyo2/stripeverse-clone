@@ -47,7 +47,7 @@ export const usePlatformSettings = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('platform_settings')
-        .select('split_platform_fee_percent, send_money_fee_percent, paypal_payout_fee_percent')
+        .select('split_platform_fee_percent, send_money_fee_percent, transfer_fee_percent, paypal_payout_fee_percent')
         .eq('id', true)
         .maybeSingle();
       if (error) throw error;
