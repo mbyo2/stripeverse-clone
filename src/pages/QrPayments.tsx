@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
+import { useInvalidateMoneyState } from '@/utils/moneyFreshness';
 import { QrCode, Download, Share2, Copy, ScanLine, Store, User, Smartphone, History, CheckCircle, ArrowRight, Camera, X, Loader2 } from 'lucide-react';
 import QRCode from 'qrcode.react';
 
@@ -34,6 +35,8 @@ const QrPayments = () => {
   const [isPaying, setIsPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [payDone, setPayDone] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const invalidateMoney = useInvalidateMoneyState();
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -230,6 +233,10 @@ const QrPayments = () => {
       });
       if (error) throw new Error(error.message || 'Payment failed');
       if (data?.error) throw new Error(data.error);
+      // The payment moved money: refresh shared balance/activity
+      // state and this page's own QR history list.
+      invalidateMoney();
+      setHistoryVersion(v => v + 1);
       setPayDone(true);
       toast({ title: 'Payment sent', description: `You paid ZMW ${amt.toFixed(2)} by QR code.` });
     } catch (err) {
@@ -287,7 +294,7 @@ const QrPayments = () => {
       setHistoryLoading(false);
     };
     loadHistory();
-  }, [user ]);
+  }, [user, historyVersion]);
 
   return (
     <div className="min-h-screen bg-background">

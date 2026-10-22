@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ensureWalletExists } from '@/utils/walletUtils';
+import { MONEY_QUERY_STALE_TIME, invalidateMoneyState } from '@/utils/moneyFreshness';
 import { resolveDepositTarget } from '@/utils/depositTarget';
 import { PAYPAL_AVAILABLE } from '@/config/paypal';
 
@@ -71,6 +72,10 @@ export const useWallet = (accountId?: string | null) => {
     enabled: !!user?.id,
     retry: 2,
     retryDelay: 1000,
+    // Balances are never served stale from an earlier screen: always
+    // refetch on mount/focus (cached value renders while it runs).
+    staleTime: MONEY_QUERY_STALE_TIME,
+    refetchOnWindowFocus: true,
   });
 
   // Fetch virtual cards with proper error handling
@@ -99,6 +104,8 @@ export const useWallet = (accountId?: string | null) => {
     },
     enabled: !!user?.id,
     retry: 1,
+    staleTime: MONEY_QUERY_STALE_TIME,
+    refetchOnWindowFocus: true,
   });
 
   // Create virtual card mutation with usage tracking
@@ -157,7 +164,8 @@ export const useWallet = (accountId?: string | null) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['virtualCards'] });
-      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['usage'] });
+      invalidateMoneyState(queryClient);
       toast({
         title: "Card Funded",
         description: "Your virtual card has been funded successfully.",
@@ -260,7 +268,7 @@ export const useWallet = (accountId?: string | null) => {
       // Reached only when an approval URL existed and the browser is
       // navigating to PayPal (see mutationFn) — so this toast is a
       // "redirecting" note, never a completion claim.
-      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      invalidateMoneyState(queryClient);
       toast({
         title: "Redirecting to PayPal",
         description: "Complete the payment on PayPal — your wallet is credited once the payment is confirmed.",

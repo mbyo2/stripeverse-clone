@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { resolveEdgeFunctionError } from '@/utils/edgeFunctionError';
+import { invalidateMoneyState } from '@/utils/moneyFreshness';
 
 /**
  * PayPal checkout return flow — the twin of usePayPalDepositReturn,
@@ -101,7 +102,9 @@ export function usePayPalCheckoutReturn(): PayPalCheckoutReturnState {
       }
 
       if (data.status === 'completed') {
-        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        // Settlement moved money (merchant credited): refresh every
+        // balance/activity surface, not just the transactions cache.
+        invalidateMoneyState(queryClient);
         setState({
           phase: 'completed',
           amount: Number(data.amount),

@@ -12,6 +12,7 @@ import { ArrowRight, CheckCircle2, AlertCircle, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { prepareRecipientQuery } from "@/utils/phoneNumber";
+import { useInvalidateMoneyState } from "@/utils/moneyFreshness";
 
 type TransferFormProps = {
   senderPhone: string;
@@ -32,6 +33,7 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const invalidateMoney = useInvalidateMoneyState();
 
   const handleContinue = () => {
     setError(null);
@@ -133,6 +135,11 @@ const TransferForm = ({ senderPhone, walletBalance, onSuccess, onCancel }: Trans
 
       if (error) throw new Error(await resolveEdgeFunctionError(error, "Transfer failed"));
       if (data?.error) throw new Error(data.error);
+
+      // The transfer moved money: refresh every balance/activity
+      // surface (this page's header balance comes from the shared
+      // wallet query) so nothing keeps showing the pre-transfer state.
+      invalidateMoney();
 
       setIsProcessing(false);
 

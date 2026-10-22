@@ -21,6 +21,7 @@ import {
 } from "@/utils/sendMoneyLegs";
 import { roundMoney } from "@/utils/splitPayments";
 import { usePlatformSettings } from "@/hooks/useSubaccounts";
+import { useInvalidateMoneyState } from "@/utils/moneyFreshness";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -38,6 +39,7 @@ const SendMoney = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { wallet } = useWallet();
+  const invalidateMoney = useInvalidateMoneyState();
   const { formatAmount } = useCurrency();
   const navigate = useNavigate();
 
@@ -185,6 +187,11 @@ const SendMoney = () => {
           ? String(data.error)
           : null;
       if (sendError) throw new Error(sendError);
+
+      // The send moved money: refresh every balance/activity surface
+      // so this page, the Transfer header, the Wallet page and the
+      // Dashboard all show the post-send state without a reload.
+      invalidateMoney();
 
       setTransactionRef(ref);
       setStep(4);

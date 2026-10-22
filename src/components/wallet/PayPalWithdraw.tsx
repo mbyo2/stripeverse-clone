@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlatformSettings } from "@/hooks/useSubaccounts";
 import { useToast } from "@/hooks/use-toast";
+import { invalidateMoneyState } from "@/utils/moneyFreshness";
 import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from "@/config/paypal";
 import {
   computePayoutFee,
@@ -95,7 +96,10 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
 
   const refreshHistory = () => {
     queryClient.invalidateQueries({ queryKey: ["paypal-withdrawals"] });
-    queryClient.invalidateQueries({ queryKey: ["wallet"] });
+    // A created/refunded withdrawal changes the wallet balance and
+    // the activity list too — refresh all money state, not just the
+    // wallet root.
+    invalidateMoneyState(queryClient);
   };
 
   const createMutation = useMutation({
