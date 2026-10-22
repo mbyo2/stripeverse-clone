@@ -15,7 +15,7 @@
 // quote math in _shared/btc-core.ts and disclosed on every quote.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getSupabaseClient } from "../_shared/supabase-client.ts";
+import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
 import { custodyStatus, quoteBuySats, quoteSellZmw } from "../_shared/btc-core.ts";
 
 const corsHeaders = {
@@ -111,6 +111,13 @@ serve(async (req) => {
 
   try {
     const supabase = getSupabaseClient(req);
+    // Money-path DB work (quote storage, the execute RPC) runs through
+    // the dedicated service-role client: btc_execute_trade is
+    // service_role-only and btc_quotes is service-write-only under RLS,
+    // while the request client forwards the caller's JWT (PostgREST
+    // would run as `authenticated` and be denied). Identity is verified
+    // from the JWT via `supabase`. (Pattern: atomic-transfer.)
+    const admin = getServiceRoleClient();
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
@@ -140,7 +147,7 @@ serve(async (req) => {
 
       let btcUsd: number, usdZmw: number;
       try {
-        [btcUsd, usdZmw] = await Promise.all([fetchBtcUsd(), fetchUsdZmw(supabase)]);
+        [btcUsd, usdZmw] = await Promise.all([fetchBtcUsd(), fetchUsdZmw(admin)]);
       } catch (e) {
         // Every fetch is bounded (AbortSignal.timeout in fetchJson), so
         // a failure here is a definitive answer, not a hang. The user
@@ -181,7 +188,7 @@ serve(async (req) => {
         }
       }
 
-      const { data: quote, error } = await supabase
+      const { data: quote, error } = await admin
         .from("btc_quotes")
         .insert({
           user_id: user.id,
@@ -224,7 +231,7 @@ serve(async (req) => {
         return json(400, { error: "idempotency_key is required (8–80 chars)" });
       }
 
-      const { data, error } = await supabase.rpc("btc_execute_trade", {
+      const { data, error } = await admin.rpc("btc_execute_trade", {
         p_user_id: user.id,
         p_quote_id: quoteId,
         p_idempotency_key: idempotencyKey,

@@ -8,10 +8,11 @@
 //
 // Auth: user JWT required; identity comes from the verified token only.
 // Balances are integer sats in crypto_wallets, moved ONLY through the
-// btc_adjust_crypto_wallet RPC (row-locked, non-negative) or the atomic
-// claim-then-credit sequence in check_status — a settled invoice can
-// never be credited twice, and an outbound payment can never overdraw
-// or double-spend the wallet.
+// btc_adjust_crypto_wallet RPC (row-locked, non-negative), the atomic
+// btc_settle_lightning_deposit RPC in check_status (single-transaction
+// claim + credit — a settled invoice can never be credited twice), or
+// the reserve/settle RPC sequence in pay_invoice (an outbound payment
+// can never overdraw or double-spend the wallet).
 //
 // History note: the previous version decoded invoice amounts with
 // floating-point math (mispricing pico-denominated invoices) and did
@@ -20,8 +21,8 @@
 // _shared/btc-core.ts (unit-tested).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getSupabaseClient } from "../_shared/supabase-client.ts";
-import { custodyStatus, decodeBolt11Msat } from "../_shared/btc-core.ts";
+import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
+import { decodeBolt11Msat } from "../_shared/btc-core.ts";
 
 const BREEZ_API = "https://api.breez.technology";
 const MAX_SATS = (() => {
@@ -50,28 +51,27 @@ function json(status: number, body: unknown) {
   });
 }
 
-// Designed refusals: Lightning deposits/payments credit and debit the
-// SAME custodial BTC balance as on-chain custody, so while custody is
-// not genuinely configured (seed and MATCHED xpub both present — see
-// custodyStatus in btc-core) they refuse with these plain-language
-// messages, in the { error } shape the frontend surfaces verbatim.
-// Gating creation is also what closes the deposit-credit failure
-// window for new invoices: no invoice can be created — and therefore
-// no paid invoice can be stranded awaiting its credit — until custody
-// is configured and the credit path is reviewed for live funds.
+// Designed refusals, in the { error } shape the frontend surfaces
+// verbatim. Lightning gates on the BREEZ_API_KEY alone: Breez nodeless
+// custody never touches the on-chain seed, so the seed⇄xpub interlock
+// does not apply here and the wording names Lightning, not Bitcoin
+// custody. Inbound settlement is exactly-once by construction:
+// check_status credits through the single-transaction
+// btc_settle_lightning_deposit RPC (migration 20261022), never through
+// separate claim/credit calls.
 const LIGHTNING_DEPOSITS_NOT_CONFIGURED =
-  "Lightning deposits are not available yet — Bitcoin custody is not configured on this deployment.";
+  "Lightning deposits are not available yet — Lightning is not configured on this deployment.";
 const LIGHTNING_PAYMENTS_NOT_CONFIGURED =
-  "Lightning payments are not available yet — Bitcoin custody is not configured on this deployment.";
+  "Lightning payments are not available yet — Lightning is not configured on this deployment.";
 
-function custodyGate(refusal: string): Response | null {
-  const c = custodyStatus(
-    Deno.env.get("BTC_SEED_MNEMONIC"),
-    Deno.env.get("BTC_XPUB"),
-  );
-  if (c.configured) return null;
-  console.error("breez-lightning: custody not configured (" + c.reason + ")");
-  return json(503, { error: refusal });
+// Returns the designed 503 refusal while the key is absent, else null.
+function lightningKeyGate(refusal: string): Response | null {
+  const key = Deno.env.get("BREEZ_API_KEY");
+  if (!key || key.trim().length === 0) {
+    console.error("breez-lightning: BREEZ_API_KEY not configured");
+    return json(503, { error: refusal });
+  }
+  return null;
 }
 
 // PostgREST/RPC failures are plain objects with a message, not Error
@@ -111,6 +111,13 @@ serve(async (req) => {
 
   try {
     const supabase = getSupabaseClient(req);
+    // All DB work below runs through the dedicated service-role client:
+    // lightning_payments is SELECT-own-only under RLS and the btc_* RPCs
+    // are service_role-only, while the request client forwards the
+    // caller's JWT (PostgREST would run as `authenticated` and be
+    // denied). Identity is verified from the JWT via `supabase`; rows
+    // and money move via `admin`. (Pattern: atomic-transfer.)
+    const admin = getServiceRoleClient();
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
@@ -121,7 +128,7 @@ serve(async (req) => {
 
     // ── Create inbound Lightning invoice ──
     if (action === "create_invoice") {
-      const gate = custodyGate(LIGHTNING_DEPOSITS_NOT_CONFIGURED);
+      const gate = lightningKeyGate(LIGHTNING_DEPOSITS_NOT_CONFIGURED);
       if (gate) return gate;
 
       const sats = Number(amount_sats);
@@ -139,7 +146,7 @@ serve(async (req) => {
         throw new Error("Breez returned an incomplete invoice");
       }
 
-      const { data: payment, error } = await supabase.from("lightning_payments").insert({
+      const { data: payment, error } = await admin.from("lightning_payments").insert({
         user_id: user.id,
         direction: "inbound",
         amount_sats: sats,
@@ -160,7 +167,7 @@ serve(async (req) => {
 
     // ── Pay an outbound Lightning invoice (from wallet balance) ──
     if (action === "pay_invoice") {
-      const gate = custodyGate(LIGHTNING_PAYMENTS_NOT_CONFIGURED);
+      const gate = lightningKeyGate(LIGHTNING_PAYMENTS_NOT_CONFIGURED);
       if (gate) return gate;
 
       if (!bolt11 || typeof bolt11 !== "string") {
@@ -183,7 +190,7 @@ serve(async (req) => {
       }
 
       // Record the attempt first — it is the audit + idempotency anchor.
-      const { data: payment, error: insErr } = await supabase.from("lightning_payments").insert({
+      const { data: payment, error: insErr } = await admin.from("lightning_payments").insert({
         user_id: user.id,
         direction: "outbound",
         amount_sats: sats,
@@ -195,13 +202,13 @@ serve(async (req) => {
       // Reserve spendable balance atomically (row-locked RPC; raises on
       // insufficient funds). A concurrent payment now cannot pass with
       // the same sats.
-      const { error: reserveErr } = await supabase.rpc("btc_adjust_crypto_wallet", {
+      const { error: reserveErr } = await admin.rpc("btc_adjust_crypto_wallet", {
         p_user_id: user.id,
         p_delta_balance: 0,
         p_delta_available: -sats,
       });
       if (reserveErr) {
-        await supabase.from("lightning_payments")
+        await admin.from("lightning_payments")
           .update({ status: "failed" }).eq("id", payment.id);
         return json(400, { error: "Insufficient BTC balance" });
       }
@@ -212,12 +219,12 @@ serve(async (req) => {
         payResult = await breezFetch("/v2/payments", "POST", { bolt11 });
       } catch (e) {
         // Payment provably not made by us: release the reservation.
-        await supabase.rpc("btc_adjust_crypto_wallet", {
+        await admin.rpc("btc_adjust_crypto_wallet", {
           p_user_id: user.id,
           p_delta_balance: 0,
           p_delta_available: sats,
         });
-        await supabase.from("lightning_payments")
+        await admin.from("lightning_payments")
           .update({ status: "failed" }).eq("id", payment.id);
         throw e;
       }
@@ -225,7 +232,7 @@ serve(async (req) => {
       // Settle the total balance (available was already reduced). If this
       // ever failed, the reservation still prevents re-spending the sats
       // and the paid lightning_payments row is the reconciliation record.
-      const { error: settleErr } = await supabase.rpc("btc_adjust_crypto_wallet", {
+      const { error: settleErr } = await admin.rpc("btc_adjust_crypto_wallet", {
         p_user_id: user.id,
         p_delta_balance: -sats,
         p_delta_available: 0,
@@ -235,13 +242,13 @@ serve(async (req) => {
       }
 
       const paymentHash = payResult.payment_hash ?? null;
-      await supabase.from("lightning_payments").update({
+      await admin.from("lightning_payments").update({
         status: "paid",
         payment_hash: paymentHash,
         settled_at: new Date().toISOString(),
       }).eq("id", payment.id);
 
-      const { error: txErr } = await supabase.from("transactions").insert({
+      const { error: txErr } = await admin.from("transactions").insert({
         user_id: user.id,
         currency: "BTC",
         amount: sats / 100_000_000,
@@ -266,7 +273,7 @@ serve(async (req) => {
         return json(400, { error: "breez_invoice_id required" });
       }
 
-      const { data: payment } = await supabase.from("lightning_payments")
+      const { data: payment } = await admin.from("lightning_payments")
         .select("*").eq("id", breez_invoice_id).eq("user_id", user.id).single();
 
       if (!payment) return json(404, { error: "Payment not found" });
@@ -283,71 +290,38 @@ serve(async (req) => {
 
       if (!isPaid) {
         if (status.status === "expired" || status.expired) {
-          await supabase.from("lightning_payments")
+          await admin.from("lightning_payments")
             .update({ status: "expired" }).eq("id", payment.id);
           return json(200, { status: "expired" });
         }
         return json(200, { status: "pending" });
       }
 
-      // CLAIM before crediting: only the caller that flips
-      // pending → paid (conditional on the row still being pending)
-      // may credit. Concurrent polls lose the claim and skip crediting.
-      //
-      // RESIDUAL WINDOW (known, accepted for now): if the process is
-      // hard-stopped BETWEEN the claim commit and the credit RPC — not
-      // a clean error, which rolls the claim back below — the row stays
-      // 'paid' uncredited and later polls early-return at the status
-      // check above. Exactly-once credit cannot be built from separate
-      // non-atomic calls; the real fix is a single-transaction
-      // claim+credit RPC, to land before Lightning handles live funds.
-      // Until then this window can only contain invoices created while
-      // custody was configured — creation is gated (see create_invoice),
-      // so no new invoice can enter it in the unconfigured state.
-      const { data: claimed, error: claimErr } = await supabase
-        .from("lightning_payments")
-        .update({ status: "paid", settled_at: new Date().toISOString() })
-        .eq("id", payment.id)
-        .eq("status", "pending")
-        .select("id");
-      if (claimErr) throw claimErr;
-      if (!claimed || claimed.length === 0) {
-        return json(200, { status: "paid" }); // settled by a concurrent call
+      // Settle EXACTLY ONCE through the single-transaction RPC
+      // (btc_settle_lightning_deposit, migration 20261022): the claim
+      // (pending → paid), the wallet credit and the ledger row commit
+      // or roll back TOGETHER, so no hard stop can strand a paid-but-
+      // uncredited invoice and no retry or concurrent poll can
+      // double-credit. The RPC credits the amount recorded on the
+      // payment row — never a caller-supplied figure — and is
+      // idempotent on the payment id.
+      const { data: settleRows, error: settleErr } = await admin.rpc(
+        "btc_settle_lightning_deposit",
+        { p_payment_id: payment.id },
+      );
+      if (settleErr) throw settleErr;
+      const outcome = Array.isArray(settleRows) ? settleRows[0] : settleRows;
+      if (!outcome) throw new Error("btc_settle_lightning_deposit returned no row");
+      if (outcome.outcome === "credited" || outcome.outcome === "already_settled") {
+        return json(200, { status: "paid" });
       }
-
-      const sats = Number(payment.amount_sats);
-      const { error: creditErr } = await supabase.rpc("btc_adjust_crypto_wallet", {
-        p_user_id: user.id,
-        p_delta_balance: sats,
-        p_delta_available: sats,
-      });
-      if (creditErr) {
-        // The row is already marked paid, so a naive retry would skip
-        // crediting. Roll the claim back to pending so the next poll
-        // can complete the credit, and surface the failure.
-        await supabase.from("lightning_payments")
-          .update({ status: "pending", settled_at: null })
-          .eq("id", payment.id);
-        throw creditErr;
-      }
-
-      const { error: txErr } = await supabase.from("transactions").insert({
-        user_id: user.id,
-        currency: "BTC",
-        amount: sats / 100_000_000,
-        direction: "incoming",
-        payment_method: "lightning",
-        status: "completed",
-        description: "Lightning deposit",
-        reference: payment.payment_hash,
-        category: "lightning_deposit",
-        transaction_id: payment.payment_hash || `ln-in-${payment.id}`,
-        idempotency_key: `ln-in:${payment.id}`,
-        metadata: { type: "lightning_deposit", sats },
-      });
-      if (txErr) console.error("Lightning deposit ledger row failed:", txErr);
-
-      return json(200, { status: "paid" });
+      // The row changed state under us (e.g. expired concurrently) —
+      // report its recorded status rather than inventing one.
+      console.error(
+        "breez-lightning check_status: settle outcome",
+        outcome.outcome, "for payment", payment.id,
+      );
+      return json(200, { status: outcome.payment_status ?? "pending" });
     }
 
     return json(400, { error: `Unknown action: ${action}` });
