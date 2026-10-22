@@ -119,12 +119,18 @@ async function receive(supabase: any, userId: string) {
   }
 
   const xpub = Deno.env.get("BTC_XPUB");
-  if (!xpub) return json(500, { error: "BTC_XPUB is not configured" });
+  if (!xpub) {
+    // Missing prerequisite, not a user error: answer with a truthful
+    // refusal the UI can show as-is (operator detail stays in the logs).
+    console.error("btc-onchain receive: BTC_XPUB is not configured");
+    return json(503, { error: "Bitcoin deposits are not available yet — Bitcoin custody is not configured on this deployment." });
+  }
   let account;
   try {
     account = parseAccountKey(xpub);
   } catch (e) {
-    return json(500, { error: `BTC_XPUB is invalid: ${(e as Error).message}` });
+    console.error("btc-onchain receive: BTC_XPUB is invalid:", e);
+    return json(503, { error: "Bitcoin deposits are not available yet — Bitcoin custody is not configured on this deployment." });
   }
 
   // Allocate (index, address) atomically-ish: the sequence guarantees a
@@ -304,17 +310,28 @@ async function send(supabase: any, userId: string, body: any) {
   }
 
   // Keys: hard-fail if either secret is absent. Never simulate a send.
+  // The refusal is a designed 503 with a user-truthful message (this is
+  // the state of every deployment until the custody seed is provisioned);
+  // the operator-facing detail goes to the logs only.
   const mnemonic = Deno.env.get("BTC_SEED_MNEMONIC");
   const xpub = Deno.env.get("BTC_XPUB");
   if (!mnemonic || !xpub) {
-    return json(500, { error: "Bitcoin withdrawals are not configured (missing seed/xpub secret)" });
+    console.error("btc-onchain send: seed/xpub secret missing (mnemonic:", !!mnemonic, ", xpub:", !!xpub, ")");
+    return json(503, { error: "Bitcoin withdrawals are not available yet — Bitcoin custody is not configured on this deployment." });
   }
-  const accountPriv = accountKeyFromMnemonic(mnemonic);
-  const accountPub = parseAccountKey(xpub);
+  let accountPriv, accountPub;
+  try {
+    accountPriv = accountKeyFromMnemonic(mnemonic);
+    accountPub = parseAccountKey(xpub);
+  } catch (e) {
+    console.error("btc-onchain send: configured seed/xpub is invalid:", e);
+    return json(503, { error: "Bitcoin withdrawals are not available yet — Bitcoin custody is not configured on this deployment." });
+  }
   // Safety interlock: the seed must control the same wallet the zpub watches,
   // otherwise deposits and withdrawals would silently use different wallets.
   if (deriveAddress(accountPriv, 0, 0) !== deriveAddress(accountPub, 0, 0)) {
-    return json(500, { error: "BTC_SEED_MNEMONIC and BTC_XPUB do not match" });
+    console.error("btc-onchain send: BTC_SEED_MNEMONIC and BTC_XPUB do not match");
+    return json(503, { error: "Bitcoin withdrawals are not available yet — Bitcoin custody is not configured on this deployment." });
   }
 
   // Fee rate from the network (hard-fail if unavailable — never guess fees).
