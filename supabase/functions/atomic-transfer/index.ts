@@ -3,6 +3,15 @@
 // Every money flow (transfers, bill payments, escrow, bulk payments, refunds)
 // routes through here so balances move atomically with idempotency guards.
 //
+// Send Money is the one exception to the generic path: requests with
+// reference_type "send_money" are routed to the dedicated
+// execute_send_money_transfer RPC, which computes the 2.5% send fee
+// (platform_settings.send_money_fee_percent) and credits it to the
+// platform wallet atomically with the send — the client never names
+// the fee amount or the fee's destination. The phone-number Transfer
+// flow keeps reference_type "transfer" and stays fee-free by design
+// (CEO decision, 2026-10-22).
+//
 // Input:
 //   {
 //     from_user_id, to_user_id (nullable — null = external/biller payment),
@@ -95,6 +104,39 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
+
+    // ── Send Money: dedicated RPC that charges the send fee ──────────
+    // The fee (2.5% at launch) is computed inside
+    // execute_send_money_transfer from platform_settings and credited
+    // to the platform operator's Main wallet in the same transaction
+    // as the send. Nothing about the fee is taken from the request.
+    if (reference_type === "send_money") {
+      if (!to_user_id) throw new Error("to_user_id required");
+
+      const { data, error } = await admin.rpc("execute_send_money_transfer", {
+        p_from_user_id: from_user_id,
+        p_to_user_id: to_user_id,
+        p_amount: amt,
+        p_currency: currency || "ZMW",
+        p_reference_id: reference_id || null,
+        p_idempotency_key: idempotency_key,
+        p_description: description || null,
+        p_recipient_name: recipient_name || null,
+        p_payment_method: payment_method || "wallet",
+      });
+
+      if (error) throw new Error(error.message);
+
+      const row = Array.isArray(data) ? data[0] : data;
+      return new Response(JSON.stringify({
+        success: true,
+        transaction_id: row.transaction_id,
+        new_sender_balance: Number(row.new_sender_balance),
+        fee_amount: Number(row.fee_amount ?? 0),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data, error } = await admin.rpc("execute_atomic_transfer", {
       p_from_user_id: from_user_id,

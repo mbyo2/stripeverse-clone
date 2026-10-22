@@ -1,54 +1,73 @@
-// Send-money leg planning — the pure decision logic behind the
-// /send-money flow's atomic-transfer calls.
+// Send-money fee math + call planning — the client-side mirror of the
+// /send-money flow's server-side settlement.
 //
-// The bug this pins (Money QA send re-test, 2026-10-22): SendMoney
-// made ONE atomic-transfer call with amount = amount + fee, so the
-// RECIPIENT was credited the total — the K5 "fee" was paid to the
-// recipient instead of being collected. The sender's debit was right;
-// the recipient's credit was wrong.
+// History: Send Money used to charge a flat K5 planned HERE, as a
+// second atomic-transfer leg with to_user_id null (debit-only — the
+// fee was burned, credited to no wallet, and a client could omit the
+// leg entirely). CEO decision (2026-10-22): the fee is 2.5% of the
+// amount, charged to the sender ON TOP (the recipient still receives
+// exactly the entered amount), and CREDITED to the platform.
 //
-// The fix, planned here and executed by SendMoney.tsx in order:
-//   Leg 1 — the amount leg: sender → recipient, amount = EXACTLY the
-//           entered amount (same shape as the /transfer route).
-//   Leg 2 — the fee leg: sender → platform, amount = the fee alone.
-//           to_user_id is null, which the atomic-transfer contract
-//           treats as an external/biller payment: debit-only, credits
-//           NO user wallet (the same pattern bill payments and escrow
-//           holds use). reference_type 'transfer_fee' follows the
-//           existing snake_case convention (transfer, bill_payment,
-//           escrow_hold, qr_payment) and lands in the transactions
-//           category, so the fee is its own labelled ledger row.
-//           Its idempotency key derives from the send's key
-//           (`${key}:fee`) so a retry of the send can never
-//           double-charge either leg independently.
+// The authoritative implementation is the execute_send_money_transfer
+// RPC (supabase/migrations/20261023_send_money_platform_fee.sql): the
+// atomic-transfer edge function routes reference_type "send_money" to
+// it, and the RPC computes the fee from
+// platform_settings.send_money_fee_percent and credits the platform
+// operator's Main wallet in the same transaction as the send. This
+// module exists so the Send Money page can preview the exact same
+// arithmetic and build the single call — the server never trusts the
+// preview: it recomputes the fee itself.
 //
-// Ordering / failure semantics (enforced by the caller, planned here):
-// amount leg first, fee leg second. If the fee leg fails after the
-// amount leg succeeded, the send STANDS — the caller must not roll
-// back or report a failed send; it surfaces a warning that the fee
-// could not be collected. If the amount leg fails, nothing is charged.
+// The phone-number Transfer flow is a different product surface and
+// stays fee-free by the same CEO decision: it keeps calling
+// atomic-transfer with reference_type "transfer" (the generic
+// execute_atomic_transfer RPC) and never comes near this module.
 
-export interface SendMoneyLegInput {
+import { roundMoney } from "./splitPayments";
+
+/** Launch send-fee rate (%), used until platform_settings loads and as
+ *  the fallback when the settings row cannot be read — mirrors the
+ *  RPC's defensive fallback of 2.5. */
+export const SEND_MONEY_FEE_PERCENT_DEFAULT = 2.5;
+
+/** The platform identity the fee is addressed to in the ledger. */
+export const SEND_FEE_PAYEE_NAME = "BMaGlass Pay";
+
+/**
+ * The Send Money fee on `amount` at `ratePercent`:
+ * round(amount * rate / 100, 2) — half-up, mirroring Postgres
+ * round(numeric, 2). The fee rides ON TOP of the amount (it is NOT
+ * capped at the amount and never comes out of what the recipient
+ * receives). A rate of 0 (or less) means no fee; tiny amounts can
+ * honestly round to a 0.00 fee.
+ */
+export function computeSendFee(amount: number, ratePercent: number): number {
+  if (!(amount > 0) || !(ratePercent > 0)) return 0;
+  return roundMoney((amount * ratePercent) / 100);
+}
+
+export interface SendMoneyPlanInput {
   /** The entered amount — the recipient is credited exactly this. */
   amount: number;
-  /** Flat send fee (e.g. 5). Zero or negative → no fee leg. */
-  fee: number;
+  /** Fee rate in percent (platform_settings.send_money_fee_percent). */
+  feeRatePercent: number;
   senderUserId: string;
   recipientUserId: string;
   recipientName: string;
   currency: string;
-  /** The send's public reference (shared by both legs, grouping them). */
+  /** The send's public reference (shared by the amount and fee rows). */
   referenceId: string;
-  /** The send's base idempotency key (the fee leg derives `:fee`). */
+  /** The send's idempotency key (the RPC derives the fee rows' keys). */
   idempotencyKey: string;
 }
 
-export interface PlannedSendLeg {
-  kind: "amount" | "fee";
-  /** Body for the atomic-transfer edge-function invoke, verbatim. */
+export interface SendMoneyPlan {
+  /** Body for the single atomic-transfer invoke, verbatim. The
+   *  reference_type "send_money" is what routes the call to the
+   *  fee-charging RPC on the server. */
   body: {
     from_user_id: string;
-    to_user_id: string | null;
+    to_user_id: string;
     amount: number;
     currency: string;
     reference_type: string;
@@ -58,15 +77,23 @@ export interface PlannedSendLeg {
     recipient_name: string;
     payment_method: string;
   };
+  /** The fee the server will charge at this rate (display mirror). */
+  fee: number;
+  /** Total the sender is debited: amount + fee. */
+  total: number;
 }
 
-/** The platform identity the fee leg is addressed to in the ledger. */
-export const SEND_FEE_PAYEE_NAME = "BMaGlass Pay";
-
-export function planSendMoneyLegs(input: SendMoneyLegInput): PlannedSendLeg[] {
+/**
+ * Plan the one server call behind a Send Money send. Returns null for
+ * a non-positive amount. The recipient leg is ALWAYS exactly the
+ * entered amount — the fee never travels inside it (the regression
+ * this module originally pinned: amount + fee credited to the
+ * recipient, K15 landing on a K10 send).
+ */
+export function planSendMoneyCall(input: SendMoneyPlanInput): SendMoneyPlan | null {
   const {
     amount,
-    fee,
+    feeRatePercent,
     senderUserId,
     recipientUserId,
     recipientName,
@@ -75,53 +102,24 @@ export function planSendMoneyLegs(input: SendMoneyLegInput): PlannedSendLeg[] {
     idempotencyKey,
   } = input;
 
-  if (!(amount > 0)) return [];
+  if (!(amount > 0)) return null;
 
-  const legs: PlannedSendLeg[] = [
-    {
-      kind: "amount",
-      body: {
-        from_user_id: senderUserId,
-        to_user_id: recipientUserId,
-        amount,
-        currency,
-        reference_type: "transfer",
-        reference_id: referenceId,
-        idempotency_key: idempotencyKey,
-        // No "(incl. fee)" suffix: the fee no longer travels inside
-        // this leg — it is the separate ledger row planned below.
-        description: `Send money to ${recipientName}`,
-        recipient_name: recipientName,
-        payment_method: "wallet",
-      },
+  const fee = computeSendFee(amount, feeRatePercent);
+
+  return {
+    body: {
+      from_user_id: senderUserId,
+      to_user_id: recipientUserId,
+      amount,
+      currency,
+      reference_type: "send_money",
+      reference_id: referenceId,
+      idempotency_key: idempotencyKey,
+      description: `Send money to ${recipientName}`,
+      recipient_name: recipientName,
+      payment_method: "wallet",
     },
-  ];
-
-  if (fee > 0) {
-    legs.push({
-      kind: "fee",
-      body: {
-        from_user_id: senderUserId,
-        // null = external/platform payment in the atomic-transfer
-        // contract: the sender is debited and NO user wallet is
-        // credited. The fee can never reach the recipient.
-        to_user_id: null,
-        amount: fee,
-        currency,
-        reference_type: "transfer_fee",
-        reference_id: referenceId,
-        idempotency_key: `${idempotencyKey}:fee`,
-        description: `Send fee for transfer to ${recipientName} (ref ${referenceId})`,
-        recipient_name: SEND_FEE_PAYEE_NAME,
-        payment_method: "wallet",
-      },
-    });
-  }
-
-  return legs;
-}
-
-/** Total the sender is debited across the planned legs. */
-export function plannedSendTotal(legs: PlannedSendLeg[]): number {
-  return legs.reduce((sum, leg) => sum + leg.body.amount, 0);
+    fee,
+    total: roundMoney(amount + fee),
+  };
 }

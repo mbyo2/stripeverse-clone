@@ -36,6 +36,27 @@ serve(async (req) => {
     const user = userData.user;
     if (!user?.id) throw new Error("User not authenticated");
 
+    // Virtual cards are "Coming soon" for the public (CEO decision,
+    // 2026-10-22): funding a card is a card action, so it stays
+    // admin-only until the Mastercard developer-platform integration
+    // is built and tested — the same rule create-virtual-card and the
+    // card pages enforce.
+    const { data: adminRole } = await supabaseClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!adminRole) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Virtual cards are coming soon — they're not available yet.",
+        }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { cardId, amount } = await req.json();
     logStep("Fund request", { cardId, amount, userId: user.id });
 
