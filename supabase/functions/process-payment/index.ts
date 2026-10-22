@@ -12,10 +12,17 @@
 //
 // Now it is an honest router (see _shared/payment-providers.ts):
 //   - provider "paypal" with credentials configured → a real PayPal
-//     order is created and returned as status 'pending' with its
-//     approval URL. The payment is NOT complete here: no wallet moves
-//     and nothing is marked completed. Settlement happens when the
-//     order is captured (the platform's paypal-webhook/capture flow).
+//     order is created, a PENDING checkout row is recorded against
+//     the merchant named in metadata.merchant_user_id (see
+//     _shared/checkout-capture.ts — an order that cannot name its
+//     merchant can never settle, so it is refused up front), and the
+//     order is returned as status 'pending' with its approval URL.
+//     The payment is NOT complete here: no wallet moves and nothing
+//     is marked completed. Settlement happens on capture — the
+//     paypal-checkout-capture return flow or the paypal-webhook
+//     backstop (via _shared/paypal-checkout.ts and the
+//     complete_checkout_payment RPC), which credit the merchant's
+//     settlement wallet exactly once against a verified capture.
 //   - any other provider, or PayPal without credentials →
 //     status 'not_configured' with a truthful explanation. No database
 //     rows are written and no balances move for a payment no gateway
@@ -35,6 +42,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyProvider } from "../_shared/payment-providers.ts";
+import { parseCheckoutTerms } from "../_shared/checkout-capture.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,7 +114,84 @@ serve(async (req) => {
       return json({ success: false, status: "not_configured", error: route.error });
     }
 
-    // ── PayPal: create a real order; completion waits for capture ──
+    // ── PayPal: record the checkout, create a real order; ──────────
+    // completion waits for capture (paypal-checkout-capture /
+    // paypal-webhook, settling via complete_checkout_payment).
+    //
+    // The order settles to a MERCHANT, so the terms are validated
+    // BEFORE PayPal is touched: no merchant named → no order, no
+    // charge, no pending row (an unsettleable order must never exist).
+    const termsResult = parseCheckoutTerms(paymentData.metadata, user.id);
+    if (!termsResult.ok) {
+      return json({ success: false, status: "invalid", error: termsResult.error }, 400);
+    }
+    const terms = termsResult.terms;
+
+    // A named settlement account must belong to the merchant.
+    if (terms.accountId) {
+      const { data: account, error: accountError } = await supabaseClient
+        .from("accounts")
+        .select("id, user_id, status")
+        .eq("id", terms.accountId)
+        .maybeSingle();
+      if (accountError) throw new Error(`Settlement account lookup failed: ${accountError.message}`);
+      if (!account || account.user_id !== terms.merchantUserId) {
+        return json({
+          success: false,
+          status: "invalid",
+          error: "The settlement account does not belong to the named merchant.",
+        }, 400);
+      }
+      if (account.status === "closed") {
+        return json({
+          success: false,
+          status: "invalid",
+          error: "The merchant's settlement account is closed and cannot receive payments.",
+        }, 400);
+      }
+    }
+
+    // Resolve the merchant's settlement wallet for this currency
+    // (created on demand, as execute_payment_link_settlement does).
+    // A closed wallet can never receive, so it refuses the order here
+    // rather than after the customer has paid; a frozen one may
+    // receive (receiving is not sending).
+    let walletQuery = supabaseClient
+      .from("wallets")
+      .select("id, status")
+      .eq("user_id", terms.merchantUserId)
+      .eq("currency", currency);
+    walletQuery = terms.accountId
+      ? walletQuery.eq("account_id", terms.accountId)
+      : walletQuery.is("account_id", null);
+    const { data: existingWallet, error: walletError } = await walletQuery.maybeSingle();
+    if (walletError) throw new Error(`Settlement wallet lookup failed: ${walletError.message}`);
+
+    let settlementWallet = existingWallet;
+    if (!settlementWallet) {
+      const { data: created, error: createError } = await supabaseClient
+        .from("wallets")
+        .insert({
+          user_id: terms.merchantUserId,
+          account_id: terms.accountId,
+          balance: 0,
+          currency,
+          status: "active",
+        })
+        .select("id, status")
+        .single();
+      if (createError) throw new Error(`Failed to resolve settlement wallet: ${createError.message}`);
+      settlementWallet = created;
+    }
+    if (!settlementWallet) throw new Error("Settlement wallet could not be resolved");
+    if (settlementWallet.status === "closed") {
+      return json({
+        success: false,
+        status: "failed",
+        error: "The merchant's settlement wallet is closed and cannot receive payments.",
+      });
+    }
+
     const accessToken = await getPayPalAccessToken();
     if (!accessToken) {
       return json({
@@ -116,10 +201,18 @@ serve(async (req) => {
       });
     }
 
+    // Our own transaction id is generated BEFORE the order so the
+    // PayPal order itself carries it (purchase-unit reference_id and
+    // custom_id): the completion path is keyed on the order's own
+    // metadata, in our records and in PayPal's.
+    const transactionUuid = crypto.randomUUID();
     const order = await createPayPalOrder(accessToken, {
       amount,
       currency,
       description: paymentData.description,
+      referenceId: transactionUuid,
+      returnUrl: terms.returnUrl,
+      cancelUrl: terms.cancelUrl,
     });
     if (!order) {
       return json({
@@ -129,14 +222,51 @@ serve(async (req) => {
       });
     }
 
+    // Record the PENDING checkout payment against the merchant's
+    // settlement wallet. The wallet is credited only after the order
+    // is captured and confirmed — the capture path finds this row by
+    // its PayPal order reference.
+    const { error: txError } = await supabaseClient
+      .from("transactions")
+      .insert({
+        uuid_id: transactionUuid,
+        user_id: terms.merchantUserId,
+        wallet_id: settlementWallet.id,
+        amount,
+        currency,
+        direction: "incoming",
+        status: "pending",
+        payment_method: "paypal",
+        provider: "paypal",
+        reference: order.id,
+        description: paymentData.description || "Checkout payment via PayPal (awaiting confirmation)",
+        category: "checkout",
+        metadata: {
+          kind: "checkout_payment",
+          payer_user_id: user.id,
+          merchant_user_id: terms.merchantUserId,
+          account_id: terms.accountId,
+          wallet_id: settlementWallet.id,
+          paypal_order_id: order.id,
+        },
+      });
+    if (txError) {
+      console.error("Pending checkout insert failed:", txError);
+      return json({
+        success: false,
+        status: "failed",
+        error: "The payment could not be recorded, so it was not started. No money was charged.",
+      });
+    }
+
     return json({
       success: false,
       status: "pending",
       reference: order.id,
-      transaction_id: order.id,
+      transaction_id: transactionUuid,
       approval_url: order.approvalUrl,
       message:
-        "Payment initiated with PayPal. It completes only after approval and capture — no money has moved yet.",
+        "Payment initiated with PayPal. It completes only after approval and capture, which settles the merchant — no money has moved yet.",
     });
   } catch (error) {
     console.error("Process payment error:", error);
@@ -176,11 +306,27 @@ async function getPayPalAccessToken(): Promise<string | null> {
 
 async function createPayPalOrder(
   accessToken: string,
-  input: { amount: number; currency: string; description?: string },
+  input: {
+    amount: number;
+    currency: string;
+    description?: string;
+    /** Our transaction uuid — stamped on the order as the purchase
+     *  unit's reference_id and custom_id, so the order carries its
+     *  own settlement key. */
+    referenceId?: string;
+    returnUrl?: string | null;
+    cancelUrl?: string | null;
+  },
 ): Promise<{ id: string; approvalUrl: string | null } | null> {
   const isProduction = Deno.env.get("PAYPAL_ENV") === "production";
   const baseUrl = isProduction ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
   try {
+    const applicationContext = input.returnUrl || input.cancelUrl
+      ? {
+          ...(input.returnUrl ? { return_url: input.returnUrl } : {}),
+          ...(input.cancelUrl ? { cancel_url: input.cancelUrl } : {}),
+        }
+      : undefined;
     const response = await fetch(`${baseUrl}/v2/checkout/orders`, {
       method: "POST",
       headers: {
@@ -190,9 +336,13 @@ async function createPayPalOrder(
       body: JSON.stringify({
         intent: "CAPTURE",
         purchase_units: [{
+          ...(input.referenceId
+            ? { reference_id: input.referenceId, custom_id: input.referenceId }
+            : {}),
           amount: { currency_code: input.currency, value: input.amount.toFixed(2) },
           description: input.description || "BMaGlass Pay payment",
         }],
+        ...(applicationContext ? { application_context: applicationContext } : {}),
       }),
     });
     if (!response.ok) {

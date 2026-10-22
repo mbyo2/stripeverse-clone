@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useSavings } from '@/hooks/useSavings';
-import { PiggyBank, Plus, TrendingUp, Target } from 'lucide-react';
+import { PiggyBank, Plus, Target } from 'lucide-react';
 
 const Savings = () => {
   const { accounts, createAccount, deposit, withdraw } = useSavings();
@@ -20,7 +20,13 @@ const Savings = () => {
   const [withdrawAmount, setWithdrawAmount] = useState('');
 
   const totalBalance = accounts.data?.reduce((s, a) => s + Number(a.balance), 0) || 0;
-  const totalInterest = accounts.data?.reduce((s, a) => s + Number(a.interest_earned), 0) || 0;
+  // NOTE: no interest is shown anywhere on this page. savings_accounts
+  // carries interest_rate / interest_earned columns (schema defaults),
+  // but nothing in the platform ever accrues or pays interest — no
+  // function, RPC, trigger or cron writes those fields — so displaying
+  // an APY or "interest earned" would promise money the platform does
+  // not pay. If an accrual engine is ever built (a CEO decision), the
+  // claims can come back, wired to its real output.
 
   return (
     <div className="min-h-screen bg-background">
@@ -29,7 +35,7 @@ const Savings = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Savings</h1>
-            <p className="text-sm text-muted-foreground mt-1">Grow your money with interest</p>
+            <p className="text-sm text-muted-foreground mt-1">Set money aside for your goals</p>
           </div>
           <Dialog open={openNew} onOpenChange={setOpenNew}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New Goal</Button></DialogTrigger>
@@ -59,13 +65,6 @@ const Savings = () => {
               <div className="divide-y divide-border">
                 <div className="flex items-center justify-between py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center"><TrendingUp className="h-5 w-5 text-success" /></div>
-                    <p className="text-[15px] font-medium">Interest Earned</p>
-                  </div>
-                  <p className="text-lg font-semibold tabular-nums">ZMW {totalInterest.toFixed(2)}</p>
-                </div>
-                <div className="flex items-center justify-between py-4">
-                  <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center"><Target className="h-5 w-5 text-warning" /></div>
                     <p className="text-[15px] font-medium">Active Goals</p>
                   </div>
@@ -85,11 +84,9 @@ const Savings = () => {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <p className="font-semibold">{account.name}</p>
-                      <p className="text-sm text-muted-foreground">{account.interest_rate}% APY</p>
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-semibold tabular-nums">ZMW {Number(account.balance).toLocaleString()}</p>
-                      <p className="text-xs text-success">+ZMW {Number(account.interest_earned).toFixed(2)} earned</p>
                     </div>
                   </div>
                   {account.target_amount && (
@@ -133,7 +130,7 @@ const Savings = () => {
               <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
                 <PiggyBank className="h-6 w-6 text-muted-foreground" />
               </div>
-              <p>Start saving today and earn interest on your balance</p>
+              <p>Start saving today — create a goal and track your progress</p>
             </CardContent></Card>
           )}
         </div>

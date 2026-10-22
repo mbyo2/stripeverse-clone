@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { confirmPayPalDeposit, findDepositTransaction } from "../_shared/paypal-deposit.ts";
+import {
+  confirmPayPalCheckoutPayment,
+  findCheckoutPaymentTransaction,
+} from "../_shared/paypal-checkout.ts";
 import { orderIdFromWebhookEvent } from "../_shared/deposit-capture.ts";
 
 const corsHeaders = {
@@ -48,20 +52,27 @@ serve(async (req) => {
     switch (eventType) {
       case 'PAYMENT.CAPTURE.COMPLETED': {
         // A capture belonging to a wallet-deposit order settles that
-        // deposit (exactly once, via complete_wallet_deposit). Any
-        // other capture keeps the invoice behaviour below.
+        // deposit (exactly once, via complete_wallet_deposit); a
+        // capture belonging to a checkout order settles that payment
+        // to its merchant (exactly once, via
+        // complete_checkout_payment). Any other capture keeps the
+        // invoice behaviour below.
         const depositHandled = await handleWalletDepositEvent(supabaseClient, eventType, resource);
         if (!depositHandled) {
-          await handlePaymentCompleted(supabaseClient, resource);
+          const checkoutHandled = await handleCheckoutPaymentEvent(supabaseClient, eventType, resource);
+          if (!checkoutHandled) {
+            await handlePaymentCompleted(supabaseClient, resource);
+          }
         }
         break;
       }
 
       case 'CHECKOUT.ORDER.APPROVED':
-        // Wallet-deposit orders get captured + settled here as a
-        // backstop for buyers who never return to the app. Orders that
-        // are not wallet deposits have nothing to do in this event.
-        await handleWalletDepositEvent(supabaseClient, eventType, resource);
+        // Wallet-deposit and checkout orders get captured + settled
+        // here as a backstop for buyers who never return to the app.
+        // Orders of neither kind have nothing to do in this event.
+        await handleWalletDepositEvent(supabaseClient, eventType, resource)
+          || await handleCheckoutPaymentEvent(supabaseClient, eventType, resource);
         break;
 
       case 'BILLING.SUBSCRIPTION.ACTIVATED':
@@ -183,6 +194,30 @@ async function handleWalletDepositEvent(supabase: any, eventType: string, resour
 
   const result = await confirmPayPalDeposit(supabase, orderId);
   logStep("Wallet deposit webhook confirmation", { orderId, kind: result.kind });
+  return true;
+}
+
+/**
+ * Backstop settlement for PayPal CHECKOUT payments — the twin of
+ * handleWalletDepositEvent above, for the orders `process-payment`
+ * creates. Returns true when the event's order is a recorded checkout
+ * payment (handled here), false when it is not (caller falls back to
+ * the pre-existing handlers). The webhook payload is only a trigger:
+ * confirmPayPalCheckoutPayment re-reads PayPal's authoritative order
+ * state, captures the order if it is still only APPROVED, verifies
+ * amount + currency against the pending row, and settles the merchant
+ * through the complete_checkout_payment RPC — idempotently, so this
+ * backstop and the buyer's return flow can race and replay safely.
+ */
+async function handleCheckoutPaymentEvent(supabase: any, eventType: string, resource: any): Promise<boolean> {
+  const orderId = orderIdFromWebhookEvent(eventType, resource);
+  if (!orderId) return false;
+
+  const payment = await findCheckoutPaymentTransaction(supabase, orderId);
+  if (!payment) return false;
+
+  const result = await confirmPayPalCheckoutPayment(supabase, orderId);
+  logStep("Checkout payment webhook confirmation", { orderId, kind: result.kind });
   return true;
 }
 
