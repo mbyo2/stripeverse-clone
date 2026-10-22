@@ -505,3 +505,94 @@ describe("bitcoinCapabilities (per-capability gates)", () => {
     expect(caps.spend).toEqual({ configured: false, reason: "missing_xpub" });
   });
 });
+
+describe("classifyBroadcastOutcome (refund only on PROVABLE failure)", () => {
+  const TXID = "aa".repeat(32);
+  const OTHER_TXID = "bb".repeat(32);
+  const classify = (
+    obs: Partial<Parameters<typeof core.classifyBroadcastOutcome>[0]>,
+  ) =>
+    core.classifyBroadcastOutcome(
+      { postStatus: null, postBody: "", postTxid: null, lookupFound: false, ...obs },
+      TXID,
+    );
+
+  it("confirmed by POST: 2xx returns our exact txid", () => {
+    const cls = classify({ postStatus: 200, postTxid: TXID });
+    expect(cls.outcome).toBe("confirmed");
+    expect(cls.reason).toBe("post_txid_match");
+  });
+
+  it("confirmed by lookup after a rejected POST (timeout race)", () => {
+    const cls = classify({
+      postStatus: 400,
+      postBody: "bad-txns-inputs-missingorspent",
+      lookupFound: true,
+    });
+    expect(cls.outcome).toBe("confirmed");
+    expect(cls.reason).toBe("lookup_found");
+  });
+
+  it("confirmed by lookup after the POST request itself failed", () => {
+    const cls = classify({ postStatus: null, lookupFound: true });
+    expect(cls.outcome).toBe("confirmed");
+  });
+
+  it("definite failure: 400 deterministic validation rejection + lookup miss", () => {
+    for (const postBody of [
+      "bad-txns-inputs-missingorspent", // already-spent / missing inputs
+      "bad-txns-vout-toolarge",
+      "bad-witness-nonstandard",
+      "non-standard transaction input",
+      "dust output below the dust limit",
+      "invalid transaction: bad sig",
+    ]) {
+      const cls = classify({ postStatus: 400, postBody, lookupFound: false });
+      expect(cls.outcome, postBody).toBe("definite_failure");
+      expect(cls.reason).toBe("validation_rejected");
+    }
+  });
+
+  it("unknown: 400 with an ambiguous (fee-policy) body + lookup miss — never refunded", () => {
+    const cls = classify({
+      postStatus: 400,
+      postBody: "min relay fee not met",
+      lookupFound: false,
+    });
+    expect(cls.outcome).toBe("unknown");
+  });
+
+  it("unknown: timeout / no response + lookup miss — the POST may have landed", () => {
+    const cls = classify({ postStatus: null, lookupFound: false });
+    expect(cls.outcome).toBe("unknown");
+    expect(cls.reason).toBe("post_no_response");
+  });
+
+  it("unknown: 5xx from the broadcast endpoint + lookup miss", () => {
+    for (const postStatus of [500, 502, 503]) {
+      const cls = classify({ postStatus, postBody: "upstream error", lookupFound: false });
+      expect(cls.outcome, String(postStatus)).toBe("unknown");
+    }
+  });
+
+  it("unknown: 2xx with an UNEXPECTED txid + lookup miss (no network check = no refund)", () => {
+    const cls = classify({ postStatus: 200, postTxid: OTHER_TXID, lookupFound: false });
+    expect(cls.outcome).toBe("unknown");
+    expect(cls.reason).toBe("unexpected_txid");
+  });
+
+  it("confirmed: 2xx with an unexpected txid, but the lookup finds OUR txid", () => {
+    const cls = classify({ postStatus: 200, postTxid: OTHER_TXID, lookupFound: true });
+    expect(cls.outcome).toBe("confirmed");
+    expect(cls.reason).toBe("lookup_found");
+  });
+
+  it("unknown: non-400 client errors are not treated as validation proof", () => {
+    const cls = classify({
+      postStatus: 413,
+      postBody: "bad-txns-request-too-large",
+      lookupFound: false,
+    });
+    expect(cls.outcome).toBe("unknown");
+  });
+});

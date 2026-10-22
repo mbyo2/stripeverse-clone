@@ -6,7 +6,10 @@
 //                   esplora API, record deposits, credit at 1 confirmation
 //   send            (user JWT)  → withdraw to an external mainnet address;
 //                   reserved → built → signed → broadcast → finalized,
-//                   with automatic refund if broadcast provably fails
+//                   with automatic refund ONLY when broadcast provably
+//                   fails; ambiguous broadcast outcomes leave the row
+//                   'reserved' for reconciliation (never refunded —
+//                   see classifyBroadcastOutcome in btc-core)
 //
 // Secrets (capability-gated — see bitcoinCapabilities in btc-core):
 //   BTC_XPUB           account zpub — ALONE enables receive +
@@ -23,12 +26,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
 import {
   buildWithdrawalTx,
+  classifyBroadcastOutcome,
   custodyStatus,
   deriveAddress,
   deriveScript,
   receiveStatus,
   selectCoins,
   validateMainnetAddress,
+  type BroadcastClassification,
   type Utxo,
 } from "../_shared/btc-core.ts";
 
@@ -442,15 +447,36 @@ async function send(supabase: any, userId: string, body: any) {
     return json(500, { error: "Could not build the withdrawal transaction; your balance was refunded" });
   }
 
-  // Broadcast. If the outcome is ambiguous, check the network before
-  // deciding whether a refund is safe.
+  // Broadcast. The outcome is classified by the pure policy in btc-core
+  // (classifyBroadcastOutcome); only a PROVABLE failure refunds.
   const broadcast = await broadcastTx(built.hex, built.txid);
-  if (!broadcast.ok) {
+  if (broadcast.outcome === "definite_failure") {
     await supabase.rpc("btc_fail_withdrawal", {
       p_withdrawal_id: withdrawalId,
       p_error: broadcast.error,
     });
     return json(502, { error: "Broadcast failed; your balance was refunded" });
+  }
+  if (broadcast.outcome === "unknown") {
+    // The signed transaction MAY be on the network despite the ambiguous
+    // answer. Refunding here is the one unforgivable outcome: if the tx
+    // later confirms, the user would hold both the refund and the BTC.
+    // Leave the row 'reserved' (no refund, no finalize) and log loudly
+    // for manual reconciliation (runbook §8), mirroring the
+    // finalize-failure path below. 202, not 5xx: the request was
+    // accepted and its verification is ongoing — a failure status would
+    // invite a retry, and a retry could pay out twice.
+    console.error(
+      "CRITICAL: broadcast outcome unknown — withdrawal left 'reserved' for reconciliation (do NOT refund)",
+      withdrawalId, built.txid, broadcast.detail,
+    );
+    return json(202, {
+      error:
+        "Your withdrawal was sent to the network but its confirmation is delayed — it is being verified, do not retry",
+      txid: built.txid,
+      withdrawal_id: withdrawalId,
+      status: "verifying",
+    });
   }
 
   const { error: finErr } = await supabase.rpc("btc_finalize_withdrawal", {
@@ -541,30 +567,96 @@ async function gatherUtxos(supabase: any, accountPub: any): Promise<Utxo[]> {
   return utxos;
 }
 
-async function broadcastTx(
-  hex: string,
-  expectedTxid: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Whether the network already holds this exact transaction. */
+async function lookupTx(txid: string): Promise<boolean> {
+  const res = await esplora(`/tx/${txid}`).catch(() => null);
+  return res !== null && res.ok;
+}
+
+type BroadcastResult =
+  | { outcome: "confirmed" }
+  | { outcome: "definite_failure"; error: string }
+  | { outcome: "unknown"; detail: string };
+
+/**
+ * Broadcast a signed withdrawal and classify what the network proved.
+ *
+ * The DECISION — above all, whether refunding is provably safe — is the
+ * pure classifyBroadcastOutcome policy in btc-core; this function only
+ * gathers observations: one POST /tx, then GET /tx/{txid} lookups for
+ * OUR txid (never the txid a response happened to name). An UNKNOWN
+ * verdict is double-checked with two more lookups a short interval
+ * apart (indexing lag is seconds-scale) before it is returned — a
+ * refund must never rest on a single lookup miss.
+ */
+async function broadcastTx(hex: string, expectedTxid: string): Promise<BroadcastResult> {
+  let postStatus: number | null = null;
+  let postBody = "";
+  let postTxid: string | null = null;
+  let postError: string | null = null;
   try {
     const res = await esplora("/tx", {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
       body: hex,
     });
+    postStatus = res.status;
+    const text = await res.text().catch(() => "");
     if (res.ok) {
-      const txid = (await res.text()).trim();
-      if (txid === expectedTxid) return { ok: true };
-      return { ok: false, error: `Esplora returned unexpected txid ${txid}` };
+      postTxid = text.trim() || null;
+    } else {
+      postBody = text;
     }
-    const detail = await res.text().catch(() => "");
-    // A rejected POST can still mean "already on the network" in timeout
-    // races — verify before declaring failure.
-    const check = await esplora(`/tx/${expectedTxid}`);
-    if (check.ok) return { ok: true };
-    return { ok: false, error: `Broadcast rejected: ${res.status} ${detail.slice(0, 200)}` };
   } catch (e) {
-    const check = await esplora(`/tx/${expectedTxid}`).catch(() => null);
-    if (check && check.ok) return { ok: true };
-    return { ok: false, error: `Broadcast error: ${e instanceof Error ? e.message : String(e)}` };
+    // Timeout / network error: the POST may still have landed.
+    postError = e instanceof Error ? e.message : String(e);
   }
+
+  const classify = (lookupFound: boolean): BroadcastClassification =>
+    classifyBroadcastOutcome({ postStatus, postBody, postTxid, lookupFound }, expectedTxid);
+
+  // A txid match on the POST settles it without any lookup. Anything
+  // else — rejection, timeout, unexpected txid — is checked against
+  // the network before it is believed.
+  let cls = classify(false);
+  let lookupFound = false;
+  if (cls.outcome !== "confirmed") {
+    lookupFound = await lookupTx(expectedTxid);
+    cls = classify(lookupFound);
+  }
+  if (cls.outcome === "confirmed") return { outcome: "confirmed" };
+  if (cls.outcome === "definite_failure") {
+    return {
+      outcome: "definite_failure",
+      error: `Broadcast rejected: ${postStatus} ${postBody.slice(0, 200)}`,
+    };
+  }
+
+  // UNKNOWN: bounded double-check — two further lookups ~1.5s apart
+  // (~3s total) — before the withdrawal is left reserved for
+  // reconciliation. Classification is recomputed from the same POST
+  // observation; only the lookup evidence can change the verdict.
+  for (let i = 0; i < 2 && !lookupFound; i++) {
+    await sleep(1500);
+    lookupFound = await lookupTx(expectedTxid);
+  }
+  cls = classify(lookupFound);
+  if (cls.outcome === "confirmed") return { outcome: "confirmed" };
+  if (cls.outcome === "definite_failure") {
+    return {
+      outcome: "definite_failure",
+      error: `Broadcast rejected: ${postStatus} ${postBody.slice(0, 200)}`,
+    };
+  }
+  const postDesc = postStatus === null
+    ? `no response (${postError ?? "request failed"})`
+    : `HTTP ${postStatus}${postTxid ? ` txid ${postTxid}` : ""}${postBody ? ` ${postBody.slice(0, 200)}` : ""}`;
+  return {
+    outcome: "unknown",
+    detail: `broadcast unconfirmed after re-checks: ${cls.reason}; POST ${postDesc}`,
+  };
 }
