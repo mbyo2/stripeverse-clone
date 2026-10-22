@@ -15,6 +15,18 @@ import {
   verifyPayPalWebhookSignature,
 } from "../_shared/paypal-webhook-verify.ts";
 import { orderIdFromWebhookEvent } from "../_shared/deposit-capture.ts";
+import {
+  payoutBatchIdFromWebhookResource,
+  payoutItemIdFromWebhookResource,
+  payoutSenderItemIdFromWebhookResource,
+} from "../_shared/paypal-payout.ts";
+import {
+  attachProviderIds,
+  findWithdrawalByBatchId,
+  findWithdrawalById,
+  findWithdrawalByItemId,
+  refreshWithdrawalFromPayPal,
+} from "../_shared/paypal-payout-server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,7 +111,23 @@ serve(async (req) => {
       case 'BILLING.SUBSCRIPTION.PAYMENT.FAILED':
         await handleSubscriptionPaymentFailed(supabaseClient, resource);
         break;
-      
+
+      case 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED':
+      case 'PAYMENT.PAYOUTS-ITEM.FAILED':
+      case 'PAYMENT.PAYOUTS-ITEM.RETURNED':
+      case 'PAYMENT.PAYOUTS-ITEM.UNCLAIMED':
+      case 'PAYMENT.PAYOUTS-ITEM.BLOCKED':
+      case 'PAYMENT.PAYOUTSBATCH.DENIED':
+      case 'PAYMENT.PAYOUTSBATCH.SUCCESS':
+        // Withdrawal (payout) finalization backstop — the twin of
+        // the deposit backstop below. NOTE: these event types must
+        // also be subscribed on the PayPal webhook itself
+        // (account-side) before PayPal will send them; the
+        // paypal-payout status action polls the same finalization
+        // path, so an unsubscribed event delays nothing forever.
+        await handlePayoutEvent(supabaseClient, eventType, resource);
+        break;
+
       default:
         logStep("Unhandled event type", { eventType });
     }
@@ -224,6 +252,42 @@ async function handleCheckoutPaymentEvent(supabase: any, eventType: string, reso
   const result = await confirmPayPalCheckoutPayment(supabase, orderId);
   logStep("Checkout payment webhook confirmation", { orderId, kind: result.kind });
   return true;
+}
+
+/**
+ * Backstop finalization for PayPal WITHDRAWALS (payouts).
+ *
+ * The payload is only a trigger, exactly as with deposits: the
+ * withdrawal row is found by PayPal's batch id, item id, or — for
+ * item events, whose payout_item.sender_item_id is OUR withdrawal
+ * id — by the sender item id (which also reattaches a withdrawal
+ * whose creation response was lost). Finalization then re-reads
+ * the batch from PayPal's API and completes or refunds from that
+ * authoritative state, through the same RPCs the status action
+ * uses — so webhook replays and webhook/poll races are no-ops and
+ * a refund can only ever happen once.
+ */
+async function handlePayoutEvent(supabase: any, eventType: string, resource: any): Promise<void> {
+  const batchId = payoutBatchIdFromWebhookResource(resource);
+  const itemId = payoutItemIdFromWebhookResource(resource);
+  const senderItemId = payoutSenderItemIdFromWebhookResource(resource);
+
+  let row = batchId ? await findWithdrawalByBatchId(supabase, batchId) : null;
+  if (!row && itemId) row = await findWithdrawalByItemId(supabase, itemId);
+  if (!row && senderItemId) row = await findWithdrawalById(supabase, senderItemId);
+  if (!row) {
+    logStep("Payout event for unknown withdrawal", { eventType, batchId, itemId });
+    return;
+  }
+
+  row = await attachProviderIds(supabase, row, batchId, itemId);
+  const outcome = await refreshWithdrawalFromPayPal(supabase, row);
+  logStep("Payout webhook finalization", {
+    eventType,
+    withdrawalId: row.id,
+    kind: outcome.kind,
+    status: outcome.row.status,
+  });
 }
 
 async function handlePaymentCompleted(supabase: any, resource: any) {

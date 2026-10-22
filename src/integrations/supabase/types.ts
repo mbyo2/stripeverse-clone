@@ -1799,19 +1799,82 @@ export type Database = {
         }
         Relationships: []
       }
+      paypal_withdrawals: {
+        Row: {
+          amount: number
+          completed_at: string | null
+          created_at: string
+          currency: string
+          failure_reason: string | null
+          fee_amount: number
+          id: string
+          idempotency_key: string
+          payout_batch_id: string | null
+          payout_item_id: string | null
+          provider_status: string | null
+          recipient_email: string
+          refunded_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          amount: number
+          completed_at?: string | null
+          created_at?: string
+          currency: string
+          failure_reason?: string | null
+          fee_amount?: number
+          id?: string
+          idempotency_key: string
+          payout_batch_id?: string | null
+          payout_item_id?: string | null
+          provider_status?: string | null
+          recipient_email: string
+          refunded_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          wallet_id: string
+        }
+        Update: {
+          amount?: number
+          completed_at?: string | null
+          created_at?: string
+          currency?: string
+          failure_reason?: string | null
+          fee_amount?: number
+          id?: string
+          idempotency_key?: string
+          payout_batch_id?: string | null
+          payout_item_id?: string | null
+          provider_status?: string | null
+          recipient_email?: string
+          refunded_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: []
+      }
       platform_settings: {
         Row: {
           id: boolean
+          paypal_payout_fee_percent: number
           send_money_fee_percent: number
           split_platform_fee_percent: number
         }
         Insert: {
           id?: boolean
+          paypal_payout_fee_percent?: number
           send_money_fee_percent?: number
           split_platform_fee_percent?: number
         }
         Update: {
           id?: boolean
+          paypal_payout_fee_percent?: number
           send_money_fee_percent?: number
           split_platform_fee_percent?: number
         }

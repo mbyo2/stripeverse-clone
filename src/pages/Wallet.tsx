@@ -14,7 +14,7 @@ import QuickActions from "@/components/wallet/QuickActions";
 import VirtualCardManager from "@/components/wallet/VirtualCardManager";
 import PaymentMethodList from "@/components/wallet/PaymentMethodList";
 import TransactionHistory from "@/components/wallet/TransactionHistory";
-import { PlusCircle, Wallet as WalletIcon, CreditCard, Clock, ArrowRight, ChevronRight, Info } from "lucide-react";
+import { PlusCircle, MinusCircle, Wallet as WalletIcon, CreditCard, Clock, ArrowRight, ChevronRight, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useState } from "react";
@@ -23,6 +23,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/hooks/useWallet";
 import { usePayPalDepositReturn } from "@/hooks/usePayPalDepositReturn";
 import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from "@/config/paypal";
+import PayPalWithdraw from "@/components/wallet/PayPalWithdraw";
+import { PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE } from "@/utils/paypalPayout";
 import { useAccount } from "@/contexts/AccountContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -112,6 +114,11 @@ const Wallet = () => {
             </AlertDescription>
           </Alert>
         )}
+        {depositMethod === 'paypal' && PAYPAL_AVAILABLE && (
+          <p className="text-xs text-muted-foreground text-center">
+            {PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE}
+          </p>
+        )}
       </div>
       <Button 
         onClick={handleAddMoney} 
@@ -157,6 +164,7 @@ const Wallet = () => {
             </p>
           </div>
           
+          <div className="flex flex-wrap gap-2">
           {isMobile ? (
             <Drawer>
               <DrawerTrigger asChild>
@@ -186,6 +194,37 @@ const Wallet = () => {
               </DialogContent>
             </Dialog>
           )}
+
+          {isMobile ? (
+            <Drawer>
+              <DrawerTrigger asChild>
+                <Button variant="outline" className="h-11 px-5 rounded-full font-semibold">
+                  <MinusCircle className="mr-2 h-4 w-4" /> Withdraw
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent>
+                <DrawerHeader className="text-center">
+                  <DrawerTitle>Withdraw to PayPal</DrawerTitle>
+                </DrawerHeader>
+                <PayPalWithdraw wallet={wallet ?? null} />
+              </DrawerContent>
+            </Drawer>
+          ) : (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="h-11 px-5 rounded-full font-semibold">
+                  <MinusCircle className="mr-2 h-4 w-4" /> Withdraw
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Withdraw to PayPal</DialogTitle>
+                </DialogHeader>
+                <PayPalWithdraw wallet={wallet ?? null} />
+              </DialogContent>
+            </Dialog>
+          )}
+          </div>
         </div>
         
         {/* Wallet Balance Hero */}
