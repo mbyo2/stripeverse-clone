@@ -56,6 +56,15 @@ verify_jwt = true
 [functions.paypal-webhook] 
 verify_jwt = false
 
+# Stripe gateway wallet top-ups (brief §3): checkout is called by a
+# signed-in admin (JWT on); the webhook is called by Stripe itself
+# and authenticates with the Stripe-Signature header instead.
+[functions.stripe-gateway-checkout]
+verify_jwt = true
+
+[functions.stripe-gateway-webhook]
+verify_jwt = false
+
 [functions.paypal-marketplace]
 verify_jwt = true
 
