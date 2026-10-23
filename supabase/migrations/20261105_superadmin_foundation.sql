@@ -23,6 +23,14 @@
 -- plain-user own-row behaviour is provably unchanged (regression
 -- block in supabase/qa/superadmin_foundation_proofs.sql).
 --
+-- RECONCILIATION (2026-10-23): §8 was rewritten after the
+-- delta-audit remediation (20261102_delta_audit_remediation.sql)
+-- merged and went LIVE. Its three P2P RPC bodies are the delta
+-- bodies with only the in-DB admin check swapped to
+-- public.p2p_is_admin(...) — see §8 for the detail. Relay order
+-- is unchanged: 20261104 (each ALTER TYPE in its OWN editor Run)
+-- before this file, and this file only ever AFTER 20261102.
+--
 -- Sections:
 --   1. super_admin grant (sole initial holder, idempotent)
 --   2. Role-management supremacy (user_roles write policy)
@@ -32,7 +40,8 @@
 --   6. admin_list_users() directory RPC
 --   7. Admin oversight SELECT policies (wallets, accounts,
 --      payment_links, crypto_wallets, btc_deposits) — read-only
---   8. Per-feature roles: p2p_is_admin() + p2p_resolve_dispute check
+--   8. Per-feature roles: p2p_is_admin() + the delta P2P RPC gates
+--      (p2p_apply_sanction / p2p_resolve_review / p2p_resolve_dispute)
 --   9. Account freeze: profiles columns + column guard +
 --      admin_set_user_frozen()
 -- =====================================================================
@@ -438,13 +447,30 @@ CREATE POLICY "Admin oversight can view all btc deposits"
 -- 8. PER-FEATURE ROLES (foundation) — p2p_is_admin is the single
 -- P2P admin-verification helper: admin OR super_admin OR p2p_admin.
 -- The p2p edge function's isAdmin check is extended to the same set
--- (supabase/functions/p2p/index.ts), and p2p_resolve_dispute — the
--- one DB RPC on main that verifies an admin identity in-DB — now
--- calls this helper. Its definition is reproduced VERBATIM from
--- 20261023_p2p_phase1a_core.sql §6.11 with only the verification line
--- (and its header comment) changed. Sanction apply/revoke on main
--- carry no in-DB actor check by design (service-role-only ACL; the
--- edge check is the gate) — unchanged.
+-- (supabase/functions/p2p/index.ts).
+--
+-- RECONCILIATION (2026-10-23, after 20261102 merged): the three
+-- RPCs below are reproduced from the DELTA-AUDIT bodies in
+-- 20261102_delta_audit_remediation.sql (§D4 + §D10) — the versions
+-- that are LIVE — with ONLY their in-DB admin verification swapped
+-- from has_role(<actor>, 'admin') to public.p2p_is_admin(<actor>):
+--   * p2p_apply_sanction  — the D10 supplied-identity check; the
+--     NULL-admin system path (automation rungs) is unchanged.
+--   * p2p_resolve_review  — the D4 gate line.
+--   * p2p_resolve_dispute — the actor gate line; the rest of the
+--     delta body (replay handling, the 8-arg sanction call with
+--     the verified admin id attached, the single D4 audit row
+--     written inside p2p_apply_sanction) is byte-identical.
+-- Signatures and ACL blocks are likewise the delta ones, so each
+-- CREATE OR REPLACE lands on the exact live signature — no DROP
+-- needed, nothing regresses. (The first draft of this section
+-- carried the pre-delta phase-1a resolver body — 7-arg sanction
+-- call, resolver-written sanction_applied audit row; relaying it
+-- after 20261102 would have duplicated that audit row and lost
+-- the verified-admin identity. It must not come back.)
+-- Deliberately NOT redefined here: p2p_revoke_sanction — 20261102
+-- gave it its own in-DB admin check, and it keeps the delta
+-- admin-only form; widening it is a separate, explicit decision.
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.p2p_is_admin(p_user_id uuid)
 RETURNS boolean
@@ -463,13 +489,113 @@ REVOKE ALL ON FUNCTION public.p2p_is_admin(uuid) FROM anon;
 REVOKE ALL ON FUNCTION public.p2p_is_admin(uuid) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.p2p_is_admin(uuid) TO service_role;
 
--- 6.11 p2p_resolve_dispute — the admin ruling (§3.6, §4.2).
--- Admin is verified INSIDE via public.p2p_is_admin (admin OR
--- super_admin OR p2p_admin): the caller is the service role
--- parameter and the role check happens here, in the database,
--- not in a client. The ruling, the escrow move, the reputation
--- consequences and any sanction land in ONE transaction. Split
--- outcomes do not exist (§3.6).
+-- p2p_apply_sanction — delta §D4 + §D10 body; only the
+-- supplied-admin verification calls public.p2p_is_admin.
+CREATE OR REPLACE FUNCTION public.p2p_apply_sanction(
+  p_user_id uuid,
+  p_scope text,
+  p_level integer,
+  p_reason_code text,
+  p_detail text,
+  p_applied_by text,
+  p_duration interval DEFAULT NULL,
+  p_admin_id uuid DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_id uuid;
+BEGIN
+  IF p_scope NOT IN ('p2p', 'platform') THEN
+    RAISE EXCEPTION 'Invalid sanction scope: %', p_scope;
+  END IF;
+  IF p_level < 0 OR p_level > 4 THEN
+    RAISE EXCEPTION 'Invalid sanction level: %', p_level;
+  END IF;
+  -- Delta-audit D10: a supplied admin identity must be a REAL
+  -- admin — verified here, in the database, never trusted from
+  -- the caller. NULL means the system path (automation rungs).
+  IF p_admin_id IS NOT NULL
+     AND NOT public.p2p_is_admin(p_admin_id) THEN
+    RAISE EXCEPTION 'Only an admin can apply a sanction';
+  END IF;
+
+  INSERT INTO public.user_sanctions (
+    user_id, scope, level, reason_code, detail, applied_by, expires_at
+  ) VALUES (
+    p_user_id, p_scope, p_level, p_reason_code, p_detail, p_applied_by,
+    CASE WHEN p_duration IS NULL THEN NULL ELSE now() + p_duration END
+  )
+  RETURNING id INTO v_id;
+
+  -- Delta-audit D4: the audit row is written HERE, inside the one
+  -- function every sanction flows through, so no caller — console,
+  -- dispute ruling, or automation — can apply a sanction without
+  -- leaving the record.
+  PERFORM public.p2p_write_audit(NULL, p_admin_id,
+    CASE WHEN p_admin_id IS NULL THEN 'system' ELSE 'admin' END,
+    'sanction_applied',
+    jsonb_build_object('sanction_id', v_id, 'user_id', p_user_id,
+                       'scope', p_scope, 'level', p_level,
+                       'reason_code', p_reason_code,
+                       'applied_by', p_applied_by));
+
+  RETURN v_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.p2p_apply_sanction(uuid, text, integer, text, text, text, interval, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.p2p_apply_sanction(uuid, text, integer, text, text, text, interval, uuid) FROM anon;
+REVOKE ALL ON FUNCTION public.p2p_apply_sanction(uuid, text, integer, text, text, text, interval, uuid) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.p2p_apply_sanction(uuid, text, integer, text, text, text, interval, uuid) TO service_role;
+
+-- p2p_resolve_review — delta §D4 body; only the gate calls
+-- public.p2p_is_admin.
+CREATE OR REPLACE FUNCTION public.p2p_resolve_review(
+  p_admin_id uuid,
+  p_review_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row public.p2p_reviews%ROWTYPE;
+BEGIN
+  IF p_admin_id IS NULL
+     OR NOT public.p2p_is_admin(p_admin_id) THEN
+    RAISE EXCEPTION 'Only an admin can clear a review';
+  END IF;
+
+  UPDATE public.p2p_reviews
+     SET status = 'cleared',
+         resolved_at = now()
+   WHERE id = p_review_id
+     AND status = 'pending'
+  RETURNING * INTO v_row;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'That review was not found, or has already been cleared';
+  END IF;
+
+  PERFORM public.p2p_write_audit(NULL, p_admin_id, 'admin',
+    'review_cleared',
+    jsonb_build_object('review_id', v_row.id, 'user_id', v_row.user_id,
+                       'reason', v_row.reason));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.p2p_resolve_review(uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.p2p_resolve_review(uuid, uuid) FROM anon;
+REVOKE ALL ON FUNCTION public.p2p_resolve_review(uuid, uuid) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.p2p_resolve_review(uuid, uuid) TO service_role;
+
+-- p2p_resolve_dispute — delta §D4 + §D10 body; only the actor
+-- gate calls public.p2p_is_admin.
 CREATE OR REPLACE FUNCTION public.p2p_resolve_dispute(
   p_admin_id uuid,
   p_dispute_id uuid,
@@ -556,10 +682,11 @@ BEGIN
         WHEN 1 THEN interval '7 days'
         WHEN 2 THEN interval '90 days'
         ELSE NULL
-      END);
-    PERFORM public.p2p_write_audit(v_dispute.order_id, p_admin_id, 'admin', 'sanction_applied',
-      jsonb_build_object('dispute_id', p_dispute_id, 'sanction_id', v_sanction_id,
-                         'user_id', v_loser, 'level', p_sanction_level));
+      END,
+      p_admin_id);
+    -- No sanction_applied audit row here (delta-audit D4):
+    -- p2p_apply_sanction writes its own — now with the ruling
+    -- admin's verified identity attached (delta-audit D10).
   END IF;
 
   RETURN jsonb_build_object('success', true,

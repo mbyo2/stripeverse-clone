@@ -500,9 +500,11 @@ END $$;
 -- p2p_resolve_dispute's first gate is p2p_is_admin(p_admin_id).
 -- With a nonexistent dispute id, a STAFF caller must get past the
 -- actor gate and fail later with 'Dispute not found', while a
--- plain user must fail AT the gate. (p2p_apply_sanction on main
--- carries no in-DB actor check — service_role ACL only; the
--- dispute resolver is the checkable surface.)
+-- plain user must fail AT the gate. (Since 20261102 (delta
+-- D4 + D10) + §8 of 20261105, p2p_apply_sanction and
+-- p2p_resolve_review carry the same in-DB verification via
+-- public.p2p_is_admin; the dispute resolver remains the
+-- checkable surface for this proof.)
 -- EXPECT: NOTICE 'P13 PASS ...'.
 DO $$
 DECLARE v_msg text := ''; v_gate boolean := false;
