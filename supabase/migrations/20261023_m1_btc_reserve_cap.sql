@@ -129,4 +129,10 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.btc_reserve_withdrawal(UUID, TEXT, BIGINT, BIGINT, TEXT, BIGINT) FROM PUBLIC;
+-- The DROP + fresh CREATE picks up this project's DEFAULT function
+-- privileges (EXECUTE to anon + authenticated), which a PUBLIC-only
+-- revoke does not remove — the live apply proved it (acl showed all
+-- four roles). Revoke the role grants explicitly. (CREATE OR REPLACE
+-- migrations do not need this: REPLACE preserves the existing ACL.)
+REVOKE ALL ON FUNCTION public.btc_reserve_withdrawal(UUID, TEXT, BIGINT, BIGINT, TEXT, BIGINT) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.btc_reserve_withdrawal(UUID, TEXT, BIGINT, BIGINT, TEXT, BIGINT) TO service_role;
