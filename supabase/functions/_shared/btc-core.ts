@@ -648,3 +648,87 @@ export function classifyBroadcastOutcome(
   }
   return { outcome: "unknown", reason: `post_http_${obs.postStatus}` };
 }
+
+// ── Deposit crediting policy (audit M2 / P2-16) ────────────────────────
+//
+// Deposits used to credit at ONE confirmation from a SINGLE explorer:
+// a one-block reorg, or a compromised/misconfigured esplora endpoint,
+// could credit BTC that never settles — immediately tradable against
+// pooled funds. The policy now tiers by amount, and the largest
+// deposits must additionally agree on a second, independent explorer
+// before they may credit. Pure, like the rest of this module: the
+// edge function gathers the observations; the DECISIONS live here so
+// the whole matrix is unit-testable (tests/bitcoin/).
+
+/**
+ * Confirmations a deposit of `amountSats` must reach before it may
+ * credit, given the configured tier thresholds: below the medium
+ * threshold → 2; at or above it → 3. (The large threshold keeps the
+ * same 3 but adds the cross-check — see depositNeedsCrossCheck.)
+ */
+export function requiredConfirmationsFor(
+  amountSats: number,
+  mediumSats: number,
+  largeSats: number,
+): number {
+  void largeSats; // tier boundary documented above; count is 3 either way
+  return amountSats >= mediumSats ? 3 : 2;
+}
+
+/** Deposits at or above the large threshold need the cross-check. */
+export function depositNeedsCrossCheck(amountSats: number, largeSats: number): boolean {
+  return amountSats >= largeSats;
+}
+
+/**
+ * One explorer's view of the deposit output being credited: whether
+ * its transaction is confirmed there, the block it confirmed in, and
+ * the value + address of the output at the deposit's vout index.
+ */
+export interface DepositTxView {
+  confirmed: boolean;
+  blockHeight: number | null;
+  voutValue: number | null;
+  voutAddress: string | null;
+}
+
+export type DepositCrossCheck =
+  | { ok: true }
+  | { ok: false; reason: string };
+
+/**
+ * Verdict for the second-explorer cross-check of a large deposit.
+ * FAIL-CLOSED: anything short of positive agreement — the secondary
+ * explorer unreachable or not-ok (null view), the transaction
+ * unconfirmed there, a different value or address at the vout, or
+ * block heights disagreeing by more than 2 (indexing lag is
+ * seconds-scale; a wider gap means the two explorers are looking at
+ * different chains) — holds the deposit for the next scan instead of
+ * crediting it.
+ */
+export function crossCheckDeposit(
+  primary: DepositTxView,
+  secondary: DepositTxView | null,
+  expectedAddress: string,
+  expectedValueSats: number,
+): DepositCrossCheck {
+  if (secondary === null) {
+    return { ok: false, reason: "secondary explorer lookup failed" };
+  }
+  if (!secondary.confirmed) {
+    return { ok: false, reason: "not confirmed on secondary explorer" };
+  }
+  if (secondary.voutValue !== expectedValueSats) {
+    return { ok: false, reason: "value mismatch on secondary explorer" };
+  }
+  if (secondary.voutAddress !== expectedAddress) {
+    return { ok: false, reason: "address mismatch on secondary explorer" };
+  }
+  if (
+    primary.blockHeight !== null && secondary.blockHeight !== null &&
+    Math.abs(secondary.blockHeight - primary.blockHeight) > 2
+  ) {
+    return { ok: false, reason: "block height disagreement between explorers" };
+  }
+  return { ok: true };
+}

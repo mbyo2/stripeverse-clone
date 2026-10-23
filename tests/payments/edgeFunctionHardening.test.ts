@@ -213,6 +213,61 @@ describe("CVV hygiene — create-virtual-card", () => {
   });
 });
 
+describe("M1/M2 — BTC cap in the reserving RPC + tiered deposit crediting (P2-15/P2-16)", () => {
+  const capMigration = read("../../supabase/migrations/20261023_m1_btc_reserve_cap.sql");
+
+  it("the daily cap moves into btc_reserve_withdrawal, serialized per user", () => {
+    // Old overload dropped; replacement takes the cap as an optional arg.
+    expect(capMigration).toContain(
+      "DROP FUNCTION public.btc_reserve_withdrawal(UUID, TEXT, BIGINT, BIGINT, TEXT);",
+    );
+    expect(capMigration).toContain("p_max_daily_sats BIGINT DEFAULT NULL");
+    expect(capMigration).toContain(
+      "pg_advisory_xact_lock(hashtext('btc_reserve:' || p_user_id::text))",
+    );
+    // App semantics mirrored exactly: amount only, committing statuses, 24h.
+    expect(capMigration).toContain("w.status IN ('reserved', 'broadcast', 'confirmed')");
+    expect(capMigration).toContain("now() - interval '24 hours'");
+    expect(capMigration).toContain("RAISE EXCEPTION 'Daily withdrawal limit exceeded'");
+    // The cap check runs BEFORE the balance debit.
+    expect(capMigration.indexOf("Daily withdrawal limit exceeded")).toBeLessThan(
+      capMigration.indexOf("btc_adjust_crypto_wallet"),
+    );
+    // Service-role only, on the NEW signature.
+    expect(capMigration).toContain(
+      "GRANT EXECUTE ON FUNCTION public.btc_reserve_withdrawal(UUID, TEXT, BIGINT, BIGINT, TEXT, BIGINT) TO service_role",
+    );
+  });
+
+  it("the reserve RPC's idempotency replay is owner-scoped (L2)", () => {
+    expect(capMigration).toContain("v_existing.user_id <> p_user_id");
+    expect(capMigration).toContain("RAISE EXCEPTION 'Idempotency key already used'");
+  });
+
+  it("btc-onchain passes its env-derived cap into the reservation", () => {
+    expect(onchain).toContain("p_max_daily_sats: maxDailySats");
+  });
+
+  it("deposits credit on tiered confirmations, never the old flat 1", () => {
+    expect(onchain).not.toContain("REQUIRED_CONFIRMATIONS");
+    expect(onchain).toContain("requiredConfirmationsFor(vout.value, mediumSats, largeSats)");
+    expect(onchain).toContain('envInt("BTC_DEPOSIT_MEDIUM_SATS", 500_000)');
+    expect(onchain).toContain('envInt("BTC_DEPOSIT_LARGE_SATS", 2_000_000)');
+    expect(onchain).toContain("p_required_confs: requiredConfs");
+  });
+
+  it("large deposits are cross-checked on an independent explorer, fail-closed", () => {
+    expect(onchain).toContain('Deno.env.get("ESPLORA_SECONDARY_API_URL") || "https://blockstream.info/api"');
+    expect(onchain).toContain("depositNeedsCrossCheck(vout.value, largeSats)");
+    expect(onchain).toContain("cross-check pending for large deposit ${tx.txid}: ${verdict.reason}");
+    // The cross-check gate sits BEFORE the record RPC in checkDeposits.
+    const gate = onchain.indexOf("crossCheckLargeDeposit(tx, voutIndex");
+    const rpc = onchain.indexOf('rpc("btc_record_deposit"');
+    expect(gate).toBeGreaterThanOrEqual(0);
+    expect(rpc).toBeGreaterThan(gate);
+  });
+});
+
 describe("Virtual-card consumers match the live columns", () => {
   const cardDetails = read("../../src/pages/VirtualCardDetails.tsx");
   const cardManager = read("../../src/components/wallet/VirtualCardManager.tsx");
