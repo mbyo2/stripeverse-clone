@@ -774,14 +774,14 @@ BEGIN
     v_max_order := 100000;
   ELSE
     v_can_trade := false;
-    v_reasons := v_reasons || 'kyc_required';
+    v_reasons := array_append(v_reasons, 'kyc_required');
   END IF;
 
   -- Master switch (§4.1): ops can pause the whole marketplace
   -- without a deploy; while paused, nobody trades.
   IF NOT v_enabled THEN
     v_can_trade := false;
-    v_reasons := v_reasons || 'marketplace_paused';
+    v_reasons := array_append(v_reasons, 'marketplace_paused');
   END IF;
 
   -- Account-age cooldown (§3.3): no P2P at all before it (default
@@ -789,7 +789,7 @@ BEGIN
   IF v_account_created_at IS NULL
      OR now() - v_account_created_at < make_interval(hours => v_cooldown_hours) THEN
     v_can_trade := false;
-    v_reasons := v_reasons || 'account_too_new';
+    v_reasons := array_append(v_reasons, 'account_too_new');
   END IF;
 
   -- First 7 days after T1 (§3.3): daily cap K500, max 3
@@ -799,7 +799,7 @@ BEGIN
      AND now() < v_verified_at + interval '7 days' THEN
     v_daily_cap := LEAST(v_daily_cap, 500);
     v_orders_day_cap := LEAST(v_orders_day_cap, 3);
-    v_reasons := v_reasons || 'new_trader_limits';
+    v_reasons := array_append(v_reasons, 'new_trader_limits');
   END IF;
 
   -- First 5 completed trades (§3.3): max order K500.
@@ -828,7 +828,7 @@ BEGIN
 
   IF v_orders_today >= v_orders_day_cap THEN
     v_can_trade := false;
-    v_reasons := v_reasons || 'daily_order_cap_reached';
+    v_reasons := array_append(v_reasons, 'daily_order_cap_reached');
   END IF;
 
   -- Sanctions (§3.9): the highest ACTIVE, in-window rung in p2p or
@@ -846,7 +846,7 @@ BEGIN
 
   IF COALESCE(v_sanction_level, 0) >= 1 THEN
     v_can_trade := false;
-    v_reasons := v_reasons || ('sanctioned_rung_' || v_sanction_level);
+    v_reasons := array_append(v_reasons, 'sanctioned_rung_' || v_sanction_level::text);
   END IF;
 
   -- Identity-review hold (§3.2 / §4.1): a pending review whose 72h
@@ -862,7 +862,7 @@ BEGIN
     v_trade_hold := true;
     v_hold_reason := 'identity_review_hold';
     v_can_trade := false;
-    v_reasons := v_reasons || 'identity_review_hold';
+    v_reasons := array_append(v_reasons, 'identity_review_hold');
   END IF;
 
   -- Advertiser gate (§3.3): T2+ AND account age >= 14 days AND
