@@ -42,7 +42,7 @@ const Help = () => {
 
   const guides = [
     { title: 'Getting Started', description: 'Create your account and make your first transaction', icon: BookOpen, link: '/dashboard' },
-    { title: 'KYC Verification', description: 'Complete identity verification to unlock full features', icon: Users, link: '/kyc' },
+    { title: 'KYC Verification', description: 'For the specific features that ask for it — like higher P2P tiers and bigger limits', icon: Users, link: '/kyc' },
     { title: 'Virtual Cards', description: 'Create and manage virtual cards for online payments', icon: CreditCard, link: '/wallet' },
     { title: 'Mobile Money', description: 'Set up mobile money deposits and withdrawals', icon: Smartphone, link: '/payment-services' },
     { title: 'Security Settings', description: 'Enable 2FA and review your security dashboard', icon: Shield, link: '/security-settings' },

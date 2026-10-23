@@ -35,7 +35,7 @@ const KycPage = () => {
                   </li>
                   <li className="flex items-start">
                     <span className="bg-primary/10 text-primary rounded-full p-1 mr-2 mt-0.5">✓</span>
-                    <span>Access advanced payment features</span>
+                    <span>Trade on higher P2P tiers</span>
                   </li>
                   <li className="flex items-start">
                     <span className="bg-primary/10 text-primary rounded-full p-1 mr-2 mt-0.5">✓</span>

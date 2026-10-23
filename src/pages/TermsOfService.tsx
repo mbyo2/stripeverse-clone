@@ -22,7 +22,7 @@ const TermsOfService = () => {
           <section className="mb-8">
             <h2 className="text-xl font-semibold mb-4">2. Account Registration</h2>
             <p className="text-muted-foreground mb-4">You must provide accurate, complete, and current information. You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account. You must be at least 18 years old to create an account.</p>
-            <p className="text-muted-foreground">Identity verification (KYC) is required to access full platform features including transfers, virtual cards, and higher transaction limits.</p>
+            <p className="text-muted-foreground">Some features — such as higher P2P trading tiers and higher transaction limits — require identity verification (KYC). We ask for it only when you use one of those features. Your wallet, Bitcoin, and everyday payments work without it.</p>
           </section>
           
           <section className="mb-8">

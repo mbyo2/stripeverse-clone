@@ -68,7 +68,7 @@ const KycVerificationStatus = ({
               {renderStatusBadge()}
             </div>
             <p className="text-sm text-green-700 mt-1">
-              Your account has been fully verified. You have access to all features and higher transaction limits.
+              Your account has been fully verified, so you're covered for the features that ask for verification — including higher P2P tiers and higher transaction limits.
             </p>
             <div className="mt-3 flex space-x-2">
               <div className="flex flex-col items-center">
@@ -122,9 +122,9 @@ const KycVerificationStatus = ({
         <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start">
           <Shield className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
           <div className="flex-1">
-            <h3 className="font-medium text-blue-800">Verification Required</h3>
+            <h3 className="font-medium text-blue-800">Not Verified Yet</h3>
             <p className="text-sm text-blue-700 mt-1">
-              Verify your identity to unlock higher transaction limits and additional features.
+              Verify your identity only if you use a feature that needs it — like higher P2P tiers and bigger transaction limits. Everything else works without it.
             </p>
             {status === KycStatus.REJECTED && rejectionReason && (
               <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">

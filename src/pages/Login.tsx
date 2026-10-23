@@ -7,18 +7,45 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Hash, Lock, Mail } from "lucide-react";
+import { Hash, Lock, Mail, MailCheck, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  resendConfirmationMessage,
+  type ResendConfirmationOutcome,
+} from "@/lib/authRecovery";
+
+type ResendState = "idle" | "sending" | ResendConfirmationOutcome;
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { signIn, isLoading, user } = useAuth();
+  const [showResend, setShowResend] = useState(false);
+  const [resendState, setResendState] = useState<ResendState>("idle");
+  const { signIn, resendConfirmationEmail, isLoading, user } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    await signIn(email, password);
+    const result = await signIn(email, password);
+    // The one failure this page can fix itself: the account exists
+    // but its email was never confirmed. Offer the resend in place
+    // instead of leaving the user at a dead end.
+    if (!result.ok && result.emailNotConfirmed) {
+      setShowResend(true);
+      setResendState("idle");
+    }
   };
+
+  const handleResend = async () => {
+    if (resendState === "sending") return;
+    setResendState("sending");
+    const outcome = await resendConfirmationEmail(email);
+    setResendState(outcome);
+  };
+
+  const resendFeedback =
+    resendState !== "idle" && resendState !== "sending"
+      ? resendConfirmationMessage(resendState)
+      : null;
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
@@ -79,6 +106,39 @@ const Login = () => {
                   {isLoading ? "Signing in..." : "Log In"}
                 </Button>
               </form>
+
+              {showResend && (
+                <div className="mt-6 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                  <div className="flex items-start gap-3">
+                    <MailCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        Your email isn't confirmed yet
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        We sent a confirmation link to your email when you signed up. Tap that
+                        link, then sign in. If you can't find it, we can send a fresh one.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10"
+                        onClick={handleResend}
+                        disabled={resendState === "sending" || isLoading}
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        {resendState === "sending" ? "Sending..." : "Resend confirmation email"}
+                      </Button>
+                      {resendFeedback && (
+                        <div role="status" className="pt-1">
+                          <p className="text-sm font-medium text-foreground">{resendFeedback.title}</p>
+                          <p className="text-sm text-muted-foreground">{resendFeedback.description}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
             <CardFooter className="flex flex-col space-y-4 px-8 pb-8 pt-0">
               <div className="relative w-full">

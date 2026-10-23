@@ -42,7 +42,7 @@ const OnboardingWizard = ({ kycLevel, walletBalance, hasProfile, onDismiss }: On
     {
       id: "kyc",
       title: "Verify Your Identity",
-      description: "Complete KYC verification to unlock all features and higher limits.",
+      description: "Only needed for specific features — like higher P2P tiers and bigger limits. We'll ask when you use one of them; everything else works without it.",
       icon: <Shield className="h-6 w-6" />,
       action: "Start Verification",
       route: "/kyc",
@@ -85,7 +85,7 @@ const OnboardingWizard = ({ kycLevel, walletBalance, hasProfile, onDismiss }: On
             <div>
               <CardTitle className="text-lg">Welcome! Let's get you started 🚀</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Complete these steps to unlock the full experience
+                Complete these steps to get the most out of BMaGlass Pay
               </p>
             </div>
             <div className="flex items-center gap-3">

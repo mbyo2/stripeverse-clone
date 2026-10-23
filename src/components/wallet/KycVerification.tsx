@@ -397,7 +397,7 @@ const KycVerification = () => {
       <CardHeader>
         <CardTitle>Identity Verification</CardTitle>
         <CardDescription>
-          Verify your identity to access higher transaction limits and additional features
+          Needed only for specific features — like higher P2P tiers and bigger transaction limits. We'll ask at the time, with the reason.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -662,8 +662,9 @@ const KycVerification = () => {
             <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-4" />
             <h3 className="text-lg font-medium text-green-800 mb-2">Verification Complete</h3>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Your account has been fully verified. You now have access to all features
-              and the highest transaction limits available on our platform.
+              Your account has been fully verified, so you're covered for the features
+              that ask for verification — and you have the highest transaction limits
+              available on our platform.
             </p>
             <div className="mt-6 border border-green-100 rounded-lg p-4 max-w-md mx-auto">
               <h4 className="font-medium text-green-800 mb-2">Your Benefits</h4>
