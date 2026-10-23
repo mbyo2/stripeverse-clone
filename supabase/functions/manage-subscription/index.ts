@@ -116,24 +116,10 @@ Deno.serve(async (req) => {
               })
               .eq('id', sub.id)
 
-            // Generate first invoice
+            // Generate first invoice. It stays in the status billing
+            // created (pending) until a real payment settles it —
+            // never auto-marked paid (security audit P0-9, 2026-10-23).
             await serviceClient.rpc('process_subscriber_billing', { p_subscriber_id: sub.id })
-
-            // Auto-mark as paid since user just initiated
-            const { data: latestInvoice } = await serviceClient
-              .from('subscription_invoices')
-              .select('id')
-              .eq('user_id', user.id)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single()
-
-            if (latestInvoice) {
-              await serviceClient
-                .from('subscription_invoices')
-                .update({ status: 'paid' })
-                .eq('id', latestInvoice.id)
-            }
           }
         }
 

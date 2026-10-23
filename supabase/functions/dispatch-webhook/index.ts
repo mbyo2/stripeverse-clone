@@ -17,6 +17,34 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false, autoRefreshToken: false } }
     )
 
+    // ── Caller gate (security audit P0-8, 2026-10-23) ──
+    // This function signs dispatches with merchants' real webhook
+    // secrets, so it must never answer anonymous callers. It has no
+    // client callers: accept ONLY the platform's own service-role key
+    // (server-to-server) or a signed-in admin's JWT. Everything else
+    // gets a 401 and nothing is dispatched.
+    const authHeader = req.headers.get('Authorization') || ''
+    const token = authHeader.replace('Bearer ', '')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    let authorized = serviceRoleKey.length > 0 && token === serviceRoleKey
+    if (!authorized && token) {
+      const { data: { user } } = await supabase.auth.getUser(token)
+      if (user) {
+        const { data: adminRole } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .maybeSingle()
+        authorized = !!adminRole
+      }
+    }
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     const { merchant_id, event_type, payload } = await req.json()
 
     if (!merchant_id || !event_type || !payload) {
@@ -48,7 +76,17 @@ Deno.serve(async (req) => {
 
     // Generate HMAC-SHA256 signature
     const payloadStr = JSON.stringify(webhookPayload)
-    const secret = merchant.webhook_secret || 'default_secret'
+    // Never sign with a fallback secret (security audit P0-8): a
+    // merchant with no webhook_secret cannot have dispatches signed —
+    // fail the dispatch loudly instead of signing with a publicly
+    // known string.
+    const secret = merchant.webhook_secret
+    if (!secret) {
+      console.error(`Webhook dispatch aborted: merchant ${merchant_id} has no webhook_secret configured`)
+      return new Response(JSON.stringify({ error: 'Merchant webhook secret is not configured' }), {
+        status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
     const encoder = new TextEncoder()
     const key = await crypto.subtle.importKey(
       'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
