@@ -64,6 +64,18 @@
 -- run pauses between sections, re-run the S6 snapshot insert
 -- (identical statement) to refresh the index before continuing;
 -- two refresh points are also marked inline (before P6, P8).
+--
+-- NOTE 4 (proven live 2026-10-23): pg_cron runs p2p_expire_orders
+-- every 5 minutes, so a tick can land between a backdate UPDATE
+-- and the manual p2p_expire_orders() call and do the expiry
+-- first — the manual call then legitimately returns a LOWER
+-- count (even 0). The binding assertions at every expire step
+-- are the POST-STATE checks that follow it (order statuses,
+-- available_sats, orders_expired_unpaid), not the returned
+-- count. On the 2026-10-23 live run this is exactly what
+-- happened in P6: manual call returned expired_count 0 while
+-- the cron tick at 08:45 UTC had already expired all five
+-- orders; every post-state check matched its EXPECT exactly.
 
 -- ── A. Function ACL audit ────────────────────────────────────────
 -- EXPECT: 47 rows (13 Phase 0 + 34 new in 1a; p2p_effective_limits
@@ -692,7 +704,8 @@ UPDATE public.p2p_orders
    AND status = 'escrow_locked';
 
 SELECT public.p2p_expire_orders();
--- EXPECT: expired_count >= 5.
+-- EXPECT: expired_count >= 5 (or lower if a pg_cron tick fired
+-- first — see NOTE 4; the two checks below are binding).
 
 SELECT available_sats FROM public.crypto_wallets
  WHERE user_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
@@ -716,7 +729,9 @@ UPDATE public.p2p_orders
  WHERE idempotency_key = 'proof-p7-o4';
 
 SELECT public.p2p_expire_orders();
--- EXPECT: expired_count >= 1; O4 -> expired_unpaid.
+-- EXPECT: expired_count >= 1; O4 -> expired_unpaid. (Count may
+-- be lower if a pg_cron tick fired first — see NOTE 4; the
+-- status + available checks below are binding.)
 
 SELECT status FROM public.p2p_orders WHERE idempotency_key = 'proof-p7-o4';
 -- EXPECT: expired_unpaid.
@@ -746,7 +761,8 @@ UPDATE public.p2p_orders
  WHERE idempotency_key = 'proof-p7-o5';
 
 SELECT public.p2p_expire_orders();
--- EXPECT: appeal_flagged_count >= 1.
+-- EXPECT: appeal_flagged_count >= 1. (May be lower if a pg_cron
+-- tick fired first — see NOTE 4; the status check below binds.)
 
 SELECT status, appeal_flagged_at IS NOT NULL AS flagged
   FROM public.p2p_orders WHERE idempotency_key = 'proof-p7-o5';
