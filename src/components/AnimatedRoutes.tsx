@@ -61,6 +61,7 @@ import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
 import NotFound from '@/pages/NotFound';
 import AdminUsers from '@/pages/AdminUsers';
+import AdminMastercardMove from '@/pages/AdminMastercardMove';
 import AdminTransactions from '@/pages/AdminTransactions';
 import Developers from '@/pages/Developers';
 import RequestMoney from '@/pages/RequestMoney';
@@ -116,7 +117,7 @@ const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
 );
 
-type Role = 'admin' | 'business' | 'user' | 'beta_tester';
+type Role = 'admin' | 'super_admin' | 'business' | 'user' | 'beta_tester';
 const RoleGuardedPage = ({ children, roles }: { children: React.ReactNode; roles: Role[] }) => (
   <ProtectedRoute requiredRoles={roles}><PageTransition>{children}</PageTransition></ProtectedRoute>
 );
@@ -197,6 +198,7 @@ const AnimatedRoutes = () => {
         <Route path="/ussd-access" element={<ProtectedPage><UssdAccess /></ProtectedPage>} />
         <Route path="/admin/users" element={<RoleGuardedPage roles={['admin']}><AdminUsers /></RoleGuardedPage>} />
         <Route path="/admin/transactions" element={<RoleGuardedPage roles={['admin']}><AdminTransactions /></RoleGuardedPage>} />
+        <Route path="/admin/mastercard-move" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminMastercardMove /></RoleGuardedPage>} />
         <Route path="/admin/p2p" element={<RoleGuardedPage roles={['admin']}><AdminP2P /></RoleGuardedPage>} />
 
         {/* P2P marketplace */}

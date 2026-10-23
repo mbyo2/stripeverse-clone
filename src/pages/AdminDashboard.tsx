@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { countActiveUsers, activityWindowStart } from "@/utils/adminStats";
 import { Link } from "react-router-dom";
-import { Users, Shield, Activity, AlertTriangle, Settings, Database } from "lucide-react";
+import { Users, Shield, Activity, AlertTriangle, Settings, Database, Globe2 } from "lucide-react";
 
 interface UserStat {
   total_users: number;
@@ -180,6 +180,13 @@ const AdminDashboard = () => {
       icon: <Shield className="h-6 w-6" />,
       link: "/role-management",
       color: "bg-[#003087]"
+    },
+    {
+      title: "Cross-Border Payouts",
+      description: "Mastercard Move payouts (sandbox)",
+      icon: <Globe2 className="h-6 w-6" />,
+      link: "/admin/mastercard-move",
+      color: "bg-purple-500"
     },
     {
       title: "Compliance Center",
