@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import QRCode from 'qrcode.react';
 import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
+import { useVisibilityPolling } from "@/lib/polling";
 
 interface BitcoinPaymentProps {
   amount: number;
@@ -28,6 +29,9 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
   const [invoiceId, setInvoiceId] = useState("");
   const [lightningPaymentId, setLightningPaymentId] = useState("");
   const confirmedRef = useRef(false);
+  // Terminal state for the status poller (scalability fix #5): once
+  // the payment is confirmed, polling stops entirely.
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -124,70 +128,75 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
     };
   }, [amount, toast]);
   
-  useEffect(() => {
-    if ((!bitcoinAddress && !lightningPaymentId) || isLoading) return;
+  const checkOnchainStatus = async () => {
+    if (confirmedRef.current || !bitcoinAddress) return;
+    try {
+      // Deposit detection runs server-side: the btc-onchain
+      // check_deposits pg_cron scans assigned addresses every
+      // 5 minutes and records credited deposits in btc_deposits
+      // (credited at the tiered confirmation count — 2 under
+      // 500,000 sats, 3 at or above it). Poll for this address's row.
+      // btc_deposits is not in the generated types — untyped access
+      // is the codebase pattern for such tables.
+      const { data, error } = await (supabase as any)
+        .from('btc_deposits')
+        .select('status')
+        .eq('address', bitcoinAddress)
+        .eq('status', 'credited')
+        .limit(1);
 
-    const checkOnchainStatus = async () => {
-      if (confirmedRef.current || !bitcoinAddress) return;
-      try {
-        // Deposit detection runs server-side: the btc-onchain
-        // check_deposits pg_cron scans assigned addresses every
-        // 5 minutes and records credited deposits in btc_deposits
-        // (credited at the tiered confirmation count — 2 under
-        // 500,000 sats, 3 at or above it). Poll for this address's row.
-        // btc_deposits is not in the generated types — untyped access
-        // is the codebase pattern for such tables.
-        const { data, error } = await (supabase as any)
-          .from('btc_deposits')
-          .select('status')
-          .eq('address', bitcoinAddress)
-          .eq('status', 'credited')
-          .limit(1);
-
-        if (error) {
-          console.error("Error checking payment status:", error);
-          return;
-        }
-
-        if (data && data.length > 0) {
-          handlePaymentConfirmed("bitcoin");
-        }
-      } catch (error) {
+      if (error) {
         console.error("Error checking payment status:", error);
+        return;
       }
-    };
 
-    const checkLightningStatus = async () => {
-      if (confirmedRef.current || !lightningPaymentId) return;
-      try {
-        // Settlement happens inside breez-lightning's check_status
-        // (exactly-once RPC); 'paid' here means the wallet was
-        // actually credited.
-        const { data } = await supabase.functions.invoke('breez-lightning', {
-          body: { action: 'check_status', breez_invoice_id: lightningPaymentId }
-        });
-        if (data?.status === 'paid') {
-          handlePaymentConfirmed("lightning");
-        }
-      } catch (error) {
-        console.error("Error checking Lightning status:", error);
+      if (data && data.length > 0) {
+        handlePaymentConfirmed("bitcoin");
       }
-    };
+    } catch (error) {
+      console.error("Error checking payment status:", error);
+    }
+  };
 
-    const statusInterval = setInterval(() => {
-      checkOnchainStatus();
-      checkLightningStatus();
-    }, 15000);
+  const checkLightningStatus = async () => {
+    if (confirmedRef.current || !lightningPaymentId) return;
+    try {
+      // Settlement happens inside breez-lightning's check_status
+      // (exactly-once RPC); 'paid' here means the wallet was
+      // actually credited.
+      const { data } = await supabase.functions.invoke('breez-lightning', {
+        body: { action: 'check_status', breez_invoice_id: lightningPaymentId }
+      });
+      if (data?.status === 'paid') {
+        handlePaymentConfirmed("lightning");
+      }
+    } catch (error) {
+      console.error("Error checking Lightning status:", error);
+    }
+  };
 
-    checkOnchainStatus();
-    checkLightningStatus();
-
-    return () => clearInterval(statusInterval);
-  }, [bitcoinAddress, lightningPaymentId, isLoading]);
+  // Poll both rails every 15s while a payment is outstanding.
+  // Visibility-gated (scalability fix #5): nothing fires from a
+  // hidden tab, one check lands the moment the payer returns, and
+  // polling stops for good once the payment is confirmed.
+  useVisibilityPolling(
+    () => {
+      void checkOnchainStatus();
+      void checkLightningStatus();
+    },
+    15000,
+    {
+      enabled:
+        (!!bitcoinAddress || !!lightningPaymentId) &&
+        !isLoading &&
+        !paymentConfirmed,
+    },
+  );
 
   const handlePaymentConfirmed = (method: "bitcoin" | "lightning") => {
     if (confirmedRef.current) return;
     confirmedRef.current = true;
+    setPaymentConfirmed(true);
     toast({
       title: "Payment Received!",
       description: "Your Bitcoin payment has been confirmed.",

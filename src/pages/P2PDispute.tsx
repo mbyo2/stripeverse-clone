@@ -42,6 +42,7 @@ import {
   DISPUTE_STATUS_LABELS,
   formatBtcFromSats,
   formatZmw,
+  isTerminalP2pDisputeStatus,
   ORDER_STATUS_META,
   paymentMethodTypeLabel,
   traderDisplayName,
@@ -68,7 +69,12 @@ export default function P2PDispute() {
   const orderQuery = useP2pOrder(dispute?.order_id);
   const order = orderQuery.data;
   const evidenceQuery = useP2pEvidence(dispute?.id);
-  const claimQuery = useP2pOrderClaim(order?.id);
+  // The claim is frozen history once the dispute is ruled/settled —
+  // poll it only while the dispute is open (scalability fix #5).
+  const claimQuery = useP2pOrderClaim(
+    order?.id,
+    !isTerminalP2pDisputeStatus(dispute?.status),
+  );
 
   const [statement, setStatement] = useState("");
   const [proposedOutcome, setProposedOutcome] = useState("");
