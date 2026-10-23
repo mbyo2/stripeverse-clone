@@ -91,3 +91,6 @@ verify_jwt = false
 
 [functions.pos]
 verify_jwt = false
+
+[functions.verify-identity]
+verify_jwt = true

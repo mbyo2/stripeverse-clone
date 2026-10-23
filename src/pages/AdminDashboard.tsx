@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { countActiveUsers, activityWindowStart } from "@/utils/adminStats";
 import { Link } from "react-router-dom";
-import { Users, Shield, Activity, AlertTriangle, Settings, Database } from "lucide-react";
+import { Users, Shield, Activity, AlertTriangle, Settings, Database, ScanFace } from "lucide-react";
 
 interface UserStat {
   total_users: number;
@@ -173,6 +173,13 @@ const AdminDashboard = () => {
       icon: <AlertTriangle className="h-6 w-6" />,
       link: "/admin/p2p",
       color: "bg-orange-500"
+    },
+    {
+      title: "Identity Review",
+      description: "Decide face verifications waiting on a human",
+      icon: <ScanFace className="h-6 w-6" />,
+      link: "/admin/identity",
+      color: "bg-purple-500"
     },
     {
       title: "Role Management",

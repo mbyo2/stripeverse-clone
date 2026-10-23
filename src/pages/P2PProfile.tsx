@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Ban, CheckCircle2, Clock, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { Ban, CheckCircle2, Clock, Plus, ScanFace, ShieldCheck, Trash2 } from "lucide-react";
 import P2pShell from "@/components/p2p/P2pShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +47,8 @@ import {
   SANCTION_LEVEL_LABELS,
   traderDisplayName,
 } from "@/utils/p2pUi";
+import { useMyIdentityStatus } from "@/hooks/useIdentity";
+import { identityStatusMeta } from "@/utils/identityUi";
 import { format } from "date-fns";
 
 const KYC_LABELS: Record<string, { label: string; tone: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -69,6 +71,7 @@ export default function P2PProfile() {
   const tierQuery = useP2pTier();
   const limitsQuery = useP2pLimits();
   const kycQuery = useP2pKycState();
+  const identityQuery = useMyIdentityStatus();
   const profileQuery = useP2pTraderProfile();
   const methodsQuery = useP2pPaymentMethods();
   const blocksQuery = useP2pBlocks();
@@ -318,6 +321,52 @@ export default function P2PProfile() {
                   No trades yet — your record starts with your first completed
                   trade.
                 </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ScanFace className="h-5 w-5 text-primary" /> Face verification
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {identityQuery.isLoading ? (
+                <Skeleton className="h-16 w-full" />
+              ) : identityQuery.isError ? (
+                <p className="text-sm text-muted-foreground">
+                  We couldn't load your face verification status. Refresh
+                  the page to try again.
+                </p>
+              ) : (
+                (() => {
+                  const meta = identityStatusMeta(
+                    identityQuery.data?.verification?.status ?? null,
+                  );
+                  return (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={meta.tone}>{meta.label}</Badge>
+                        {identityQuery.data?.face_verified && (
+                          <span className="text-xs text-muted-foreground">
+                            Face on record for this account
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{meta.body}</p>
+                      <Button asChild variant={meta.verified ? "outline" : "default"}>
+                        <Link to="/verify-identity">
+                          {meta.verified
+                            ? "View face verification"
+                            : meta.canRetry
+                              ? "Verify my face"
+                              : "Open face verification"}
+                        </Link>
+                      </Button>
+                    </>
+                  );
+                })()
               )}
             </CardContent>
           </Card>

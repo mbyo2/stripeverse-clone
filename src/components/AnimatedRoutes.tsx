@@ -51,6 +51,7 @@ import Notifications from '@/pages/Notifications';
 import SecuritySettings from '@/pages/SecuritySettings';
 import TwoFactorAuth from '@/pages/TwoFactorAuth';
 import KycPage from '@/pages/KycPage';
+import VerifyIdentity from '@/pages/VerifyIdentity';
 import UssdAccess from '@/pages/UssdAccess';
 import WalletReconciliationPage from '@/pages/WalletReconciliationPage';
 import About from '@/pages/About';
@@ -111,6 +112,7 @@ import P2PTradeRoom from '@/pages/P2PTradeRoom';
 import P2PProfile from '@/pages/P2PProfile';
 import P2PDispute from '@/pages/P2PDispute';
 import AdminP2P from '@/pages/AdminP2P';
+import AdminIdentity from '@/pages/AdminIdentity';
 
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
@@ -194,10 +196,12 @@ const AnimatedRoutes = () => {
         <Route path="/disputes" element={<ProtectedPage><Disputes /></ProtectedPage>} />
         <Route path="/notifications" element={<ProtectedPage><Notifications /></ProtectedPage>} />
         <Route path="/kyc" element={<ProtectedPage><KycPage /></ProtectedPage>} />
+        <Route path="/verify-identity" element={<ProtectedPage><VerifyIdentity /></ProtectedPage>} />
         <Route path="/ussd-access" element={<ProtectedPage><UssdAccess /></ProtectedPage>} />
         <Route path="/admin/users" element={<RoleGuardedPage roles={['admin']}><AdminUsers /></RoleGuardedPage>} />
         <Route path="/admin/transactions" element={<RoleGuardedPage roles={['admin']}><AdminTransactions /></RoleGuardedPage>} />
         <Route path="/admin/p2p" element={<RoleGuardedPage roles={['admin']}><AdminP2P /></RoleGuardedPage>} />
+        <Route path="/admin/identity" element={<RoleGuardedPage roles={['admin']}><AdminIdentity /></RoleGuardedPage>} />
 
         {/* P2P marketplace */}
         <Route path="/p2p" element={<ProtectedPage><P2PMarketplace /></ProtectedPage>} />
