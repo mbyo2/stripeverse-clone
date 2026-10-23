@@ -110,3 +110,6 @@ verify_jwt = true
 
 [functions.mastercard-move]
 verify_jwt = true
+
+[functions.mastercard-processing]
+verify_jwt = true
