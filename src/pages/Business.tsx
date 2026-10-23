@@ -37,7 +37,7 @@ const Business = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-20 pb-16">
+        <main className="flex-1 pt-2 pb-16">
           <div className="bg-[#003087] py-8">
             <div className="max-w-[1320px] mx-auto px-4 sm:px-6">
               <Skeleton className="h-8 w-48 mb-2 bg-white/20" />

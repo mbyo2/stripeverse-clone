@@ -57,7 +57,7 @@ const IpWhitelist = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-20 pb-24 px-4 max-w-3xl mx-auto">
+      <main className="pt-2 pb-24 px-4 max-w-3xl mx-auto">
         <h1 className="text-2xl font-bold text-foreground mb-2">IP Whitelist</h1>
         <p className="text-muted-foreground mb-6">Restrict API access to specific IP addresses</p>
 

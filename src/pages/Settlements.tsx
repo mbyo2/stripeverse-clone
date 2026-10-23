@@ -56,7 +56,7 @@ const Settlements = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-6xl mt-14">
+      <main className="flex-1 container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">Settlement Reports</h1>

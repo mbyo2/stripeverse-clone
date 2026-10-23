@@ -3,8 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, AlertTriangle, ExternalLink } from "lucide-react";
+import { useRoles } from "@/contexts/RoleContext";
 
 const SecurityStatus = () => {
+  // The remaining configuration items live in the platform's Supabase
+  // dashboard and can only be actioned by BMaGlass Pay administrators —
+  // end users never see that card or its dashboard link.
+  const { hasRole } = useRoles();
+  const isAdmin = hasRole('admin');
   const fixedItems = [
     "Critical data exposure in subscribers table - Fixed",
     "Enhanced authentication rate limiting - Fixed", 
@@ -45,7 +51,7 @@ const SecurityStatus = () => {
         </CardContent>
       </Card>
 
-      {pendingItems.length > 0 && (
+      {isAdmin && pendingItems.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -90,9 +96,9 @@ const SecurityStatus = () => {
       <Alert>
         <CheckCircle className="h-4 w-4 text-green-500" />
         <AlertDescription>
-          <strong>Security Review Complete:</strong> The most critical vulnerabilities have been patched. 
-          Your customer data is now properly protected, authentication is hardened, and input validation 
-          is in place. Complete the remaining configuration item to fully secure your application.
+          <strong>Security Review Complete:</strong> The most critical vulnerabilities have been patched.
+          Your customer data is now properly protected, authentication is hardened, and input validation
+          is in place.{isAdmin ? ' Complete the remaining configuration item to fully secure your application.' : ''}
         </AlertDescription>
       </Alert>
     </div>

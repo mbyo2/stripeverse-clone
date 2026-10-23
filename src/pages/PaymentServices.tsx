@@ -37,7 +37,7 @@ const PaymentServices = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
       
-      <main className="flex-grow pt-24 pb-16">
+      <main className="flex-grow pt-6 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div 
             ref={contentRef}
@@ -60,7 +60,7 @@ const PaymentServices = () => {
             
             {/* Payment Services Tabs */}
             <Tabs defaultValue="mobile-money" className="mb-16">
-              <TabsList className="grid grid-cols-3 md:grid-cols-6 w-full mb-8">
+              <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 w-full mb-8">
                 <TabsTrigger value="mobile-money">Mobile Money</TabsTrigger>
                 <TabsTrigger value="card">Card Processing</TabsTrigger>
                 <TabsTrigger value="ussd">USSD Payments</TabsTrigger>

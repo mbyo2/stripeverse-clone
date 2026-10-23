@@ -181,7 +181,7 @@ const SdkDocs = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-5xl mt-14">
+      <main className="flex-1 container mx-auto px-4 py-8 max-w-5xl">
         <div className="mb-8">
           <h1 className="text-2xl font-bold flex items-center gap-2"><Package className="h-6 w-6" />SDK Documentation</h1>
           <p className="text-muted-foreground mt-1">Official client libraries for every major platform</p>

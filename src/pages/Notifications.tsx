@@ -192,7 +192,7 @@ const Notifications = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
       
-      <main className="flex-grow pt-24 pb-16 px-4 max-w-4xl mx-auto w-full">
+      <main className="flex-grow pt-6 pb-16 px-4 max-w-4xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Bell className="h-6 w-6" />

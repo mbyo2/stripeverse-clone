@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Wallet, ArrowRightLeft, QrCode, Bell, User, Send } from 'lucide-react';
+import { Home, Bitcoin, ArrowRightLeft, QrCode, Bell, User, Send } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -11,12 +11,15 @@ const MobileBottomNav = () => {
 
   if (!user) return null;
 
+  // The Bitcoin wallet is the main product, so it holds the second slot
+  // with an orange chip; the fiat wallet stays one tap away via the header
+  // drawer and the dashboard.
   const navItems = [
-    { icon: Home, label: 'Home', path: '/dashboard' },
-    { icon: Send, label: 'Send', path: '/transfer' },
-    { icon: QrCode, label: 'QR Pay', path: '/qr-payments' },
-    { icon: Wallet, label: 'Wallet', path: '/wallet' },
-    { icon: Bell, label: 'Alerts', path: '/notifications' },
+    { icon: Home, label: 'Home', path: '/dashboard', featured: false },
+    { icon: Bitcoin, label: 'Bitcoin', path: '/bitcoin-wallet', featured: true },
+    { icon: Send, label: 'Send', path: '/transfer', featured: false },
+    { icon: QrCode, label: 'QR Pay', path: '/qr-payments', featured: false },
+    { icon: Bell, label: 'Alerts', path: '/notifications', featured: false },
   ];
 
   return (
@@ -35,8 +38,14 @@ const MobileBottomNav = () => {
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <item.icon className={cn('h-5 w-5', isActive && 'text-primary')} />
-              <span className={cn('text-xs mt-1', isActive && 'font-semibold')}>
+              {item.featured ? (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F7931A] text-black">
+                  <item.icon className="h-5 w-5" />
+                </span>
+              ) : (
+                <item.icon className={cn('h-5 w-5', isActive && 'text-primary')} />
+              )}
+              <span className={cn('text-xs mt-1', (isActive || item.featured) && 'font-semibold', item.featured && 'text-foreground')}>
                 {item.label}
               </span>
             </Link>

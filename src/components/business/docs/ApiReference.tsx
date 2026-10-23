@@ -31,7 +31,7 @@ export function ApiReference() {
               <p className="text-sm text-muted-foreground mb-2">
                 All API requests require authentication using your API key in the header:
               </p>
-              <pre className="bg-secondary/20 p-2 rounded text-sm mb-2">
+              <pre className="bg-secondary/20 p-2 rounded text-sm mb-2 overflow-x-auto">
                 Authorization: Bearer YOUR_API_KEY
               </pre>
             </div>
@@ -41,19 +41,19 @@ export function ApiReference() {
               <div className="space-y-3">
                 <div>
                   <p className="text-sm font-medium">Create Payment</p>
-                  <pre className="bg-secondary/20 p-2 rounded text-sm">
+                  <pre className="bg-secondary/20 p-2 rounded text-sm overflow-x-auto">
                     POST /api/v1/payments
                   </pre>
                 </div>
                 <div>
                   <p className="text-sm font-medium">Get Payment Status</p>
-                  <pre className="bg-secondary/20 p-2 rounded text-sm">
+                  <pre className="bg-secondary/20 p-2 rounded text-sm overflow-x-auto">
                     GET /api/v1/payments/:id
                   </pre>
                 </div>
                 <div>
                   <p className="text-sm font-medium">List Transactions</p>
-                  <pre className="bg-secondary/20 p-2 rounded text-sm">
+                  <pre className="bg-secondary/20 p-2 rounded text-sm overflow-x-auto">
                     GET /api/v1/transactions
                   </pre>
                 </div>

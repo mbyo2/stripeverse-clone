@@ -47,6 +47,12 @@ export default function OrderStatusStepper({
                 step.state === "upcoming" && "text-muted-foreground",
                 step.state === "blocked" && "text-destructive font-medium",
                 step.state === "current" && "font-medium",
+                // On narrow phones the four labels + circles exceed the
+                // card width and push the page sideways. Show only the
+                // current/blocked step's label there; all labels return
+                // once the row genuinely fits.
+                (step.state === "done" || step.state === "upcoming") &&
+                  "hidden min-[560px]:inline",
               )}
             >
               {step.label}

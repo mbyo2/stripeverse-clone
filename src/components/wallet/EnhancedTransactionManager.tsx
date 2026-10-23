@@ -76,6 +76,10 @@ const EnhancedTransactionManager = ({
     from: subDays(new Date(), 30),
     to: new Date()
   });
+  // The default 30-day window the list opens with. The empty state only
+  // blames "your filters" when the user has actually changed something
+  // from this baseline (or typed a search / picked a tab).
+  const initialDateRangeRef = useRef(dateRange);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -252,10 +256,7 @@ const EnhancedTransactionManager = ({
   };
   
   const resetFilters = () => {
-    setDateRange({
-      from: subDays(new Date(), 30),
-      to: new Date()
-    });
+    setDateRange(initialDateRangeRef.current);
     setStatusFilter("all");
     setTypeFilter("all");
     setSearchTerm("");
@@ -270,6 +271,14 @@ const EnhancedTransactionManager = ({
   useEffect(() => {
     return endRenderTracking;
   }, [endRenderTracking]);
+
+  const hasUserFilters =
+    searchTerm.trim() !== "" ||
+    statusFilter !== "all" ||
+    typeFilter !== "all" ||
+    (externalDirectionFilter !== undefined && externalDirectionFilter !== "all") ||
+    dateRange.from?.getTime() !== initialDateRangeRef.current.from?.getTime() ||
+    dateRange.to?.getTime() !== initialDateRangeRef.current.to?.getTime();
   
   return (
     <div className={`space-y-4 ${className}`}>
@@ -402,11 +411,20 @@ const EnhancedTransactionManager = ({
             </div>
           ) : filteredTransactions.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
-              <p>No transactions match your filters</p>
-              {showFilters && (
-                <Button variant="outline" onClick={resetFilters} className="mt-4">
-                  Reset Filters
-                </Button>
+              {hasUserFilters ? (
+                <>
+                  <p>No transactions match your filters</p>
+                  {showFilters && (
+                    <Button variant="outline" onClick={resetFilters} className="mt-4">
+                      Reset Filters
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p>No transactions yet</p>
+                  <p className="text-sm mt-1">When you send or receive money, it will appear here.</p>
+                </>
               )}
             </div>
           ) : (
