@@ -60,6 +60,12 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         // Lightning invoice via Breez. The amount is in ZMW; convert at
         // the real BTC/ZMW rate via btc-trade's quote (the same price
         // path the wallet's Buy flow uses — no fixed-rate conversions).
+        // Tracks whether a REAL Lightning invoice exists for this
+        // checkout. breez-lightning's custodial backend is not live
+        // yet (it 503s by design), so today this stays false and the
+        // Lightning tab must show its honest unavailable state — never
+        // a QR of an empty string presented as payable.
+        let lightningReady = false;
         try {
           const { data: quote } = await supabase.functions.invoke('btc-trade', {
             body: { action: 'quote', side: 'buy', amount_zmw: amount }
@@ -74,6 +80,7 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
             });
             if (lnData?.bolt11) {
               setLightningInvoice(lnData.bolt11);
+              lightningReady = true;
               // Kept so the status poller below can settle THIS invoice.
               if (lnData.payment_id) setLightningPaymentId(lnData.payment_id);
             }
@@ -84,7 +91,9 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
 
         toast({
           title: "Payment details generated",
-          description: "You can now pay with Bitcoin or Lightning.",
+          description: lightningReady
+            ? "You can now pay with Bitcoin or Lightning."
+            : "You can now pay with Bitcoin (on-chain).",
         });
       } catch (error) {
         console.error("Error fetching payment details:", error);
@@ -124,7 +133,8 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         // Deposit detection runs server-side: the btc-onchain
         // check_deposits pg_cron scans assigned addresses every
         // 5 minutes and records credited deposits in btc_deposits
-        // (credited at 1 confirmation). Poll for this address's row.
+        // (credited at the tiered confirmation count — 2 under
+        // 500,000 sats, 3 at or above it). Poll for this address's row.
         // btc_deposits is not in the generated types — untyped access
         // is the codebase pattern for such tables.
         const { data, error } = await (supabase as any)
@@ -288,47 +298,59 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
           
           <Alert>
             <AlertDescription>
-              Send exactly {formatBitcoinAmount(bitcoinAmount)} to the address above. The transaction will be confirmed after 1 confirmation.
+              Send exactly {formatBitcoinAmount(bitcoinAmount)} to the address above. The payment completes once the deposit is credited — after 2 confirmations for amounts under 500,000 sats, and 3 confirmations for larger amounts.
             </AlertDescription>
           </Alert>
         </TabsContent>
         
         <TabsContent value="lightning" className="space-y-4 pt-4">
-          <div className="bg-muted p-4 rounded-lg flex flex-col items-center">
-            <QRCode 
-              value={lightningInvoice}
-              size={180}
-              level="H"
-              includeMargin={true}
-              className="mb-4"
-            />
-            
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => copyToClipboard(lightningInvoice)}
-            >
-              {copied ? "Copied!" : "Copy Invoice"}
-              {copied ? <CheckCircle className="ml-2 h-4 w-4" /> : <Copy className="ml-2 h-4 w-4" />}
-            </Button>
-            
-            <Button
-              variant="link"
-              className="mt-2"
-              onClick={() => {
-                window.open(`lightning:${lightningInvoice}`, '_blank');
-              }}
-            >
-              Open in Lightning Wallet
-              <ExternalLink className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-          
-          <Alert>
-            <AlertDescription>
-              Pay this Lightning invoice using your Lightning wallet. The payment will be confirmed instantly.
-            </AlertDescription>
-          </Alert>
+          {lightningInvoice ? (
+            <>
+              <div className="bg-muted p-4 rounded-lg flex flex-col items-center">
+                <QRCode
+                  value={lightningInvoice}
+                  size={180}
+                  level="H"
+                  includeMargin={true}
+                  className="mb-4"
+                />
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => copyToClipboard(lightningInvoice)}
+                >
+                  {copied ? "Copied!" : "Copy Invoice"}
+                  {copied ? <CheckCircle className="ml-2 h-4 w-4" /> : <Copy className="ml-2 h-4 w-4" />}
+                </Button>
+
+                <Button
+                  variant="link"
+                  className="mt-2"
+                  onClick={() => {
+                    window.open(`lightning:${lightningInvoice}`, '_blank');
+                  }}
+                >
+                  Open in Lightning Wallet
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+
+              <Alert>
+                <AlertDescription>
+                  Pay this Lightning invoice using your Lightning wallet. The payment will be confirmed instantly.
+                </AlertDescription>
+              </Alert>
+            </>
+          ) : (
+            <Alert>
+              <AlertDescription>
+                Lightning isn't available for this payment yet. Please use the
+                Bitcoin tab above to pay on-chain instead — it works the same,
+                it just takes a little longer to confirm.
+              </AlertDescription>
+            </Alert>
+          )}
         </TabsContent>
       </Tabs>
       
