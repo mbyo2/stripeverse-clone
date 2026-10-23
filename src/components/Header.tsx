@@ -144,7 +144,12 @@ const Header = () => {
                   Dashboard
                 </Button>
               </Link>
-              
+              <Link to="/p2p">
+                <Button variant={isActive("/p2p") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9">
+                  P2P Trading
+                </Button>
+              </Link>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1">
@@ -511,6 +516,7 @@ const Header = () => {
 
                     <Separator className="my-2" />
                     <MobileNavLink to="/dashboard" icon={Home}>Dashboard</MobileNavLink>
+                    <MobileNavLink to="/p2p" icon={ArrowLeftRight}>P2P Trading</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Money</p>

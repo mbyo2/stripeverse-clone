@@ -168,6 +168,13 @@ const AdminDashboard = () => {
       color: "bg-green-500"
     },
     {
+      title: "P2P Disputes",
+      description: "Rule P2P disputes and manage sanctions",
+      icon: <AlertTriangle className="h-6 w-6" />,
+      link: "/admin/p2p",
+      color: "bg-orange-500"
+    },
+    {
       title: "Role Management",
       description: "Approve role requests and changes",
       icon: <Shield className="h-6 w-6" />,

@@ -101,6 +101,16 @@ import AuditLogs from '@/pages/AuditLogs';
 import BackupExport from '@/pages/BackupExport';
 import ApiRateLimits from '@/pages/ApiRateLimits';
 
+// P2P marketplace (Phase 1c)
+import P2PMarketplace from '@/pages/P2PMarketplace';
+import P2PNewAd from '@/pages/P2PNewAd';
+import P2PMyAds from '@/pages/P2PMyAds';
+import P2POrders from '@/pages/P2POrders';
+import P2PTradeRoom from '@/pages/P2PTradeRoom';
+import P2PProfile from '@/pages/P2PProfile';
+import P2PDispute from '@/pages/P2PDispute';
+import AdminP2P from '@/pages/AdminP2P';
+
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
 );
@@ -186,6 +196,16 @@ const AnimatedRoutes = () => {
         <Route path="/ussd-access" element={<ProtectedPage><UssdAccess /></ProtectedPage>} />
         <Route path="/admin/users" element={<RoleGuardedPage roles={['admin']}><AdminUsers /></RoleGuardedPage>} />
         <Route path="/admin/transactions" element={<RoleGuardedPage roles={['admin']}><AdminTransactions /></RoleGuardedPage>} />
+        <Route path="/admin/p2p" element={<RoleGuardedPage roles={['admin']}><AdminP2P /></RoleGuardedPage>} />
+
+        {/* P2P marketplace */}
+        <Route path="/p2p" element={<ProtectedPage><P2PMarketplace /></ProtectedPage>} />
+        <Route path="/p2p/ads/new" element={<ProtectedPage><P2PNewAd /></ProtectedPage>} />
+        <Route path="/p2p/my-ads" element={<ProtectedPage><P2PMyAds /></ProtectedPage>} />
+        <Route path="/p2p/orders" element={<ProtectedPage><P2POrders /></ProtectedPage>} />
+        <Route path="/p2p/orders/:id" element={<ProtectedPage><P2PTradeRoom /></ProtectedPage>} />
+        <Route path="/p2p/profile" element={<ProtectedPage><P2PProfile /></ProtectedPage>} />
+        <Route path="/p2p/disputes/:id" element={<ProtectedPage><P2PDispute /></ProtectedPage>} />
         <Route path="/request-money" element={<ProtectedPage><RequestMoney /></ProtectedPage>} />
         <Route path="/contacts" element={<ProtectedPage><Contacts /></ProtectedPage>} />
         <Route path="/spending-insights" element={<ProtectedPage><SpendingInsights /></ProtectedPage>} />
