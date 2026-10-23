@@ -25,7 +25,7 @@
 --
 -- RECONCILIATION (2026-10-23): §8 was rewritten after the
 -- delta-audit remediation (20261102_delta_audit_remediation.sql)
--- merged and went LIVE. Its three P2P RPC bodies are the delta
+-- merged and went LIVE. Its four P2P RPC bodies are the delta
 -- bodies with only the in-DB admin check swapped to
 -- public.p2p_is_admin(...) — see §8 for the detail. Relay order
 -- is unchanged: 20261104 (each ALTER TYPE in its OWN editor Run)
@@ -41,7 +41,8 @@
 --   7. Admin oversight SELECT policies (wallets, accounts,
 --      payment_links, crypto_wallets, btc_deposits) — read-only
 --   8. Per-feature roles: p2p_is_admin() + the delta P2P RPC gates
---      (p2p_apply_sanction / p2p_resolve_review / p2p_resolve_dispute)
+--      (p2p_apply_sanction / p2p_revoke_sanction / p2p_resolve_review /
+--       p2p_resolve_dispute)
 --   9. Account freeze: profiles columns + column guard +
 --      admin_set_user_frozen()
 -- =====================================================================
@@ -449,7 +450,7 @@ CREATE POLICY "Admin oversight can view all btc deposits"
 -- The p2p edge function's isAdmin check is extended to the same set
 -- (supabase/functions/p2p/index.ts).
 --
--- RECONCILIATION (2026-10-23, after 20261102 merged): the three
+-- RECONCILIATION (2026-10-23, after 20261102 merged): the four
 -- RPCs below are reproduced from the DELTA-AUDIT bodies in
 -- 20261102_delta_audit_remediation.sql (§D4 + §D10) — the versions
 -- that are LIVE — with ONLY their in-DB admin verification swapped
@@ -461,6 +462,8 @@ CREATE POLICY "Admin oversight can view all btc deposits"
 --     delta body (replay handling, the 8-arg sanction call with
 --     the verified admin id attached, the single D4 audit row
 --     written inside p2p_apply_sanction) is byte-identical.
+--   * p2p_revoke_sanction — the D10 gate line; lifting a sanction
+--     has no system path, so the NULL-admin refusal is unchanged.
 -- Signatures and ACL blocks are likewise the delta ones, so each
 -- CREATE OR REPLACE lands on the exact live signature — no DROP
 -- needed, nothing regresses. (The first draft of this section
@@ -468,9 +471,9 @@ CREATE POLICY "Admin oversight can view all btc deposits"
 -- call, resolver-written sanction_applied audit row; relaying it
 -- after 20261102 would have duplicated that audit row and lost
 -- the verified-admin identity. It must not come back.)
--- Deliberately NOT redefined here: p2p_revoke_sanction — 20261102
--- gave it its own in-DB admin check, and it keeps the delta
--- admin-only form; widening it is a separate, explicit decision.
+-- All four P2P admin RPCs now gate on public.p2p_is_admin(...):
+-- a p2p_admin who can apply a sanction can also revoke one, and
+-- resolve a dispute or a re-review — no admin-only holdouts.
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.p2p_is_admin(p_user_id uuid)
 RETURNS boolean
@@ -701,6 +704,50 @@ REVOKE ALL ON FUNCTION public.p2p_resolve_dispute(uuid, uuid, text, text, intege
 REVOKE ALL ON FUNCTION public.p2p_resolve_dispute(uuid, uuid, text, text, integer, text, text) FROM anon;
 REVOKE ALL ON FUNCTION public.p2p_resolve_dispute(uuid, uuid, text, text, integer, text, text) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.p2p_resolve_dispute(uuid, uuid, text, text, integer, text, text) TO service_role;
+
+-- p2p_revoke_sanction — delta §D4 + §D10 body; only the in-DB
+-- admin verification calls public.p2p_is_admin.
+CREATE OR REPLACE FUNCTION public.p2p_revoke_sanction(
+  p_sanction_id uuid,
+  p_admin_id uuid DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row public.user_sanctions%ROWTYPE;
+BEGIN
+  -- Lifting a sanction is a human decision (delta-audit D10):
+  -- there is no system path, and the admin role is verified here.
+  IF p_admin_id IS NULL
+     OR NOT public.p2p_is_admin(p_admin_id) THEN
+    RAISE EXCEPTION 'Only an admin can revoke a sanction';
+  END IF;
+
+  UPDATE public.user_sanctions
+     SET status = 'revoked'
+   WHERE id = p_sanction_id
+     AND status = 'active'
+  RETURNING * INTO v_row;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'That sanction was not found, or has already been lifted';
+  END IF;
+
+  PERFORM public.p2p_write_audit(NULL, p_admin_id, 'admin',
+    'sanction_revoked',
+    jsonb_build_object('sanction_id', v_row.id, 'user_id', v_row.user_id,
+                       'scope', v_row.scope, 'level', v_row.level,
+                       'reason_code', v_row.reason_code));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.p2p_revoke_sanction(uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.p2p_revoke_sanction(uuid, uuid) FROM anon;
+REVOKE ALL ON FUNCTION public.p2p_revoke_sanction(uuid, uuid) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.p2p_revoke_sanction(uuid, uuid) TO service_role;
 
 -- ---------------------------------------------------------------------
 -- 9. ACCOUNT FREEZE (core).
