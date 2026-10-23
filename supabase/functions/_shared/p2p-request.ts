@@ -8,8 +8,11 @@
 // body that smuggles `p_user_id` / `user_id` / `actor` fields cannot
 // move the actor. The single exception is `apply_sanction`, an
 // admin-gated action whose *target* is legitimately a body field
-// (the admin is the actor; the dispatcher verifies the admin role
-// before dispatch and stamps p_applied_by itself).
+// (the admin is the actor: the dispatcher verifies the admin role
+// before dispatch and stamps BOTH p_admin_id via `actorArg` and
+// p_applied_by with the verified admin's own id — never a literal —
+// and the RPC re-verifies has_role in the database; delta-audit
+// D10/E7).
 
 export type Validation<T> =
   | { ok: true; value: T }
@@ -384,6 +387,7 @@ export const P2P_ACTIONS: Record<string, ActionSpec> = {
   // ── Sanctions (admin console actions, §4.3) ─────────────────────
   apply_sanction: rpc({
     rpc: "p2p_apply_sanction",
+    actorArg: "p_admin_id",
     admin: true,
     wrap: "sanction_id",
     build: (b) => {
@@ -399,7 +403,8 @@ export const P2P_ACTIONS: Record<string, ActionSpec> = {
       return collect({
         // The TARGET user — the one legitimate body-supplied user id
         // in this table (see the module header). The acting admin is
-        // verified by the dispatcher; p_applied_by is stamped there.
+        // verified by the dispatcher, stamped as p_admin_id
+        // (actorArg) + p_applied_by, and re-verified inside the RPC.
         p_user_id: reqUuid(b, "user_id"),
         p_scope: reqString(b, "scope", 20),
         p_level: (() => {
@@ -424,11 +429,24 @@ export const P2P_ACTIONS: Record<string, ActionSpec> = {
   }),
   revoke_sanction: rpc({
     rpc: "p2p_revoke_sanction",
+    actorArg: "p_admin_id",
     admin: true,
     wrap: "void",
     build: (b) =>
       collect({
         p_sanction_id: reqUuid(b, "sanction_id"),
+      }),
+  }),
+  // The audited clear path for the re-review queue (delta-audit D4):
+  // direct admin UPDATEs on p2p_reviews no longer exist.
+  resolve_review: rpc({
+    rpc: "p2p_resolve_review",
+    actorArg: "p_admin_id",
+    admin: true,
+    wrap: "void",
+    build: (b) =>
+      collect({
+        p_review_id: reqUuid(b, "review_id"),
       }),
   }),
 

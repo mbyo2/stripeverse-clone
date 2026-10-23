@@ -53,11 +53,41 @@ export function computeBtcIndex(
   };
 }
 
+/** The FX leg gets its own sanity band (delta-audit E5). The BTC leg
+ *  is cross-checked between two exchanges (3% above); USD/ZMW used to
+ *  be trusted from a single exchange_rates row (or the public
+ *  fallback), so one bad FX row silently mispriced EVERYTHING. USD/ZMW
+ *  is a managed-float rate — genuine minute-to-minute moves are a
+ *  fraction of a percent — so a >5% jump against the previous
+ *  snapshot means the row is wrong, not that the kwacha moved: the
+ *  snapshot is written with is_stale = true and order creation
+ *  refuses until a sane rate lands. */
+export const FX_DEVIATION_LIMIT = 0.05;
+
+/** True when `usdZmw` deviates from the previous snapshot's USD/ZMW
+ *  by more than FX_DEVIATION_LIMIT. No previous value (or an unusable
+ *  one) is never stale — the first snapshot after an outage must be
+ *  able to land, and the age-based staleness already guards gaps. */
+export function isFxDeviationStale(
+  previousUsdZmw: number | null | undefined,
+  usdZmw: number,
+): boolean {
+  if (
+    previousUsdZmw == null ||
+    !Number.isFinite(previousUsdZmw) ||
+    previousUsdZmw <= 0
+  ) {
+    return false;
+  }
+  if (!(usdZmw > 0)) return true;
+  return Math.abs(usdZmw - previousUsdZmw) / previousUsdZmw >
+    FX_DEVIATION_LIMIT;
+}
+
 /** The p2p_price_snapshots row for an index. The sources JSONB keeps
  *  the exact key names the Phase 1a proof fixtures established
  *  (coinbase_usd / kraken_usd / usd_zmw) — order snapshots copy this
- *  object, so its shape is part of the audit record. */
-export function buildSnapshotInsert(index: BtcIndex): {
+ *  object, so its shape is part of the audit record. */export function buildSnapshotInsert(index: BtcIndex): {
   asset: string;
   index_zmw: number;
   sources: Record<string, unknown>;

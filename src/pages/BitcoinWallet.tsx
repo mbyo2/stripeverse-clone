@@ -12,10 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBitcoinWallet } from "@/hooks/useBitcoinWallet";
 import { useInvalidateMoneyState } from "@/utils/moneyFreshness";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
+import { interpretOnchainSendResponse } from "@/utils/btcSend";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { formatBitcoinAmount, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import QRCode from "qrcode.react";
 import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound, ArrowUpRight, ArrowDownLeft, Bitcoin } from "lucide-react";
 
 const satsToBtc = (sats?: number) => (sats ? sats / 100_000_000 : 0);
@@ -52,7 +54,9 @@ function OnchainDeposit({ onDone }: { onDone: () => void }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Send BTC to your unique deposit address. Funds appear after 1 confirmation (~10 min).
+        Send BTC to your unique deposit address. Funds appear after 2 confirmations
+        for deposits under 500,000 sats, and 3 confirmations for larger deposits
+        (usually about 20–30 minutes).
       </p>
       {!address ? (
         <Button onClick={getAddress} disabled={loading} className="w-full">
@@ -61,6 +65,11 @@ function OnchainDeposit({ onDone }: { onDone: () => void }) {
         </Button>
       ) : (
         <div className="space-y-3">
+          <div className="flex justify-center">
+            <div className="rounded bg-white p-3">
+              <QRCode value={`bitcoin:${address}`} size={180} />
+            </div>
+          </div>
           <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all">{address}</div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={copy} className="flex-1">
@@ -141,9 +150,15 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Instant Lightning deposits — no waiting for confirmations.
-      </p>
+      <div className="rounded-lg border border-border bg-muted/50 p-3 space-y-1">
+        <p className="text-sm font-medium flex items-center gap-2">
+          <Zap className="h-4 w-4" /> Lightning deposits aren't available yet
+        </p>
+        <p className="text-sm text-muted-foreground">
+          We're still switching Lightning deposits on. For now, please use the
+          On-chain tab above — your deposit address there works right away.
+        </p>
+      </div>
       {!invoice ? (
         <>
           {errorMsg && (
@@ -162,6 +177,11 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
         </>
       ) : (
         <div className="space-y-3">
+          <div className="flex justify-center">
+            <div className="rounded bg-white p-3">
+              <QRCode value={invoice.bolt11} size={180} />
+            </div>
+          </div>
           <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all max-h-32 overflow-y-auto">
             {invoice.bolt11}
           </div>
@@ -189,7 +209,11 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
   // One idempotency key per send intent: a retried click can never
   // broadcast twice. Reset only after a completed send.
   const [idemKey, setIdemKey] = useState(() => crypto.randomUUID());
-  const [result, setResult] = useState<{ txid: string; fee_sats: number } | null>(null);
+  const [result, setResult] = useState<
+    | { kind: "broadcast"; txid: string; fee_sats: number }
+    | { kind: "verifying"; txid: string | null; message: string }
+    | null
+  >(null);
 
   const send = async () => {
     setSending(true);
@@ -203,8 +227,32 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
         },
       });
       if (error) throw error;
-      setResult({ txid: data.txid, fee_sats: data.fee_sats });
-      toast({ title: "Withdrawal broadcast", description: `Fee: ${Number(data.fee_sats).toLocaleString()} sats` });
+      // A 2xx is not always a broadcast: btc-onchain answers 202 with
+      // status "verifying" (and no fee_sats) when the broadcast outcome
+      // is ambiguous — the withdrawal stays reserved server-side and
+      // must NOT be retried. Route every response through the
+      // interpreter rather than assuming success fields exist.
+      const outcome = interpretOnchainSendResponse(data);
+      if (outcome.kind === "verifying") {
+        setResult({ kind: "verifying", txid: outcome.txid, message: outcome.message });
+        toast({ title: "Withdrawal being verified", description: outcome.message });
+        // Funds are now held in the reserved row: refresh shared money
+        // state so balances reflect the hold. The idempotency key is
+        // deliberately NOT rotated — this send must not be repeated.
+        invalidateMoney();
+        onDone();
+        return;
+      }
+      if (outcome.kind !== "broadcast") {
+        toast({
+          title: "Withdrawal status unclear",
+          description: "We couldn't confirm the result of this withdrawal. Please check your recent activity before trying again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setResult({ kind: "broadcast", txid: outcome.txid, fee_sats: outcome.feeSats });
+      toast({ title: "Withdrawal broadcast", description: `Fee: ${outcome.feeSats.toLocaleString()} sats` });
       setIdemKey(crypto.randomUUID());
       // The withdrawal wrote ledger rows: refresh shared money state
       // so the Wallet page / Dashboard activity reflects it.
@@ -218,6 +266,20 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
   };
 
   if (result) {
+    if (result.kind === "verifying") {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Your withdrawal is being verified</p>
+          <p className="text-sm text-muted-foreground">{result.message}</p>
+          {result.txid && (
+            <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all">{result.txid}</div>
+          )}
+          <p className="text-sm text-muted-foreground">
+            Your Bitcoin is held safely while this is checked — please do not send it again.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="space-y-3">
         <p className="text-sm">Your withdrawal is on its way. Transaction ID:</p>
