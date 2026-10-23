@@ -159,10 +159,12 @@ BEGIN
 END $$;
 
 -- ── C. p2p_payment_methods policy inventory + admin wiring ───────
--- EXPECT: exactly 2 rows, both SELECT TO authenticated: the
--- pre-existing Phase 0 own-row policy (qual on auth.uid() =
--- user_id, UNTOUCHED by the gaps migration) and the new admin
--- policy (qual on has_role).
+-- EXPECT: exactly 2 rows, both SELECT: the pre-existing Phase 0
+-- own-row policy (TO public — its CREATE POLICY carried no TO
+-- clause; the qual on auth.uid() = user_id still admits no one
+-- without a JWT, since auth.uid() is NULL for anon — verified live
+-- 2026-10-23) and the new admin policy (TO authenticated, qual on
+-- has_role). The own-row policy is UNTOUCHED by the gaps migration.
 SELECT policyname, cmd, roles, qual
   FROM pg_policies
  WHERE schemaname = 'public'
