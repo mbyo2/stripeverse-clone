@@ -70,6 +70,24 @@ Deno.serve(async (req) => {
 
         // If upgrading to paid tier, require payment method
         if (tierData.price > 0) {
+          // A supplied payment_method_id must belong to this user —
+          // accepting any non-empty string would let a caller satisfy
+          // the check with someone else's (or a fabricated) method
+          // (security hardening, 2026-10-23).
+          if (payment_method_id) {
+            const { data: ownedMethod } = await serviceClient
+              .from('payment_methods')
+              .select('id')
+              .eq('id', payment_method_id)
+              .eq('user_id', user.id)
+              .single()
+            if (!ownedMethod) {
+              return new Response(JSON.stringify({ error: 'Invalid payment method' }), {
+                status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              })
+            }
+          }
+
           const { data: payMethod } = await serviceClient
             .from('payment_methods')
             .select('id')
