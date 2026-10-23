@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { countActiveUsers, activityWindowStart } from "@/utils/adminStats";
 import { Link } from "react-router-dom";
-import { Users, Shield, Activity, AlertTriangle, Settings, Database, Globe2 } from "lucide-react";
+import { Users, Shield, Activity, AlertTriangle, Settings, Database, Globe2, Inbox, ReceiptText } from "lucide-react";
 
 interface UserStat {
   total_users: number;
@@ -176,10 +176,24 @@ const AdminDashboard = () => {
     },
     {
       title: "Role Management",
-      description: "Approve role requests and changes",
+      description: "View your roles and request changes",
       icon: <Shield className="h-6 w-6" />,
       link: "/role-management",
       color: "bg-[#003087]"
+    },
+    {
+      title: "Role Requests",
+      description: "Approve or reject user role requests",
+      icon: <Inbox className="h-6 w-6" />,
+      link: "/admin/role-requests",
+      color: "bg-indigo-500"
+    },
+    {
+      title: "Refunds Console",
+      description: "Track every refund request platform-wide",
+      icon: <ReceiptText className="h-6 w-6" />,
+      link: "/admin/refunds",
+      color: "bg-rose-500"
     },
     {
       title: "Cross-Border Payouts",

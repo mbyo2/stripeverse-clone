@@ -1,6 +1,7 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import type { Role } from '@/contexts/RoleContext';
 import BusinessRouteGuard from '@/components/business/BusinessRouteGuard';
 import PageTransition from '@/components/PageTransition';
 
@@ -112,12 +113,20 @@ import P2PTradeRoom from '@/pages/P2PTradeRoom';
 import P2PProfile from '@/pages/P2PProfile';
 import P2PDispute from '@/pages/P2PDispute';
 import AdminP2P from '@/pages/AdminP2P';
+import AdminUserDetail from '@/pages/AdminUserDetail';
+import AdminRoleRequests from '@/pages/AdminRoleRequests';
+import AdminRefunds from '@/pages/AdminRefunds';
 
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
 );
 
-type Role = 'admin' | 'super_admin' | 'business' | 'user' | 'beta_tester';
+// Admin console gate: every admin route admits admin OR super_admin
+// (super_admin is additive over admin — the foundation's design), so a
+// super_admin-only holder is never locked out of the console. The P2P
+// console additionally admits the per-feature p2p_admin role.
+const ADMIN_ROLES: Role[] = ['admin', 'super_admin'];
+const P2P_ADMIN_ROLES: Role[] = ['admin', 'super_admin', 'p2p_admin'];
 const RoleGuardedPage = ({ children, roles }: { children: React.ReactNode; roles: Role[] }) => (
   <ProtectedRoute requiredRoles={roles}><PageTransition>{children}</PageTransition></ProtectedRoute>
 );
@@ -152,8 +161,8 @@ const AnimatedRoutes = () => {
         {/* Protected routes */}
         <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
         <Route path="/user-dashboard" element={<ProtectedPage><UserDashboard /></ProtectedPage>} />
-        <Route path="/admin-dashboard" element={<RoleGuardedPage roles={['admin']}><AdminDashboard /></RoleGuardedPage>} />
-        <Route path="/beta-dashboard" element={<RoleGuardedPage roles={['beta_tester','admin']}><BetaTesterDashboard /></RoleGuardedPage>} />
+        <Route path="/admin-dashboard" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminDashboard /></RoleGuardedPage>} />
+        <Route path="/beta-dashboard" element={<RoleGuardedPage roles={['beta_tester','admin','super_admin']}><BetaTesterDashboard /></RoleGuardedPage>} />
 
         <Route path="/business-dashboard" element={
           <ProtectedRoute><BusinessRouteGuard><PageTransition><BusinessDashboard /></PageTransition></BusinessRouteGuard></ProtectedRoute>
@@ -162,8 +171,8 @@ const AnimatedRoutes = () => {
           <ProtectedRoute><BusinessRouteGuard><PageTransition><Business /></PageTransition></BusinessRouteGuard></ProtectedRoute>
         } />
         
-        <Route path="/role-management" element={<RoleGuardedPage roles={['admin']}><RoleManagement /></RoleGuardedPage>} />
-        <Route path="/tier-management" element={<RoleGuardedPage roles={['admin']}><TierManagement /></RoleGuardedPage>} />
+        <Route path="/role-management" element={<RoleGuardedPage roles={ADMIN_ROLES}><RoleManagement /></RoleGuardedPage>} />
+        <Route path="/tier-management" element={<RoleGuardedPage roles={ADMIN_ROLES}><TierManagement /></RoleGuardedPage>} />
         <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
         <Route path="/security-settings" element={<ProtectedPage><SecuritySettings /></ProtectedPage>} />
         <Route path="/two-factor-auth" element={<ProtectedPage><TwoFactorAuth /></ProtectedPage>} />
@@ -185,8 +194,8 @@ const AnimatedRoutes = () => {
         <Route path="/card/:id/fund" element={<ProtectedPage><VirtualCardFund /></ProtectedPage>} />
         <Route path="/transfer" element={<ProtectedRoute requiredFeature="transfers"><PageTransition><Transfer /></PageTransition></ProtectedRoute>} />
         <Route path="/send-money" element={<ProtectedPage><SendMoney /></ProtectedPage>} />
-        <Route path="/compliance" element={<RoleGuardedPage roles={['admin','business']}><Compliance /></RoleGuardedPage>} />
-        <Route path="/feedback-dashboard" element={<RoleGuardedPage roles={['admin']}><FeedbackDashboard /></RoleGuardedPage>} />
+        <Route path="/compliance" element={<RoleGuardedPage roles={['admin','super_admin','business']}><Compliance /></RoleGuardedPage>} />
+        <Route path="/feedback-dashboard" element={<RoleGuardedPage roles={ADMIN_ROLES}><FeedbackDashboard /></RoleGuardedPage>} />
         <Route path="/feedback" element={<ProtectedPage><Feedback /></ProtectedPage>} />
         <Route path="/help" element={<ProtectedPage><Help /></ProtectedPage>} />
         <Route path="/rewards" element={<ProtectedPage><Rewards /></ProtectedPage>} />
@@ -196,10 +205,13 @@ const AnimatedRoutes = () => {
         <Route path="/notifications" element={<ProtectedPage><Notifications /></ProtectedPage>} />
         <Route path="/kyc" element={<ProtectedPage><KycPage /></ProtectedPage>} />
         <Route path="/ussd-access" element={<ProtectedPage><UssdAccess /></ProtectedPage>} />
-        <Route path="/admin/users" element={<RoleGuardedPage roles={['admin']}><AdminUsers /></RoleGuardedPage>} />
-        <Route path="/admin/transactions" element={<RoleGuardedPage roles={['admin']}><AdminTransactions /></RoleGuardedPage>} />
+        <Route path="/admin/users" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminUsers /></RoleGuardedPage>} />
+        <Route path="/admin/transactions" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminTransactions /></RoleGuardedPage>} />
         <Route path="/admin/mastercard-move" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminMastercardMove /></RoleGuardedPage>} />
-        <Route path="/admin/p2p" element={<RoleGuardedPage roles={['admin']}><AdminP2P /></RoleGuardedPage>} />
+        <Route path="/admin/p2p" element={<RoleGuardedPage roles={P2P_ADMIN_ROLES}><AdminP2P /></RoleGuardedPage>} />
+        <Route path="/admin/users/:userId" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminUserDetail /></RoleGuardedPage>} />
+        <Route path="/admin/role-requests" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminRoleRequests /></RoleGuardedPage>} />
+        <Route path="/admin/refunds" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminRefunds /></RoleGuardedPage>} />
 
         {/* P2P marketplace */}
         <Route path="/p2p" element={<ProtectedPage><P2PMarketplace /></ProtectedPage>} />
@@ -234,15 +246,15 @@ const AnimatedRoutes = () => {
         <Route path="/savings" element={<ProtectedPage><Savings /></ProtectedPage>} />
         <Route path="/bill-payments" element={<ProtectedPage><BillPayments /></ProtectedPage>} />
         <Route path="/agent-network" element={<ProtectedPage><AgentNetwork /></ProtectedPage>} />
-        <Route path="/fraud-rules" element={<RoleGuardedPage roles={['admin','business']}><FraudRules /></RoleGuardedPage>} />
+        <Route path="/fraud-rules" element={<RoleGuardedPage roles={['admin','super_admin','business']}><FraudRules /></RoleGuardedPage>} />
         <Route path="/statements" element={<ProtectedPage><Statements /></ProtectedPage>} />
         <Route path="/ip-whitelist" element={<ProtectedPage><IpWhitelist /></ProtectedPage>} />
         <Route path="/qr-payments" element={<ProtectedPage><QrPayments /></ProtectedPage>} />
         <Route path="/checkout-widget" element={<ProtectedPage><CheckoutWidget /></ProtectedPage>} />
-        <Route path="/aml-screening" element={<RoleGuardedPage roles={['admin']}><AmlScreening /></RoleGuardedPage>} />
-        <Route path="/audit-logs" element={<RoleGuardedPage roles={['admin']}><AuditLogs /></RoleGuardedPage>} />
-        <Route path="/backup-export" element={<RoleGuardedPage roles={['admin']}><BackupExport /></RoleGuardedPage>} />
-        <Route path="/api-rate-limits" element={<RoleGuardedPage roles={['admin','business']}><ApiRateLimits /></RoleGuardedPage>} />
+        <Route path="/aml-screening" element={<RoleGuardedPage roles={ADMIN_ROLES}><AmlScreening /></RoleGuardedPage>} />
+        <Route path="/audit-logs" element={<RoleGuardedPage roles={ADMIN_ROLES}><AuditLogs /></RoleGuardedPage>} />
+        <Route path="/backup-export" element={<RoleGuardedPage roles={ADMIN_ROLES}><BackupExport /></RoleGuardedPage>} />
+        <Route path="/api-rate-limits" element={<RoleGuardedPage roles={['admin','super_admin','business']}><ApiRateLimits /></RoleGuardedPage>} />
 
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
