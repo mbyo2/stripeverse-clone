@@ -411,16 +411,16 @@ BEGIN
     RETURN NEW;
   END IF;
   IF NEW.first_name IS DISTINCT FROM OLD.first_name THEN
-    v_changed := v_changed || 'first_name';
+    v_changed := array_append(v_changed, 'first_name');
   END IF;
   IF NEW.last_name IS DISTINCT FROM OLD.last_name THEN
-    v_changed := v_changed || 'last_name';
+    v_changed := array_append(v_changed, 'last_name');
   END IF;
   IF NEW.id_number IS DISTINCT FROM OLD.id_number THEN
-    v_changed := v_changed || 'id_number';
+    v_changed := array_append(v_changed, 'id_number');
   END IF;
   IF NEW.date_of_birth IS DISTINCT FROM OLD.date_of_birth THEN
-    v_changed := v_changed || 'date_of_birth';
+    v_changed := array_append(v_changed, 'date_of_birth');
   END IF;
   IF array_length(v_changed, 1) IS NOT NULL THEN
     INSERT INTO public.p2p_reviews (user_id, reason, detail, hold_until)
