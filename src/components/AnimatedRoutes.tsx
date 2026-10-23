@@ -72,6 +72,7 @@ import ScheduledPayments from '@/pages/ScheduledPayments';
 import BankTransfers from '@/pages/BankTransfers';
 import CollectPayments from '@/pages/CollectPayments';
 import PaymentLinks from '@/pages/PaymentLinks';
+import BitcoinPos from '@/pages/BitcoinPos';
 import SubAccounts from '@/pages/SubAccounts';
 import SplitPayments from '@/pages/SplitPayments';
 import MultiCurrencyWallet from '@/pages/MultiCurrencyWallet';
@@ -195,6 +196,7 @@ const AnimatedRoutes = () => {
         <Route path="/bank-transfers" element={<ProtectedPage><BankTransfers /></ProtectedPage>} />
         <Route path="/collect-payments" element={<ProtectedPage><CollectPayments /></ProtectedPage>} />
         <Route path="/payment-links" element={<ProtectedPage><PaymentLinks /></ProtectedPage>} />
+        <Route path="/pos" element={<ProtectedPage><BitcoinPos /></ProtectedPage>} />
         <Route path="/sub-accounts" element={<ProtectedPage><SubAccounts /></ProtectedPage>} />
         <Route path="/split-payments" element={<ProtectedPage><SplitPayments /></ProtectedPage>} />
         <Route path="/multi-currency" element={<ProtectedPage><MultiCurrencyWallet /></ProtectedPage>} />

@@ -65,7 +65,8 @@ import {
   CalendarClock,
   Lock,
   MapPin,
-  Search
+  Search,
+  Store
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -285,6 +286,11 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/payment-links" className="flex items-center gap-2">
                       <Link2 className="h-4 w-4" /> Payment Links
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/pos" className="flex items-center gap-2">
+                      <Store className="h-4 w-4" /> Bitcoin POS
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -540,6 +546,7 @@ const Header = () => {
                     <MobileNavLink to="/business" icon={Users}>Business Tools</MobileNavLink>
                     <MobileNavLink to="/collect-payments" icon={Banknote}>Collect Payments</MobileNavLink>
                     <MobileNavLink to="/payment-links" icon={Link2}>Payment Links</MobileNavLink>
+                    <MobileNavLink to="/pos" icon={Store}>Bitcoin POS</MobileNavLink>
                     <MobileNavLink to="/split-payments" icon={GitBranch}>Split Payments</MobileNavLink>
                     <MobileNavLink to="/invoices" icon={FileText}>Invoices</MobileNavLink>
                     <MobileNavLink to="/settlements" icon={Receipt}>Settlements</MobileNavLink>
