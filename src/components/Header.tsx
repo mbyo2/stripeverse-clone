@@ -115,16 +115,16 @@ const Header = () => {
   return (
     <>
     <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-[#0A0F1A] border-b border-[#CFD3D8]/70 dark:border-white/10">
-      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between">
+      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
         {/* Logo */}
-        <div className="flex items-center gap-10">
-          <Link to="/" aria-label="BMaGlass Pay — home" className="flex items-center">
+        <div className="flex items-center gap-3 xl:gap-10 min-w-0">
+          <Link to="/" aria-label="BMaGlass Pay — home" className="flex items-center shrink-0">
             <Logo variant={resolvedTheme === "dark" ? "white" : "color"} />
           </Link>
 
           {/* Logged-out Nav */}
           {!user && (
-            <nav className="hidden lg:flex items-center gap-8">
+            <nav className="hidden xl:flex items-center gap-8">
               <Link to="/" className="text-[15px] font-medium text-black dark:text-white hover:underline underline-offset-4">
                 Personal
               </Link>
@@ -139,7 +139,7 @@ const Header = () => {
 
           {/* Desktop Nav */}
           {user && (
-            <nav className="hidden lg:flex items-center gap-1">
+            <nav className="hidden xl:flex items-center gap-1 min-w-0">
               <Link to="/dashboard">
                 <Button variant={isActive("/dashboard") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9">
                   Dashboard
@@ -386,7 +386,7 @@ const Header = () => {
         </div>
 
         {/* Right Side */}
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="hidden xl:flex items-center gap-2 shrink-0">
           {user ? (
             <>
               <AccountSwitcher />
@@ -394,17 +394,28 @@ const Header = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => setSearchOpen(true)}
-                className="h-9 gap-2 text-muted-foreground font-normal w-40 justify-start"
+                className="hidden 2xl:flex h-9 gap-2 text-muted-foreground font-normal w-40 justify-start"
               >
                 <Search className="h-3.5 w-3.5" />
                 <span className="text-xs">Search...</span>
                 <kbd className="ml-auto text-[10px] bg-muted px-1.5 py-0.5 rounded">⌘K</kbd>
               </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSearchOpen(true)}
+                className="h-9 w-9 2xl:hidden"
+                aria-label="Search"
+              >
+                <Search className="h-4 w-4" />
+              </Button>
               <LanguageSelector compact />
               <CurrencySelector compact />
               <NotificationBell />
-              <RoleBadge />
-              
+              <div className="hidden 2xl:block">
+                <RoleBadge />
+              </div>
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -496,22 +507,23 @@ const Header = () => {
         </div>
 
         {/* Mobile Menu */}
-        <div className="lg:hidden flex items-center gap-2">
+        <div className="xl:hidden flex items-center gap-2 shrink-0">
           {user && <NotificationBell />}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Open menu">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-80 overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle className="text-left">
+            <SheetContent side="right" className="w-[85vw] max-w-80 p-0 gap-0 flex flex-col overflow-hidden">
+              <SheetHeader className="px-6 pt-6 pb-2 shrink-0">
+                <SheetTitle className="text-left pr-8">
                   <Logo variant={resolvedTheme === "dark" ? "white" : "color"} />
                 </SheetTitle>
               </SheetHeader>
-              
-              <div className="mt-6 space-y-1">
+
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+              <div className="mt-2 space-y-1">
                 {user ? (
                   <>
                     <div className="px-4 py-3 mb-2">
@@ -568,19 +580,26 @@ const Header = () => {
                     <MobileNavLink to="/agent-network" icon={MapPin}>Agent Network</MobileNavLink>
                     <MobileNavLink to="/fraud-rules" icon={Shield}>Fraud Rules</MobileNavLink>
                     <MobileNavLink to="/ip-whitelist" icon={ShieldCheck}>IP Whitelist</MobileNavLink>
+                    <MobileNavLink to="/checkout-widget" icon={Code2}>Checkout Widget</MobileNavLink>
                     <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
                     <MobileNavLink to="/rewards" icon={Star}>Rewards</MobileNavLink>
                     <MobileNavLink to="/tier-management" icon={Layers}>Subscription</MobileNavLink>
+                    <MobileNavLink to="/role-management" icon={Users}>Role Management</MobileNavLink>
                     <MobileNavLink to="/settings" icon={Settings}>Settings</MobileNavLink>
                     <MobileNavLink to="/security-settings" icon={Shield}>Security</MobileNavLink>
+                    <MobileNavLink to="/audit-logs" icon={FileText}>Audit Logs</MobileNavLink>
+                    <MobileNavLink to="/backup-export" icon={Package}>Backup & Export</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Preferences</p>
                     <div className="px-4 py-2">
                       <CurrencySelector />
+                    </div>
+                    <div className="px-4 py-2">
+                      <LanguageSelector />
                     </div>
 
                     <button 
@@ -594,15 +613,6 @@ const Header = () => {
                     <Separator className="my-2" />
                     <MobileNavLink to="/support" icon={HelpCircle}>Help & Support</MobileNavLink>
                     <MobileNavLink to="/faq" icon={BookOpen}>FAQ</MobileNavLink>
-                    
-                    <Separator className="my-2" />
-                    <button 
-                      onClick={() => { signOut(); closeMobileMenu(); }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-left text-destructive hover:bg-destructive/10 transition-colors text-sm font-medium"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      <span>Sign Out</span>
-                    </button>
                   </>
                 ) : (
                   <>
@@ -621,21 +631,35 @@ const Header = () => {
                       {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                       <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
                     </button>
-                    
-                    <Separator className="my-4" />
-                    <div className="px-4 space-y-3">
-                      <Link to="/login" onClick={closeMobileMenu}>
-                        <Button variant="ghost" className="w-full gap-2 rounded-full h-12 bg-[#E9EEF5] text-[15px] font-semibold text-[#003087] shadow-none hover:bg-[#DBE5F1] hover:text-[#003087]">
-                          <LogIn className="h-4 w-4" /> Log In
-                        </Button>
-                      </Link>
-                      <Link to="/register" onClick={closeMobileMenu}>
-                        <Button className="w-full gap-2 rounded-full h-12 bg-[#F7931A] text-[15px] font-semibold text-black shadow-none hover:bg-[#DE830A]">
-                          <UserPlus className="h-4 w-4" /> Sign Up
-                        </Button>
-                      </Link>
-                    </div>
                   </>
+                )}
+              </div>
+              </div>
+
+              {/* Pinned footer — Sign Out (or Log In / Sign Up) is always
+                  visible at the bottom of the drawer, no scrolling needed. */}
+              <div className="shrink-0 border-t border-border bg-background px-6 py-4">
+                {user ? (
+                  <button
+                    onClick={() => { signOut(); closeMobileMenu(); }}
+                    className="flex items-center justify-center gap-2 w-full h-12 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/15 transition-colors text-[15px] font-semibold"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Sign Out</span>
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <Link to="/login" onClick={closeMobileMenu}>
+                      <Button variant="ghost" className="w-full gap-2 rounded-full h-12 bg-[#E9EEF5] text-[15px] font-semibold text-[#003087] shadow-none hover:bg-[#DBE5F1] hover:text-[#003087]">
+                        <LogIn className="h-4 w-4" /> Log In
+                      </Button>
+                    </Link>
+                    <Link to="/register" onClick={closeMobileMenu}>
+                      <Button className="w-full gap-2 rounded-full h-12 bg-[#F7931A] text-[15px] font-semibold text-black shadow-none hover:bg-[#DE830A]">
+                        <UserPlus className="h-4 w-4" /> Sign Up
+                      </Button>
+                    </Link>
+                  </div>
                 )}
               </div>
             </SheetContent>
