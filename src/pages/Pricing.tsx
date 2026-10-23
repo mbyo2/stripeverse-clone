@@ -151,7 +151,7 @@ const Pricing = () => {
           </p>
           
           <div className="mt-6">
-            <Tabs defaultValue="monthly" className="w-[400px] mx-auto" value={billingPeriod} onValueChange={setBillingPeriod}>
+            <Tabs defaultValue="monthly" className="w-full max-w-[400px] mx-auto" value={billingPeriod} onValueChange={setBillingPeriod}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="monthly">Monthly</TabsTrigger>
                 <TabsTrigger value="yearly">Yearly (Save 10%)</TabsTrigger>

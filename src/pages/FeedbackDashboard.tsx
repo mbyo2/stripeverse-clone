@@ -166,7 +166,7 @@ const FeedbackDashboard = () => {
         </div>
 
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-4 mb-8">
+          <TabsList className="grid grid-cols-2 lg:grid-cols-4 mb-8">
             <TabsTrigger value="all">All Feedback</TabsTrigger>
             <TabsTrigger value="bug">Bug Reports</TabsTrigger>
             <TabsTrigger value="feature">Feature Requests</TabsTrigger>

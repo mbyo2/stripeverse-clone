@@ -29,7 +29,7 @@ const SecuritySettings = () => {
         />
 
         <Tabs defaultValue="enhanced" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
             <TabsTrigger value="enhanced">Enhanced Security</TabsTrigger>
             <TabsTrigger value="dashboard">Security Dashboard</TabsTrigger>
             <TabsTrigger value="status">Security Status</TabsTrigger>
