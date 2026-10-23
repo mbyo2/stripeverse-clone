@@ -88,6 +88,37 @@ describe("buildSnapshotInsert", () => {
   });
 });
 
+describe("isFxDeviationStale (delta-audit E5)", () => {
+  it("exposes the 5% band", () => {
+    expect(idx.FX_DEVIATION_LIMIT).toBe(0.05);
+  });
+
+  it("passes small FX moves", () => {
+    expect(idx.isFxDeviationStale(25, 25.5)).toBe(false); // +2%
+    expect(idx.isFxDeviationStale(25, 24.4)).toBe(false); // -2.4%
+    expect(idx.isFxDeviationStale(25, 25)).toBe(false);
+  });
+
+  it("flags a single bad FX row in either direction", () => {
+    expect(idx.isFxDeviationStale(25, 27)).toBe(true); // +8%
+    expect(idx.isFxDeviationStale(25, 23.5)).toBe(true); // -6%
+    expect(idx.isFxDeviationStale(25, 250)).toBe(true); // decimal slip
+    expect(idx.isFxDeviationStale(25, 2.5)).toBe(true); // decimal slip
+  });
+
+  it("treats exactly 5% as inside the band", () => {
+    expect(idx.isFxDeviationStale(25, 26.25)).toBe(false);
+    expect(idx.isFxDeviationStale(25, 23.75)).toBe(false);
+  });
+
+  it("never stale without a usable previous value", () => {
+    expect(idx.isFxDeviationStale(null, 25)).toBe(false);
+    expect(idx.isFxDeviationStale(undefined, 25)).toBe(false);
+    expect(idx.isFxDeviationStale(0, 25)).toBe(false);
+    expect(idx.isFxDeviationStale(NaN, 25)).toBe(false);
+  });
+});
+
 describe("fetchers", () => {
   it("parses Coinbase and Kraken payloads like btc-trade", async () => {
     const fetchFn = stubFetch({

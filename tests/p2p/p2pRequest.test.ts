@@ -86,6 +86,21 @@ describe("actor invariant", () => {
     }
   });
 
+  it("sanction and review actions stamp the acting admin (delta-audit D10/E7)", () => {
+    const expected: Record<string, [string, string | undefined]> = {
+      apply_sanction: ["p2p_apply_sanction", "p_admin_id"],
+      revoke_sanction: ["p2p_revoke_sanction", "p_admin_id"],
+      resolve_review: ["p2p_resolve_review", "p_admin_id"],
+    };
+    for (const [action, [rpc, actorArg]] of Object.entries(expected)) {
+      const spec: any = (req.P2P_ACTIONS as any)[action];
+      expect(spec.kind, action).toBe("rpc");
+      expect(spec.rpc, action).toBe(rpc);
+      expect(spec.actorArg, action).toBe(actorArg);
+      expect(spec.admin, action).toBe(true);
+    }
+  });
+
   it("only create_ad and create_order are kill-switch entry actions", () => {
     const entries = Object.entries(req.P2P_ACTIONS as any)
       .filter(([, s]: any) => s.kind === "rpc" && s.entry)
@@ -95,7 +110,12 @@ describe("actor invariant", () => {
   });
 
   it("admin actions are flagged for the dispatcher's role check", () => {
-    for (const a of ["resolve_dispute", "apply_sanction", "revoke_sanction"]) {
+    for (const a of [
+      "resolve_dispute",
+      "apply_sanction",
+      "revoke_sanction",
+      "resolve_review",
+    ]) {
       expect((req.P2P_ACTIONS as any)[a].admin, a).toBe(true);
     }
     expect((req.P2P_ACTIONS as any).open_dispute.admin).toBeFalsy();
@@ -205,6 +225,37 @@ describe("validation", () => {
     expect(good.value.args.p_user_id).toBe(UUID_A);
     expect(good.value.args.p_duration).toBe("7 days");
     expect(good.value.spec.admin).toBe(true);
+    // delta-audit D10/E7: the acting admin NEVER comes from the
+    // body — the dispatcher stamps p_admin_id (actorArg) and
+    // p_applied_by from the verified JWT.
+    expect(good.value.args).not.toHaveProperty("p_admin_id");
+    expect(good.value.args).not.toHaveProperty("p_applied_by");
+    const smuggled = req.buildRpcArgs("apply_sanction", {
+      ...base,
+      level: 2,
+      p_admin_id: "attacker",
+      p_applied_by: "admin",
+    });
+    expect(smuggled.ok).toBe(true);
+    if (!smuggled.ok) return;
+    expect(JSON.stringify(smuggled.value.args)).not.toContain("attacker");
+    expect(smuggled.value.args).not.toHaveProperty("p_applied_by");
+  });
+
+  it("revoke_sanction and resolve_review validate their ids", () => {
+    expect(req.buildRpcArgs("revoke_sanction", {}).ok).toBe(false);
+    expect(
+      req.buildRpcArgs("revoke_sanction", { sanction_id: UUID_A }).ok,
+    ).toBe(true);
+    expect(req.buildRpcArgs("resolve_review", {}).ok).toBe(false);
+    expect(req.buildRpcArgs("resolve_review", { review_id: "nope" }).ok).toBe(
+      false,
+    );
+    const good = req.buildRpcArgs("resolve_review", { review_id: UUID_B });
+    expect(good.ok).toBe(true);
+    if (!good.ok) return;
+    expect(good.value.args.p_review_id).toBe(UUID_B);
+    expect(good.value.spec.wrap).toBe("void");
   });
 
   it("self reads take no body fields at all", () => {

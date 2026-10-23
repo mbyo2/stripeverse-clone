@@ -91,3 +91,10 @@ verify_jwt = false
 
 [functions.pos]
 verify_jwt = false
+
+# Delta-audit E6: explicit on purpose — the p2p function verifies
+# user JWTs itself and the cron path authenticates with the
+# service-key bearer (isCronCall), so the gateway check stays ON,
+# matching production intent.
+[functions.p2p]
+verify_jwt = true
