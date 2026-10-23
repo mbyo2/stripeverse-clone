@@ -7,12 +7,20 @@
 //            via public.btc_execute_trade (one DB transaction: ZMW wallet,
 //            BTC wallet, treasury float, two ledger legs, quote consumed)
 //
-// Pricing: BTC/USD from Coinbase spot, cross-checked against Kraken
-// (a >3% divergence refuses to quote). USD/ZMW from the app's own
-// exchange_rates table (populated by fetch-exchange-rates), falling back
-// to the same public source that function uses. The spread
-// (TRADE_FEE_BPS, default 150 = 1.5%) is applied inside the shared
-// quote math in _shared/btc-core.ts and disclosed on every quote.
+// Pricing: the latest p2p_price_snapshots BTC index — refreshed
+// every minute by pg_cron from Coinbase spot cross-checked against
+// Kraken, with the USD/ZMW leg recorded alongside (the same index
+// the POS bridge and the P2P marketplace price from) — while it is
+// fresh within platform_settings.p2p_price_stale_minutes. Only when
+// no fresh snapshot exists does a quote fall back to the live
+// dual-source fetch below (BTC/USD from Coinbase spot, cross-checked
+// against Kraken — a >3% divergence refuses to quote; USD/ZMW from
+// the app's own exchange_rates table, populated by
+// fetch-exchange-rates, falling back to the same public source that
+// function uses). If neither source can price, the quote refuses —
+// a rate is never invented. The spread (TRADE_FEE_BPS, default 150
+// = 1.5%) is applied inside the shared quote math in
+// _shared/btc-core.ts and disclosed on every quote.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
@@ -21,6 +29,7 @@ import {
   isAccountFrozen,
 } from "../_shared/account-freeze.ts";
 import { custodyStatus, quoteBuySats, quoteSellZmw } from "../_shared/btc-core.ts";
+import { resolveQuoteRates } from "../_shared/price-index.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -76,6 +85,13 @@ async function fetchJson(url: string): Promise<any> {
   return res.json();
 }
 
+// Live price fetchers — since the snapshot-first change these are
+// the FALLBACK path, used only when p2p_price_snapshots holds no
+// fresh row (see resolveQuoteRates in _shared/price-index.ts). Their
+// behaviour is unchanged from when they were the only path: the
+// BTC/USD pair is cross-checked and refuses on >3% divergence, and
+// USD/ZMW prefers the platform's exchange_rates table over the
+// public source.
 async function fetchBtcUsd(): Promise<number> {
   const [coinbase, kraken] = await Promise.all([
     fetchJson("https://api.coinbase.com/v2/prices/BTC-USD/spot"),
@@ -151,7 +167,15 @@ serve(async (req) => {
 
       let btcUsd: number, usdZmw: number;
       try {
-        [btcUsd, usdZmw] = await Promise.all([fetchBtcUsd(), fetchUsdZmw(admin)]);
+        // Snapshot first: the on-platform index refreshed every
+        // minute (resolveQuoteRates in _shared/price-index.ts). The
+        // live fetchers run only when no fresh snapshot exists.
+        const rates = await resolveQuoteRates(admin, {
+          fetchBtcUsd,
+          fetchUsdZmw: () => fetchUsdZmw(admin),
+        });
+        btcUsd = rates.btcUsd;
+        usdZmw = rates.usdZmw;
       } catch (e) {
         // Every fetch is bounded (AbortSignal.timeout in fetchJson), so
         // a failure here is a definitive answer, not a hang. The user
