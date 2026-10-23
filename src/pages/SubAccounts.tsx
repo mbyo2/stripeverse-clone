@@ -309,7 +309,7 @@ const SubAccounts = () => {
         </Card>
 
         <p className="text-xs text-muted-foreground mt-4">
-          Sub-accounts sit under your one verified identity — there are no extra logins or passwords.
+          Sub-accounts sit under your one BMaGlass Pay account — there are no extra logins or passwords.
           Switch the account you're viewing at any time from the account menu in the header.
         </p>
       </main>

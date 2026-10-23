@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { exportToCSV, exportToPDF } from '@/utils/exportUtils';
 import { transactionTitle } from '@/utils/transactionLabels';
-import { Search, FileDown, Filter } from 'lucide-react';
+import { Search, FileDown, Filter, Loader2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -19,11 +19,18 @@ const TransactionSearch = () => {
   const { user } = useAuth();
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [filters, setFilters] = useState({ query: '', status: 'all', direction: 'all', dateFrom: '', dateTo: '', minAmount: '', maxAmount: '' });
 
   const handleSearch = async () => {
-    if (!user) return;
+    if (!user) {
+      toast.error('Your session is still loading. Please try again in a moment.');
+      return;
+    }
     setLoading(true);
+    setHasSearched(true);
+    setSearchError(null);
     try {
       let q = supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(200);
       if (filters.status !== 'all') q = q.eq('status', filters.status);
@@ -32,11 +39,19 @@ const TransactionSearch = () => {
       if (filters.dateTo) q = q.lte('created_at', filters.dateTo + 'T23:59:59');
       if (filters.minAmount) q = q.gte('amount', Number(filters.minAmount));
       if (filters.maxAmount) q = q.lte('amount', Number(filters.maxAmount));
-      if (filters.query) q = q.or(`description.ilike.%${filters.query}%,recipient_name.ilike.%${filters.query}%,reference.ilike.%${filters.query}%`);
+      // Strip characters that would break the PostgREST or-filter grammar
+      // (commas, parentheses, quotes, wildcards) so any typed text is a
+      // plain substring search instead of a failed query.
+      const safeQuery = filters.query.replace(/[,()"*%\\]/g, '').trim();
+      if (safeQuery) q = q.or(`description.ilike.%${safeQuery}%,recipient_name.ilike.%${safeQuery}%,reference.ilike.%${safeQuery}%`);
       const { data, error } = await q;
       if (error) throw error;
       setResults(data || []);
-    } catch (e: any) { toast.error(toUserFacingError(e)); } finally { setLoading(false); }
+    } catch (e: any) {
+      const message = toUserFacingError(e);
+      setSearchError(message);
+      toast.error(message);
+    } finally { setLoading(false); }
   };
 
   const handleExport = (type: 'csv' | 'pdf') => {
@@ -79,10 +94,50 @@ const TransactionSearch = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div><Label className="text-xs">Min Amount</Label><Input type="number" value={filters.minAmount} onChange={e => setFilters(p => ({ ...p, minAmount: e.target.value }))} /></div>
               <div><Label className="text-xs">Max Amount</Label><Input type="number" value={filters.maxAmount} onChange={e => setFilters(p => ({ ...p, maxAmount: e.target.value }))} /></div>
-              <Button onClick={handleSearch} disabled={loading} className="self-end col-span-2"><Filter className="h-4 w-4 mr-2" /> Search</Button>
+              <Button onClick={handleSearch} disabled={loading} className="self-end col-span-2">
+                {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Filter className="h-4 w-4 mr-2" />}
+                {loading ? 'Searching…' : 'Search'}
+              </Button>
             </div>
           </CardContent>
         </Card>
+
+        {!hasSearched && !loading && (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground">
+              <Search className="h-6 w-6 mx-auto mb-2" />
+              <p className="text-sm">Search across all your transactions by description, recipient or reference — then press Search.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {loading && (
+          <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground" role="status">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Searching your transactions…</span>
+          </div>
+        )}
+
+        {!loading && searchError && (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <AlertCircle className="h-6 w-6 mx-auto mb-2 text-destructive" />
+              <p className="text-sm font-medium text-foreground">We couldn't run that search</p>
+              <p className="text-sm text-muted-foreground mt-1">{searchError}</p>
+              <Button size="sm" variant="outline" className="mt-4" onClick={handleSearch}>Try again</Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {!loading && !searchError && hasSearched && results.length === 0 && (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground">
+              <Search className="h-6 w-6 mx-auto mb-2" />
+              <p className="text-sm font-medium text-foreground">No transactions found</p>
+              <p className="text-sm mt-1">Nothing matches that search. Try a different term, or widen the dates and amounts.</p>
+            </CardContent>
+          </Card>
+        )}
 
         {results.length > 0 && (
           <div className="flex items-center justify-between mb-4">
