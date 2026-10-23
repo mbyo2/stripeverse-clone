@@ -80,15 +80,39 @@ export const BitcoinSection = () => (
   />
 );
 
+/**
+ * Framing band between the wallet section and everything else: the tools
+ * below exist to support the Bitcoin wallet, and the page says so plainly.
+ */
+export const SupportingIntro = () => (
+  <section className="bg-white dark:bg-background">
+    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 pt-16 md:pt-24 pb-2 text-center">
+      <FadeIn duration={0.6} distance={20}>
+        <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#B26A00] dark:text-[#F7931A] mb-4">
+          Supporting tools
+        </p>
+        <h2 className={`${DISPLAY} max-w-2xl mx-auto mb-5`}>
+          Everything else supports your wallet
+        </h2>
+        <p className={`${BODY} max-w-2xl mx-auto`}>
+          Sending money, payment links, point of sale and business tools —
+          each one exists to move money into, out of and around your
+          Bitcoin wallet.
+        </p>
+      </FadeIn>
+    </div>
+  </section>
+);
+
 export const MobileMoneySection = () => (
   <SplitSection
     flip
     image="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?q=80&w=1600&auto=format&fit=crop"
     imageAlt="Portrait of a young woman in a colourful Ankara print outfit"
-    headline="Send money to anyone, the simple way"
-    copy="Send money to any phone number, and pay from your wallet with MTN MoMo and Airtel Money — the way Zambia already moves money, now in one place. No setup fees or monthly charges."
-    linkTo="/wallet"
-    linkLabel="Explore the wallet"
+    headline="Send money from your wallet, the simple way"
+    copy="Send money from your wallet to any phone number on BMaGlass — the way Zambia already moves money, now in one place, with the fee shown before you confirm. Mobile money is coming soon; when it is live, we will say so here."
+    linkTo="/send-money"
+    linkLabel="See how sending works"
   />
 );
 
@@ -96,8 +120,8 @@ export const CheckoutSection = () => (
   <SplitSection
     image="https://images.unsplash.com/photo-1563013544-824ae1b704d3?q=80&w=1600&auto=format&fit=crop"
     imageAlt="A customer paying online by card on a laptop"
-    headline="Accept payments everywhere you sell"
-    copy="Take cards, mobile money and USSD online and in person with one checkout — and send payment links and invoices when your customer isn't in front of you."
+    headline="Get paid straight into your wallet"
+    copy="Send payment links and invoices, and take Bitcoin at the till with BMaGlass POS — every payment settles into your wallet, ready to hold, send or withdraw."
     linkTo="/business"
     linkLabel="Explore business tools"
   />
@@ -109,7 +133,7 @@ export const BusinessSection = () => (
     image="https://images.unsplash.com/photo-1573164713988-8665fc963095?q=80&w=1600&auto=format&fit=crop"
     imageAlt="An engineer with a laptop working inside a secure data centre"
     headline="One wallet for your whole business"
-    copy="Hold kwacha, dollars and pounds in one wallet, pay staff and suppliers, and see every payment your business takes in one place."
+    copy="Hold kwacha, dollars and pounds in one wallet, pay staff and suppliers, and see every payment your business takes in one place — right alongside your Bitcoin."
     linkTo="/multi-currency"
     linkLabel="Explore multi-currency"
   />
@@ -156,16 +180,18 @@ export const FinalCta = () => {
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-16 md:py-24 text-center">
         <FadeIn duration={0.6} distance={20}>
           <h2 className="font-display font-extrabold text-black dark:text-white tracking-[-0.025em] leading-[1.1] text-[32px] md:text-[44px] lg:text-[52px] mb-5">
-            Start getting paid today
+            Open your Bitcoin wallet today
           </h2>
           <p className="text-[17px] leading-[1.55] text-[#44464A] dark:text-white/70 mb-9">
-            Create your free account in minutes. No setup fees or monthly charges.
+            Create your free account in minutes and hold Bitcoin your way —
+            in a wallet we secure for you, or with your own seed phrase.
+            No setup fees or monthly charges.
           </p>
           <Link
             to="/register"
             className="inline-flex items-center h-12 rounded-full bg-[#F7931A] px-[30px] text-[15px] font-semibold text-black hover:bg-[#DE830A] transition-colors"
           >
-            Sign Up
+            Open your wallet
           </Link>
         </FadeIn>
       </div>

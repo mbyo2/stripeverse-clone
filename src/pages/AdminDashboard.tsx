@@ -201,7 +201,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen flex flex-col bg-muted">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-6">
           <h1 className="text-[28px] leading-tight font-display font-semibold">Admin Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">System overview and management tools</p>

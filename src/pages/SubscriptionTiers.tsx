@@ -137,7 +137,7 @@ const SubscriptionTiers = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 py-24">
+      <main className="flex-1 pt-6 pb-24">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold mb-3">Choose Your Plan</h1>

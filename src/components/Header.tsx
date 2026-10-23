@@ -66,11 +66,12 @@ import {
   Lock,
   MapPin,
   Search,
-  Store
+  Store,
+  Bitcoin
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { AccountSwitcher, AccountSwitcherList } from "@/components/AccountSwitcher";
+import { AccountSwitcherList } from "@/components/AccountSwitcher";
 import Logo from "@/components/Logo";
 
 const Header = () => {
@@ -117,7 +118,7 @@ const Header = () => {
     <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-[#0A0F1A] border-b border-[#CFD3D8]/70 dark:border-white/10">
       <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
         {/* Logo */}
-        <div className="flex items-center gap-3 xl:gap-10 min-w-0">
+        <div className="flex items-center gap-3 xl:gap-6 2xl:gap-10 min-w-0">
           <Link to="/" aria-label="BMaGlass Pay — home" className="flex items-center shrink-0">
             <Logo variant={resolvedTheme === "dark" ? "white" : "color"} />
           </Link>
@@ -141,19 +142,31 @@ const Header = () => {
           {user && (
             <nav className="hidden xl:flex items-center gap-1 min-w-0">
               <Link to="/dashboard">
-                <Button variant={isActive("/dashboard") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9">
+                <Button variant={isActive("/dashboard") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 px-3 2xl:px-4">
                   Dashboard
                 </Button>
               </Link>
+              {/* The Bitcoin wallet is the product — first destination after
+                  Dashboard, styled as the primary action in Bitcoin orange. */}
+              <Link to="/bitcoin-wallet">
+                <Button
+                  size="sm"
+                  className={`h-9 rounded-full px-3.5 2xl:px-4 text-sm font-semibold text-black shadow-none gap-1.5 ${
+                    isActive("/bitcoin-wallet") ? "bg-[#DE830A]" : "bg-[#F7931A] hover:bg-[#DE830A]"
+                  }`}
+                >
+                  <Bitcoin className="h-4 w-4" /> Bitcoin Wallet
+                </Button>
+              </Link>
               <Link to="/p2p">
-                <Button variant={isActive("/p2p") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9">
+                <Button variant={isActive("/p2p") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 px-3 2xl:px-4">
                   P2P Trading
                 </Button>
               </Link>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1">
+                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1 px-3 2xl:px-4">
                     Send & Request <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -203,11 +216,17 @@ const Header = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1">
+                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1 px-3 2xl:px-4">
                     Wallet <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuItem asChild>
+                    <Link to="/bitcoin-wallet" className="flex items-center gap-2">
+                      <Bitcoin className="h-4 w-4 text-[#F7931A]" /> Bitcoin Wallet
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/wallet" className="flex items-center gap-2">
                       <Wallet className="h-4 w-4" /> My Wallet
@@ -273,7 +292,7 @@ const Header = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1">
+                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1 px-3 2xl:px-4">
                     Business <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -373,14 +392,13 @@ const Header = () => {
                       <Code2 className="h-4 w-4" /> Checkout Widget
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/developers" className="flex items-center gap-2">
+                      <Code2 className="h-4 w-4" /> Developers
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              <Link to="/developers">
-                <Button variant={isActive("/developers") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9">
-                  Developers
-                </Button>
-              </Link>
             </nav>
           )}
         </div>
@@ -389,12 +407,15 @@ const Header = () => {
         <div className="hidden xl:flex items-center gap-2 shrink-0">
           {user ? (
             <>
-              <AccountSwitcher />
+              {/* Width budget: the 1320px container leaves 1232px at 1280 and
+                  1272px at ≥1366 for the whole row. The account switcher,
+                  language/currency selectors and role badge live in the
+                  avatar menu (below) so the row fits at every width ≥1280. */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setSearchOpen(true)}
-                className="hidden 2xl:flex h-9 gap-2 text-muted-foreground font-normal w-40 justify-start"
+                className="hidden 2xl:flex h-9 gap-2 text-muted-foreground font-normal w-32 justify-start"
               >
                 <Search className="h-3.5 w-3.5" />
                 <span className="text-xs">Search...</span>
@@ -409,12 +430,7 @@ const Header = () => {
               >
                 <Search className="h-4 w-4" />
               </Button>
-              <LanguageSelector compact />
-              <CurrencySelector compact />
               <NotificationBell />
-              <div className="hidden 2xl:block">
-                <RoleBadge />
-              </div>
 
               <Button
                 variant="ghost"
@@ -435,7 +451,24 @@ const Header = () => {
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuContent align="end" className="w-72">
+                  {/* Account hub: switcher, role and display preferences moved
+                      here from the header row (see width budget above). */}
+                  <div className="px-2 pt-1.5 pb-1">
+                    <RoleBadge />
+                  </div>
+                  <AccountSwitcherList />
+                  <div className="px-2 py-1 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">Language</span>
+                      <LanguageSelector compact />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">Currency</span>
+                      <CurrencySelector compact />
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/settings" className="flex items-center gap-2">
                       <Settings className="h-4 w-4" /> Settings
@@ -534,6 +567,19 @@ const Header = () => {
 
                     <Separator className="my-2" />
                     <MobileNavLink to="/dashboard" icon={Home}>Dashboard</MobileNavLink>
+                    {/* The main product, first in the drawer with Bitcoin-orange weight. */}
+                    <Link
+                      to="/bitcoin-wallet"
+                      onClick={closeMobileMenu}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-semibold ${
+                        isActive("/bitcoin-wallet")
+                          ? "bg-[#F7931A] text-black"
+                          : "bg-[#F7931A]/15 text-foreground hover:bg-[#F7931A]/25"
+                      }`}
+                    >
+                      <Bitcoin className={`h-4 w-4 ${isActive("/bitcoin-wallet") ? "text-black" : "text-[#F7931A]"}`} />
+                      <span>Bitcoin Wallet</span>
+                    </Link>
                     <MobileNavLink to="/p2p" icon={ArrowLeftRight}>P2P Trading</MobileNavLink>
                     
                     <Separator className="my-2" />
@@ -617,6 +663,7 @@ const Header = () => {
                 ) : (
                   <>
                     <MobileNavLink to="/" icon={Home}>Home</MobileNavLink>
+                    <MobileNavLink to="/bitcoin-wallet" icon={Bitcoin}>Bitcoin Wallet</MobileNavLink>
                     <MobileNavLink to="/about" icon={Users}>About</MobileNavLink>
                     <MobileNavLink to="/pricing" icon={DollarSign}>Pricing</MobileNavLink>
                     <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
@@ -667,6 +714,13 @@ const Header = () => {
         </div>
       </div>
     </header>
+    {/* The header is fixed, so it contributes no layout height. This in-flow
+        spacer reserves exactly the header's height (72px) at the top of
+        every page that renders <Header />, so page content — back buttons,
+        titles, everything — starts below the header at rest and scrolls
+        under it. This is the ONLY header offset in the app: pages must not
+        add their own pt- compensation for the header. */}
+    <div aria-hidden="true" className="h-[72px] shrink-0" />
     <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </>
   );

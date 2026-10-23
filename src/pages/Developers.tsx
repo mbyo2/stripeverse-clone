@@ -166,7 +166,7 @@ const Developers = () => {
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       <Header />
-      <main className="flex-1 pt-20">
+      <main className="flex-1 pt-2">
         {/* Hero Section */}
         <section className="bg-[#FEF3E2] border-b border-[#CFD3D8]/70">
           <div className="px-4 max-w-7xl mx-auto py-12 md:py-16">

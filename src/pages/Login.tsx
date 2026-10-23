@@ -27,7 +27,7 @@ const Login = () => {
   return (
     <div className="min-h-screen flex flex-col bg-muted">
       <Header />
-      <main className="flex-1 flex items-center justify-center p-4 pt-24 pb-16">
+      <main className="flex-1 flex items-center justify-center p-4 pt-6 pb-16">
         <div className="w-full max-w-[440px]">
           {/* Logo / Brand */}
           <div className="text-center mb-8">

@@ -153,7 +153,7 @@ const Compliance = () => {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       
-      <main className="flex-grow pt-24 pb-16">
+      <main className="flex-grow pt-6 pb-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <div 
             ref={contentRef}

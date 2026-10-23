@@ -304,7 +304,7 @@ const VirtualCardDetails = () => {
     return (
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
@@ -318,7 +318,7 @@ const VirtualCardDetails = () => {
     return (
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <VirtualCardsComingSoon />
         </main>
         <Footer />
@@ -330,7 +330,7 @@ const VirtualCardDetails = () => {
     return (
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
@@ -366,7 +366,7 @@ const VirtualCardDetails = () => {
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
           <div>
             <h1 className="text-3xl font-bold">{card.name}</h1>

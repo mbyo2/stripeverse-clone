@@ -18,7 +18,7 @@ const Disputes = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl mt-14">
+      <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Chargebacks & Disputes</h1>
           <p className="text-muted-foreground">Manage transaction disputes and chargebacks. File disputes from your transaction history.</p>

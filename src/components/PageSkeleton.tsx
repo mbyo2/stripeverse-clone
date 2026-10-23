@@ -13,7 +13,7 @@ interface PageSkeletonProps {
 const PageSkeleton = ({ cards = 3, showHeader = true, showChart = false, title = true }: PageSkeletonProps) => (
   <div className="min-h-screen flex flex-col bg-background">
     {showHeader && <Header />}
-    <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
+    <main className="flex-1 pt-6 pb-16 px-4 max-w-6xl mx-auto w-full">
       {title && (
         <div className="mb-8">
           <Skeleton className="h-8 w-48 mb-2" />

@@ -25,7 +25,7 @@ const CardVault = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 pt-24 pb-16">
+      <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 pt-6 pb-16">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-[28px] leading-tight font-display font-semibold">Card Vault</h1>
