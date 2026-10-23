@@ -88,3 +88,6 @@ verify_jwt = false
 
 [functions.fetch-exchange-rates]
 verify_jwt = false
+
+[functions.pos]
+verify_jwt = false
