@@ -997,7 +997,7 @@ BEGIN
   -- first registration (the conflict above already refused the
   -- active duplicate; this covers disabled/removed history).
   INSERT INTO public.p2p_identity_signals (user_id, signal_type, signal_hash)
-  VALUES (p_user_id, 'payment_account_hash', encode(digest(v_norm, 'sha256'), 'hex'))
+  VALUES (p_user_id, 'payment_account_hash', encode(extensions.digest(v_norm::bytea, 'sha256'), 'hex'))
   ON CONFLICT (signal_type, signal_hash) DO NOTHING;
 
   RETURN to_jsonb(v_row);
