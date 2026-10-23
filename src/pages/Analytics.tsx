@@ -10,162 +10,53 @@ import { TrendingUp, CreditCard, DollarSign, ArrowUpRight, ArrowDownRight, Calen
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/utils/walletUtils";
-
-interface TxRow {
-  amount: number;
-  currency: string;
-  status: string;
-  direction: string;
-  payment_method: string;
-  recipient_name: string | null;
-  created_at: string | null;
-}
-
-const PERIOD_DAYS: Record<string, number> = {
-  '7d': 7,
-  '1m': 30,
-  '3m': 90,
-  '6m': 180,
-  '1y': 365,
-};
-
-const METHOD_LABELS: Record<string, string> = {
-  mobile_money: 'Mobile Money',
-  card: 'Card Payment',
-  card_payment: 'Card Payment',
-  bank_transfer: 'Bank Transfer',
-  bitcoin: 'Bitcoin',
-  bitcoin_onchain: 'Bitcoin',
-  bitcoin_trade: 'Bitcoin',
-  lightning: 'Lightning',
-  ussd: 'USSD',
-  paypal: 'PayPal',
-  wallet: 'Wallet Transfer',
-};
-
-const METHOD_COLORS = [
-  'hsl(var(--primary))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-];
-
-const methodLabel = (raw: string) =>
-  METHOD_LABELS[raw] || raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-
-const isRevenue = (t: TxRow) => t.direction === 'incoming' && t.status === 'completed' && t.currency === 'ZMW';
-const isSent = (t: TxRow) => t.direction === 'outgoing' && t.status === 'completed' && t.currency === 'ZMW';
-const sum = (rows: TxRow[]) => rows.reduce((acc, t) => acc + Number(t.amount), 0);
-
-const pctChange = (current: number, previous: number): number | null => {
-  if (previous === 0) return null;
-  return ((current - previous) / previous) * 100;
-};
+import {
+  EMPTY_SUMMARY,
+  analyticsWindows,
+  buildAnalyticsModel,
+  fetchAnalyticsSummaries,
+  pctChange,
+  type AnalyticsRpcClient,
+} from "@/utils/analyticsSummary";
 
 const Analytics = () => {
   const { user } = useAuth();
   const [period, setPeriod] = useState('6m');
 
-  // One fetch of the last 12 months; every figure on this page is computed
-  // from these real rows. Nothing is estimated or sampled.
-  const { data: allTx = [], isLoading } = useQuery({
-    queryKey: ['analytics-transactions', user?.id],
-    queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - 365);
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('amount, currency, status, direction, payment_method, recipient_name, created_at')
-        .eq('user_id', user!.id)
-        .gte('created_at', since.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(5000);
-      if (error) throw error;
-      return (data || []) as TxRow[];
-    },
+  // Aggregates are computed server-side by public.get_user_analytics
+  // (migration 20261114) — four small fixed-size results for the
+  // current period, the previous period, the last 6 calendar months
+  // and the current week. This page used to pull up to 5,000 raw
+  // transaction rows and aggregate in the browser; PostgREST's
+  // 1,000-row cap silently truncated that pull, so the figures were
+  // wrong at volume. Nothing here is estimated or sampled — the RPC
+  // aggregates the same real rows with the same definitions.
+  const { data: summaries, isLoading } = useQuery({
+    queryKey: ['analytics-summary', user?.id, period],
+    queryFn: () =>
+      fetchAnalyticsSummaries(
+        supabase as unknown as AnalyticsRpcClient,
+        period,
+        Date.now(),
+      ),
     enabled: !!user,
   });
 
   const model = useMemo(() => {
-    const days = PERIOD_DAYS[period] ?? 180;
-    const now = Date.now();
-    const inWindow = (t: TxRow, startMs: number, endMs: number) => {
-      if (!t.created_at) return false;
-      const ts = new Date(t.created_at).getTime();
-      return ts >= startMs && ts < endMs;
-    };
-    const current = allTx.filter(t => inWindow(t, now - days * 86400000, now + 1));
-    const previous = allTx.filter(t => inWindow(t, now - 2 * days * 86400000, now - days * 86400000));
-
-    const revenue = sum(current.filter(isRevenue));
-    const prevRevenue = sum(previous.filter(isRevenue));
-    const sent = sum(current.filter(isSent));
-    const prevSent = sum(previous.filter(isSent));
-    const successRate = current.length ? (current.filter(t => t.status === 'completed').length / current.length) * 100 : 0;
-    const prevSuccessRate = previous.length ? (previous.filter(t => t.status === 'completed').length / previous.length) * 100 : null;
-
-    // Monthly series for the last 6 calendar months.
-    const monthly: { month: string; transactions: number; revenue: number; successful: number; failed: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(1);
-      d.setMonth(d.getMonth() - i);
-      const start = d.getTime();
-      const endDate = new Date(d);
-      endDate.setMonth(endDate.getMonth() + 1);
-      const rows = allTx.filter(t => inWindow(t, start, endDate.getTime()));
-      monthly.push({
-        month: d.toLocaleString('en', { month: 'short' }),
-        transactions: rows.length,
-        revenue: sum(rows.filter(isRevenue)),
-        successful: rows.filter(t => t.status === 'completed').length,
-        failed: rows.filter(t => t.status === 'failed').length,
-      });
+    if (!summaries) {
+      const { week } = analyticsWindows(period, Date.now());
+      return buildAnalyticsModel(
+        EMPTY_SUMMARY, EMPTY_SUMMARY, EMPTY_SUMMARY, EMPTY_SUMMARY, week.from,
+      );
     }
-
-    // Payment method distribution for the selected period.
-    const byMethod = new Map<string, number>();
-    current.forEach(t => {
-      const label = methodLabel(t.payment_method);
-      byMethod.set(label, (byMethod.get(label) || 0) + 1);
-    });
-    const paymentMethods = Array.from(byMethod.entries()).map(([name, value], i) => ({
-      name,
-      value,
-      color: METHOD_COLORS[i % METHOD_COLORS.length],
-    }));
-
-    // Daily revenue for the current week (Mon–Sun).
-    const weekStart = new Date();
-    const dayIdx = (weekStart.getDay() + 6) % 7; // Monday = 0
-    weekStart.setHours(0, 0, 0, 0);
-    weekStart.setDate(weekStart.getDate() - dayIdx);
-    const dailyRevenue = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => {
-      const start = weekStart.getTime() + i * 86400000;
-      const rows = allTx.filter(t => inWindow(t, start, start + 86400000));
-      return { day, amount: sum(rows.filter(isRevenue)) };
-    });
-
-    // Top counterparties by volume in the selected period (real rows only).
-    const byParty = new Map<string, { volume: number; transactions: number }>();
-    current.filter(t => t.currency === 'ZMW' && t.recipient_name).forEach(t => {
-      const entry = byParty.get(t.recipient_name!) || { volume: 0, transactions: 0 };
-      entry.volume += Number(t.amount);
-      entry.transactions += 1;
-      byParty.set(t.recipient_name!, entry);
-    });
-    const totalVolume = Array.from(byParty.values()).reduce((a, e) => a + e.volume, 0);
-    const topCounterparties = Array.from(byParty.entries())
-      .map(([name, e]) => ({ name, volume: e.volume, transactions: e.transactions, share: totalVolume ? (e.volume / totalVolume) * 100 : 0 }))
-      .sort((a, b) => b.volume - a.volume)
-      .slice(0, 5);
-
-    return {
-      current, prevCount: previous.length, revenue, prevRevenue, sent, prevSent,
-      successRate, prevSuccessRate, monthly, paymentMethods, dailyRevenue, topCounterparties,
-    };
-  }, [allTx, period]);
+    return buildAnalyticsModel(
+      summaries.current,
+      summaries.previous,
+      summaries.months,
+      summaries.week,
+      summaries.windows.week.from,
+    );
+  }, [summaries, period]);
 
   const stats = [
     {
@@ -176,13 +67,13 @@ const Analytics = () => {
     },
     {
       title: 'Transactions', icon: CreditCard,
-      value: model.current.length.toLocaleString(),
-      change: pctChange(model.current.length, model.prevCount),
+      value: model.currentCount.toLocaleString(),
+      change: pctChange(model.currentCount, model.prevCount),
       note: 'In selected period',
     },
     {
       title: 'Success Rate', icon: TrendingUp,
-      value: model.current.length ? `${model.successRate.toFixed(1)}%` : '—',
+      value: model.currentCount ? `${model.successRate.toFixed(1)}%` : '—',
       change: model.prevSuccessRate === null ? null : model.successRate - model.prevSuccessRate,
       note: 'Completed share of transactions',
     },
