@@ -1462,7 +1462,7 @@ BEGIN
   END IF;
   IF p_price_type = 'margin'
      AND (p_margin_percent IS NULL OR p_margin_percent < -30 OR p_margin_percent > 30) THEN
-    RAISE EXCEPTION 'Margin must be between -30% and +30%';
+    RAISE EXCEPTION 'Margin must be between -30%% and +30%%';
   END IF;
   IF p_total_amount_minor IS NULL OR p_total_amount_minor <= 0 THEN
     RAISE EXCEPTION 'The ad amount must be positive';
@@ -1867,7 +1867,7 @@ BEGIN
   -- taker must explicitly acknowledge before the order opens.
   IF abs(v_price - v_snapshot.index_zmw) / v_snapshot.index_zmw > 0.10
      AND NOT COALESCE(p_taker_ack_offmarket, false) THEN
-    RAISE EXCEPTION 'This ad is priced more than 10% away from the market price — if you understand and want to continue, confirm the warning and try again';
+    RAISE EXCEPTION 'This ad is priced more than 10%% away from the market price — if you understand and want to continue, confirm the warning and try again';
   END IF;
 
   -- Amounts: exactly one of fiat / crypto is specified (§2.3).
