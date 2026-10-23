@@ -16,6 +16,7 @@ import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { formatBitcoinAmount, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import QRCode from "qrcode.react";
 import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound, ArrowUpRight, ArrowDownLeft, Bitcoin } from "lucide-react";
 
 const satsToBtc = (sats?: number) => (sats ? sats / 100_000_000 : 0);
@@ -61,6 +62,11 @@ function OnchainDeposit({ onDone }: { onDone: () => void }) {
         </Button>
       ) : (
         <div className="space-y-3">
+          <div className="flex justify-center">
+            <div className="rounded bg-white p-3">
+              <QRCode value={`bitcoin:${address}`} size={180} />
+            </div>
+          </div>
           <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all">{address}</div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={copy} className="flex-1">
@@ -162,6 +168,11 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
         </>
       ) : (
         <div className="space-y-3">
+          <div className="flex justify-center">
+            <div className="rounded bg-white p-3">
+              <QRCode value={invoice.bolt11} size={180} />
+            </div>
+          </div>
           <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all max-h-32 overflow-y-auto">
             {invoice.bolt11}
           </div>

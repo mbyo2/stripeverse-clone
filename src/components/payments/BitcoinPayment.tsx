@@ -257,13 +257,14 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         
         <TabsContent value="bitcoin" className="space-y-4 pt-4">
           <div className="bg-muted p-4 rounded-lg flex flex-col items-center">
-            <QRCode 
-              value={bitcoinAddress}
-              size={180}
-              level="H"
-              includeMargin={true}
-              className="mb-4"
-            />
+            <div className="bg-white p-3 rounded-lg mb-4">
+              <QRCode
+                value={bitcoinAddress}
+                size={180}
+                level="H"
+                includeMargin={true}
+              />
+            </div>
             
             <div className="w-full">
               <Label htmlFor="btc-address" className="sr-only">Bitcoin Address</Label>
