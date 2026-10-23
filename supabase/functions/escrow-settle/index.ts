@@ -30,6 +30,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
+import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,6 +66,10 @@ serve(async (req) => {
     // granted to service_role only, and a user auth.uid() in scope
     // would trip the balance-protection trigger on the credit leg.
     const admin = getServiceRoleClient();
+
+    // ── Freeze guard: a frozen buyer cannot settle escrow ──
+    await assertAccountNotFrozen(admin, user.id);
+
     const { data, error } = await admin.rpc("settle_escrow", {
       p_escrow_id: escrow_id,
       p_action: action,

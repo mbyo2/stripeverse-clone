@@ -41,6 +41,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
 import {
+  ACCOUNT_FROZEN_MESSAGE,
+  isAccountFrozen,
+} from "../_shared/account-freeze.ts";
+import {
   buildWithdrawalTx,
   classifyBroadcastOutcome,
   crossCheckDeposit,
@@ -405,6 +409,12 @@ async function send(supabase: any, userId: string, body: any) {
   if (!c.configured) {
     console.error("btc-onchain send: custody not configured (" + c.reason + ")");
     return json(503, { error: WITHDRAWALS_NOT_CONFIGURED });
+  }
+
+  // ── Freeze guard: a frozen account cannot withdraw on-chain ──
+  // (Receiving stays open; only the send path checks.)
+  if (await isAccountFrozen(supabase, userId)) {
+    return json(403, { error: ACCOUNT_FROZEN_MESSAGE });
   }
   const accountPriv = c.accountPriv;
   const accountPub = c.accountPub;

@@ -16,6 +16,10 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
+import {
+  ACCOUNT_FROZEN_MESSAGE,
+  isAccountFrozen,
+} from "../_shared/account-freeze.ts";
 import { custodyStatus, quoteBuySats, quoteSellZmw } from "../_shared/btc-core.ts";
 
 const corsHeaders = {
@@ -224,6 +228,12 @@ serve(async (req) => {
     }
 
     if (action === "execute") {
+      // ── Freeze guard: a frozen account cannot trade (either side
+      // moves value out of the account). Quotes stay available.
+      if (await isAccountFrozen(admin, user.id)) {
+        return json(403, { error: ACCOUNT_FROZEN_MESSAGE });
+      }
+
       const quoteId = typeof body?.quote_id === "string" ? body.quote_id : "";
       const idempotencyKey = typeof body?.idempotency_key === "string" ? body.idempotency_key : "";
       if (!quoteId) return json(400, { error: "quote_id is required" });

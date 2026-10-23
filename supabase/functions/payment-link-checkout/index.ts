@@ -47,6 +47,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyLinkMethod } from "../_shared/payment-providers.ts";
+import {
+  ACCOUNT_FROZEN_MESSAGE,
+  isAccountFrozen,
+} from "../_shared/account-freeze.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -144,6 +148,15 @@ serve(async (req) => {
         status: "invalid",
         error: "You cannot pay your own payment link.",
       }, 400);
+    }
+
+    // ── Freeze guard: a frozen account cannot pay from its wallet ──
+    if (await isAccountFrozen(admin, user.id)) {
+      return json({
+        success: false,
+        status: "account_frozen",
+        error: ACCOUNT_FROZEN_MESSAGE,
+      }, 403);
     }
 
     const amount = link.amount != null ? Number(link.amount) : Number(body.amount);

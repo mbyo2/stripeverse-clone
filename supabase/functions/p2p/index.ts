@@ -85,14 +85,19 @@ const PAUSED_MESSAGE =
 // Small service-role helpers
 // ---------------------------------------------------------------------
 
+// P2P console authority: full admins, the super_admin, and the
+// per-feature p2p_admin (superadmin foundation, 20261105). Mirrors the
+// database helper public.p2p_is_admin, which the in-DB RPC checks use.
+const P2P_ADMIN_ROLES = ["admin", "super_admin", "p2p_admin"];
+
 async function isAdmin(admin: any, userId: string): Promise<boolean> {
   const { data } = await admin
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  return !!data;
+    .in("role", P2P_ADMIN_ROLES)
+    .limit(1);
+  return Array.isArray(data) && data.length > 0;
 }
 
 async function p2pEnabled(admin: any): Promise<boolean> {
