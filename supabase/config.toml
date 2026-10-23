@@ -98,3 +98,6 @@ verify_jwt = false
 # matching production intent.
 [functions.p2p]
 verify_jwt = true
+
+[functions.mastercard-move]
+verify_jwt = true

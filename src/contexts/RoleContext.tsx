@@ -9,7 +9,7 @@ import React, {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
-export type Role = "admin" | "business" | "user" | "beta_tester";
+export type Role = "admin" | "super_admin" | "business" | "user" | "beta_tester";
 export type Feature =
   | "dashboard_access"
   | "feedback_submission"
