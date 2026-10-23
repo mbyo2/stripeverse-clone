@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { MONEY_QUERY_STALE_TIME } from '@/utils/moneyFreshness';
 
 export interface Transaction {
   id: number;
@@ -25,7 +26,7 @@ export interface Transaction {
 export const useTransactions = (limit?: number, walletIds?: string[]) => {
   const { user } = useAuth();
 
-  const { data: transactions = [], isLoading, error } = useQuery({
+  const { data: transactions = [], isLoading, error, refetch } = useQuery({
     queryKey: ['transactions', user?.id, limit, walletIds],
     queryFn: async (): Promise<Transaction[]> => {
       if (!user?.id) throw new Error('User not authenticated');
@@ -52,6 +53,10 @@ export const useTransactions = (limit?: number, walletIds?: string[]) => {
       }));
     },
     enabled: !!user?.id,
+    // Activity lists are money surfaces: refetch on mount/focus
+    // rather than rendering rows cached by an earlier screen.
+    staleTime: MONEY_QUERY_STALE_TIME,
+    refetchOnWindowFocus: true,
   });
 
   const { data: recentTransactions = [] } = useQuery({
@@ -68,6 +73,8 @@ export const useTransactions = (limit?: number, walletIds?: string[]) => {
       return data || [];
     },
     enabled: !!user?.id,
+    staleTime: MONEY_QUERY_STALE_TIME,
+    refetchOnWindowFocus: true,
   });
 
   return {
@@ -75,5 +82,6 @@ export const useTransactions = (limit?: number, walletIds?: string[]) => {
     recentTransactions,
     isLoading,
     error,
+    refetch,
   };
 };

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowUpRight, ArrowDownLeft, Search, Filter, CalendarIcon, Receipt } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Search, Filter, CalendarIcon, Receipt, AlertTriangle } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useAccount } from "@/contexts/AccountContext";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
@@ -53,7 +53,7 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
     ? (allWallets ?? []).filter(w => w.account_id === selectedAccountId).map(w => w.id)
     : undefined;
 
-  const { transactions, isLoading } = useTransactions(limit, walletIds);
+  const { transactions, isLoading, error, refetch } = useTransactions(limit, walletIds);
 
   const filteredTransactions = transactions
     .filter(transaction => {
@@ -176,6 +176,19 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
                 </div>
               </div>
             ))
+          ) : error ? (
+            <div className="text-center py-8">
+              <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+              </div>
+              <h3 className="text-lg font-medium mb-2">Couldn't Load Transactions</h3>
+              <p className="text-muted-foreground mb-4">
+                Your history didn't load. Check your connection and try again.
+              </p>
+              <Button variant="outline" onClick={() => refetch()}>
+                Try Again
+              </Button>
+            </div>
           ) : filteredTransactions.length === 0 ? (
             <div className="text-center py-8">
               <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">

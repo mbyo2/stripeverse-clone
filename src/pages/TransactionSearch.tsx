@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState } from 'react';
 import Header from '@/components/Header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,7 +36,7 @@ const TransactionSearch = () => {
       const { data, error } = await q;
       if (error) throw error;
       setResults(data || []);
-    } catch (e: any) { toast.error(e.message); } finally { setLoading(false); }
+    } catch (e: any) { toast.error(toUserFacingError(e)); } finally { setLoading(false); }
   };
 
   const handleExport = (type: 'csv' | 'pdf') => {

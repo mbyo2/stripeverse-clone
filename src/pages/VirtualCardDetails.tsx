@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -7,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowUpRight, ArrowDownLeft, ShieldCheck, Copy, Eye, EyeOff, RefreshCw, Trash2, Lock, Settings } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, ShieldCheck, RefreshCw, Trash2, Lock, Settings } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,9 @@ import { Label } from "@/components/ui/label";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useRoles } from "@/contexts/RoleContext";
+import { formatCardExpiry } from "@/utils/cardDisplay";
+import VirtualCardsComingSoon from "@/components/VirtualCardsComingSoon";
 // In a real app, this would fetch from API
 const fetchVirtualCard = async (cardId: string) => {
   const { data: row, error } = await supabase
@@ -60,8 +64,11 @@ const fetchVirtualCard = async (cardId: string) => {
 
   return {
     ...row,
-    number: row.card_number,
-    expiry: row.expiry_date,
+    // The live table stores only the masked number and expiry —
+    // there is no full card_number or cvv column (verified
+    // 2026-10-23), so there is nothing further to reveal here; the
+    // full details are shown once, at creation.
+    expiry: formatCardExpiry(row.expiry_date),
     limits: {
       daily: Number(row.daily_limit ?? 0),
       monthly: Number(row.monthly_limit ?? 0),
@@ -87,7 +94,7 @@ const VirtualCardDetails = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [showCardDetails, setShowCardDetails] = useState(false);
+  const { hasRole, isLoading: rolesLoading } = useRoles();
   const [fundAmount, setFundAmount] = useState<string>("50");
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showLimitsDialog, setShowLimitsDialog] = useState(false);
@@ -139,7 +146,7 @@ const VirtualCardDetails = () => {
       });
     },
     onError: (err: any) => {
-      toast({ title: "Update Failed", description: err.message || "Could not update card status.", variant: "destructive" });
+      toast({ title: "Update Failed", description: toUserFacingError(err, "Could not update card status."), variant: "destructive" });
     }
   });
 
@@ -164,7 +171,7 @@ const VirtualCardDetails = () => {
       setFundAmount("50");
     },
     onError: (err: any) => {
-      toast({ title: "Funding Failed", description: err.message || "Could not fund card.", variant: "destructive" });
+      toast({ title: "Funding Failed", description: toUserFacingError(err, "Could not fund card."), variant: "destructive" });
     }
   });
 
@@ -187,7 +194,7 @@ const VirtualCardDetails = () => {
       navigate("/wallet");
     },
     onError: (err: any) => {
-      toast({ title: "Delete Failed", description: err.message || "Could not cancel card.", variant: "destructive" });
+      toast({ title: "Delete Failed", description: toUserFacingError(err, "Could not cancel card."), variant: "destructive" });
     }
   });
 
@@ -215,7 +222,7 @@ const VirtualCardDetails = () => {
       setShowLimitsDialog(false);
     },
     onError: (err: any) => {
-      toast({ title: "Update Failed", description: err.message || "Could not update limits.", variant: "destructive" });
+      toast({ title: "Update Failed", description: toUserFacingError(err, "Could not update limits."), variant: "destructive" });
     }
   });
 
@@ -244,7 +251,7 @@ const VirtualCardDetails = () => {
       });
     },
     onError: (err: any) => {
-      toast({ title: "Update Failed", description: err.message || "Could not update settings.", variant: "destructive" });
+      toast({ title: "Update Failed", description: toUserFacingError(err, "Could not update settings."), variant: "destructive" });
     }
   });
 
@@ -260,16 +267,6 @@ const VirtualCardDetails = () => {
 
   const confirmDeleteCard = () => {
     deleteCardMutation.mutate();
-  };
-
-  const handleCopyCardNumber = () => {
-    if (card) {
-      navigator.clipboard.writeText(card.number);
-      toast({
-        title: "Copied to Clipboard",
-        description: "Card number has been copied to clipboard.",
-      });
-    }
   };
 
   const handleFundCard = () => {
@@ -299,6 +296,35 @@ const VirtualCardDetails = () => {
       updateCardSettingsMutation.mutate(updatedSettings);
     }
   };
+
+  // Virtual cards are "Coming soon" for the public (CEO decision,
+  // 2026-10-22): card details and every card action on this page stay
+  // admin-only until the Mastercard integration is built and tested.
+  if (rolesLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!hasRole("admin")) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+          <VirtualCardsComingSoon />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -382,21 +408,9 @@ const VirtualCardDetails = () => {
               </div>
               
               <div className="font-mono text-xl mt-8 mb-6">
-                {showCardDetails ? card.number : card.masked_number}
-                <button 
-                  onClick={() => setShowCardDetails(!showCardDetails)}
-                  className="ml-2 text-white/70 hover:text-white transition-colors"
-                >
-                  {showCardDetails ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-                <button 
-                  onClick={handleCopyCardNumber}
-                  className="ml-2 text-white/70 hover:text-white transition-colors"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
+                {card.masked_number}
               </div>
-              
+
               <div className="flex justify-between text-sm">
                 <div>
                   <div className="text-white/70">Card Holder</div>
@@ -408,7 +422,7 @@ const VirtualCardDetails = () => {
                 </div>
                 <div>
                   <div className="text-white/70">CVV</div>
-                  <div>{showCardDetails ? card.cvv : "***"}</div>
+                  <div>***</div>
                 </div>
               </div>
             </div>
@@ -416,6 +430,7 @@ const VirtualCardDetails = () => {
         </Card>
         <p className="text-xs text-muted-foreground -mt-4 mb-6">
           This is an internal BMaGlass wallet card. It isn't a Visa, Mastercard, or bank card and can't be used on card networks or for purchases outside BMaGlass Pay.
+          The full card number and CVV were shown once when this card was created — they aren't stored, so they can't be displayed again.
         </p>
         
         {/* Card Details */}

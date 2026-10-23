@@ -1,9 +1,11 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ensureWalletExists } from '@/utils/walletUtils';
+import { MONEY_QUERY_STALE_TIME, invalidateMoneyState } from '@/utils/moneyFreshness';
 import { resolveDepositTarget } from '@/utils/depositTarget';
 import { PAYPAL_AVAILABLE } from '@/config/paypal';
 
@@ -21,10 +23,12 @@ export interface Wallet {
 export interface VirtualCard {
   id: string;
   user_id: string;
+  wallet_id: string;
   name: string;
-  card_number: string;
   masked_number: string;
-  cvv: string;
+  // Live schema (verified 2026-10-23): no card_number / cvv columns —
+  // the full number and CVV are revealed once at creation and never
+  // stored. expiry_date is a DATE, arriving as 'YYYY-MM-DD'.
   expiry_date: string;
   balance: number;
   currency: string;
@@ -53,7 +57,7 @@ export const useWallet = (accountId?: string | null) => {
   const scoped = accountId !== undefined;
 
   // Fetch wallet data with proper error handling
-  const { data: wallet, isLoading: walletLoading, error: walletError } = useQuery({
+  const { data: wallet, isLoading: walletLoading, error: walletError, refetch: refetchWallet } = useQuery({
     queryKey: scoped ? ['wallet', user?.id, accountId ?? 'main'] : ['wallet', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
@@ -70,6 +74,10 @@ export const useWallet = (accountId?: string | null) => {
     enabled: !!user?.id,
     retry: 2,
     retryDelay: 1000,
+    // Balances are never served stale from an earlier screen: always
+    // refetch on mount/focus (cached value renders while it runs).
+    staleTime: MONEY_QUERY_STALE_TIME,
+    refetchOnWindowFocus: true,
   });
 
   // Fetch virtual cards with proper error handling
@@ -98,6 +106,8 @@ export const useWallet = (accountId?: string | null) => {
     },
     enabled: !!user?.id,
     retry: 1,
+    staleTime: MONEY_QUERY_STALE_TIME,
+    refetchOnWindowFocus: true,
   });
 
   // Create virtual card mutation with usage tracking
@@ -136,7 +146,7 @@ export const useWallet = (accountId?: string | null) => {
       console.error('Create virtual card error:', error);
       toast({
         title: "Failed to Create Card",
-        description: error.message || "An unknown error occurred",
+        description: toUserFacingError(error, "An unknown error occurred"),
         variant: "destructive",
       });
     },
@@ -156,7 +166,8 @@ export const useWallet = (accountId?: string | null) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['virtualCards'] });
-      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['usage'] });
+      invalidateMoneyState(queryClient);
       toast({
         title: "Card Funded",
         description: "Your virtual card has been funded successfully.",
@@ -166,7 +177,7 @@ export const useWallet = (accountId?: string | null) => {
       console.error('Fund virtual card error:', error);
       toast({
         title: "Failed to Fund Card",
-        description: error.message || "An unknown error occurred",
+        description: toUserFacingError(error, "An unknown error occurred"),
         variant: "destructive",
       });
     },
@@ -259,7 +270,7 @@ export const useWallet = (accountId?: string | null) => {
       // Reached only when an approval URL existed and the browser is
       // navigating to PayPal (see mutationFn) — so this toast is a
       // "redirecting" note, never a completion claim.
-      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      invalidateMoneyState(queryClient);
       toast({
         title: "Redirecting to PayPal",
         description: "Complete the payment on PayPal — your wallet is credited once the payment is confirmed.",
@@ -269,7 +280,7 @@ export const useWallet = (accountId?: string | null) => {
       console.error('Deposit error:', error);
       toast({
         title: "Failed to Process Deposit",
-        description: error.message || "An unknown error occurred",
+        description: toUserFacingError(error, "An unknown error occurred"),
         variant: "destructive",
       });
     },
@@ -280,6 +291,7 @@ export const useWallet = (accountId?: string | null) => {
     virtualCards,
     isLoading: walletLoading || cardsLoading,
     walletError,
+    refetchWallet,
     createVirtualCard: createVirtualCardMutation.mutate,
     fundVirtualCard: fundVirtualCardMutation.mutate,
     deposit: depositMutation.mutate,

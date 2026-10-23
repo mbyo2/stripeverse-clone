@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,7 @@ export const RequestPayoutForm = ({ onSubmitted }: { onSubmitted?: () => void })
       status: "pending",
     });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(toUserFacingError(error));
     toast.success("Payout request submitted for admin approval");
     setAmount("");
     setDestination("");

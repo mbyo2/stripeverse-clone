@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -8,16 +9,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCardNumber } from "@/lib/utils";
+import { formatCardExpiry } from "@/utils/cardDisplay";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, WalletCards } from "lucide-react";
+import { CreditCard, WalletCards, Copy, Check, ShieldAlert } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
+import { useRoles } from "@/contexts/RoleContext";
+import VirtualCardsComingSoon from "@/components/VirtualCardsComingSoon";
 import { supabase } from "@/integrations/supabase/client";
 
 const VirtualCardNew = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { wallet } = useWallet();
+  const { hasRole, isLoading: rolesLoading } = useRoles();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -26,6 +31,34 @@ const VirtualCardNew = () => {
     cardProvider: "visa",
     cardType: "debit",
   });
+  // One-time reveal: the full card number, CVV and expiry are
+  // returned exactly once, in the create-virtual-card response —
+  // they are never stored anywhere (the live table has no columns
+  // for them), so this component state is the only place they ever
+  // exist in the app. Nothing is persisted (no localStorage, no
+  // URL), and navigating away discards them for good.
+  const [createdCard, setCreatedCard] = useState<{
+    id: string;
+    cardNumber?: string;
+    cvv?: string;
+    expiry?: string;
+  } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const copyToClipboard = async (field: string, value?: string) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast({
+        title: "Couldn't copy",
+        description: "Your browser blocked clipboard access — copy the value by hand.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -58,6 +91,13 @@ const VirtualCardNew = () => {
       return;
     }
 
+    let reveal: {
+      id: string;
+      cardNumber?: string;
+      cvv?: string;
+      expiry?: string;
+    } | null = null;
+
     try {
       // 1. Create the card via the real edge function
       const { data, error: fnError } = await supabase.functions.invoke('create-virtual-card', {
@@ -78,6 +118,18 @@ const VirtualCardNew = () => {
 
       const cardId: string = data.card.id;
 
+      // Capture the one-time reveal BEFORE anything else can fail:
+      // the full card number, CVV and expiry exist only in this
+      // creation response — they are never stored, so once this
+      // response is discarded they cannot be shown again.
+      reveal = {
+        id: cardId,
+        cardNumber: data.card.card_number,
+        cvv: data.card.cvv,
+        expiry: data.card.expiry ??
+          (data.card.expiry_date ? formatCardExpiry(data.card.expiry_date) : undefined),
+      };
+
       // 2. Fund it if an initial amount was requested
       if (funding > 0) {
         const { data: fundData, error: fundError } = await supabase.functions.invoke('fund-virtual-card', {
@@ -87,25 +139,61 @@ const VirtualCardNew = () => {
         if (!fundData?.success) throw new Error(fundData?.error || 'Card created but funding failed');
       }
 
+      setCreatedCard(reveal);
       toast({
         title: "Virtual Card Created",
         description: funding > 0
           ? `Your virtual card was created and funded with ${formatCurrency(funding)}.`
           : `Your virtual card has been created successfully.`,
       });
-      navigate(`/card/${cardId}`);
     } catch (err: any) {
+      // Creation succeeded but a later step (funding) failed: still
+      // show the one-time reveal — the card's secrets must not be
+      // lost to a funding hiccup. The error is surfaced as before.
+      if (reveal) setCreatedCard(reveal);
       console.error('Create virtual card error:', err);
-      setError(err.message || 'Failed to create virtual card. Please try again.');
+      setError(toUserFacingError(err, 'Failed to create virtual card. Please try again.'));
       toast({
         title: "Failed to Create Card",
-        description: err.message || 'An unknown error occurred',
+        description: toUserFacingError(err, 'An unknown error occurred'),
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
+  // Virtual cards are "Coming soon" for the public (CEO decision,
+  // 2026-10-22) until the Mastercard integration is built and tested:
+  // only admins reach the creation form. The create-virtual-card edge
+  // function enforces the same rule server-side.
+  if (rolesLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  if (!hasRole("admin")) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold">Virtual Cards</h1>
+          </div>
+          <VirtualCardsComingSoon />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
@@ -119,6 +207,95 @@ const VirtualCardNew = () => {
           </p>
         </div>
         
+        {createdCard && (
+          <>
+            {error && (
+              <div className="mb-6 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+                {error}
+              </div>
+            )}
+            <Card className="mb-6 border-amber-500/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-amber-500" />
+                  Your New Card Details
+                </CardTitle>
+                <CardDescription>
+                  Your virtual card was created. Its full details are shown once, here only.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/30 text-sm font-medium">
+                    Save these now — for your security they are not stored and cannot be shown again.
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Card Number</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 p-3 bg-muted rounded-lg font-mono text-base tracking-wider break-all">
+                        {createdCard.cardNumber ? formatCardNumber(createdCard.cardNumber) : "—"}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        aria-label="Copy card number"
+                        onClick={() => copyToClipboard("cardNumber", createdCard.cardNumber)}
+                      >
+                        {copiedField === "cardNumber" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>CVV</Label>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 p-3 bg-muted rounded-lg font-mono text-base tracking-wider">
+                          {createdCard.cvv ?? "—"}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          aria-label="Copy CVV"
+                          onClick={() => copyToClipboard("cvv", createdCard.cvv)}
+                        >
+                          {copiedField === "cvv" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Expiry</Label>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 p-3 bg-muted rounded-lg font-mono text-base tracking-wider">
+                          {createdCard.expiry ?? "—"}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          aria-label="Copy expiry"
+                          onClick={() => copyToClipboard("expiry", createdCard.expiry)}
+                        >
+                          {copiedField === "expiry" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button className="w-full" onClick={() => navigate(`/card/${createdCard.id}`)}>
+                    Done — View My Card
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {!createdCard && (
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>New Virtual Card</CardTitle>
@@ -208,7 +385,8 @@ const VirtualCardNew = () => {
             </form>
           </CardContent>
         </Card>
-        
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>About Virtual Cards</CardTitle>

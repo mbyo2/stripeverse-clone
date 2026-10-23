@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -80,7 +81,7 @@ export const useBillPayments = () => {
       return data;
     },
     onSuccess: () => { toast.success('Bill paid successfully'); queryClient.invalidateQueries({ queryKey: ['bill-payments'] }); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   return { payments, payBill, billers };

@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
@@ -162,7 +163,7 @@ const AdminUsers = () => {
     if (error) {
       toast({
         title: "Error",
-        description: `Failed to grant admin: ${error.message}`,
+        description: toUserFacingError(error, "Failed to grant admin"),
         variant: "destructive",
       });
       return;
@@ -194,7 +195,7 @@ const AdminUsers = () => {
     if (error) {
       toast({
         title: "Error",
-        description: `Failed to remove admin: ${error.message}`,
+        description: toUserFacingError(error, "Failed to remove admin"),
         variant: "destructive",
       });
       return;
@@ -224,7 +225,7 @@ const AdminUsers = () => {
       setRoleActionBusy(false);
       toast({
         title: "Error",
-        description: `Failed to update base role: ${deleteError.message}`,
+        description: toUserFacingError(deleteError, "Failed to update base role"),
         variant: "destructive",
       });
       return;
@@ -237,7 +238,7 @@ const AdminUsers = () => {
     if (insertError) {
       toast({
         title: "Error",
-        description: `Failed to update base role: ${insertError.message}`,
+        description: toUserFacingError(insertError, "Failed to update base role"),
         variant: "destructive",
       });
       fetchData();

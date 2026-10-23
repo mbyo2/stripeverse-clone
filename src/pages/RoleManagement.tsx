@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import React, { useState, useEffect } from 'react';
 import Header from "@/components/Header";
@@ -72,7 +73,7 @@ const RoleManagement = () => {
     } catch (error: any) {
       toast({
         title: "Request failed",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive",
       });
     }

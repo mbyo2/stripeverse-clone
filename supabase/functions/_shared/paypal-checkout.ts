@@ -39,6 +39,7 @@
 
 import {
   extractCompletedCapture,
+  paypalErrorTrace,
   paypalOrderStatus,
   planCompletion,
   verifyCapture,
@@ -287,7 +288,8 @@ export async function capturePayPalCheckoutOrder(
       },
     });
     if (!response.ok) {
-      console.error("PayPal checkout capture failed:", response.status, await response.text());
+      // Trace fields only (audit L1) — never the raw error body.
+      console.error("PayPal checkout capture failed:", paypalErrorTrace(response.status, await response.text()));
       return null;
     }
     return await response.json();

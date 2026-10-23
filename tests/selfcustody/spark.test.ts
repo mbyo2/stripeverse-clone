@@ -19,6 +19,11 @@ import {
   parseShowFiatPreference,
   satsToFiatAmount,
   formatFiatEquivalent,
+  isChunkLoadError,
+  shouldReloadForChunkError,
+  sparkStorageDir,
+  sparkStorageDbNames,
+  shouldReconnectSpark,
   type AutoClaimPreference,
 } from "../../src/lib/selfcustody/spark";
 import type {
@@ -413,5 +418,84 @@ describe("fiat conversion — display-only, honest about missing rates", () => {
     expect(formatFiatEquivalent(1_000_000, 97_000, "USD", "en-US")).toBe("≈ $970.00");
     expect(formatFiatEquivalent(100_000, 2_600_000, "ZMW", "en-ZM")).toMatch(/^≈ K\s?2,600\.00$/);
     expect(formatFiatEquivalent(100_000_000, 2_600_000, "ZMW", "en-ZM")).toMatch(/^≈ K\s?2,600,000\.00$/);
+  });
+});
+
+describe("stale-chunk recovery — reload once on dynamic-import failure, never loop", () => {
+  it("recognises dynamic-import / chunk load failures across browsers", () => {
+    expect(isChunkLoadError(new TypeError("Failed to fetch dynamically imported module: https://x/assets/spark-abc.js"))).toBe(true);
+    expect(isChunkLoadError(new Error("ChunkLoadError: Loading chunk 812 failed"))).toBe(true);
+    expect(isChunkLoadError(new Error("error loading dynamically imported module"))).toBe(true);
+    expect(isChunkLoadError(new Error("Importing a module script failed"))).toBe(true);
+  });
+
+  it("does not mistake ordinary errors for chunk failures", () => {
+    expect(isChunkLoadError(new Error("Failed to fetch"))).toBe(false);
+    expect(isChunkLoadError(new Error("Insufficient balance"))).toBe(false);
+    expect(isChunkLoadError(new SparkNotEnabledError())).toBe(false);
+    expect(isChunkLoadError(null)).toBe(false);
+    expect(isChunkLoadError(undefined)).toBe(false);
+  });
+
+  it("reloads only when the failure is a chunk failure AND it has not already reloaded once", () => {
+    const chunkError = new TypeError("Failed to fetch dynamically imported module");
+    expect(shouldReloadForChunkError(chunkError, false)).toBe(true);
+    // Second failure after the one allowed reload: surface the error, never loop.
+    expect(shouldReloadForChunkError(chunkError, true)).toBe(false);
+    expect(shouldReloadForChunkError(new Error("boom"), false)).toBe(false);
+  });
+});
+
+describe("sparkStorageDir — per-wallet storage naming", () => {
+  it("is the fingerprint's first 16 hex chars under the bmaglass-spark- prefix", () => {
+    expect(sparkStorageDir("0123456789abcdeffedcba9876543210")).toBe("bmaglass-spark-0123456789abcdef");
+  });
+});
+
+describe("sparkStorageDbNames — the H3 wipe targets exactly one wallet's databases", () => {
+  // Names as the installed SDK 0.27.0 web build actually creates them
+  // (verified empirically): <storageDir>/mainnet/<id8> plus its -tree twin.
+  const mine = "bmaglass-spark-0123456789abcdef";
+  const all = [
+    `${mine}/mainnet/d2ea863c`,
+    `${mine}/mainnet/d2ea863c-tree`,
+    "bmaglass-spark-ffeeffeeffeeffee/mainnet/00112233",
+    "bmaglass-spark-ffeeffeeffeeffee/mainnet/00112233-tree",
+    `${mine}2/mainnet/99887766`, // different wallet whose dir shares a string prefix
+    "BreezSdkSpark",
+    "some-unrelated-db",
+  ];
+
+  it("selects this wallet's main and tree databases only", () => {
+    expect(sparkStorageDbNames(all, mine)).toEqual([`${mine}/mainnet/d2ea863c`, `${mine}/mainnet/d2ea863c-tree`]);
+  });
+
+  it("also matches the bare storageDir name itself (forward compatibility)", () => {
+    expect(sparkStorageDbNames([mine, "other"], mine)).toEqual([mine]);
+  });
+
+  it("selects nothing for an unknown wallet", () => {
+    expect(sparkStorageDbNames(all, "bmaglass-spark-0000000000000000")).toEqual([]);
+  });
+});
+
+describe("shouldReconnectSpark — auto-reconnect when returning to the wallet tab", () => {
+  const base = { unlocked: true, connectionActive: true, balanceKnown: true, busy: false };
+
+  it("reconnects when the connection dropped while away", () => {
+    expect(shouldReconnectSpark({ ...base, connectionActive: false })).toBe(true);
+  });
+
+  it("reconnects when no balance was ever loaded (the MoonPay-return '—' state)", () => {
+    expect(shouldReconnectSpark({ ...base, balanceKnown: false })).toBe(true);
+  });
+
+  it("stays put when connected with a known balance", () => {
+    expect(shouldReconnectSpark(base)).toBe(false);
+  });
+
+  it("never reconnects while locked or while a refresh is already running", () => {
+    expect(shouldReconnectSpark({ ...base, unlocked: false, connectionActive: false, balanceKnown: false })).toBe(false);
+    expect(shouldReconnectSpark({ ...base, busy: true, connectionActive: false })).toBe(false);
   });
 });

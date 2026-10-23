@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -107,7 +108,7 @@ const UssdPayment = ({ amount, onSuccess, onCancel }: UssdPaymentProps) => {
         status: data.status || 'pending'
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to register payment');
+      setError(toUserFacingError(e, 'Failed to register payment'));
     }
   };
 

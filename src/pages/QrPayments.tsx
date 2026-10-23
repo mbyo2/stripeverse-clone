@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
+import { useInvalidateMoneyState } from '@/utils/moneyFreshness';
+import { usePlatformSettings } from '@/hooks/useSubaccounts';
+import {
+  computeTransferFee,
+  TRANSFER_FEE_PERCENT_DEFAULT,
+} from '@/utils/transferFee';
+import { roundMoney } from '@/utils/splitPayments';
 import { QrCode, Download, Share2, Copy, ScanLine, Store, User, Smartphone, History, CheckCircle, ArrowRight, Camera, X, Loader2 } from 'lucide-react';
 import QRCode from 'qrcode.react';
 
@@ -33,6 +41,21 @@ const QrPayments = () => {
   const [isPaying, setIsPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [payDone, setPayDone] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const invalidateMoney = useInvalidateMoneyState();
+
+  // QR pay is a user-to-user wallet transfer, so it carries the
+  // transfer fee (1.5% at launch, CEO decision 2026-10-23) — charged
+  // on top by execute_transfer_with_fee on the server. This preview
+  // mirrors the server arithmetic from the same platform setting so
+  // the payer sees the fee and the true total BEFORE confirming.
+  const { data: platformSettings } = usePlatformSettings();
+  const feeRate = Number(
+    platformSettings?.transfer_fee_percent ?? TRANSFER_FEE_PERCENT_DEFAULT
+  );
+  const payAmountValue = parseFloat(payAmount || '0');
+  const payFee = computeTransferFee(payAmountValue, feeRate);
+  const payTotal = roundMoney(payAmountValue + payFee);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -229,10 +252,14 @@ const QrPayments = () => {
       });
       if (error) throw new Error(error.message || 'Payment failed');
       if (data?.error) throw new Error(data.error);
+      // The payment moved money: refresh shared balance/activity
+      // state and this page's own QR history list.
+      invalidateMoney();
+      setHistoryVersion(v => v + 1);
       setPayDone(true);
       toast({ title: 'Payment sent', description: `You paid ZMW ${amt.toFixed(2)} by QR code.` });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Payment failed';
+      const message = toUserFacingError(err, 'Payment failed');
       setPayError(message);
       toast({ title: 'Payment failed', description: message, variant: 'destructive' });
     } finally {
@@ -248,6 +275,7 @@ const QrPayments = () => {
     { id: number; from: string; amount: number; currency: string; time: string; type: 'received' | 'paid' }[]
   >([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState(false);
 
   // Real QR payment history: the signed-in user's own transactions whose
   // payment method or category marks them as QR payments.
@@ -263,6 +291,9 @@ const QrPayments = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
+      if (error) {
+        setHistoryError(true);
+      }
       if (!error && data) {
         const qrRows = data.filter(t =>
           (t.payment_method || '').toLowerCase().includes('qr') ||
@@ -282,7 +313,7 @@ const QrPayments = () => {
       setHistoryLoading(false);
     };
     loadHistory();
-  }, [user ]);
+  }, [user, historyVersion]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -491,11 +522,16 @@ const QrPayments = () => {
                                       <Input type="number" min="0" step="0.01" placeholder="0.00" value={payAmount} onChange={e => setPayAmount(e.target.value)} />
                                     </div>
                                   )}
+                                  <div className="bg-muted rounded-lg p-4 space-y-1 text-sm">
+                                    <p className="flex justify-between"><span className="text-muted-foreground">Amount</span><span>ZMW {payAmountValue.toFixed(2)}</span></p>
+                                    <p className="flex justify-between"><span className="text-muted-foreground">Transfer fee ({feeRate}%)</span><span>ZMW {payFee.toFixed(2)}</span></p>
+                                    <p className="flex justify-between font-semibold border-t pt-1"><span>Total</span><span>ZMW {payTotal.toFixed(2)}</span></p>
+                                  </div>
                                   {payError && <p className="text-sm text-destructive">{payError}</p>}
                                   <Button className="w-full" onClick={handlePayScanned} disabled={isPaying || !payAmount}>
-                                    {isPaying ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Paying…</> : <>Pay ZMW {payAmount ? parseFloat(payAmount || '0').toFixed(2) : '0.00'}</>}
+                                    {isPaying ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Paying…</> : <>Pay ZMW {payTotal.toFixed(2)}</>}
                                   </Button>
-                                  <p className="text-xs text-muted-foreground text-center">Paid from your BMaGlass wallet via the standard transfer path.</p>
+                                  <p className="text-xs text-muted-foreground text-center">Paid from your BMaGlass wallet via the standard transfer path. The recipient receives the amount; the transfer fee goes to BMaGlass Pay.</p>
                                 </div>
                               ) : null}
                             </>
@@ -554,6 +590,10 @@ const QrPayments = () => {
               <CardContent>
                 {historyLoading ? (
                   <p className="text-sm text-muted-foreground text-center py-6">Loading history…</p>
+                ) : historyError ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    We couldn't load your QR payment history. Check your connection and reload the page to try again.
+                  </p>
                 ) : recentQrPayments.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">
                     No QR payments yet — payments you make or receive by QR code will appear here.

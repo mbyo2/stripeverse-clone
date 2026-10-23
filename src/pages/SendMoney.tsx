@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +14,14 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { prepareRecipientQuery } from "@/utils/phoneNumber";
-import { planSendMoneyLegs } from "@/utils/sendMoneyLegs";
+import {
+  computeSendFee,
+  planSendMoneyCall,
+  SEND_MONEY_FEE_PERCENT_DEFAULT,
+} from "@/utils/sendMoneyLegs";
+import { roundMoney } from "@/utils/splitPayments";
+import { usePlatformSettings } from "@/hooks/useSubaccounts";
+import { useInvalidateMoneyState } from "@/utils/moneyFreshness";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -27,16 +35,26 @@ const SendMoney = () => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [feeWarning, setFeeWarning] = useState("");
   const [transactionRef, setTransactionRef] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
   const { wallet } = useWallet();
+  const invalidateMoney = useInvalidateMoneyState();
   const { formatAmount } = useCurrency();
   const navigate = useNavigate();
 
-  const fee = 5;
-  const total = parseFloat(amount || "0") + fee;
+  // Send fee: 2.5% of the amount at launch (CEO decision, 2026-10-22),
+  // set by the platform in platform_settings.send_money_fee_percent.
+  // This preview mirrors the server: the execute_send_money_transfer
+  // RPC recomputes the fee from the same setting and charges it
+  // atomically with the send — the amount below is display only.
+  const { data: platformSettings } = usePlatformSettings();
+  const feeRate = Number(
+    platformSettings?.send_money_fee_percent ?? SEND_MONEY_FEE_PERCENT_DEFAULT
+  );
+  const amountValue = parseFloat(amount || "0");
+  const fee = computeSendFee(amountValue, feeRate);
+  const total = roundMoney(amountValue + fee);
 
   const handleContinue = () => {
     if (step === 1) {
@@ -92,7 +110,6 @@ const SendMoney = () => {
 
     setIsLoading(true);
     setSubmitError("");
-    setFeeWarning("");
 
     try {
       const parsedAmount = parseFloat(amount);
@@ -133,23 +150,20 @@ const SendMoney = () => {
       const resolvedRecipientName =
         recipientName || recipientProfile.display_name || recipient;
 
-      // 2. Execute the send as TWO atomic legs, in order (planned by
-      // planSendMoneyLegs):
-      //   a. Amount leg — the recipient is credited EXACTLY the
-      //      entered amount. The previous single call passed
-      //      amount + fee here, so the recipient received the fee too
-      //      (K15 credited on a K10 send — Money QA re-test).
-      //   b. Fee leg — a separate debit-only atomic-transfer with
-      //      to_user_id null (external/platform payment): the sender
-      //      is debited the fee and NO user wallet is credited.
-      // If the amount leg fails, nothing is charged and the real error
-      // is thrown. If the fee leg fails AFTER the amount leg moved the
-      // money, the send STANDS — no rollback is attempted; the user
-      // is told the fee could not be collected.
+      // 2. Execute the send as ONE atomic server call. The body is
+      // planned by planSendMoneyCall with reference_type "send_money",
+      // which routes the atomic-transfer function to the
+      // execute_send_money_transfer RPC: the recipient is credited
+      // EXACTLY the entered amount, and the 2.5% send fee is computed
+      // by the server (from platform_settings), charged on top, and
+      // credited to the platform — all in one transaction. There is
+      // no separate client-planned fee leg anymore (the old flat-K5
+      // leg was debit-only and credited nobody), so a send can no
+      // longer succeed while its fee silently doesn't.
       const idempotencyKey = `send-${user.id}-${Date.now()}`;
-      const legs = planSendMoneyLegs({
+      const plan = planSendMoneyCall({
         amount: parsedAmount,
-        fee,
+        feeRatePercent: feeRate,
         senderUserId: user.id,
         recipientUserId: recipientProfile.user_id,
         recipientName: resolvedRecipientName,
@@ -157,47 +171,38 @@ const SendMoney = () => {
         referenceId: ref,
         idempotencyKey,
       });
+      if (!plan) throw new Error("Please enter a valid amount.");
 
-      let collectedFeeWarning = "";
-      for (const leg of legs) {
-        const { data, error } = await supabase.functions.invoke("atomic-transfer", {
-          body: leg.body,
-        });
+      const { data, error } = await supabase.functions.invoke("atomic-transfer", {
+        body: plan.body,
+      });
 
-        // A non-2xx answer from the function only surfaces the generic
-        // "non-2xx status code" message through invoke's error — the
-        // function's real reason is in the response body. Extract it
-        // so the user (and support) sees what actually went wrong.
-        const legError = error
-          ? await resolveEdgeFunctionError(error, "Transfer failed")
-          : data?.error
-            ? String(data.error)
-            : null;
+      // A non-2xx answer from the function only surfaces the generic
+      // "non-2xx status code" message through invoke's error — the
+      // function's real reason is in the response body. Extract it
+      // so the user (and support) sees what actually went wrong.
+      const sendError = error
+        ? await resolveEdgeFunctionError(error, "Transfer failed")
+        : data?.error
+          ? String(data.error)
+          : null;
+      if (sendError) throw new Error(sendError);
 
-        if (legError) {
-          if (leg.kind === "amount") throw new Error(legError);
-          collectedFeeWarning = legError;
-        }
-      }
+      // The send moved money: refresh every balance/activity surface
+      // so this page, the Transfer header, the Wallet page and the
+      // Dashboard all show the post-send state without a reload.
+      invalidateMoney();
 
       setTransactionRef(ref);
-      if (collectedFeeWarning) setFeeWarning(collectedFeeWarning);
       setStep(4);
 
-      if (collectedFeeWarning) {
-        toast({
-          title: "Money sent — fee not collected",
-          description: `${formatAmount(parsedAmount)} reached ${resolvedRecipientName}, but the ${formatAmount(fee)} send fee could not be collected (${collectedFeeWarning}). You have not been charged the fee.`,
-        });
-      } else {
-        toast({
-          title: "Money sent successfully",
-          description: `You've sent ${formatAmount(parsedAmount)} to ${resolvedRecipientName}`,
-        });
-      }
+      toast({
+        title: "Money sent successfully",
+        description: `You've sent ${formatAmount(parsedAmount)} to ${resolvedRecipientName}`,
+      });
     } catch (error: any) {
       console.error("Send money error:", error);
-      const message = error?.message || "Something went wrong. Please try again.";
+      const message = toUserFacingError(error);
       // Persistent on-screen error as well as the toast: a failed send
       // must leave a visible trace on the form, not just a toast that
       // auto-dismisses (QA Round 2 saw the form simply sitting there,
@@ -217,7 +222,6 @@ const SendMoney = () => {
   const handleNewTransfer = () => {
     setStep(1);
     setSubmitError("");
-    setFeeWarning("");
     setRecipient("");
     setRecipientName("");
     setAmount("");
@@ -324,7 +328,7 @@ const SendMoney = () => {
                       <span>{formatAmount(parseFloat(amount || "0"))}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Fee</span>
+                      <span className="text-muted-foreground">Send fee ({feeRate}%)</span>
                       <span>{formatAmount(fee)}</span>
                     </div>
                     <div className="border-t pt-2 flex justify-between font-bold">
@@ -348,17 +352,6 @@ const SendMoney = () => {
                   <p className="text-sm text-muted-foreground">
                     Reference: #{transactionRef}
                   </p>
-                  {feeWarning && (
-                    <Alert className="mt-4 text-left border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Send fee not collected</AlertTitle>
-                      <AlertDescription>
-                        Your money was sent, but the {formatAmount(fee)} send fee could not be
-                        collected ({feeWarning}). You have not been charged the fee — no action
-                        is needed.
-                      </AlertDescription>
-                    </Alert>
-                  )}
                 </div>
               )}
 

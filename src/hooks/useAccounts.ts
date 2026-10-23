@@ -1,7 +1,9 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { MONEY_QUERY_STALE_TIME, invalidateMoneyState } from '@/utils/moneyFreshness';
 import type { AccountRow } from '@/utils/accountGrouping';
 
 export type SubAccountKind = 'business' | 'savings' | 'trading' | 'personal' | 'custom';
@@ -33,18 +35,21 @@ export const useAccounts = () => {
       return data;
     },
     enabled: !!user,
+    // Account balances are money surfaces: refetch on mount/focus
+    // rather than rendering a value cached by an earlier screen.
+    staleTime: MONEY_QUERY_STALE_TIME,
+    refetchOnWindowFocus: true,
   });
 };
 
-/** Money lives on wallets, so account changes invalidate the wallet queries too. */
+/** Money lives on wallets, so account changes refresh all money state. */
 const invalidateAccountMoney = (qc: ReturnType<typeof useQueryClient>) => {
-  qc.invalidateQueries({ queryKey: ['accounts'] });
-  qc.invalidateQueries({ queryKey: ['multi-wallets'] });
-  qc.invalidateQueries({ queryKey: ['wallet'] });
-  // Force the visible accounts list to refetch immediately: with the
+  // Shared freshness rule (utils/moneyFreshness): invalidates the
+  // accounts/multi-wallets/wallet roots and every other balance and
+  // activity surface, and force-refetches the mounted ones — with the
   // app's 5-minute staleTime, QA saw pre-action values persist until a
   // manual reload after sub-account creates and status changes.
-  qc.refetchQueries({ queryKey: ['accounts'], type: 'active' });
+  invalidateMoneyState(qc);
 };
 
 export const useCreateSubAccount = () => {
@@ -63,7 +68,7 @@ export const useCreateSubAccount = () => {
       return row;
     },
     onSuccess: () => { invalidateAccountMoney(qc); toast.success('Sub-account created'); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -82,7 +87,7 @@ export const useRenameSubAccount = () => {
       qc.refetchQueries({ queryKey: ['accounts'], type: 'active' });
       toast.success('Account renamed');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -101,7 +106,7 @@ export const useSetSubAccountStatus = () => {
       qc.refetchQueries({ queryKey: ['accounts'], type: 'active' });
       toast.success(status === 'frozen' ? 'Account frozen' : 'Account unfrozen');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -115,7 +120,7 @@ export const useCloseSubAccount = () => {
       if (error) throw error;
     },
     onSuccess: () => { invalidateAccountMoney(qc); toast.success('Account closed'); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -164,6 +169,6 @@ export const useInternalTransfer = () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       toast.success('Transfer complete');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };

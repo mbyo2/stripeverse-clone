@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBitcoinWallet } from "@/hooks/useBitcoinWallet";
+import { useInvalidateMoneyState } from "@/utils/moneyFreshness";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { formatBitcoinAmount, formatCurrency } from "@/lib/utils";
@@ -181,6 +182,7 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
 
 function SendOnchain({ onDone }: { onDone: () => void }) {
   const { toast } = useToast();
+  const invalidateMoney = useInvalidateMoneyState();
   const [address, setAddress] = useState("");
   const [sats, setSats] = useState("");
   const [sending, setSending] = useState(false);
@@ -204,6 +206,9 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
       setResult({ txid: data.txid, fee_sats: data.fee_sats });
       toast({ title: "Withdrawal broadcast", description: `Fee: ${Number(data.fee_sats).toLocaleString()} sats` });
       setIdemKey(crypto.randomUUID());
+      // The withdrawal wrote ledger rows: refresh shared money state
+      // so the Wallet page / Dashboard activity reflects it.
+      invalidateMoney();
       onDone();
     } catch (e: any) {
       toast({ title: "Withdrawal failed", description: await resolveEdgeFunctionError(e, "The withdrawal could not be completed."), variant: "destructive" });
@@ -257,6 +262,7 @@ type TradeQuote = {
 
 function TradePanel({ onDone }: { onDone: () => void }) {
   const { toast } = useToast();
+  const invalidateMoney = useInvalidateMoneyState();
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [zmwInput, setZmwInput] = useState("");
   const [satsInput, setSatsInput] = useState("");
@@ -317,6 +323,10 @@ function TradePanel({ onDone }: { onDone: () => void }) {
       setIdemKey(null);
       setZmwInput("");
       setSatsInput("");
+      // A trade moves the ZMW wallet too: refresh shared money state
+      // (not just this panel's wallet list) for the Wallet page and
+      // Dashboard.
+      invalidateMoney();
       await refetchFiat();
       onDone();
     } catch (e: any) {

@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -95,7 +96,7 @@ export const useMarketplace = () => {
       };
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage = toUserFacingError(error, 'The payment could not be completed. Please try again.');
       console.error('Marketplace payment error:', errorMessage);
       
       toast({

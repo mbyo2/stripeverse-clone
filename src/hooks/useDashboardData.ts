@@ -87,7 +87,7 @@ export const useDashboardData = () => {
   }, [user?.id, queryClient]);
 
   // Fetch user wallet balance and transaction stats
-  const { data: dashboardStats, isLoading: statsLoading } = useQuery({
+  const { data: dashboardStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['dashboard-stats', user?.id],
     queryFn: async (): Promise<DashboardStats> => {
       if (!user?.id) throw new Error('User not authenticated');
@@ -126,7 +126,7 @@ export const useDashboardData = () => {
     staleTime: 30000, // 30s stale time for realtime-backed data
   });
 
-  const { data: monthlyData, isLoading: monthlyLoading } = useQuery({
+  const { data: monthlyData, isLoading: monthlyLoading, refetch: refetchMonthly } = useQuery({
     queryKey: ['monthly-data', user?.id],
     queryFn: async (): Promise<MonthlyData[]> => {
       if (!user?.id) throw new Error('User not authenticated');
@@ -137,7 +137,7 @@ export const useDashboardData = () => {
     enabled: !!user?.id,
   });
 
-  const { data: spendingData, isLoading: spendingLoading } = useQuery({
+  const { data: spendingData, isLoading: spendingLoading, refetch: refetchSpending } = useQuery({
     queryKey: ['spending-data', user?.id],
     queryFn: async (): Promise<SpendingData[]> => {
       if (!user?.id) throw new Error('User not authenticated');
@@ -148,7 +148,7 @@ export const useDashboardData = () => {
     enabled: !!user?.id,
   });
 
-  const { data: recentTransactions, isLoading: transactionsLoading } = useQuery({
+  const { data: recentTransactions, isLoading: transactionsLoading, error: transactionsError, refetch: refetchTransactions } = useQuery({
     // Distinct key: useTransactions uses ['recent-transactions', ...]
     // for a different row shape (its get_recent_transactions RPC rows).
     queryKey: ['dashboard-recent-transactions', user?.id],
@@ -174,7 +174,7 @@ export const useDashboardData = () => {
     enabled: !!user?.id,
   });
 
-  const { data: rewards, isLoading: rewardsLoading } = useQuery({
+  const { data: rewards, isLoading: rewardsLoading, refetch: refetchRewards } = useQuery({
     queryKey: ['user-rewards', user?.id],
     queryFn: async (): Promise<UserRewards> => {
       if (!user?.id) throw new Error('User not authenticated');
@@ -191,6 +191,20 @@ export const useDashboardData = () => {
     enabled: !!user?.id,
   });
 
+  // The page-level failure state keys off the two content-defining
+  // queries — the balance/stats banner and the activity list. If
+  // either fails, the dashboard shows a designed error state with a
+  // retry instead of silently rendering zeros and empty lists.
+  const isError = !!statsError || !!transactionsError;
+
+  const refetch = useCallback(() => {
+    refetchStats();
+    refetchMonthly();
+    refetchSpending();
+    refetchTransactions();
+    refetchRewards();
+  }, [refetchStats, refetchMonthly, refetchSpending, refetchTransactions, refetchRewards]);
+
   return {
     dashboardStats,
     monthlyData,
@@ -199,5 +213,7 @@ export const useDashboardData = () => {
     rewards,
     realtimeConnected,
     isLoading: statsLoading || monthlyLoading || spendingLoading || transactionsLoading || rewardsLoading,
+    isError,
+    refetch,
   };
 };

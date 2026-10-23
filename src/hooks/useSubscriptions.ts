@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -69,7 +70,7 @@ export const useSubscriptions = () => {
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to cancel subscription",
+        description: toUserFacingError(error, "Failed to cancel subscription"),
         variant: "destructive",
       });
     },
@@ -98,7 +99,7 @@ export const useSubscriptions = () => {
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to reactivate subscription",
+        description: toUserFacingError(error, "Failed to reactivate subscription"),
         variant: "destructive",
       });
     },

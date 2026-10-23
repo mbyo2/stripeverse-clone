@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,7 +39,7 @@ export const AdminCryptoPayouts = () => {
       .limit(100);
     if (filter !== "all") q = q.eq("status", filter);
     const { data, error } = await q;
-    if (error) toast.error(error.message);
+    if (error) toast.error(toUserFacingError(error));
     else setRows((data as Row[]) ?? []);
   };
 
@@ -52,7 +53,7 @@ export const AdminCryptoPayouts = () => {
       .from("crypto_payout_requests")
       .update({ ...patch, processed_by: user?.id ?? null, processed_at: new Date().toISOString() })
       .eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(toUserFacingError(error));
     else {
       toast.success("Updated");
       load();

@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -75,7 +76,7 @@ export const useScheduledPayments = () => {
       queryClient.invalidateQueries({ queryKey: ['scheduled-payments'] });
       toast.success('Scheduled payment created');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const updateStatus = useMutation({
@@ -90,7 +91,7 @@ export const useScheduledPayments = () => {
       queryClient.invalidateQueries({ queryKey: ['scheduled-payments'] });
       toast.success('Payment updated');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const deletePayment = useMutation({
@@ -105,7 +106,7 @@ export const useScheduledPayments = () => {
       queryClient.invalidateQueries({ queryKey: ['scheduled-payments'] });
       toast.success('Scheduled payment deleted');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   return {

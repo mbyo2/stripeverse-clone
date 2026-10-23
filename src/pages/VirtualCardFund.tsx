@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -11,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowRight, Wallet } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
+import { useRoles } from "@/contexts/RoleContext";
+import VirtualCardsComingSoon from "@/components/VirtualCardsComingSoon";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -19,6 +22,7 @@ const VirtualCardFund = () => {
   const { id: cardId } = useParams<{ id: string }>();
   const { toast } = useToast();
   const { wallet } = useWallet();
+  const { hasRole, isLoading: rolesLoading } = useRoles();
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState<string>("50");
   const [loading, setLoading] = useState(false);
@@ -102,13 +106,42 @@ const VirtualCardFund = () => {
       console.error('Fund card error:', err);
       toast({
         title: "Funding Failed",
-        description: err.message || 'An unknown error occurred',
+        description: toUserFacingError(err, 'An unknown error occurred'),
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
+  // Virtual cards are "Coming soon" for the public (CEO decision,
+  // 2026-10-22): funding is a card action, so only admins reach this
+  // page. The fund-virtual-card edge function enforces the same rule
+  // server-side.
+  if (rolesLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  if (!hasRole("admin")) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+          <VirtualCardsComingSoon />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (cardLoading || !card) {
     return (

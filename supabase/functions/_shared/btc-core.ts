@@ -68,9 +68,38 @@ export function parseAccountKey(extendedKey: string): HDKey {
   );
 }
 
+/**
+ * Normalize a mnemonic as typed/pasted by an operator into the bare
+ * space-separated word list BIP39 validation expects.
+ *
+ * Operators copy seed phrases out of wallet apps and documents where the
+ * words arrive decorated: numbered lists ("1. abandon, 2. ability …"),
+ * commas, line breaks, tabs, ALL-CAPS emphasis, stray punctuation,
+ * invisible characters riding along in a paste. None of that is part of
+ * the phrase — only the words are. So normalization is deliberately
+ * maximal: lowercase, then treat ANY run of characters that is not a
+ * lowercase ASCII letter as a separator, and drop the empty pieces.
+ * Digits, punctuation, whitespace and zero-width characters all vanish;
+ * the word sequence that remains is the phrase.
+ *
+ * This forgives formatting ONLY. Validation after normalization is the
+ * full BIP39 check (every word on the English wordlist AND the embedded
+ * checksum) in accountKeyFromMnemonic, and custodyStatus still requires
+ * the seed to derive the very account BTC_XPUB watches before any
+ * spending path unlocks. A wrong word, a missing word or an extra word
+ * still fails — normalization never invents, drops or reorders words.
+ */
+export function normalizeMnemonic(raw: string): string {
+  return raw
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((word) => word.length > 0)
+    .join(" ");
+}
+
 /** Derive the account key (with private keys) from the master mnemonic. */
 export function accountKeyFromMnemonic(mnemonic: string): HDKey {
-  const clean = mnemonic.trim().toLowerCase().replace(/\s+/g, " ");
+  const clean = normalizeMnemonic(mnemonic);
   if (!validateMnemonic(clean, wordlist)) {
     throw new Error("BTC_SEED_MNEMONIC is not a valid BIP39 mnemonic");
   }
@@ -331,6 +360,57 @@ export function selectCoins(
   return null;
 }
 
+// ── Spent-outpoint tracking (send concurrency, audit M1) ─────────────────
+
+/** A reference to one transaction output. */
+export interface Outpoint {
+  txid: string;
+  vout: number;
+}
+
+/** Canonical key for an outpoint (map/set membership). */
+export function outpointKey(txid: string, vout: number): string {
+  return `${txid}:${vout}`;
+}
+
+/**
+ * The outpoints a transaction spends, parsed from an esplora
+ * transaction object (`vin[].txid` / `vin[].vout`). Defensive by
+ * design: malformed entries are skipped rather than thrown — this
+ * feeds a safety filter in the send path, and a parse hiccup must
+ * never take a withdrawal down with it.
+ */
+export function spentOutpointsFromTx(tx: unknown): Outpoint[] {
+  const vin = (tx as { vin?: unknown } | null | undefined)?.vin;
+  if (!Array.isArray(vin)) return [];
+  const out: Outpoint[] = [];
+  for (const entry of vin) {
+    const txid = (entry as { txid?: unknown } | null | undefined)?.txid;
+    const vout = (entry as { vout?: unknown } | null | undefined)?.vout;
+    if (typeof txid === "string" && txid.length > 0 && Number.isInteger(vout)) {
+      out.push({ txid, vout: Number(vout) });
+    }
+  }
+  return out;
+}
+
+/**
+ * A UTXO set minus every outpoint already committed elsewhere — the
+ * inputs of in-flight withdrawals whose transactions are known to be
+ * on the network. Order is preserved: coin selection is
+ * deterministic, so filtering (never reordering) keeps an unaffected
+ * selection identical.
+ */
+export function filterUncommittedUtxos(
+  utxos: Utxo[],
+  committed: Iterable<Outpoint>,
+): Utxo[] {
+  const spent = new Set<string>();
+  for (const o of committed) spent.add(outpointKey(o.txid, o.vout));
+  if (spent.size === 0) return [...utxos];
+  return utxos.filter((u) => !spent.has(outpointKey(u.txid, u.vout)));
+}
+
 // ── Withdrawal transaction building & signing ──────────────────────────────
 
 export interface BuiltWithdrawal {
@@ -490,4 +570,81 @@ export function decodeBolt11Msat(bolt11: string): bigint | null {
     default:
       return null;
   }
+}
+
+// ── Broadcast outcome classification (withdrawal refund safety) ──────────
+
+/**
+ * What a withdrawal broadcast attempt PROVED about the transaction.
+ *
+ * The stakes are asymmetric: refunding a withdrawal whose transaction
+ * actually reached the network pays the user twice (refund + BTC).
+ * And no observation available to the broadcaster can prove a
+ * negative: an HTTP 400 rejection — even one naming a structural
+ * error class — is one endpoint's answer about its own mempool view
+ * at one moment; it cannot establish that the signed transaction can
+ * never be accepted anywhere. So there is deliberately NO
+ * "definite failure" outcome here (removed 2026-10-22 after two
+ * review rounds): a broadcast that is not positively confirmed is
+ * "unknown", the withdrawal stays 'reserved', and the refund decision
+ * is a human reconciliation step (runbook §8), never an automatic
+ * consequence of a network response. Automatic refunds remain only
+ * where non-broadcast is proven by construction — failures BEFORE
+ * broadcast (build/sign/reserve errors), which never reach this
+ * classifier.
+ */
+export type BroadcastOutcome = "confirmed" | "unknown";
+
+export interface BroadcastObservation {
+  /** HTTP status of POST /tx; null when the request itself failed (timeout / network error). */
+  postStatus: number | null;
+  /** Body of a non-2xx POST response ("" when none / not applicable). */
+  postBody: string;
+  /** Txid returned by a 2xx POST, trimmed; null otherwise. */
+  postTxid: string | null;
+  /** Whether a GET /tx/{expectedTxid} lookup found the transaction. */
+  lookupFound: boolean;
+}
+
+export interface BroadcastClassification {
+  outcome: BroadcastOutcome;
+  /** Stable short tag for logs and the withdrawal row's error field. */
+  reason: string;
+}
+
+/**
+ * Classify a broadcast attempt from everything the caller observed.
+ * Pure: the network calls live in the edge function; the DECISION —
+ * above all, that nothing here may authorise a refund — lives here,
+ * so the whole outcome matrix is unit-testable (tests/bitcoin/).
+ *
+ * Only two outcomes exist. "confirmed" requires positive evidence:
+ * the network holds our exact txid, or the POST's 2xx answer named
+ * it. EVERYTHING else — every rejection class (structural,
+ * witness, missing/spent inputs, policy, fee), timeouts, 5xx,
+ * unexpected-txid responses — is "unknown".
+ */
+export function classifyBroadcastOutcome(
+  obs: BroadcastObservation,
+  expectedTxid: string,
+): BroadcastClassification {
+  // The network holding our exact transaction settles everything,
+  // whatever the POST appeared to say (a "rejected" POST in a timeout
+  // race, or a 2xx that named a different txid, can both accompany a
+  // transaction that is in fact already propagating).
+  if (obs.lookupFound) {
+    return { outcome: "confirmed", reason: "lookup_found" };
+  }
+  if (obs.postStatus !== null && obs.postStatus >= 200 && obs.postStatus < 300) {
+    if (obs.postTxid !== null && obs.postTxid === expectedTxid) {
+      return { outcome: "confirmed", reason: "post_txid_match" };
+    }
+    // A 2xx naming a DIFFERENT transaction (or none) proves nothing
+    // about ours — with the lookup missing it may still propagate.
+    return { outcome: "unknown", reason: "unexpected_txid" };
+  }
+  if (obs.postStatus === null) {
+    return { outcome: "unknown", reason: "post_no_response" };
+  }
+  return { outcome: "unknown", reason: `post_http_${obs.postStatus}` };
 }

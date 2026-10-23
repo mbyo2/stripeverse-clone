@@ -38,6 +38,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { RoleBadge } from "@/components/FeatureAccess";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import PageErrorState from "@/components/PageErrorState";
 import { useProfile, resolveFirstName } from "@/hooks/useProfile";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useAccount } from "@/contexts/AccountContext";
@@ -51,7 +52,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { dashboardStats, monthlyData, spendingData, recentTransactions, rewards, isLoading } = useDashboardData();
+  const { dashboardStats, monthlyData, spendingData, recentTransactions, rewards, isLoading, isError, refetch: refetchDashboard } = useDashboardData();
   const { formatAmount } = useCurrency();
   const { showOnboarding, kycLevel, walletBalance, hasProfile, dismiss } = useOnboarding();
   const { accounts } = useAccount();
@@ -75,6 +76,22 @@ const Dashboard = () => {
           </div>
           <Skeleton className="h-44 rounded-[24px] mb-6" />
           <Skeleton className="h-72 rounded-[24px]" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen flex flex-col bg-muted">
+        <Header />
+        <main className="flex-1 pt-20 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+          <PageErrorState
+            title="We couldn't load your dashboard"
+            message="Your balance and recent activity didn't load. Check your connection and try again."
+            onRetry={refetchDashboard}
+          />
         </main>
         <Footer />
       </div>

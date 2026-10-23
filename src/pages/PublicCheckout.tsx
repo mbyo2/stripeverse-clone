@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { CreditCard, Smartphone, Building2, Lock, CheckCircle, AlertCircle, Loader2, Receipt, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useInvalidateMoneyState } from '@/utils/moneyFreshness';
 import {
   resolveLinkAmount,
   validateLinkPayment,
@@ -28,6 +30,7 @@ interface PaymentLinkData {
 const PublicCheckout = () => {
   const { code } = useParams<{ code: string }>();
   const { toast } = useToast();
+  const invalidateMoney = useInvalidateMoneyState();
 
   const [linkData, setLinkData] = useState<PaymentLinkData | null>(null);
   const [settlementAccountName, setSettlementAccountName] = useState<string | null>(null);
@@ -153,6 +156,11 @@ const PublicCheckout = () => {
         throw new Error(payResult?.error || 'Payment could not be processed. No money was charged.');
       }
 
+      // Settled: the payer's wallet was debited (and the owner's
+      // credited). If the payer is signed in here, refresh the shared
+      // balance/activity state so the rest of the app shows it.
+      invalidateMoney();
+
       // Send receipt (best effort — the payment is already settled).
       const txId = payResult?.transaction_id;
       if (txId) {
@@ -166,7 +174,7 @@ const PublicCheckout = () => {
     } catch (err: any) {
       // NEVER fake a successful payment. Show the error and let the user retry.
       console.error('PublicCheckout payment failed:', err);
-      setPayErrorMsg(err?.message || 'Payment could not be processed. No money was charged.');
+      setPayErrorMsg(toUserFacingError(err, 'Payment could not be processed. No money was charged.'));
       toast({ title: 'Payment failed', description: 'No money was charged. Please try again.', variant: 'destructive' });
     } finally {
       setProcessing(false);

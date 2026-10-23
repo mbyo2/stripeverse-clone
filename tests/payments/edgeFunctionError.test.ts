@@ -23,10 +23,21 @@ function httpError(payload: unknown, message = "Edge Function returned a non-2xx
 }
 
 describe("resolveEdgeFunctionError", () => {
-  it("returns the function's own error message from the response body", async () => {
+  it("surfaces the real reason from the body — never the generic invoke text", async () => {
+    // The body's reason drives what the user sees, but raw system
+    // wording is presented as crafted plain language (CEO
+    // error-presentation rule, 2026-10-22): the Postgres refusal
+    // becomes the permission message, not the verbatim string.
     const error = httpError({ error: "permission denied for function execute_atomic_transfer" });
     await expect(resolveEdgeFunctionError(error, "Transfer failed")).resolves.toBe(
-      "permission denied for function execute_atomic_transfer",
+      "You don't have permission to do that. If you believe this is a mistake, please contact support.",
+    );
+  });
+
+  it("passes a crafted server message from the body through unchanged", async () => {
+    const error = httpError({ error: "Insufficient balance in your ZMW wallet" });
+    await expect(resolveEdgeFunctionError(error, "Transfer failed")).resolves.toBe(
+      "Insufficient balance in your ZMW wallet",
     );
   });
 
@@ -50,10 +61,10 @@ describe("resolveEdgeFunctionError", () => {
     await expect(resolveEdgeFunctionError(error, "Transfer failed")).resolves.toBe("Transfer failed");
   });
 
-  it("keeps a specific invoke message when there is no readable body", async () => {
+  it("maps a transport failure to the plain connection message", async () => {
     const error = new Error("Failed to send a request to the Edge Function");
     await expect(resolveEdgeFunctionError(error, "Transfer failed")).resolves.toBe(
-      "Failed to send a request to the Edge Function",
+      "We couldn't reach BMaGlass Pay. Check your internet connection and try again.",
     );
   });
 

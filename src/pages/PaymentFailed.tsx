@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import React from "react";
 import { useLocation, Link } from "react-router-dom";
@@ -11,9 +12,12 @@ const PaymentFailed = () => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   
-  // Extract error details from query params
-  const errorCode = queryParams.get("code") || "ERR_PAYMENT_FAILED";
-  const errorMessage = queryParams.get("message") || "Your payment could not be processed. Please try again or contact support.";
+  // The message arrives via query params and can carry raw
+  // gateway/system text — show only the crafted, user-facing version.
+  const errorMessage = toUserFacingError(
+    queryParams.get("message"),
+    "Your payment could not be processed. Please try again or contact support."
+  );
   const transactionId = queryParams.get("txid");
   
   return (
@@ -34,10 +38,6 @@ const PaymentFailed = () => {
               
               <div className="w-full bg-secondary/10 rounded-lg p-4 mb-6">
                 <dl className="divide-y">
-                  <div className="py-2 flex justify-between">
-                    <dt className="text-muted-foreground">Error Code</dt>
-                    <dd className="font-medium">{errorCode}</dd>
-                  </div>
                   {transactionId && (
                     <div className="py-2 flex justify-between">
                       <dt className="text-muted-foreground">Transaction ID</dt>

@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -139,7 +140,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
       toast({ title: "Settings saved", description: "Your business settings have been updated." });
       onClose();
     } catch (error: any) {
-      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+      toast({ title: "Save failed", description: toUserFacingError(error), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }

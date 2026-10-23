@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { toUserFacingError } from "@/utils/userFacingError";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -60,7 +61,9 @@ import {
   sparkLnurlAuth,
   sparkListPayments,
   sparkBuyBitcoinUrl,
-  disconnectSpark,
+  disconnectSparkAndWipeStorage,
+  sparkConnectionActive,
+  shouldReconnectSpark,
   loadAutoClaimPreference,
   saveAutoClaimPreference,
   sparkListUnclaimedDeposits,
@@ -106,9 +109,9 @@ function formatBtc(sats: number): string {
 function friendlyScanError(e: any): string {
   const msg = typeof e?.message === "string" ? e.message : "";
   if (!msg || /failed to fetch|networkerror|load failed|abort|timed? ?out/i.test(msg)) {
-    return "Could not reach the Bitcoin network (mempool.space). Check your connection and try again.";
+    return "Could not reach the Bitcoin network (mempool.space and blockstream.info both failed). Check your connection and try again.";
   }
-  return msg;
+  return toUserFacingError(e);
 }
 
 function SelfCustodyWallet() {
@@ -209,8 +212,11 @@ function SelfCustodyWallet() {
     if (session.mnemonic) {
       setStage("wallet");
     } else {
-      // Locked or removed: drop any Spark SDK instance bound to the seed.
-      disconnectSpark();
+      // Locked or removed: drop the Spark SDK instance bound to the
+      // seed AND wipe its persisted IndexedDB state, so a locked wallet
+      // leaves no SDK wallet state behind in this browser (it is
+      // re-derived from the seed phrase on the next unlock).
+      disconnectSparkAndWipeStorage();
       setSpBalance(null);
       setSpPayments(null);
       setUnclaimed(null);
@@ -304,7 +310,7 @@ function SelfCustodyWallet() {
       setHasVault(true);
       toast.success("Self-custody wallet ready");
     } catch (e: any) {
-      toast.error(e?.message || "Could not create the wallet vault");
+      toast.error(toUserFacingError(e, "Could not create the wallet vault"));
     } finally {
       setBusy(false);
     }
@@ -327,7 +333,7 @@ function SelfCustodyWallet() {
       unlockSession(mnemonic);
       setUnlockPassword("");
     } catch (e: any) {
-      toast.error(e?.message || "Unlock failed");
+      toast.error(toUserFacingError(e, "Unlock failed"));
     } finally {
       setBusy(false);
     }
@@ -371,7 +377,7 @@ function SelfCustodyWallet() {
       setSendAmount("");
       doScan();
     } catch (e: any) {
-      toast.error(e?.message || "Send failed");
+      toast.error(toUserFacingError(e, "Send failed"));
     } finally {
       setSending(false);
     }
@@ -397,14 +403,47 @@ function SelfCustodyWallet() {
       if (payments) setSpPayments(payments);
       if (deposits) setUnclaimed(deposits);
     } catch (e: any) {
-      toast.error(e?.message || "Could not connect the Spark wallet");
+      toast.error(toUserFacingError(e, "Could not connect the Spark wallet"));
     } finally {
       setSpBusy(false);
     }
   };
 
-  // ── Automatic Claims settings + manual claims ──────────────────────────
+  // Auto-reconnect when the user comes back to this tab (e.g. after
+  // completing a MoonPay purchase in another tab): if the wallet is
+  // unlocked but the Spark connection is down — or no balance was ever
+  // loaded — the card sat at "Spark balance: —" until a manual
+  // Connect click. Returning focus now reconnects on its own.
+  const spBusyRef = useRef(false);
+  useEffect(() => {
+    spBusyRef.current = spBusy;
+  }, [spBusy]);
 
+  useEffect(() => {
+    if (stage !== "wallet" || !session.mnemonic) return;
+    const maybeReconnect = () => {
+      if (document.visibilityState === "hidden") return;
+      if (
+        shouldReconnectSpark({
+          unlocked: true,
+          connectionActive: sparkConnectionActive(),
+          balanceKnown: spBalance !== null,
+          busy: spBusyRef.current,
+        })
+      ) {
+        void refreshSpark();
+      }
+    };
+    window.addEventListener("focus", maybeReconnect);
+    document.addEventListener("visibilitychange", maybeReconnect);
+    return () => {
+      window.removeEventListener("focus", maybeReconnect);
+      document.removeEventListener("visibilitychange", maybeReconnect);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, session.mnemonic, spBalance]);
+
+  // ── Automatic Claims settings + manual claims ──────────────────────────
   const applyAutoClaimPref = (next: AutoClaimPreference) => {
     saveAutoClaimPreference(next);
     setAutoClaimPref(next);
@@ -444,7 +483,7 @@ function SelfCustodyWallet() {
       toast.success("Deposit claimed into your Spark balance");
       refreshSpark();
     } catch (e: any) {
-      toast.error(e?.message || "Could not claim that deposit");
+      toast.error(toUserFacingError(e, "Could not claim that deposit"));
     } finally {
       setClaimingKey(null);
     }
@@ -473,7 +512,7 @@ function SelfCustodyWallet() {
       setReceiveDest(result.destination);
       setReceiveFee(result.feeSats);
     } catch (e: any) {
-      toast.error(e?.message || "Could not create that receive destination");
+      toast.error(toUserFacingError(e, "Could not create that receive destination"));
     } finally {
       setSpBusy(false);
     }
@@ -491,7 +530,7 @@ function SelfCustodyWallet() {
       setParsedInput(parsed);
       setSendParsedText(sendText.trim());
     } catch (e: any) {
-      toast.error(e?.message || "That destination could not be recognised");
+      toast.error(toUserFacingError(e, "That destination could not be recognised"));
     } finally {
       setSpBusy(false);
     }
@@ -516,7 +555,7 @@ function SelfCustodyWallet() {
         setPreparedSend(await sparkPrepareSend(session.mnemonic, sendParsedText, amount));
       }
     } catch (e: any) {
-      toast.error(e?.message || "Could not prepare that payment");
+      toast.error(toUserFacingError(e, "Could not prepare that payment"));
     } finally {
       setSpBusy(false);
     }
@@ -544,7 +583,7 @@ function SelfCustodyWallet() {
       setPreparedLnurl(null);
       refreshSpark();
     } catch (e: any) {
-      toast.error(e?.message || "Payment failed");
+      toast.error(toUserFacingError(e, "Payment failed"));
     } finally {
       setSpBusy(false);
     }
@@ -566,7 +605,7 @@ function SelfCustodyWallet() {
       setSendAmountSats("");
       refreshSpark();
     } catch (e: any) {
-      toast.error(e?.message || "Withdrawal failed");
+      toast.error(toUserFacingError(e, "Withdrawal failed"));
     } finally {
       setSpBusy(false);
     }
@@ -581,7 +620,7 @@ function SelfCustodyWallet() {
       setParsedInput(null);
       setSendText("");
     } catch (e: any) {
-      toast.error(e?.message || "Sign-in failed");
+      toast.error(toUserFacingError(e, "Sign-in failed"));
     } finally {
       setSpBusy(false);
     }
@@ -610,7 +649,7 @@ function SelfCustodyWallet() {
       }
     } catch (e: any) {
       if (tab) tab.close();
-      toast.error(e?.message || "Could not start the MoonPay purchase");
+      toast.error(toUserFacingError(e, "Could not start the MoonPay purchase"));
     } finally {
       setSpBusy(false);
     }
@@ -802,8 +841,8 @@ function SelfCustodyWallet() {
                 {busy ? "Unlocking…" : "Unlock wallet"}
               </Button>
               <p className="text-xs text-muted-foreground">
-                Forgot the password? Remove the wallet below and import your seed phrase again —
-                that is the only recovery path, by design.
+                Forgot the password? Unlock the wallet to manage or remove it — if the password
+                is lost, your seed phrase is the only recovery path, by design.
               </p>
             </CardContent>
           </Card>

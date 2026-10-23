@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -125,11 +126,11 @@ const MobileMoneyPayment = ({ amount, onSuccess, onCancel }: MobileMoneyPaymentP
       
     } catch (err) {
       console.error('Mobile money payment error:', err);
-      setError(err instanceof Error ? err.message : 'Payment processing failed');
+      setError(toUserFacingError(err, 'Payment processing failed'));
       
       toast({
         title: "Payment failed",
-        description: err instanceof Error ? err.message : 'Please try again or use another payment method.',
+        description: toUserFacingError(err, 'Please try again or use another payment method.'),
         variant: "destructive",
       });
       setIsProcessing(false);

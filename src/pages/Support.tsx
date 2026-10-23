@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import React, { useState } from "react";
 import Header from "@/components/Header";
@@ -89,7 +90,7 @@ const Support = () => {
       toast({ title: "Ticket Submitted", description: "We'll get back to you within 24 hours." });
       setTicketForm({ subject: '', priority: 'medium', message: '' });
     } catch (error: any) {
-      toast({ title: "Submission Failed", description: error.message, variant: "destructive" });
+      toast({ title: "Submission Failed", description: toUserFacingError(error), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }

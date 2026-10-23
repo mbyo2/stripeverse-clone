@@ -1,4 +1,6 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { MONEY_QUERY_STALE_TIME, invalidateMoneyState } from '@/utils/moneyFreshness';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -28,6 +30,10 @@ export const useMultiCurrencyWallets = (accountId?: string | null) => {
       return data;
     },
     enabled: !!user,
+    // Wallet lists are balance surfaces: refetch on mount/focus
+    // rather than rendering a value cached by an earlier screen.
+    staleTime: MONEY_QUERY_STALE_TIME,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -52,7 +58,7 @@ export const useCreateWallet = () => {
       return data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['multi-wallets'] }); toast.success('Wallet created'); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -106,16 +112,18 @@ export const useConvertCurrency = () => {
       return data;
     },
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['multi-wallets'] });
       qc.invalidateQueries({ queryKey: ['currency-conversions'] });
-      qc.invalidateQueries({ queryKey: ['wallet'] });
+      // A conversion moves money between two wallets and writes
+      // ledger rows: refresh every balance/activity surface, not
+      // just the wallet lists.
+      invalidateMoneyState(qc);
       toast.success(
         data?.to_amount != null
           ? `Currency converted successfully — received ${Number(data.to_amount).toFixed(2)}`
           : 'Currency converted successfully',
       );
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 

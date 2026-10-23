@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,7 +55,7 @@ export const useCreateRefund = () => {
       return data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['refunds'] }); toast.success('Refund request submitted'); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -110,7 +111,7 @@ export const useApproveRefund = () => {
       qc.invalidateQueries({ queryKey: ['refunds'] });
       toast.success('Refund approved — funds sent');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };
 
@@ -131,6 +132,6 @@ export const useRejectRefund = () => {
       qc.invalidateQueries({ queryKey: ['refunds'] });
       toast.success('Refund rejected');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 };

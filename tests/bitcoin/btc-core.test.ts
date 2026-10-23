@@ -87,6 +87,61 @@ describe("BIP84 derivation (published test vectors)", () => {
   });
 });
 
+describe("mnemonic normalization (operator paste forgiveness)", () => {
+  const WORDS = MNEMONIC.split(" ");
+  const numbered = WORDS.map((w, i) => `${i + 1}. ${w}`).join(", ");
+  const commaSeparated = WORDS.join(", ");
+  const newlineSeparated = WORDS.join("\n");
+  const shouty = "  " + WORDS.join("   ").toUpperCase() + "  ";
+
+  it("normalizes a numbered, comma-separated list to the bare words", () => {
+    expect(core.normalizeMnemonic(numbered)).toBe(MNEMONIC);
+  });
+
+  it("normalizes comma / newline / mixed-case extra-space forms identically", () => {
+    expect(core.normalizeMnemonic(commaSeparated)).toBe(MNEMONIC);
+    expect(core.normalizeMnemonic(newlineSeparated)).toBe(MNEMONIC);
+    expect(core.normalizeMnemonic(shouty)).toBe(MNEMONIC);
+    expect(core.normalizeMnemonic(MNEMONIC)).toBe(MNEMONIC);
+  });
+
+  it("accepts every decorated form through the full custody interlock", () => {
+    for (const variant of [numbered, commaSeparated, newlineSeparated, shouty]) {
+      const status = core.custodyStatus(variant, ACCOUNT_ZPUB);
+      expect(status.configured).toBe(true);
+      const key = core.accountKeyFromMnemonic(variant);
+      expect(core.deriveAddress(key, 0, 0)).toBe(ADDR_0_0);
+    }
+  });
+
+  it("still rejects a non-wordlist word outright, decorated or not", () => {
+    const bogusWords = [...WORDS.slice(0, 11), "bitcoin"]; // not a BIP39 word
+    const bogus = bogusWords.join(" ");
+    const bogusNumbered = bogusWords.map((w, i) => `${i + 1}. ${w}`).join(", ");
+    expect(() => core.accountKeyFromMnemonic(bogus)).toThrow();
+    expect(core.custodyStatus(bogus, ACCOUNT_ZPUB)).toEqual({
+      configured: false,
+      reason: "invalid_seed",
+    });
+    expect(core.custodyStatus(bogusNumbered, ACCOUNT_ZPUB)).toEqual({
+      configured: false,
+      reason: "invalid_seed",
+    });
+  });
+
+  it("still rejects a real wordlist word in the wrong place", () => {
+    const swapped = [...WORDS.slice(0, 11), "zoo"].join(" ");
+    expect(core.custodyStatus(swapped, ACCOUNT_ZPUB).configured).toBe(false);
+  });
+
+  it("still rejects 13-word and 25-word inputs", () => {
+    expect(() => core.accountKeyFromMnemonic(MNEMONIC + " abandon")).toThrow();
+    expect(() =>
+      core.accountKeyFromMnemonic(MNEMONIC + " " + MNEMONIC + " abandon"),
+    ).toThrow();
+  });
+});
+
 describe("address validation", () => {
   it("accepts mainnet SegWit and returns a 22-byte script", () => {
     const v = core.validateMainnetAddress(ADDR_0_0);
@@ -146,6 +201,103 @@ describe("coin selection", () => {
       50_000, 1, script, script,
     );
     expect(sel!.selected.map((u) => u.value)).toEqual([90_000]);
+  });
+});
+
+describe("spent-outpoint tracking (audit M1: concurrent sends share one UTXO pool)", () => {
+  const utxo = (txid: string, vout: number, value: number, index: number) => ({
+    txid, vout, value, chain: 0 as const, index,
+  });
+
+  it("parses the spent outpoints from an esplora transaction's vin", () => {
+    const tx = {
+      vin: [
+        { txid: "aa".repeat(32), vout: 0 },
+        { txid: "bb".repeat(32), vout: 3 },
+      ],
+      vout: [{ value: 1000 }],
+    };
+    expect(core.spentOutpointsFromTx(tx)).toEqual([
+      { txid: "aa".repeat(32), vout: 0 },
+      { txid: "bb".repeat(32), vout: 3 },
+    ]);
+  });
+
+  it("skips malformed vin entries instead of throwing", () => {
+    const tx = {
+      vin: [
+        { txid: "aa".repeat(32), vout: 1 },
+        { txid: "", vout: 0 },
+        { vout: 2 },
+        { txid: "cc".repeat(32), vout: 1.5 },
+        { txid: "dd".repeat(32), vout: "0" },
+        null,
+        "garbage",
+      ],
+    };
+    expect(core.spentOutpointsFromTx(tx)).toEqual([
+      { txid: "aa".repeat(32), vout: 1 },
+    ]);
+    expect(core.spentOutpointsFromTx(null)).toEqual([]);
+    expect(core.spentOutpointsFromTx({})).toEqual([]);
+    expect(core.spentOutpointsFromTx({ vin: "nope" })).toEqual([]);
+  });
+
+  it("excludes committed outpoints and preserves order (deterministic selection)", () => {
+    const pool = [
+      utxo("aa".repeat(32), 0, 90_000, 0),
+      utxo("bb".repeat(32), 1, 50_000, 1),
+      utxo("cc".repeat(32), 0, 20_000, 2),
+    ];
+    const filtered = core.filterUncommittedUtxos(pool, [
+      { txid: "bb".repeat(32), vout: 1 },
+    ]);
+    expect(filtered.map((u) => u.txid)).toEqual(["aa".repeat(32), "cc".repeat(32)]);
+    // The same outpoint at a DIFFERENT vout is a different coin.
+    const untouched = core.filterUncommittedUtxos(pool, [
+      { txid: "bb".repeat(32), vout: 9 },
+    ]);
+    expect(untouched).toHaveLength(3);
+  });
+
+  it("an unaffected re-selection after filtering is identical (same fee)", () => {
+    const script = new Uint8Array(22);
+    const pool = [
+      utxo("aa".repeat(32), 0, 90_000, 0),
+      utxo("bb".repeat(32), 1, 50_000, 1),
+    ];
+    const before = core.selectCoins(pool, 50_000, 10, script, script);
+    // Committed outpoint is NOT one the selection needs.
+    const after = core.selectCoins(
+      core.filterUncommittedUtxos(pool, [{ txid: "bb".repeat(32), vout: 1 }]),
+      50_000, 10, script, script,
+    );
+    expect(after).not.toBeNull();
+    expect(after!.feeSats).toBe(before!.feeSats);
+    expect(after!.selected.map((u) => u.txid)).toEqual(before!.selected.map((u) => u.txid));
+  });
+
+  it("filtering out the selected coin forces a different, valid selection or none", () => {
+    const script = new Uint8Array(22);
+    const pool = [
+      utxo("aa".repeat(32), 0, 90_000, 0),
+      utxo("bb".repeat(32), 1, 50_000, 1),
+    ];
+    // The largest coin is committed to another withdrawal: selection
+    // must fall back to the smaller coin (fee too large here → null),
+    // never silently reuse the committed coin.
+    const filtered = core.filterUncommittedUtxos(pool, [
+      { txid: "aa".repeat(32), vout: 0 },
+    ]);
+    expect(core.selectCoins(filtered, 50_000, 10, script, script)).toBeNull();
+    // With a smaller target the fallback coin IS used.
+    const fallback = core.selectCoins(filtered, 40_000, 10, script, script);
+    expect(fallback!.selected.map((u) => u.txid)).toEqual(["bb".repeat(32)]);
+  });
+
+  it("outpointKey distinguishes txid and vout", () => {
+    expect(core.outpointKey("ab", 0)).not.toBe(core.outpointKey("ab", 1));
+    expect(core.outpointKey("ab", 0)).not.toBe(core.outpointKey("ac", 0));
   });
 });
 
@@ -448,5 +600,101 @@ describe("bitcoinCapabilities (per-capability gates)", () => {
     expect(caps.canReceive).toBe(false);
     expect(caps.canSpend).toBe(false);
     expect(caps.spend).toEqual({ configured: false, reason: "missing_xpub" });
+  });
+});
+
+describe("classifyBroadcastOutcome (no broadcast outcome may authorise a refund)", () => {
+  const TXID = "aa".repeat(32);
+  const OTHER_TXID = "bb".repeat(32);
+  const classify = (
+    obs: Partial<Parameters<typeof core.classifyBroadcastOutcome>[0]>,
+  ) =>
+    core.classifyBroadcastOutcome(
+      { postStatus: null, postBody: "", postTxid: null, lookupFound: false, ...obs },
+      TXID,
+    );
+
+  it("confirmed by POST: 2xx returns our exact txid", () => {
+    const cls = classify({ postStatus: 200, postTxid: TXID });
+    expect(cls.outcome).toBe("confirmed");
+    expect(cls.reason).toBe("post_txid_match");
+  });
+
+  it("confirmed by lookup after a rejected POST (timeout race)", () => {
+    const cls = classify({
+      postStatus: 400,
+      postBody: "bad-txns-inputs-missingorspent",
+      lookupFound: true,
+    });
+    expect(cls.outcome).toBe("confirmed");
+    expect(cls.reason).toBe("lookup_found");
+  });
+
+  it("confirmed by lookup after the POST request itself failed", () => {
+    const cls = classify({ postStatus: null, lookupFound: true });
+    expect(cls.outcome).toBe("confirmed");
+  });
+
+  it("unknown: 400 rejections of EVERY class — no rejection authorises a refund", () => {
+    // A 400 is one endpoint's answer about its own mempool view; even
+    // structural classes (bad-txns, bad-witness, missingorspent) and
+    // policy classes (nonstandard, dust, bare 'invalid') cannot prove
+    // the signed transaction can never be accepted anywhere. The
+    // withdrawal stays reserved for a human refund decision.
+    for (const postBody of [
+      "bad-txns-inputs-missingorspent", // already-spent / missing inputs
+      "bad-txns-vout-toolarge",
+      "bad-witness-nonstandard",
+      "non-standard transaction input",
+      "dust output below the dust limit",
+      "invalid transaction: bad sig",
+    ]) {
+      const cls = classify({ postStatus: 400, postBody, lookupFound: false });
+      expect(cls.outcome, postBody).toBe("unknown");
+      expect(cls.reason).toBe("post_http_400");
+    }
+  });
+
+  it("unknown: 400 with an ambiguous (fee-policy) body + lookup miss — never refunded", () => {
+    const cls = classify({
+      postStatus: 400,
+      postBody: "min relay fee not met",
+      lookupFound: false,
+    });
+    expect(cls.outcome).toBe("unknown");
+  });
+
+  it("unknown: timeout / no response + lookup miss — the POST may have landed", () => {
+    const cls = classify({ postStatus: null, lookupFound: false });
+    expect(cls.outcome).toBe("unknown");
+    expect(cls.reason).toBe("post_no_response");
+  });
+
+  it("unknown: 5xx from the broadcast endpoint + lookup miss", () => {
+    for (const postStatus of [500, 502, 503]) {
+      const cls = classify({ postStatus, postBody: "upstream error", lookupFound: false });
+      expect(cls.outcome, String(postStatus)).toBe("unknown");
+    }
+  });
+
+  it("unknown: 2xx with an UNEXPECTED txid + lookup miss (no network check = no refund)", () => {
+    const cls = classify({ postStatus: 200, postTxid: OTHER_TXID, lookupFound: false });
+    expect(cls.outcome).toBe("unknown");
+    expect(cls.reason).toBe("unexpected_txid");
+  });
+
+  it("confirmed: 2xx with an unexpected txid, but the lookup finds OUR txid", () => {
+    const cls = classify({ postStatus: 200, postTxid: OTHER_TXID, lookupFound: true });
+    expect(cls.outcome).toBe("confirmed");
+    expect(cls.reason).toBe("lookup_found");
+  });
+
+  it("unknown: non-400 client errors are not treated as validation proof", () => {
+    const cls = classify({
+      postStatus: 413,
+      postBody: "bad-txns-request-too-large",
+      lookupFound: false,
+    });
+    expect(cls.outcome).toBe("unknown");
   });
 });

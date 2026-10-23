@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -125,7 +126,7 @@ const Settings = () => {
       queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
       toast({ title: "Profile Updated", description: "Your profile has been updated successfully." });
     } catch (error: any) {
-      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+      toast({ title: "Update Failed", description: toUserFacingError(error), variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +151,7 @@ const Settings = () => {
       setConfirmPassword('');
       toast({ title: "Password Updated", description: "Your password has been changed. Use it the next time you sign in." });
     } catch (error: any) {
-      toast({ title: "Password Change Failed", description: error.message, variant: "destructive" });
+      toast({ title: "Password Change Failed", description: toUserFacingError(error), variant: "destructive" });
     } finally {
       setIsChangingPassword(false);
     }
@@ -171,7 +172,7 @@ const Settings = () => {
       if (error) throw error;
       toast({ title: "Notifications Updated", description: "Your notification preferences have been saved." });
     } catch (error: any) {
-      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+      toast({ title: "Update Failed", description: toUserFacingError(error), variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -216,7 +217,7 @@ const Settings = () => {
       setProfile(prev => ({ ...prev, avatar_url: avatarUrl }));
       toast({ title: "Avatar Updated", description: "Your profile photo has been updated." });
     } catch (error: any) {
-      toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+      toast({ title: "Upload Failed", description: toUserFacingError(error), variant: "destructive" });
     }
   };
 

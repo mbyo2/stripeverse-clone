@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { invalidateMoneyState } from '@/utils/moneyFreshness';
 
 /**
  * PayPal deposit return flow.
@@ -84,8 +85,9 @@ export function usePayPalDepositReturn() {
       }
 
       if (data.status === 'completed') {
-        queryClient.invalidateQueries({ queryKey: ['wallet'] });
-        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        // A confirmed deposit credits the wallet: refresh every
+        // balance/activity surface, not just the two caches.
+        invalidateMoneyState(queryClient);
         toast({
           title: data.already_completed ? 'Deposit already confirmed' : 'Deposit confirmed',
           description:

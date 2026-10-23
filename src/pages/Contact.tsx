@@ -121,8 +121,7 @@ const Contact = () => {
                     <div>
                       <h3 className="font-medium">Our Office</h3>
                       <p className="text-muted-foreground">
-                        123 Cairo Road, Lusaka<br />
-                        Zambia, 10101
+                        Lusaka, Zambia
                       </p>
                     </div>
                   </div>

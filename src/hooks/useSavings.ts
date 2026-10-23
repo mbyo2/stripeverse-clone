@@ -1,7 +1,9 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { invalidateMoneyState } from '@/utils/moneyFreshness';
 
 /**
  * Savings goals are funded from — and paid back to — the user's real
@@ -48,7 +50,7 @@ export const useSavings = () => {
       // deposits and withdrawals.
       queryClient.refetchQueries({ queryKey: ['savings'], type: 'active' });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   // The wallet that funds / receives for a goal: the user's Main
@@ -97,25 +99,24 @@ export const useSavings = () => {
 
   const invalidateMoney = () => {
     queryClient.invalidateQueries({ queryKey: ['savings'] });
-    queryClient.invalidateQueries({ queryKey: ['wallet'] });
-    queryClient.invalidateQueries({ queryKey: ['multi-wallets'] });
-    queryClient.invalidateQueries({ queryKey: ['transactions'] });
-    // Same stale-render fix as createAccount: refetch the visible
-    // lists immediately rather than leaving them to staleTime.
+    // Shared freshness rule: savings moves wallet money, so refresh
+    // every balance/activity surface (wallet, multi-wallets,
+    // transactions, dashboard, …), force-refetching the mounted ones
+    // rather than leaving them to staleTime.
+    invalidateMoneyState(queryClient);
     queryClient.refetchQueries({ queryKey: ['savings'], type: 'active' });
-    queryClient.refetchQueries({ queryKey: ['wallet'], type: 'active' });
   };
 
   const deposit = useMutation({
     mutationFn: ({ id, amount }: { id: string; amount: number }) => moveMoney({ id, amount, direction: 'deposit' }),
     onSuccess: () => { toast.success('Deposit successful — moved from your wallet'); invalidateMoney(); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const withdraw = useMutation({
     mutationFn: ({ id, amount }: { id: string; amount: number }) => moveMoney({ id, amount, direction: 'withdraw' }),
     onSuccess: () => { toast.success('Withdrawal successful — moved back to your wallet'); invalidateMoney(); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   return { accounts, createAccount, deposit, withdraw };

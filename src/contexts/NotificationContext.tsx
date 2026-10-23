@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -127,7 +128,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       toast({
         title: "Error updating preferences",
-        description: error.message,
+        description: toUserFacingError(error),
         variant: "destructive"
       });
     } finally {

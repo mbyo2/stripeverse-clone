@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import React, { useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -74,7 +75,7 @@ const BulkPayments = () => {
         setRecipients(parsed);
         toast.success(`Imported ${parsed.length} recipients from CSV`);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to parse CSV');
+        toast.error(toUserFacingError(err, 'Failed to parse CSV'));
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = '';
       }

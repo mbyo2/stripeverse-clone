@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -95,7 +96,7 @@ export const useAuditLogs = () => {
     onError: (error) => {
       toast({
         title: "Report Generation Failed",
-        description: error instanceof Error ? error.message : "Failed to generate report",
+        description: toUserFacingError(error, "Failed to generate report"),
         variant: "destructive"
       });
     }

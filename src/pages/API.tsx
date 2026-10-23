@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import React, { useState, useEffect, useCallback } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -8,6 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Copy, Key, Book, Plus, Trash2, Pencil, AlertTriangle, Webhook as WebhookIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -62,6 +73,8 @@ const API = () => {
   // Full key shown exactly once
   const [freshKey, setFreshKey] = useState<string | null>(null);
   const [freshKeyName, setFreshKeyName] = useState("");
+  const [pendingRevoke, setPendingRevoke] = useState<{ id: string; name: string } | null>(null);
+  const [pendingDeleteWebhook, setPendingDeleteWebhook] = useState<{ id: string; url: string } | null>(null);
 
   // Webhooks
   const [webhooks, setWebhooks] = useState<WebhookRow[]>([]);
@@ -79,7 +92,7 @@ const API = () => {
       .select("id, name, key_prefix, is_active, last_used_at, expires_at, created_at")
       .order("created_at", { ascending: false });
     if (error) {
-      toast({ title: "Failed to load API keys", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to load API keys", description: toUserFacingError(error), variant: "destructive" });
     } else {
       setApiKeys(data || []);
     }
@@ -94,7 +107,7 @@ const API = () => {
       .select("id, url, events, is_active, created_at")
       .order("created_at", { ascending: false });
     if (error) {
-      toast({ title: "Failed to load webhooks", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to load webhooks", description: toUserFacingError(error), variant: "destructive" });
     } else {
       setWebhooks(data || []);
     }
@@ -124,14 +137,13 @@ const API = () => {
       loadKeys();
       toast({ title: "API key created", description: "Copy it now — it will never be shown again." });
     } catch (e: any) {
-      toast({ title: "Failed to create key", description: e.message, variant: "destructive" });
+      toast({ title: "Failed to create key", description: toUserFacingError(e), variant: "destructive" });
     } finally {
       setGenLoading(false);
     }
   };
 
   const revokeKey = async (id: string, name: string) => {
-    if (!window.confirm(`Revoke "${name}"? This cannot be undone.`)) return;
     try {
       const { data, error } = await supabase.functions.invoke("revoke-api-key", {
         body: { key_id: id },
@@ -141,7 +153,7 @@ const API = () => {
       toast({ title: "Key revoked", description: `"${name}" can no longer be used.` });
       loadKeys();
     } catch (e: any) {
-      toast({ title: "Revoke failed", description: e.message, variant: "destructive" });
+      toast({ title: "Revoke failed", description: toUserFacingError(e), variant: "destructive" });
     }
   };
 
@@ -207,17 +219,16 @@ const API = () => {
       cancelEditWebhook();
       loadWebhooks();
     } catch (e: any) {
-      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+      toast({ title: "Save failed", description: toUserFacingError(e), variant: "destructive" });
     } finally {
       setSavingWh(false);
     }
   };
 
   const deleteWebhook = async (id: string, url: string) => {
-    if (!window.confirm(`Delete webhook ${url}?`)) return;
     const { error } = await supabase.from("webhooks").delete().eq("id", id);
     if (error) {
-      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+      toast({ title: "Delete failed", description: toUserFacingError(error), variant: "destructive" });
     } else {
       toast({ title: "Webhook deleted" });
       loadWebhooks();
@@ -227,7 +238,7 @@ const API = () => {
   const toggleWebhook = async (wh: WebhookRow) => {
     const { error } = await supabase.from("webhooks").update({ is_active: !wh.is_active }).eq("id", wh.id);
     if (error) {
-      toast({ title: "Update failed", description: error.message, variant: "destructive" });
+      toast({ title: "Update failed", description: toUserFacingError(error), variant: "destructive" });
     } else {
       loadWebhooks();
     }
@@ -301,7 +312,7 @@ const API = () => {
                             </p>
                           </div>
                           {key.is_active && (
-                            <Button variant="destructive" size="sm" onClick={() => revokeKey(key.id, key.name)}>
+                            <Button variant="destructive" size="sm" onClick={() => setPendingRevoke({ id: key.id, name: key.name })}>
                               Revoke
                             </Button>
                           )}
@@ -439,7 +450,7 @@ const API = () => {
                             <Button variant="outline" size="sm" onClick={() => startEditWebhook(wh)}>
                               <Pencil className="h-3 w-3" />
                             </Button>
-                            <Button variant="destructive" size="sm" onClick={() => deleteWebhook(wh.id, wh.url)}>
+                            <Button variant="destructive" size="sm" onClick={() => setPendingDeleteWebhook({ id: wh.id, url: wh.url })}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
@@ -517,6 +528,56 @@ const API = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!pendingRevoke} onOpenChange={(open) => { if (!open) setPendingRevoke(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke this API key?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{pendingRevoke?.name}" will stop working immediately. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingRevoke) {
+                  const target = pendingRevoke;
+                  setPendingRevoke(null);
+                  revokeKey(target.id, target.name);
+                }
+              }}
+            >
+              Revoke key
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!pendingDeleteWebhook} onOpenChange={(open) => { if (!open) setPendingDeleteWebhook(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this webhook?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The webhook at {pendingDeleteWebhook?.url} will be removed and will stop receiving events. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDeleteWebhook) {
+                  const target = pendingDeleteWebhook;
+                  setPendingDeleteWebhook(null);
+                  deleteWebhook(target.id, target.url);
+                }
+              }}
+            >
+              Delete webhook
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Footer />
     </div>

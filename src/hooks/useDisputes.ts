@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -87,7 +88,7 @@ export const useDisputes = () => {
     onError: (error) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to create dispute',
+        description: toUserFacingError(error, 'Failed to create dispute'),
         variant: 'destructive',
       });
     },
@@ -115,7 +116,7 @@ export const useDisputes = () => {
     onError: (error) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to update dispute',
+        description: toUserFacingError(error, 'Failed to update dispute'),
         variant: 'destructive',
       });
     },
@@ -178,7 +179,7 @@ export const useDisputeMessages = (disputeId: string | null) => {
     onError: (error) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to send message',
+        description: toUserFacingError(error, 'Failed to send message'),
         variant: 'destructive',
       });
     },

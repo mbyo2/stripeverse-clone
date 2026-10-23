@@ -3,6 +3,25 @@
 // Every money flow (transfers, bill payments, escrow, bulk payments, refunds)
 // routes through here so balances move atomically with idempotency guards.
 //
+// Send Money is one exception to the generic path: requests with
+// reference_type "send_money" are routed to the dedicated
+// execute_send_money_transfer RPC, which computes the 2.5% send fee
+// (platform_settings.send_money_fee_percent) and credits it to the
+// platform wallet atomically with the send — the client never names
+// the fee amount or the fee's destination.
+//
+// The user-to-user Transfer flow is the second exception (CEO
+// decision, 2026-10-23 — supersedes the 2026-10-22 "Transfer stays
+// free" call): requests with reference_type "transfer" AND
+// "qr_payment" are routed to execute_transfer_with_fee, the
+// transfer-fee twin of the send RPC, which charges 1.5%
+// (platform_settings.transfer_fee_percent) on top and credits it to
+// the platform the same way. QR pay carries its own marker but is a
+// user-to-user wallet transfer, so it pays the transfer fee too.
+// Every other reference_type (bill_payment, bnpl_installment,
+// bulk_payment, escrow_hold, refund) keeps the generic
+// execute_atomic_transfer path below, untouched.
+//
 // Input:
 //   {
 //     from_user_id, to_user_id (nullable — null = external/biller payment),
@@ -95,6 +114,75 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
+
+    // ── Send Money: dedicated RPC that charges the send fee ──────────
+    // The fee (2.5% at launch) is computed inside
+    // execute_send_money_transfer from platform_settings and credited
+    // to the platform operator's Main wallet in the same transaction
+    // as the send. Nothing about the fee is taken from the request.
+    if (reference_type === "send_money") {
+      if (!to_user_id) throw new Error("to_user_id required");
+
+      const { data, error } = await admin.rpc("execute_send_money_transfer", {
+        p_from_user_id: from_user_id,
+        p_to_user_id: to_user_id,
+        p_amount: amt,
+        p_currency: currency || "ZMW",
+        p_reference_id: reference_id || null,
+        p_idempotency_key: idempotency_key,
+        p_description: description || null,
+        p_recipient_name: recipient_name || null,
+        p_payment_method: payment_method || "wallet",
+      });
+
+      if (error) throw new Error(error.message);
+
+      const row = Array.isArray(data) ? data[0] : data;
+      return new Response(JSON.stringify({
+        success: true,
+        transaction_id: row.transaction_id,
+        new_sender_balance: Number(row.new_sender_balance),
+        fee_amount: Number(row.fee_amount ?? 0),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Transfer + QR pay: dedicated RPC that charges the transfer fee ──
+    // The fee (1.5% at launch, CEO decision 2026-10-23) is computed
+    // inside execute_transfer_with_fee from platform_settings and
+    // credited to the platform operator's Main wallet in the same
+    // transaction as the transfer. Nothing about the fee is taken
+    // from the request. "qr_payment" is routed here as well: QR pay
+    // has its own marker, but it IS a user-to-user wallet transfer,
+    // so it carries the transfer fee exactly like "transfer" does.
+    if (reference_type === "transfer" || reference_type === "qr_payment") {
+      if (!to_user_id) throw new Error("to_user_id required");
+
+      const { data, error } = await admin.rpc("execute_transfer_with_fee", {
+        p_from_user_id: from_user_id,
+        p_to_user_id: to_user_id,
+        p_amount: amt,
+        p_currency: currency || "ZMW",
+        p_reference_id: reference_id || null,
+        p_idempotency_key: idempotency_key,
+        p_description: description || null,
+        p_recipient_name: recipient_name || null,
+        p_payment_method: payment_method || "wallet",
+      });
+
+      if (error) throw new Error(error.message);
+
+      const row = Array.isArray(data) ? data[0] : data;
+      return new Response(JSON.stringify({
+        success: true,
+        transaction_id: row.transaction_id,
+        new_sender_balance: Number(row.new_sender_balance),
+        fee_amount: Number(row.fee_amount ?? 0),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data, error } = await admin.rpc("execute_atomic_transfer", {
       p_from_user_id: from_user_id,
