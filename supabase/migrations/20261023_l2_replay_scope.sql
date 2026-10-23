@@ -1,4 +1,18 @@
 -- =====================================================================
+
+-- =====================================================================
+-- POST-APPLY CORRECTION (2026-10-23, same session): the first live
+-- relay of execute_internal_transfer exposed a PRE-EXISTING latent
+-- defect carried in the repo base (20261021): it selected and returned
+-- transactions.id (INTEGER) into UUID variables, so every internal
+-- transfer failed with 'invalid input syntax for type uuid' and
+-- rolled back (no partial movement — proven live with a K25 QA
+-- transfer before the fix). The internal function below now uses
+-- transactions.uuid_id consistently (the convention
+-- execute_atomic_transfer already followed); the same one-line trap
+-- in btc_execute_trade's replay SELECT is corrected the same way.
+-- execute_payment_link_settlement already used uuid_id throughout.
+-- =====================================================================
 -- 20261023_l2_replay_scope.sql -- L2: scope idempotent replays to
 -- their owner in the four SECURITY DEFINER money functions.
 --
@@ -204,7 +218,7 @@ BEGIN
   -- identified by the owner of p_from_wallet_id; if that wallet does
   -- not exist, the replay is skipped and the main path below raises
   -- 'Wallet not found' exactly as it does for a fresh call.
-  SELECT t.id, w.user_id INTO v_existing_id, v_existing_owner
+  SELECT t.uuid_id, w.user_id INTO v_existing_id, v_existing_owner
   FROM public.transactions t
   JOIN public.wallets w ON w.id = t.wallet_id
   WHERE t.idempotency_key = p_idempotency_key AND t.direction = 'outgoing'
@@ -216,10 +230,10 @@ BEGIN
       IF v_existing_owner <> v_from_owner THEN
         RAISE EXCEPTION 'Idempotency key already used';
       END IF;
-      SELECT t.id, w.balance INTO v_tx_id, new_sender_balance
+      SELECT t.uuid_id, w.balance INTO v_tx_id, new_sender_balance
       FROM public.transactions t
       JOIN public.wallets w ON w.id = t.wallet_id
-      WHERE t.id = v_existing_id;
+      WHERE t.uuid_id = v_existing_id;
       transaction_id := v_tx_id;
       RETURN NEXT;
       RETURN;
@@ -281,7 +295,7 @@ BEGIN
     (p_user_id, v_from.id, p_amount, v_from.currency, 'outgoing', 'wallet',
      'completed', p_description, 'internal:' || p_from_wallet_id::text,
      'internal_transfer', p_idempotency_key)
-  RETURNING id INTO v_tx_id;
+  RETURNING uuid_id INTO v_tx_id;
 
   transaction_id := v_tx_id;
   new_sender_balance := v_from.balance - p_amount;
@@ -808,7 +822,7 @@ DECLARE
   v_existing_user UUID;
 BEGIN
   IF p_idempotency_key IS NOT NULL THEN
-    SELECT t.id, t.user_id INTO v_existing, v_existing_user
+    SELECT t.uuid_id, t.user_id INTO v_existing, v_existing_user
     FROM public.transactions t
     WHERE t.idempotency_key = p_idempotency_key || ':zmw'
     LIMIT 1;
