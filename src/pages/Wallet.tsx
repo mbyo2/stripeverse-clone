@@ -23,6 +23,9 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/hooks/useWallet";
 import PageErrorState from "@/components/PageErrorState";
 import { usePayPalDepositReturn } from "@/hooks/usePayPalDepositReturn";
+import { useStripeGatewayDeposit, useStripeGatewayReturn } from "@/hooks/useStripeGatewayDeposit";
+import { STRIPE_GATEWAY_MODE, STRIPE_GATEWAY_MODE_LABEL } from "@/config/stripeGateway";
+import { useRoles } from "@/contexts/RoleContext";
 import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from "@/config/paypal";
 import PayPalWithdraw from "@/components/wallet/PayPalWithdraw";
 import { PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE } from "@/utils/paypalPayout";
@@ -38,10 +41,24 @@ const Wallet = () => {
   const [depositMethod, setDepositMethod] = useState("mobile_money");
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const { roles } = useRoles();
+  const { startStripeTopUp, isStartingStripeTopUp } = useStripeGatewayDeposit();
+
+  // Stripe gateway top-ups (brief §3) are superadmin-only while the
+  // rail is in sandbox: the option renders only for admin /
+  // super_admin, and stripe-gateway-checkout enforces the same gate
+  // server-side. Everyone else keeps seeing the existing options.
+  const canUseStripeGateway = roles.some(
+    (role) => role === "admin" || (role as string) === "super_admin",
+  );
 
   // Completes a PayPal deposit when the user returns from approval
   // (/wallet?paypal_return=deposit&token=<order id>).
   usePayPalDepositReturn();
+
+  // Reports a Stripe top-up return honestly (settlement itself is
+  // webhook-only; see useStripeGatewayDeposit).
+  useStripeGatewayReturn();
 
   const handleSendMoney = () => {
     navigate("/transfer");
@@ -54,6 +71,21 @@ const Wallet = () => {
     if (depositMethod === 'paypal' && !PAYPAL_AVAILABLE) return;
     const parsedAmount = parseFloat(amount);
     if (!isNaN(parsedAmount) && parsedAmount > 0) {
+      if (depositMethod === 'stripe_card') {
+        // Stripe gateway top-up: its own edge function + redirect
+        // flow (the wallet-deposit function has no Stripe path). The
+        // viewed wallet is the target; if Stripe declines its
+        // currency the server falls back to the USD wallet in the
+        // same account scope and says so.
+        void startStripeTopUp({
+          amount: parsedAmount,
+          walletId: wallet?.id,
+          currency: wallet?.currency,
+          accountId: selectedAccountId,
+        });
+        setAmount("");
+        return;
+      }
       // Target the wallet of the account the user is viewing — never
       // an arbitrary wallet on the account.
       deposit({
@@ -96,6 +128,11 @@ const Wallet = () => {
             <SelectItem value="paypal" disabled={!PAYPAL_AVAILABLE}>
               PayPal{!PAYPAL_AVAILABLE && ` — ${PAYPAL_COMING_SOON_LABEL}`}
             </SelectItem>
+            {canUseStripeGateway && (
+              <SelectItem value="stripe_card">
+                Card (Stripe){STRIPE_GATEWAY_MODE_LABEL}
+              </SelectItem>
+            )}
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground text-center">
@@ -103,6 +140,10 @@ const Wallet = () => {
             ? "PayPal deposits are coming soon — they aren't available yet."
             : depositMethod === 'paypal'
             ? "You'll be redirected to PayPal. Your wallet is credited once the payment is confirmed."
+            : depositMethod === 'stripe_card'
+            ? STRIPE_GATEWAY_MODE === 'test'
+              ? "Sandbox rail — you'll be redirected to Stripe's test checkout. Use a Stripe test card; no real money moves. Your wallet is credited once Stripe confirms."
+              : "You'll be redirected to Stripe's secure checkout. Your wallet is credited once Stripe confirms the payment."
             : "Mobile money deposits are not live yet — you'll be told before anything is charged."}
         </p>
         {depositMethod === 'paypal' && PAYPAL_AVAILABLE && wallet?.currency === 'ZMW' && (
@@ -120,13 +161,24 @@ const Wallet = () => {
             {PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE}
           </p>
         )}
+        {depositMethod === 'stripe_card' && wallet?.currency === 'ZMW' && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              This top-up is attempted in kwacha first. If Stripe declines
+              ZMW on our account, the same amount is charged in US dollars
+              and credited to your USD wallet instead — you'll be told
+              before you pay.
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
       <Button 
         onClick={handleAddMoney} 
         className="w-full h-12 rounded-full text-base font-semibold" 
-        disabled={!amount || parseFloat(amount) <= 0 || isDepositing}
+        disabled={!amount || parseFloat(amount) <= 0 || isDepositing || isStartingStripeTopUp}
       >
-        {isDepositing ? "Processing..." : "Add Money"}
+        {isDepositing || isStartingStripeTopUp ? "Processing..." : "Add Money"}
       </Button>
     </div>
   );
