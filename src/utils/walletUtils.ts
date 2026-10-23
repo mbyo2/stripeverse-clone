@@ -66,26 +66,6 @@ export const calculateTransactionFee = (amount: number, feeRate: number = 0.01, 
   return Math.max(amount * feeRate, minFee);
 };
 
-export const updateWalletBalance = async (userId: string, amount: number) => {
-  try {
-    // Use the database function to safely update wallet balance
-    const { error } = await supabase.rpc('increment_wallet_balance', {
-      p_user_id: userId,
-      p_amount: amount
-    });
-
-    if (error) {
-      console.error('Error updating wallet balance:', error);
-      throw error;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in updateWalletBalance:', error);
-    throw error;
-  }
-};
-
 export const getWalletByUserId = async (userId: string, accountId: string | null = null) => {
   try {
     let query = supabase
