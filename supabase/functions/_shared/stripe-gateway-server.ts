@@ -100,6 +100,29 @@ export function retrieveStripeSession(
   return stripeRequest(secretKey, "GET", `/checkout/sessions/${encodeURIComponent(sessionId)}`);
 }
 
+export interface StripeRefundLike {
+  id: string;
+  status?: string | null;
+  payment_intent?: string | null;
+  charge?: string | null;
+  amount?: number | null;
+  currency?: string | null;
+}
+
+/**
+ * Create a refund via POST /v1/refunds. `idempotencyKey` MUST be
+ * `refund:<ledger uuid>` (stripeRefundIdempotencyKey) so a retried
+ * admin action can never create a second refund for one deposit.
+ * The form is built by the pure buildStripeRefundParams.
+ */
+export function createStripeRefund(
+  secretKey: string,
+  form: Record<string, string>,
+  idempotencyKey: string,
+): Promise<StripeApiResult<StripeRefundLike>> {
+  return stripeRequest(secretKey, "POST", "/refunds", { form, idempotencyKey });
+}
+
 // ── Ledger rows ──────────────────────────────────────────────────────
 
 export interface StripeDepositRow {

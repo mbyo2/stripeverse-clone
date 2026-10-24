@@ -460,3 +460,205 @@ export function planStripeSettlement(
   if (pending.status !== "pending") return "not_pending";
   return "credit";
 }
+
+// ── Admin: gateway status ──────────────────────────────────────────
+
+/**
+ * Pure status mapping for `stripe-gateway-admin` { action: "status" }.
+ * `kill_switch_enabled` is exactly
+ * `platform_settings.stripe_gateway_enabled === true` — the column
+ * defaults to true and only an explicit true reads as enabled here,
+ * so a missing row reports disabled rather than inventing a state.
+ * `webhook_configured` is presence-only: the secret value itself
+ * never leaves the function.
+ */
+export function stripeGatewayStatus(input: {
+  secretKey: string | null | undefined;
+  webhookSecret: string | null | undefined;
+  gatewayEnabled: boolean | null | undefined;
+}): {
+  configured: boolean;
+  mode: StripeKeyMode | null;
+  kill_switch_enabled: boolean;
+  webhook_configured: boolean;
+} {
+  const { configured, mode } = stripeGatewayConfig(input.secretKey);
+  return {
+    configured,
+    mode,
+    kill_switch_enabled: input.gatewayEnabled === true,
+    webhook_configured:
+      typeof input.webhookSecret === "string" && input.webhookSecret.trim().length > 0,
+  };
+}
+
+// ── Admin: refunds ─────────────────────────────────────────────────
+
+export interface StripeRefundRowLike {
+  status: string;
+  payment_method?: string | null;
+  reference?: string | null;
+  external_reference?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+function metadataString(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+/**
+ * The PaymentIntent id recorded on a settled deposit row. Settlement
+ * (complete_stripe_wallet_deposit) merges `payment_intent_id` into
+ * transactions.metadata; that — never the session id — is what a
+ * refund is created against.
+ */
+export function stripePaymentIntentIdFromRow(
+  row: StripeRefundRowLike | null | undefined,
+): string | null {
+  if (!row) return null;
+  const id =
+    metadataString(row.metadata, "payment_intent_id") ??
+    metadataString(row.metadata, "payment_intent");
+  return id && id.startsWith("pi_") ? id : null;
+}
+
+/** The Checkout Session id recorded on a deposit row, if any. */
+export function stripeSessionIdFromRow(
+  row: StripeRefundRowLike | null | undefined,
+): string | null {
+  if (!row) return null;
+  const fromMetadata =
+    metadataString(row.metadata, "session_id") ??
+    metadataString(row.metadata, "stripe_session_id");
+  if (fromMetadata) return fromMetadata;
+  for (const candidate of [row.reference, row.external_reference]) {
+    if (typeof candidate === "string" && candidate.startsWith("cs_")) return candidate;
+  }
+  return null;
+}
+
+export type StripeRefundEligibility =
+  | { ok: true; paymentIntentId: string; sessionId: string | null }
+  | {
+      ok: false;
+      reason:
+        | "not_found"
+        | "not_stripe"
+        | "not_settled"
+        | "missing_payment_reference"
+        | "already_refunded";
+      httpStatus: 400 | 404;
+      message: string;
+    };
+
+/**
+ * Decide whether a transactions row may be refunded through Stripe.
+ * Pure and side-effect free: the admin function acts on this verdict
+ * and changes nothing when it is not ok.
+ */
+export function decideStripeRefundEligibility(
+  row: StripeRefundRowLike | null | undefined,
+): StripeRefundEligibility {
+  if (!row) {
+    return {
+      ok: false,
+      reason: "not_found",
+      httpStatus: 404,
+      message: "That transaction could not be found.",
+    };
+  }
+  if (row.payment_method != null && row.payment_method !== "stripe") {
+    return {
+      ok: false,
+      reason: "not_stripe",
+      httpStatus: 400,
+      message: "That transaction was not paid by card through Stripe, so it cannot be refunded here.",
+    };
+  }
+  if (metadataString(row.metadata, "refund_id")) {
+    return {
+      ok: false,
+      reason: "already_refunded",
+      httpStatus: 400,
+      message: "A refund has already been requested for this deposit. No second refund was created.",
+    };
+  }
+  if (row.status !== "completed" && row.status !== "settled") {
+    return {
+      ok: false,
+      reason: "not_settled",
+      httpStatus: 400,
+      message: "Only a completed Stripe deposit can be refunded. This deposit has not settled, so nothing was refunded.",
+    };
+  }
+  const paymentIntentId = stripePaymentIntentIdFromRow(row);
+  if (!paymentIntentId) {
+    return {
+      ok: false,
+      reason: "missing_payment_reference",
+      httpStatus: 400,
+      message: "This deposit carries no Stripe payment reference, so a refund cannot be created for it.",
+    };
+  }
+  return { ok: true, paymentIntentId, sessionId: stripeSessionIdFromRow(row) };
+}
+
+/**
+ * Build the form field set for POST /v1/refunds. A full refund of the
+ * PaymentIntent — no amount is sent, so Stripe refunds exactly what
+ * was charged and a partial-refund arithmetic bug is impossible here.
+ */
+export function buildStripeRefundParams(input: {
+  paymentIntentId: string;
+  ledgerId?: string | null;
+}): Record<string, string> {
+  const params: Record<string, string> = {
+    payment_intent: input.paymentIntentId,
+  };
+  if (input.ledgerId) params["metadata[ledger_id]"] = input.ledgerId;
+  return params;
+}
+
+/** The refund create call's Idempotency-Key — one refund per deposit. */
+export function stripeRefundIdempotencyKey(ledgerId: string): string {
+  return `refund:${ledgerId}`;
+}
+
+export type StripeRefundStatus = "pending" | "succeeded" | "failed" | "canceled" | "unknown";
+
+/** Normalise a Stripe refund status to the set this app records. */
+export function mapStripeRefundStatus(status: string | null | undefined): StripeRefundStatus {
+  switch ((status ?? "").trim().toLowerCase()) {
+    case "pending":
+    case "requires_action":
+      return "pending";
+    case "succeeded":
+      return "succeeded";
+    case "failed":
+      return "failed";
+    case "canceled":
+    case "cancelled":
+      return "canceled";
+    default:
+      return "unknown";
+  }
+}
+
+/**
+ * Classified plain language for a failed Stripe refund create —
+ * the caller answers 502 with this and nothing from Stripe's raw
+ * error message (which can echo request values) reaches the admin.
+ */
+export function plainStripeRefundError(error: StripeApiErrorLike | null | undefined): string {
+  if (error?.code === "charge_already_refunded") {
+    return "This payment has already been refunded in Stripe. No further refund was created.";
+  }
+  if (error?.code === "payment_intent_unexpected_state") {
+    return "Stripe says this payment is not in a state that can be refunded. No money has moved.";
+  }
+  return "Stripe could not create this refund. No money has moved — please try again.";
+}
