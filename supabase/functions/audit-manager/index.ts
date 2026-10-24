@@ -356,7 +356,14 @@ function convertToCSV(data: any[]): string {
   for (const row of data) {
     const values = headers.map(header => {
       const value = row[header]
-      return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value
+      if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`
+      // jsonb cells (old_values / new_values) arrive as objects/arrays:
+      // render their JSON text, quoted like a string — never the raw
+      // object, which stringifies as "[object Object]".
+      if (value !== null && typeof value === 'object') {
+        return `"${JSON.stringify(value).replace(/"/g, '""')}"`
+      }
+      return value
     })
     csvRows.push(values.join(','))
   }

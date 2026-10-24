@@ -147,3 +147,37 @@ describe("signMastercardRequest — known test vector", () => {
     }, "")).rejects.toThrow("not configured");
   });
 });
+
+describe("signMastercardRequest — preamble-tainted PEM", () => {
+  // The exact failure QA hit live (2026-10-24): the stored signing-key
+  // secret carried the openssl pkcs12 preamble ("Bag Attributes" …)
+  // before the BEGIN line, which poisoned the base64 decode and broke
+  // every signed provider call. The parser must extract just the
+  // BEGIN…END block — preamble, CRLF endings and trailing notes
+  // included in the paste — so the CEO's production-key paste at
+  // go-live can never re-trigger it.
+  const TAINTED_PEM =
+    "Bag Attributes\r\n" +
+    "    localKeyID: 01 02 03 04\r\n" +
+    "    friendlyName: sandbox-signing-key\r\n" +
+    "Key Attributes: <No Attributes>\r\n" +
+    TEST_PRIVATE_KEY_PEM.replace(/\n/g, "\r\n") +
+    "\r\nnotes pasted after the block\r\n";
+
+  it("imports the key and reproduces the vector signature byte-for-byte", async () => {
+    const header = await signMastercardRequest(
+      VECTOR.method,
+      VECTOR.url,
+      {
+        consumerKey: VECTOR.consumerKey,
+        body: VECTOR.body,
+        nonce: VECTOR.nonce,
+        timestamp: VECTOR.timestamp,
+      },
+      TAINTED_PEM,
+    );
+    expect(header).toContain(
+      `oauth_signature="${percentEncode(VECTOR.signature)}"`,
+    );
+  });
+});

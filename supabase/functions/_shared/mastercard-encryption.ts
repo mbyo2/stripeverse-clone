@@ -38,10 +38,17 @@ function base64UrlDecode(text: string): Uint8Array {
 }
 
 function pemToDer(pem: string): Uint8Array {
-  const b64 = pem
-    .replace(/-----BEGIN [^-]+-----/, "")
-    .replace(/-----END [^-]+-----/, "")
-    .replace(/\s+/g, "");
+  // Decode ONLY the -----BEGIN … -----END block: openssl pkcs12
+  // preamble lines ("Bag Attributes" etc.), CRLF endings or other
+  // text around the block must never reach the base64 decoder —
+  // the same tolerance the OAuth signing-key import applies.
+  const match = pem.match(
+    /-----BEGIN [^-]+-----([\s\S]*?)-----END [^-]+-----/,
+  );
+  if (!match) {
+    throw new Error("Mastercard encryption key is not configured.");
+  }
+  const b64 = match[1].replace(/\s+/g, "");
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);

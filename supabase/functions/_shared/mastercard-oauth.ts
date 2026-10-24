@@ -24,6 +24,10 @@
 // PKCS#1 import, so a PKCS#1 ("RSA PRIVATE KEY") PEM will fail the
 // import with a crafted configuration error at call time — by
 // design, so a mis-extracted secret fails loudly, never silently.
+// Text AROUND the block is tolerated: `openssl pkcs12` output (and a
+// hurried paste of a production key at go-live) can carry "Bag
+// Attributes" preamble lines, CRLF endings or trailing notes, so
+// only the -----BEGIN … -----END block itself is ever decoded.
 
 export interface MastercardOAuthParams {
   consumerKey: string;
@@ -107,15 +111,30 @@ export function buildSignatureBaseString(
   ].join("&");
 }
 
+/**
+ * Extract the base64 body of a PEM block from arbitrary surrounding
+ * text. Only the content between the -----BEGIN …----- and
+ * -----END …----- markers is returned (whitespace, including CRLF,
+ * stripped); preamble lines such as openssl pkcs12 "Bag Attributes",
+ * leading blank lines and trailing notes never reach the decoder.
+ * Throws the crafted configuration error when no block is present.
+ */
+export function extractPemBase64(pem: string): string {
+  const match = pem.match(
+    /-----BEGIN [^-]+-----([\s\S]*?)-----END [^-]+-----/,
+  );
+  if (!match) {
+    throw new Error("Mastercard signing key is not configured.");
+  }
+  return match[1].replace(/\s+/g, "");
+}
+
 /** Import the PKCS#8 signing key from PEM text. Throws on bad PEM. */
 export async function importSigningKey(pem: string): Promise<CryptoKey> {
   if (typeof pem !== "string" || !pem.includes("PRIVATE KEY")) {
     throw new Error("Mastercard signing key is not configured.");
   }
-  const b64 = pem
-    .replace(/-----BEGIN [^-]+-----/, "")
-    .replace(/-----END [^-]+-----/, "")
-    .replace(/\s+/g, "");
+  const b64 = extractPemBase64(pem);
   let der: Uint8Array;
   try {
     der = base64ToBytes(b64);
