@@ -18,7 +18,9 @@ import { formatBitcoinAmount, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import QRCode from "qrcode.react";
-import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound, ArrowUpRight, ArrowDownLeft, Bitcoin } from "lucide-react";
+import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound, ArrowUpRight, ArrowDownLeft, Bitcoin, CreditCard } from "lucide-react";
+import { useMoonpay } from "@/hooks/useMoonpay";
+import { MOONPAY_COMING_SOON_COPY } from "@/config/moonpay";
 
 const satsToBtc = (sats?: number) => (sats ? sats / 100_000_000 : 0);
 
@@ -525,6 +527,74 @@ function TradePanel({ onDone }: { onDone: () => void }) {
   );
 }
 
+/**
+ * Card (MoonPay) buy entry — sits beside the Buy & Sell panel in
+ * the Bitcoin buy area.
+ *
+ * Truthful gate, mirroring the Stripe card gate in Wallet: while
+ * platform_settings.moonpay_enabled is off, the entry is disabled
+ * as "Coming soon" with plain copy and the purchase flow is
+ * unreachable; while it is on, "Buy with card" starts a purchase
+ * through useMoonpay (which itself surfaces MoonPay's
+ * not-configured answer truthfully if the keys are not in yet).
+ * Purchases are in USD — MoonPay does not support ZMW — and the
+ * Bitcoin is delivered straight to the user's wallet.
+ */
+function MoonpayBuyCard() {
+  const { enabled, loading, startMoonpayBuy, isStartingMoonpayBuy } = useMoonpay();
+  const [usdInput, setUsdInput] = useState("");
+
+  const buy = async () => {
+    const amount = Number(usdInput);
+    await startMoonpayBuy({
+      fiatCurrency: "USD",
+      fiatAmount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <CreditCard className="h-5 w-5" /> Card (MoonPay)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!enabled ? (
+          <>
+            <p className="text-sm text-muted-foreground">{MOONPAY_COMING_SOON_COPY}</p>
+            <Button disabled className="w-full">
+              Card (MoonPay) — Coming soon
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Buy Bitcoin with a debit or credit card, delivered straight to your
+              wallet. Purchases are in US dollars and completed on MoonPay.
+            </p>
+            <div className="grid gap-2">
+              <Label htmlFor="moonpayUsd">You pay (USD, optional — MoonPay confirms the final amount)</Label>
+              <Input
+                id="moonpayUsd"
+                type="number"
+                min={1}
+                placeholder="e.g. 50"
+                value={usdInput}
+                onChange={(e) => setUsdInput(e.target.value)}
+              />
+            </div>
+            <Button onClick={buy} disabled={loading || isStartingMoonpayBuy} className="w-full">
+              {isStartingMoonpayBuy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CreditCard className="h-4 w-4 mr-2" />}
+              Buy with card
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function BitcoinWallet() {
   const navigate = useNavigate();
   const { wallet, isLoading, refetchWallet, transactions, isTxLoading, refetchTx } = useBitcoinWallet();
@@ -633,6 +703,8 @@ export default function BitcoinWallet() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             <div className="lg:col-span-2 space-y-6">
           <TradePanel onDone={handleDone} />
+
+          <MoonpayBuyCard />
 
           <Card>
             <CardHeader>

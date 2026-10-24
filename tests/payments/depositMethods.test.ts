@@ -19,13 +19,15 @@ describe("getDepositMethodOptions — today's production state", () => {
     paypalAvailable: true,
     mobileMoneyAvailable: false,
     stripeCardAvailable: false,
+    moonpayAvailable: false,
   });
 
-  it("keeps all three methods, in the dialog's existing order", () => {
+  it("keeps all four methods, in the dialog's existing order", () => {
     expect(options.map((o) => o.value)).toEqual([
       "mobile_money",
       "paypal",
       "stripe_card",
+      "moonpay_card",
     ]);
   });
 
@@ -51,6 +53,7 @@ describe("getDepositMethodOptions — admin viewer (Stripe rail usable)", () => 
     paypalAvailable: true,
     mobileMoneyAvailable: false,
     stripeCardAvailable: true,
+    moonpayAvailable: false,
   });
 
   it("shows the Stripe option enabled with its sandbox label", () => {
@@ -69,6 +72,7 @@ describe("getDepositMethodOptions — PayPal gate off", () => {
     paypalAvailable: false,
     mobileMoneyAvailable: false,
     stripeCardAvailable: false,
+    moonpayAvailable: false,
   });
 
   it("labels PayPal with its coming-soon suffix and disables it", () => {
@@ -86,6 +90,7 @@ describe("getDepositMethodOptions — mobile money configured", () => {
     paypalAvailable: false,
     mobileMoneyAvailable: true,
     stripeCardAvailable: false,
+    moonpayAvailable: false,
   });
 
   it("labels mobile money plainly and defaults to it", () => {
@@ -98,5 +103,33 @@ describe("getDepositMethodOptions — mobile money configured", () => {
 describe("selectDefaultDepositMethod — degenerate input", () => {
   it("falls back to mobile_money for an empty option list", () => {
     expect(selectDefaultDepositMethod([])).toBe("mobile_money");
+  });
+});
+
+describe("getDepositMethodOptions — MoonPay gate", () => {
+  it("labels MoonPay as coming soon and disables it while moonpay_enabled is off", () => {
+    const options = getDepositMethodOptions({
+      paypalAvailable: true,
+      mobileMoneyAvailable: false,
+      stripeCardAvailable: false,
+      moonpayAvailable: false,
+    });
+    expect(options[3].label).toBe("Card (MoonPay) — Coming soon");
+    expect(options[3].disabled).toBe(true);
+    expect(options[3].available).toBe(false);
+    // MoonPay never becomes the default while it is off.
+    expect(selectDefaultDepositMethod(options)).toBe("paypal");
+  });
+
+  it("offers MoonPay plainly once moonpay_enabled is on", () => {
+    const options = getDepositMethodOptions({
+      paypalAvailable: true,
+      mobileMoneyAvailable: false,
+      stripeCardAvailable: false,
+      moonpayAvailable: true,
+    });
+    expect(options[3].label).toBe("Card (MoonPay)");
+    expect(options[3].disabled).toBe(false);
+    expect(options[3].available).toBe(true);
   });
 });

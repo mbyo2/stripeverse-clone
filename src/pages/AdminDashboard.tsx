@@ -224,6 +224,13 @@ const AdminDashboard = () => {
       color: "bg-emerald-500"
     },
     {
+      title: "MoonPay",
+      description: "Card purchases of Bitcoin — status and purchases",
+      icon: <CreditCard className="h-6 w-6" />,
+      link: "/admin/moonpay",
+      color: "bg-violet-500"
+    },
+    {
       title: "Compliance Center",
       description: "Manage compliance and KYC",
       icon: <AlertTriangle className="h-6 w-6" />,
