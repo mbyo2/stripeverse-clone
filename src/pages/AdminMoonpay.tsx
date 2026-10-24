@@ -42,7 +42,9 @@ interface MoonpayStatus {
 interface MoonpayTransaction {
   id: string;
   user_id: string;
-  user_email: string | null;
+  /** The list action resolves the owner's email into `email`. */
+  email?: string | null;
+  user_email?: string | null;
   external_reference: string | null;
   moonpay_transaction_id: string | null;
   deposit_address: string | null;
@@ -428,8 +430,8 @@ const AdminMoonpay = () => {
                   {transactions.map((t) => (
                     <TableRow key={t.id}>
                       <TableCell>
-                        <span className="text-xs">{t.user_email ?? "—"}</span>
-                        {!t.user_email && t.user_id ? (
+                        <span className="text-xs">{t.user_email ?? t.email ?? "—"}</span>
+                        {!(t.user_email ?? t.email) && t.user_id ? (
                           <span className="block font-mono text-xs text-muted-foreground mt-1">
                             {shortenMoonpayValue(t.user_id)}
                           </span>
