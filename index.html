@@ -51,5 +51,61 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <style>
+      .boot-fallback { background: #ffffff; color: #111827; }
+      .boot-fallback p { color: #555f6e; }
+      @media (prefers-color-scheme: dark) {
+        .boot-fallback { background: #0a0f1a; color: #f9fafb; }
+        .boot-fallback p { color: #9ca3af; }
+      }
+    </style>
+    <script>
+      // Boot watchdog — the last line of defence against a blank page.
+      // If the app bundle fails to load or run (the classic case: this
+      // HTML was cached before a redeploy and points at hashed assets
+      // that no longer exist — seen in Wave B QA, 2026-10-24, when the
+      // self-custody page revisited as a completely blank white screen
+      // and recovered on reload), React never mounts and #root stays
+      // empty forever. Nothing inside the bundle can catch that — the
+      // bundle is what's missing — so this inline script watches from
+      // outside: after a generous grace period (slow connections get
+      // time to finish), an empty #root triggers ONE reload (a fresh
+      // load picks up the current assets; a sessionStorage flag makes
+      // a loop impossible). If the app is STILL not up after that
+      // reload, the blank is replaced with a plain explanation and a
+      // working reload button — never a silent white page. The flag
+      // is cleared as soon as the app actually mounts, so the recovery
+      // re-arms for the next deploy.
+      (function () {
+        var KEY = "bmaglass.bootReload.v1";
+        var root = document.getElementById("root");
+        if (!root) return;
+        var tries = 0;
+        var timer = setInterval(function () {
+          tries += 1;
+          if (root.childElementCount > 0) {
+            try { sessionStorage.removeItem(KEY); } catch (e) {}
+            clearInterval(timer);
+            return;
+          }
+          if (tries < 30) return; // 30 × 500ms = 15s of grace
+          clearInterval(timer);
+          var alreadyReloaded = false;
+          try { alreadyReloaded = sessionStorage.getItem(KEY) === "1"; } catch (e) {}
+          if (!alreadyReloaded) {
+            try { sessionStorage.setItem(KEY, "1"); } catch (e) {}
+            window.location.reload();
+            return;
+          }
+          root.innerHTML =
+            '<div class="boot-fallback" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;font-family:Inter,system-ui,sans-serif;">' +
+            '<div style="text-align:center;max-width:24rem;">' +
+            '<h1 style="font-size:1.5rem;font-weight:700;color:#003087;margin:0 0 0.5rem;">BMaGlass Pay didn\'t load</h1>' +
+            '<p style="margin:0 0 1.5rem;">The app could not start. This is usually a connection problem, or an old copy of the page left over from before an update. Nothing has been charged or changed.</p>' +
+            '<button onclick="try{sessionStorage.removeItem(\'bmaglass.bootReload.v1\')}catch(e){};window.location.reload()" style="background:#003087;color:#fff;border:0;border-radius:9999px;padding:0.625rem 1.5rem;font-size:1rem;cursor:pointer;">Reload BMaGlass Pay</button>' +
+            "</div></div>";
+        }, 500);
+      })();
+    </script>
   </body>
 </html>

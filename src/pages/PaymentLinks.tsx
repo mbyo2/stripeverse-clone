@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Link2, Plus, Copy, ExternalLink, XCircle, DollarSign, Eye, Pencil, Wallet } from 'lucide-react';
 import { usePaymentLinks, useCreatePaymentLink, useUpdatePaymentLink, useDeactivatePaymentLink } from '@/hooks/usePaymentLinks';
 import { useAccounts } from '@/hooks/useAccounts';
+import { usePlatformSettings } from '@/hooks/useSubaccounts';
+import { computePaymentLinkNet } from '@/utils/splitPayments';
 import { settlementTargetLabel, selectableSettlementAccounts } from '@/utils/paymentLinkSettlement';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -37,6 +39,20 @@ const PaymentLinks = () => {
   const [editSettleAccount, setEditSettleAccount] = useState(MAIN_ACCOUNT_VALUE);
 
   const settlementOptions = selectableSettlementAccounts(accounts ?? []);
+
+  // Platform fee disclosure. Every payment-link settlement pays the
+  // BMaGlass Pay platform fee FIRST, out of the seller's side (the
+  // server takes it inside execute_payment_link_settlement; the rate
+  // is platform_settings.split_platform_fee_percent, 2.5% at launch).
+  // Wave B QA (2026-10-24) found it was disclosed nowhere before the
+  // fact — a K2.00 link payment simply landed as K1.95. The fee and
+  // its side are unchanged; the create/edit forms and the link list
+  // now say what the seller receives before anyone pays.
+  const { data: platformSettings } = usePlatformSettings();
+  const platformFeeRate = Number(platformSettings?.split_platform_fee_percent ?? 2.5);
+  const fmtFee = (n: number) => `K${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const createNet = computePaymentLinkNet(Number(form.amount) || 0, platformFeeRate);
+  const editNet = computePaymentLinkNet(Number(editForm.amount) || 0, platformFeeRate);
 
   const handleCreate = () => {
     createLink.mutate({
@@ -97,6 +113,11 @@ const PaymentLinks = () => {
                   <Switch checked={fixedAmount} onCheckedChange={setFixedAmount} />
                 </div>
                 {fixedAmount && <div><Label>Amount (ZMW)</Label><Input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></div>}
+                {fixedAmount && Number(form.amount) > 0 ? (
+                  <p className="text-xs text-muted-foreground">BMaGlass Pay takes a {platformFeeRate}% platform fee ({fmtFee(createNet.platformFee)}) on every payment — you receive {fmtFee(createNet.sellerReceives)} per payment, before any split rules you've set up divide it further.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">BMaGlass Pay takes a {platformFeeRate}% platform fee on every payment to this link — the fee comes out of what you receive, not on top of what the payer pays.</p>
+                )}
                 <div><Label>Max Payments (optional)</Label><Input type="number" value={form.max_payments} onChange={e => setForm(p => ({ ...p, max_payments: e.target.value }))} placeholder="Unlimited" /></div>
                 <div>
                   <Label>Settles Into</Label>
@@ -129,6 +150,11 @@ const PaymentLinks = () => {
                   <Switch checked={editFixedAmount} onCheckedChange={setEditFixedAmount} />
                 </div>
                 {editFixedAmount && <div><Label>Amount (ZMW)</Label><Input type="number" value={editForm.amount} onChange={e => setEditForm(p => ({ ...p, amount: e.target.value }))} /></div>}
+                {editFixedAmount && Number(editForm.amount) > 0 ? (
+                  <p className="text-xs text-muted-foreground">BMaGlass Pay takes a {platformFeeRate}% platform fee ({fmtFee(editNet.platformFee)}) on every payment — you receive {fmtFee(editNet.sellerReceives)} per payment, before any split rules you've set up divide it further.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">BMaGlass Pay takes a {platformFeeRate}% platform fee on every payment to this link — the fee comes out of what you receive, not on top of what the payer pays.</p>
+                )}
                 <div><Label>Max Payments (optional)</Label><Input type="number" value={editForm.max_payments} onChange={e => setEditForm(p => ({ ...p, max_payments: e.target.value }))} placeholder="Unlimited" /></div>
                 <div>
                   <Label>Settles Into</Label>
@@ -215,6 +241,11 @@ const PaymentLinks = () => {
                         <Wallet className="h-3.5 w-3.5" />
                         <span>Settles to: {settlementTargetLabel(link.account_id, accounts ?? [])}</span>
                       </div>
+                      {link.amount != null && Number(link.amount) > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          You receive {fmtFee(computePaymentLinkNet(Number(link.amount), platformFeeRate).sellerReceives)} of each {fmtFee(Number(link.amount))} payment ({platformFeeRate}% platform fee).
+                        </p>
+                      )}
                       <div className="mt-2 p-2 rounded bg-muted/50 text-xs font-mono truncate">
                         {window.location.origin}/pay/{link.link_code}
                       </div>

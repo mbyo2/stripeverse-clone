@@ -152,6 +152,18 @@ const AnimatedRoutes = () => {
         <Route path="/faq" element={<PageTransition><Faq /></PageTransition>} />
         <Route path="/privacy-policy" element={<PageTransition><PrivacyPolicy /></PageTransition>} />
         <Route path="/terms-of-service" element={<PageTransition><TermsOfService /></PageTransition>} />
+        {/* Natural short URLs for the legal pages (bookmarks, printed
+            material, partner links) — the canonical pages live at the
+            long paths above. */}
+        <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
+        <Route path="/terms" element={<Navigate to="/terms-of-service" replace />} />
+        {/* Public content pages the public nav links to: these render
+            for logged-out visitors. Account-specific sections inside
+            them are gated within the pages themselves. */}
+        <Route path="/business" element={<PageTransition><Business /></PageTransition>} />
+        <Route path="/api" element={<PageTransition><API /></PageTransition>} />
+        <Route path="/support" element={<PageTransition><Support /></PageTransition>} />
+        <Route path="/help" element={<PageTransition><Help /></PageTransition>} />
         <Route path="/developers" element={<PageTransition><Developers /></PageTransition>} />
         <Route path="/pay/:code" element={<PageTransition><PublicCheckout /></PageTransition>} />
         <Route path="/sdk-docs" element={<PageTransition><SdkDocs /></PageTransition>} />
@@ -167,11 +179,13 @@ const AnimatedRoutes = () => {
         <Route path="/business-dashboard" element={
           <ProtectedRoute><BusinessRouteGuard><PageTransition><BusinessDashboard /></PageTransition></BusinessRouteGuard></ProtectedRoute>
         } />
-        <Route path="/business" element={
-          <ProtectedRoute><BusinessRouteGuard><PageTransition><Business /></PageTransition></BusinessRouteGuard></ProtectedRoute>
-        } />
-        
-        <Route path="/role-management" element={<RoleGuardedPage roles={ADMIN_ROLES}><RoleManagement /></RoleGuardedPage>} />
+
+        {/* Role Management is the self-service page (own roles, role
+            requests, security tab) linked from every account menu and
+            from ProtectedRoute's own "Request Access" action — it is
+            for every signed-in user, not an admin console page. The
+            admin side of role requests lives at /admin/role-requests. */}
+        <Route path="/role-management" element={<ProtectedPage><RoleManagement /></ProtectedPage>} />
         <Route path="/tier-management" element={<RoleGuardedPage roles={ADMIN_ROLES}><TierManagement /></RoleGuardedPage>} />
         <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
         <Route path="/security-settings" element={<ProtectedPage><SecuritySettings /></ProtectedPage>} />
@@ -187,9 +201,11 @@ const AnimatedRoutes = () => {
         <Route path="/transaction-search" element={<ProtectedPage><TransactionSearch /></ProtectedPage>} />
         <Route path="/billing" element={<ProtectedPage><Billing /></ProtectedPage>} />
         <Route path="/analytics" element={<ProtectedRoute requiredFeature="analytics"><PageTransition><Analytics /></PageTransition></ProtectedRoute>} />
-        <Route path="/api" element={<ProtectedRoute requiredFeature="business_tools"><PageTransition><API /></PageTransition></ProtectedRoute>} />
-        <Route path="/support" element={<ProtectedPage><Support /></ProtectedPage>} />
         <Route path="/card/new" element={<ProtectedPage><VirtualCardNew /></ProtectedPage>} />
+        {/* Natural card URLs (what people type and what older links
+            may still carry) — the canonical create page is /card/new. */}
+        <Route path="/cards" element={<Navigate to="/card/new" replace />} />
+        <Route path="/virtual-cards" element={<Navigate to="/card/new" replace />} />
         <Route path="/card/:id" element={<ProtectedPage><VirtualCardDetails /></ProtectedPage>} />
         <Route path="/card/:id/fund" element={<ProtectedPage><VirtualCardFund /></ProtectedPage>} />
         <Route path="/transfer" element={<ProtectedRoute requiredFeature="transfers"><PageTransition><Transfer /></PageTransition></ProtectedRoute>} />
@@ -197,7 +213,6 @@ const AnimatedRoutes = () => {
         <Route path="/compliance" element={<RoleGuardedPage roles={['admin','super_admin','business']}><Compliance /></RoleGuardedPage>} />
         <Route path="/feedback-dashboard" element={<RoleGuardedPage roles={ADMIN_ROLES}><FeedbackDashboard /></RoleGuardedPage>} />
         <Route path="/feedback" element={<ProtectedPage><Feedback /></ProtectedPage>} />
-        <Route path="/help" element={<ProtectedPage><Help /></ProtectedPage>} />
         <Route path="/rewards" element={<ProtectedPage><Rewards /></ProtectedPage>} />
         <Route path="/payment-processor" element={<ProtectedRoute requiredFeature="business_tools"><PageTransition><PaymentProcessor /></PageTransition></ProtectedRoute>} />
         <Route path="/payment-services" element={<ProtectedPage><PaymentServices /></ProtectedPage>} />
@@ -212,6 +227,13 @@ const AnimatedRoutes = () => {
         <Route path="/admin/users/:userId" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminUserDetail /></RoleGuardedPage>} />
         <Route path="/admin/role-requests" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminRoleRequests /></RoleGuardedPage>} />
         <Route path="/admin/refunds" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminRefunds /></RoleGuardedPage>} />
+        {/* Admin landing + natural console URLs: /admin itself and the
+            section names people type land on the real console pages
+            instead of the 404 catch-all. */}
+        <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
+        <Route path="/admin/analytics" element={<Navigate to="/analytics" replace />} />
+        <Route path="/admin/compliance" element={<Navigate to="/compliance" replace />} />
+        <Route path="/admin/disputes" element={<Navigate to="/admin/p2p" replace />} />
 
         {/* P2P marketplace */}
         <Route path="/p2p" element={<ProtectedPage><P2PMarketplace /></ProtectedPage>} />
@@ -232,6 +254,10 @@ const AnimatedRoutes = () => {
         <Route path="/payment-links" element={<ProtectedPage><PaymentLinks /></ProtectedPage>} />
         <Route path="/pos" element={<ProtectedPage><BitcoinPos /></ProtectedPage>} />
         <Route path="/sub-accounts" element={<ProtectedPage><SubAccounts /></ProtectedPage>} />
+        {/* "/splits" is the natural short URL people type — the real
+            page (recipients, rules, settlement preview) lives at
+            /split-payments, which is also where the menus point. */}
+        <Route path="/splits" element={<Navigate to="/split-payments" replace />} />
         <Route path="/split-payments" element={<ProtectedPage><SplitPayments /></ProtectedPage>} />
         <Route path="/multi-currency" element={<ProtectedPage><MultiCurrencyWallet /></ProtectedPage>} />
         <Route path="/bulk-payments" element={<ProtectedPage><BulkPayments /></ProtectedPage>} />
