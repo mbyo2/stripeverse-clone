@@ -84,6 +84,8 @@ import MultiCurrencyWallet from '@/pages/MultiCurrencyWallet';
 import BulkPayments from '@/pages/BulkPayments';
 import Refunds from '@/pages/Refunds';
 import PublicCheckout from '@/pages/PublicCheckout';
+import InvoiceCheckout from '@/pages/InvoiceCheckout';
+import RequestCheckout from '@/pages/RequestCheckout';
 import Settlements from '@/pages/Settlements';
 import SdkDocs from '@/pages/SdkDocs';
 import WebhookLogs from '@/pages/WebhookLogs';
@@ -170,6 +172,8 @@ const AnimatedRoutes = () => {
         <Route path="/help" element={<PageTransition><Help /></PageTransition>} />
         <Route path="/developers" element={<PageTransition><Developers /></PageTransition>} />
         <Route path="/pay/:code" element={<PageTransition><PublicCheckout /></PageTransition>} />
+        <Route path="/invoice/:code" element={<PageTransition><InvoiceCheckout /></PageTransition>} />
+        <Route path="/request/:code" element={<PageTransition><RequestCheckout /></PageTransition>} />
         <Route path="/sdk-docs" element={<PageTransition><SdkDocs /></PageTransition>} />
         <Route path="/payment-success" element={<PageTransition><PaymentSuccess /></PageTransition>} />
         <Route path="/payment-failed" element={<PageTransition><PaymentFailed /></PageTransition>} />

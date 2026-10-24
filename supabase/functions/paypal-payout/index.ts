@@ -39,6 +39,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
+import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 import {
   ACCOUNT_FROZEN_MESSAGE,
   isAccountFrozen,
@@ -151,6 +152,11 @@ async function handleCreate(admin: any, userId: string, body: any) {
 
   if (!Number.isFinite(amount) || amount <= 0) {
     return json({ success: false, status: "failed", error: "Enter an amount greater than zero." }, 400);
+  }
+  // FIX-1: fiat amounts are whole cents/ngwee only — refused, never rounded.
+  const amtCheck = validateFiatAmount(body.amount);
+  if (!amtCheck.ok) {
+    return json({ success: false, status: "failed", error: amtCheck.error }, 400);
   }
   if (!isPayPalPayoutCurrency(currency)) {
     return json({

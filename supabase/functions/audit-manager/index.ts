@@ -38,7 +38,7 @@ serve(async (req) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
-      .eq('role', 'admin')
+      .in('role', ['admin', 'super_admin'])
       .maybeSingle()
     if (!adminRole) {
       return new Response(
@@ -50,7 +50,16 @@ serve(async (req) => {
       )
     }
 
-    const { action, filters, export_format } = await req.json()
+    const { action, filters, export_format, user_ids } = await req.json()
+
+    // FIX-3: actor-label resolution for the Audit Logs page. Profiles
+    // carry no email (and, in practice, no names), so the page's own
+    // profiles merge resolved every actor blank. This action merges
+    // profile names with auth emails service-side; the page falls
+    // back to the email whenever the name is blank.
+    if (action === 'resolve_actors') {
+      return await resolveActors(supabaseClient, user_ids)
+    }
 
     switch (action) {
       case 'generate_report':
@@ -126,6 +135,13 @@ async function generateAuditReport(supabaseClient: any, filters: any, format: st
     for (const p of profiles ?? []) {
       const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim()
       if (name) nameById.set(p.id, name)
+    }
+    // FIX-3: actors whose profile name is blank fall back to their
+    // account EMAIL — a uuid + blank label identified nobody.
+    const missing = actorIds.filter((id) => !nameById.has(id))
+    if (missing.length > 0) {
+      const emailById = await resolveActorEmails(supabaseClient, missing)
+      for (const [id, email] of emailById) nameById.set(id, email)
     }
   }
   const records = (auditLogs ?? []).map((log: any) => ({
@@ -369,4 +385,51 @@ function convertToCSV(data: any[]): string {
   }
   
   return csvRows.join('\n')
+}
+
+// ── FIX-3 helpers ────────────────────────────────────────────────────
+// Resolve account emails for actor ids via the auth admin API
+// (paged listUsers; stops as soon as every wanted id is found).
+async function resolveActorEmails(supabaseClient: any, wantedIds: string[]): Promise<Map<string, string>> {
+  const wanted = new Set(wantedIds)
+  const found = new Map<string, string>()
+  if (wanted.size === 0) return found
+  for (let page = 1; page <= 5 && found.size < wanted.size; page++) {
+    const { data, error } = await supabaseClient.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error || !data?.users) break
+    for (const u of data.users) {
+      if (wanted.has(u.id) && u.email) found.set(u.id, u.email)
+    }
+    if (data.users.length < 1000) break
+  }
+  return found
+}
+
+async function resolveActors(supabaseClient: any, userIds: unknown) {
+  const ids = Array.isArray(userIds)
+    ? [...new Set(userIds.filter((id): id is string => typeof id === 'string' && id.length > 0))].slice(0, 200)
+    : []
+  const { data: profiles } = ids.length > 0
+    ? await supabaseClient.from('profiles').select('id, first_name, last_name').in('id', ids)
+    : { data: [] }
+  const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]))
+  const blankIds = ids.filter((id) => {
+    const p = byId.get(id)
+    const name = p ? [p.first_name, p.last_name].filter(Boolean).join(' ').trim() : ''
+    return !name
+  })
+  const emailById = await resolveActorEmails(supabaseClient, blankIds)
+  const actors = ids.map((id) => {
+    const p = byId.get(id)
+    return {
+      id,
+      first_name: p?.first_name ?? null,
+      last_name: p?.last_name ?? null,
+      email: emailById.get(id) ?? null,
+    }
+  })
+  return new Response(
+    JSON.stringify({ success: true, actors }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+  )
 }

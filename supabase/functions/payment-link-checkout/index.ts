@@ -51,6 +51,7 @@ import {
   ACCOUNT_FROZEN_MESSAGE,
   isAccountFrozen,
 } from "../_shared/account-freeze.ts";
+import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -159,13 +160,14 @@ serve(async (req) => {
       }, 403);
     }
 
-    const amount = link.amount != null ? Number(link.amount) : Number(body.amount);
-    if (!amount || amount <= 0) {
-      return json({ success: false, status: "invalid", error: "Enter a valid amount" }, 400);
+    // FIX-1: whole-ngwee only — a custom 10.001 is refused, never rounded.
+    const amtCheck = validateFiatAmount(
+      link.amount != null ? link.amount : body.amount,
+    );
+    if (!amtCheck.ok) {
+      return json({ success: false, status: "invalid", error: amtCheck.error }, 400);
     }
-    if (amount > 1_000_000) {
-      return json({ success: false, status: "invalid", error: "Amount exceeds the per-payment limit" }, 400);
-    }
+    const amount = amtCheck.amount;
     const idempotencyKey = typeof body.idempotency_key === "string" ? body.idempotency_key : "";
     if (idempotencyKey.length < 8) {
       return json({ success: false, status: "invalid", error: "A valid idempotency_key is required" }, 400);

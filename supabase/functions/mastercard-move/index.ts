@@ -39,6 +39,7 @@ import {
   signMastercardRequest,
 } from "../_shared/mastercard-oauth.ts";
 import { encryptXbsPayload } from "../_shared/mastercard-encryption.ts";
+import { parseFiatAmount } from "../_shared/fiat-amount.ts";
 import {
   ADMIN_REFUSAL_MESSAGE,
   NOT_CONFIGURED_MESSAGE,
@@ -192,8 +193,9 @@ function proposalIdFrom(payload: Record<string, unknown> | null): string | null 
 const DESTINATION_TYPES: DestinationType[] = ["bank", "mobile_money", "card", "cash_pickup"];
 
 function parseQuoteInput(body: Record<string, unknown>): QuoteInput | null {
-  const amount = typeof body.amount === "number" ? body.amount : Number(body.amount);
-  if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000) return null;
+  // FIX-1: whole minor units only — parseFiatAmount refuses >2dp.
+  const amount = parseFiatAmount(body.amount, 1_000_000);
+  if (amount === null) return null;
   const destinationType = body.destination_type as DestinationType;
   if (!DESTINATION_TYPES.includes(destinationType)) return null;
   const sourceCurrency = String(body.source_currency ?? "ZMW").toUpperCase();

@@ -30,6 +30,7 @@ import {
 } from "../_shared/account-freeze.ts";
 import { custodyStatus, quoteBuySats, quoteSellZmw } from "../_shared/btc-core.ts";
 import { resolveQuoteRates } from "../_shared/price-index.ts";
+import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -192,11 +193,16 @@ serve(async (req) => {
       let feeZmw: number;
 
       if (side === "buy") {
-        amountZmw = Number(body?.amount_zmw);
-        if (!(amountZmw >= MIN_BUY_ZMW) || amountZmw > MAX_BUY_ZMW) {
+        // FIX-1: a buy amount is fiat — whole ngwee only, REFUSED
+        // (never silently rounded as before) above two decimals.
+        const buyCheck = validateFiatAmount(body?.amount_zmw, MAX_BUY_ZMW);
+        if (!buyCheck.ok) {
+          return json(400, { error: buyCheck.error });
+        }
+        amountZmw = buyCheck.amount;
+        if (amountZmw < MIN_BUY_ZMW) {
           return json(400, { error: `Buy amount must be between ${MIN_BUY_ZMW} and ${MAX_BUY_ZMW} ZMW` });
         }
-        amountZmw = Math.round(amountZmw * 100) / 100;
         const q = quoteBuySats(amountZmw, midRate, bps);
         amountSats = q.sats;
         feeZmw = q.feeZmw;

@@ -15,6 +15,31 @@ export interface AuditProfileName {
   id: string;
   first_name: string | null;
   last_name: string | null;
+  // FIX-3: no profile on the platform populates first/last_name (the
+  // signup path never writes them), so actor labels resolved blank.
+  // The resolver now also carries the account EMAIL (auth-side data,
+  // served by the audit-manager resolve_actors action) and the label
+  // falls back to it whenever the profile name is blank.
+  email?: string | null;
+}
+
+/**
+ * The label an audit surface shows for an actor: their profile name
+ * when one exists, otherwise their email, otherwise "" (the page
+ * still shows the actor's uuid, so the row is never anonymous-blank
+ * when an email is resolvable).
+ */
+export function auditActorLabel(
+  profile: AuditProfileName | null | undefined,
+): string {
+  if (!profile) return "";
+  const name = [profile.first_name, profile.last_name]
+    .filter((part) => typeof part === "string" && part.trim().length > 0)
+    .join(" ")
+    .trim();
+  if (name) return name;
+  const email = typeof profile.email === "string" ? profile.email.trim() : "";
+  return email;
 }
 
 export interface AuditLogRow {

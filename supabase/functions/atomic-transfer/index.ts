@@ -55,6 +55,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
 import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
+import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,9 +86,12 @@ serve(async (req) => {
     } = body;
 
     // ── Validation ──
-    const amt = Number(amount);
-    if (!amt || amt <= 0) throw new Error("Amount must be greater than zero");
-    if (amt > 1_000_000) throw new Error("Amount exceeds per-transfer limit");
+    // FIX-1: fiat amounts are whole-ngwee only. 10.001 is REFUSED here
+    // (never rounded): a 3dp debit against a 2dp credit destroyed
+    // value and corrupted balances. Shared validator, every entry point.
+    const amtCheck = validateFiatAmount(amount);
+    if (!amtCheck.ok) throw new Error(amtCheck.error);
+    const amt = amtCheck.amount;
     if (!from_user_id) throw new Error("from_user_id required");
     if (!reference_type) throw new Error("reference_type required");
     if (!idempotency_key) throw new Error("idempotency_key required");

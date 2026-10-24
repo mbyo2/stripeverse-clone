@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuditLogs } from "@/hooks/useAuditLogs";
+import { auditActorLabel } from "@/utils/auditLogProfiles";
 import { ScrollText, Download, Filter, RefreshCw, Shield } from "lucide-react";
 import { format } from "date-fns";
 import PageSkeleton from "@/components/PageSkeleton";
@@ -135,7 +136,7 @@ const AuditLogs = () => {
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Record: {log.record_id.substring(0, 8)}...
-                      {log.profiles && ` · By: ${log.profiles.first_name || ""} ${log.profiles.last_name || ""}`}
+                      {log.profiles && auditActorLabel(log.profiles) && ` · By: ${auditActorLabel(log.profiles)}`}
                     </p>
                   </div>
                 ))}

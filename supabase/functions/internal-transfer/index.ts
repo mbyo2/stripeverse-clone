@@ -24,6 +24,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
 import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
+import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,8 +54,9 @@ serve(async (req) => {
     // ── Validation ──
     if (!from_wallet_id) throw new Error("from_wallet_id required");
     if (!to_wallet_id) throw new Error("to_wallet_id required");
-    const amt = Number(amount);
-    if (!amt || amt <= 0) throw new Error("Amount must be greater than zero");
+    const amtCheck = validateFiatAmount(amount);
+    if (!amtCheck.ok) throw new Error(amtCheck.error);
+    const amt = amtCheck.amount;
     if (typeof idempotency_key !== "string" || idempotency_key.length < 8) {
       throw new Error("idempotency_key must be a string of at least 8 characters");
     }

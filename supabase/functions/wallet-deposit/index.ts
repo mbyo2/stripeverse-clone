@@ -42,6 +42,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyProvider } from "../_shared/payment-providers.ts";
+import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 import { paypalErrorTrace } from "../_shared/deposit-capture.ts";
 
 const corsHeaders = {
@@ -102,8 +103,9 @@ serve(async (req) => {
     logStep("Deposit request", { amount, paymentMethod, userId: user.id });
 
     // ── Validation ──
-    if (!amount || amount <= 0) throw new Error("Invalid amount");
-    if (amount > 50000) throw new Error("Maximum deposit amount is 50,000 per deposit");
+    // FIX-1: whole-ngwee only (validator enforces > 0 too), cap 50,000.
+    const amtCheck = validateFiatAmount(body.amount, 50000);
+    if (!amtCheck.ok) throw new Error(amtCheck.error);
 
     // ── Resolve the ONE target wallet ──
     let wallet: { id: string; currency: string; status: string } | null = null;

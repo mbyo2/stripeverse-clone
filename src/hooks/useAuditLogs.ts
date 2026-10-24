@@ -87,6 +87,26 @@ export const useAuditLogs = () => {
         .select('id, first_name, last_name')
         .in('id', actorIds);
 
+      // FIX-3: profiles carry no names on this platform (and no email
+      // column at all), so ask audit-manager to resolve actor labels
+      // service-side — it merges the auth email as the fallback label.
+      // Any failure keeps the profiles-only merge (previous behaviour).
+      try {
+        const { data: resolved, error: resolveError } = await supabase.functions.invoke('audit-manager', {
+          body: { action: 'resolve_actors', user_ids: actorIds },
+        });
+        if (!resolveError && Array.isArray(resolved?.actors)) {
+          const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+          const merged = (resolved.actors as any[]).map((a: any) => ({
+            id: a.id,
+            first_name: a.first_name ?? byId.get(a.id)?.first_name ?? null,
+            last_name: a.last_name ?? byId.get(a.id)?.last_name ?? null,
+            email: a.email ?? null,
+          }));
+          return attachProfileNames(logs, merged);
+        }
+      } catch { /* fall through to the profiles-only merge */ }
+
       return attachProfileNames(logs, profiles ?? []);
     }
   });

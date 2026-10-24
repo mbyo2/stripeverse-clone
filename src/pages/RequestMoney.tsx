@@ -45,7 +45,9 @@ const RequestMoney = () => {
   };
 
   const copyPaymentLink = (code: string) => {
-    const link = `${window.location.origin}/pay/${code}`;
+    // FIX-2: this code belongs to payment_requests, NOT payment_links —
+    // /pay/:code 404'd on it. Requests have their own checkout route.
+    const link = `${window.location.origin}/request/${code}`;
     navigator.clipboard.writeText(link);
     toast({ title: 'Link copied!', description: 'Share this link with your recipient.' });
   };
@@ -162,7 +164,7 @@ const RequestMoney = () => {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => {
-                                      const link = `${window.location.origin}/pay/${request.payment_link_code}`;
+                                      const link = `${window.location.origin}/request/${request.payment_link_code}`;
                                       if (navigator.share) {
                                         navigator.share({ title: 'Payment Request', text: request.description || 'Payment request', url: link });
                                       } else {

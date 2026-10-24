@@ -28,3 +28,5 @@ tests/p2p/.tmp-*.mjs
 tests/pos/.tmp-pos-core.mjs
 tests/pos/.tmp-pos-statement.mjs
 tests/identity/.tmp-identity-core.mjs
+tests/payments/.tmp-fiat-amount.mjs
+tests/payments/.tmp-invoice-settlement.mjs

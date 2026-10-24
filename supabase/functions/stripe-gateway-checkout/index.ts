@@ -57,6 +57,7 @@ import {
   validateStripeTopUp,
 } from "../_shared/stripe-gateway.ts";
 import { createStripeCheckoutSession } from "../_shared/stripe-gateway-server.ts";
+import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -148,7 +149,13 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const amount = Number(body.amount);
+    // FIX-1: whole minor units only — a 3dp amount would charge a
+    // different value in cents than the wallet is credited.
+    const amtCheck = validateFiatAmount(body.amount);
+    if (!amtCheck.ok) {
+      return json({ success: false, status: "invalid", error: amtCheck.error }, 400);
+    }
+    const amount = amtCheck.amount;
     const requestedCurrency = body.currency ? String(body.currency).toUpperCase() : null;
 
     // ── Resolve the ONE target wallet ──
