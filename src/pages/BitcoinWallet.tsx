@@ -86,116 +86,25 @@ function OnchainDeposit({ onDone }: { onDone: () => void }) {
   );
 }
 
-function LightningDeposit({ onDone }: { onDone: () => void }) {
-  const { toast } = useToast();
-  const [sats, setSats] = useState(10000);
-  const [invoice, setInvoice] = useState<{ bolt11: string; payment_id: string } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(false);
-  // Persistent in-dialog error: a transient toast alone left users
-  // staring at an unchanged form with no explanation when invoice
-  // creation failed (live QA, 2026-10-22 — the failure was invisible).
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const create = async () => {
-    setLoading(true);
-    setErrorMsg(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("breez-lightning", {
-        body: { action: "create_invoice", amount_sats: sats },
-      });
-      if (error) throw error;
-      // A 2xx with an incomplete payload is still a failure — never
-      // treat it as a created invoice.
-      if (!data?.bolt11 || !data?.payment_id) {
-        throw new Error("Lightning deposits are not available yet — please use an on-chain Bitcoin deposit for now.");
-      }
-      setInvoice(data);
-    } catch (e: any) {
-      const msg = await resolveEdgeFunctionError(e, "Could not create a Lightning invoice. Please try again.");
-      setErrorMsg(msg);
-      toast({ title: "Failed to create invoice", description: msg, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkPaid = async () => {
-    if (!invoice) return;
-    setChecking(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("breez-lightning", {
-        body: { action: "check_status", breez_invoice_id: invoice.payment_id },
-      });
-      if (error) throw error;
-      if (data.status === "paid") {
-        toast({ title: "Payment received!" });
-        onDone();
-      } else {
-        toast({ title: "Still pending", description: "The invoice hasn't been paid yet." });
-      }
-    } catch (e: any) {
-      toast({ title: "Check failed", description: await resolveEdgeFunctionError(e, "Could not check the payment status. Please try again."), variant: "destructive" });
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const copy = () => {
-    if (invoice) {
-      navigator.clipboard.writeText(invoice.bolt11);
-      toast({ title: "Invoice copied" });
-    }
-  };
-
+function LightningDeposit({ onUseOnchain }: { onUseOnchain: () => void }) {
+  // Custodial Lightning deposits are unavailable by design until the
+  // post-launch Lightning build (the breez-lightning backend answers
+  // 503). This panel is honest about that up front — no amount form or
+  // invoice button that can only fail — and routes the user straight
+  // to the working on-chain deposit instead (CEO, 2026-10-24).
+  // Self-custody Lightning (Spark) is a separate, working feature and
+  // is not affected by this panel.
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border bg-muted/50 p-3 space-y-1">
-        <p className="text-sm font-medium flex items-center gap-2">
-          <Zap className="h-4 w-4" /> Lightning deposits aren't available yet
-        </p>
-        <p className="text-sm text-muted-foreground">
-          We're still switching Lightning deposits on. For now, please use the
-          On-chain tab above — your deposit address there works right away.
+      <div className="rounded-lg border border-border bg-muted/50 p-3">
+        <p className="text-sm flex items-start gap-2">
+          <Zap className="h-4 w-4 mt-0.5 shrink-0" />
+          Lightning deposits are not available yet — please use an on-chain Bitcoin deposit for now.
         </p>
       </div>
-      {!invoice ? (
-        <>
-          {errorMsg && (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-              {errorMsg}
-            </div>
-          )}
-          <div className="grid gap-2">
-            <Label htmlFor="sats">Amount (sats)</Label>
-            <Input id="sats" type="number" min={1} value={sats} onChange={(e) => setSats(Number(e.target.value))} />
-          </div>
-          <Button onClick={create} disabled={loading} className="w-full">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
-            Create Lightning invoice
-          </Button>
-        </>
-      ) : (
-        <div className="space-y-3">
-          <div className="flex justify-center">
-            <div className="rounded bg-white p-3">
-              <QRCode value={invoice.bolt11} size={180} />
-            </div>
-          </div>
-          <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all max-h-32 overflow-y-auto">
-            {invoice.bolt11}
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={copy} className="flex-1">
-              <Copy className="h-4 w-4 mr-2" /> Copy
-            </Button>
-            <Button onClick={checkPaid} disabled={checking} className="flex-1">
-              {checking ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              I've paid
-            </Button>
-          </div>
-        </div>
-      )}
+      <Button onClick={onUseOnchain} className="w-full">
+        Use on-chain deposit
+      </Button>
     </div>
   );
 }
@@ -469,6 +378,9 @@ export default function BitcoinWallet() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  // Controlled so the Lightning panel can route the user onto the
+  // On-chain tab (custodial Lightning deposits are unavailable).
+  const [depositTab, setDepositTab] = useState("onchain");
 
   useEffect(() => {
     document.title = "Bitcoin Wallet | BTC balance & deposits";
@@ -518,7 +430,15 @@ export default function BitcoinWallet() {
               </div>
 
               <div className="flex flex-wrap gap-3 mt-6">
-              <Dialog open={open} onOpenChange={setOpen}>
+              <Dialog
+                open={open}
+                onOpenChange={(next) => {
+                  setOpen(next);
+                  // Reopening Deposit always lands on the working
+                  // On-chain tab, as it did when Tabs was uncontrolled.
+                  if (!next) setDepositTab("onchain");
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button size="lg">Deposit BTC</Button>
                 </DialogTrigger>
@@ -527,7 +447,7 @@ export default function BitcoinWallet() {
                     <DialogTitle>Deposit Bitcoin</DialogTitle>
                   </DialogHeader>
 
-                  <Tabs defaultValue="onchain" className="w-full">
+                  <Tabs value={depositTab} onValueChange={setDepositTab} className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="onchain">On-chain</TabsTrigger>
                       <TabsTrigger value="lightning">Lightning</TabsTrigger>
@@ -536,7 +456,7 @@ export default function BitcoinWallet() {
                       <OnchainDeposit onDone={handleDone} />
                     </TabsContent>
                     <TabsContent value="lightning" className="pt-4">
-                      <LightningDeposit onDone={handleDone} />
+                      <LightningDeposit onUseOnchain={() => setDepositTab("onchain")} />
                     </TabsContent>
                   </Tabs>
                 </DialogContent>
