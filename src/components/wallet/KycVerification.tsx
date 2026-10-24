@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, CheckCircle2, AlertCircle, Upload, Clock, FileCheck, Loader2 } from "lucide-react";
+import { Shield, CheckCircle2, AlertCircle, Camera, Clock, FileCheck, Loader2 } from "lucide-react";
 import { supabase, KycMetadata } from "@/integrations/supabase/client";
+import { LiveCameraCapture } from "@/components/identity/LiveCameraCapture";
 import KycVerificationStatus, { KycLevel, KycStatus } from "./KycVerificationStatus";
 import { DocumentUploader } from "./DocumentUploader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -70,6 +71,7 @@ const KycVerification = () => {
     addressDocUrl: null
   });
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
+  const [selfieCameraOpen, setSelfieCameraOpen] = useState(false);
   const [verificationStarted, setVerificationStarted] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
 
@@ -316,18 +318,20 @@ const KycVerification = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleSelfieUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setFormData(prev => ({ ...prev, selfieImage: file }));
-      
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelfiePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+  // The selfie is captured with the live camera ONLY (CEO directive,
+  // 2026-10-24): a file upload here would let someone submit a stolen
+  // photo of another person. The captured frame becomes the File the
+  // submit path uploads — stamped with the genuine capture time —
+  // and there is deliberately no file-picker path for this field.
+  const handleSelfieCapture = (blob: Blob) => {
+    const capturedAt = Date.now();
+    const file = new File([blob], `selfie_${capturedAt}.jpg`, {
+      type: "image/jpeg",
+      lastModified: capturedAt,
+    });
+    setFormData(prev => ({ ...prev, selfieImage: file }));
+    setSelfiePreview(URL.createObjectURL(blob));
+    setSelfieCameraOpen(false);
   };
   
   const handleIdFrontUpload = (url: string) => {
@@ -629,42 +633,60 @@ const KycVerification = () => {
                   <div>
                     <h3 className="text-lg font-medium mb-4">Selfie with ID</h3>
                     <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                      {selfiePreview ? (
+                      {selfieCameraOpen ? (
+                        <div className="text-left">
+                          <LiveCameraCapture
+                            facingMode="user"
+                            captureLabel="Take selfie"
+                            onCapture={handleSelfieCapture}
+                            onCancel={() => setSelfieCameraOpen(false)}
+                          />
+                        </div>
+                      ) : selfiePreview ? (
                         <div className="space-y-2">
-                          <img 
-                            src={selfiePreview} 
-                            alt="Selfie preview" 
+                          <img
+                            src={selfiePreview}
+                            alt="Selfie preview"
                             className="mx-auto max-h-40 object-contain rounded-lg"
                           />
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              setSelfiePreview(null);
-                              setFormData(prev => ({ ...prev, selfieImage: null }));
-                            }}
-                          >
-                            Remove
-                          </Button>
+                          <div className="flex justify-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelfieCameraOpen(true)}
+                            >
+                              Retake
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelfiePreview(null);
+                                setFormData(prev => ({ ...prev, selfieImage: null }));
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </div>
                         </div>
                       ) : (
                         <div className="py-4">
-                          <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                          <Camera className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                           <p className="text-sm text-muted-foreground mb-2">
-                            Upload a clear photo of yourself holding your ID
+                            Take a live photo of yourself holding your ID, using
+                            your camera. For your security the photo must be taken
+                            now — a saved photo can't be used, so nobody can send
+                            a photo of someone else.
                           </p>
-                          <Button type="button" variant="outline" size="sm" asChild>
-                            <label htmlFor="selfie-upload" className="cursor-pointer">
-                              Select Image
-                              <input
-                                id="selfie-upload"
-                                type="file"
-                                accept="image/*"
-                                className="sr-only"
-                                onChange={handleSelfieUpload}
-                              />
-                            </label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelfieCameraOpen(true)}
+                          >
+                            <Camera className="mr-2 h-4 w-4" /> Open camera
                           </Button>
                         </div>
                       )}

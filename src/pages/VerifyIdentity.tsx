@@ -3,11 +3,15 @@
 // document capture → live camera movement check driven by the
 // lazily-loaded face engine → submit → status.
 //
-// The honest degradation contract: if the camera, the model
-// download, or the on-device face read fails at any point, the flow
-// offers photo upload for MANUAL review instead of failing closed —
-// a human decides from the photos, exactly like the review queue
-// handles borderline automatic results.
+// Capture contract (CEO directive, 2026-10-24): EVERY photo in this
+// flow is taken with the live camera — document photos and the
+// selfie alike. File upload for these images was removed entirely:
+// a saved photo can be a stolen photo of someone else. If the face
+// engine (model download / on-device face read) fails, the flow
+// degrades to MANUAL review — but the photos are still captured
+// live with the camera, and a human decides from them. If the
+// camera itself cannot be opened, the flow says so in plain
+// language and stops; there is no upload fallback.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -31,13 +35,12 @@ import {
   Camera,
   CheckCircle2,
   Clock,
-  FileUp,
   Loader2,
-  RotateCcw,
   ScanFace,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
+import { LivePhotoSlot } from "@/components/identity/LiveCameraCapture";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -80,177 +83,6 @@ const DOCUMENT_TYPE_OPTIONS = [
 function errorText(e: unknown, fallback: string): string {
   if (e instanceof IdentityActionError || e instanceof Error) return e.message;
   return fallback;
-}
-
-// ---------------------------------------------------------------------
-// Small camera capture used for document photos
-// ---------------------------------------------------------------------
-
-function CameraCapture({
-  facingMode,
-  onCapture,
-  onCancel,
-}: {
-  facingMode: "environment" | "user";
-  onCapture: (blob: Blob) => void;
-  onCancel: () => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode },
-          audio: false,
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
-      } catch {
-        setFailed(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-    };
-  }, [facingMode]);
-
-  if (failed) {
-    return (
-      <Alert>
-        <AlertDescription>
-          The camera could not be opened. You can upload a photo of the
-          document instead.
-          <div className="mt-3">
-            <Button variant="outline" size="sm" onClick={onCancel}>
-              Go back
-            </Button>
-          </div>
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <video
-        ref={videoRef}
-        playsInline
-        muted
-        className="w-full rounded-lg bg-black aspect-[4/3] object-cover"
-      />
-      <div className="flex gap-2">
-        <Button
-          className="flex-1"
-          onClick={async () => {
-            if (!videoRef.current) return;
-            const blob = await canvasToBlob(captureVideoFrame(videoRef.current));
-            onCapture(blob);
-          }}
-        >
-          <Camera className="mr-2 h-4 w-4" /> Take photo
-        </Button>
-        <Button variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------
-// Photo slot (preview + camera/upload actions) for the document step
-// ---------------------------------------------------------------------
-
-function PhotoSlot({
-  title,
-  optional,
-  blob,
-  onBlob,
-}: {
-  title: string;
-  optional?: boolean;
-  blob: Blob | null;
-  onBlob: (blob: Blob | null) => void;
-}) {
-  const [cameraOpen, setCameraOpen] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!blob) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [blob]);
-
-  return (
-    <div className="space-y-2">
-      <Label>
-        {title}
-        {optional && (
-          <span className="text-muted-foreground font-normal"> (optional)</span>
-        )}
-      </Label>
-      {previewUrl ? (
-        <div className="space-y-2">
-          <img
-            src={previewUrl}
-            alt={title}
-            className="w-full max-h-64 object-contain rounded-lg border bg-muted"
-          />
-          <Button variant="outline" size="sm" onClick={() => onBlob(null)}>
-            <RotateCcw className="mr-2 h-4 w-4" /> Retake
-          </Button>
-        </div>
-      ) : cameraOpen ? (
-        <CameraCapture
-          facingMode="environment"
-          onCapture={(b) => {
-            onBlob(b);
-            setCameraOpen(false);
-          }}
-          onCancel={() => setCameraOpen(false)}
-        />
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setCameraOpen(true)}>
-            <Camera className="mr-2 h-4 w-4" /> Use camera
-          </Button>
-          <label>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onBlob(f);
-                e.target.value = "";
-              }}
-            />
-            <Button variant="outline" asChild>
-              <span>
-                <FileUp className="mr-2 h-4 w-4" /> Upload photo
-              </span>
-            </Button>
-          </label>
-        </div>
-      )}
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------
@@ -518,7 +350,7 @@ export default function VerifyIdentity() {
   }, [runChallenges]);
 
   // ---------------------------------------------------------------
-  // Manual submission (photo upload, human review)
+  // Manual submission (live-camera photos, human review)
   // ---------------------------------------------------------------
 
   const submitManual = useCallback(async () => {
@@ -744,16 +576,20 @@ export default function VerifyIdentity() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <PhotoSlot
+                  <LivePhotoSlot
                     title="Front of document"
+                    facingMode="environment"
                     blob={frontBlob}
                     onBlob={setFrontBlob}
+                    hint="Use your camera to photograph the front of the document now."
                   />
-                  <PhotoSlot
+                  <LivePhotoSlot
                     title="Back of document"
                     optional
+                    facingMode="environment"
                     blob={backBlob}
                     onBlob={setBackBlob}
+                    hint="Use your camera to photograph the back of the document now."
                   />
                   <p className="text-xs text-muted-foreground">
                     Make sure the photo on the document is clear and
@@ -871,9 +707,9 @@ export default function VerifyIdentity() {
                         <AlertTitle>Manual review instead</AlertTitle>
                         <AlertDescription>
                           The automatic camera check is not available
-                          right now. Upload a clear selfie of yourself
-                          holding nothing in front of your face, and a
-                          person will compare it with your document
+                          right now. Take a clear selfie with your
+                          camera, holding nothing in front of your face,
+                          and a person will compare it with your document
                           photo.
                         </AlertDescription>
                       </Alert>
@@ -882,10 +718,12 @@ export default function VerifyIdentity() {
                           <AlertDescription>{error}</AlertDescription>
                         </Alert>
                       )}
-                      <PhotoSlot
+                      <LivePhotoSlot
                         title="Selfie"
+                        facingMode="user"
                         blob={manualSelfie}
                         onBlob={setManualSelfie}
+                        hint="Your selfie is taken with your camera — a saved photo can't be used, so nobody can send a photo of someone else."
                       />
                       <Button
                         disabled={!manualSelfie || busy}
