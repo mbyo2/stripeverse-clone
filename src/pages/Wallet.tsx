@@ -24,9 +24,11 @@ import { useWallet } from "@/hooks/useWallet";
 import PageErrorState from "@/components/PageErrorState";
 import { usePayPalDepositReturn } from "@/hooks/usePayPalDepositReturn";
 import { useStripeGatewayDeposit, useStripeGatewayReturn } from "@/hooks/useStripeGatewayDeposit";
-import { STRIPE_GATEWAY_MODE, STRIPE_GATEWAY_MODE_LABEL } from "@/config/stripeGateway";
+import { STRIPE_GATEWAY_MODE } from "@/config/stripeGateway";
 import { useRoles } from "@/contexts/RoleContext";
-import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from "@/config/paypal";
+import { PAYPAL_AVAILABLE } from "@/config/paypal";
+import { MOBILE_MONEY_AVAILABLE } from "@/config/mobileMoney";
+import { getDepositMethodOptions, selectDefaultDepositMethod } from "@/utils/depositMethods";
 import PayPalWithdraw from "@/components/wallet/PayPalWithdraw";
 import { PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE } from "@/utils/paypalPayout";
 import { useAccount } from "@/contexts/AccountContext";
@@ -38,7 +40,6 @@ const Wallet = () => {
   const { wallet, isLoading, walletError, refetchWallet, deposit, isDepositing } = useWallet(selectedAccountId);
   const { paymentMethods } = usePaymentMethods();
   const [amount, setAmount] = useState("");
-  const [depositMethod, setDepositMethod] = useState("mobile_money");
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const { roles } = useRoles();
@@ -52,6 +53,19 @@ const Wallet = () => {
   // server-side guard in the checkout function is authoritative.
   const canUseStripeGateway = roles.some(
     (role) => role === "admin" || (role as string) === "super_admin",
+  );
+
+  // Open on the first AVAILABLE deposit method (PayPal while mobile
+  // money is unconfigured) instead of defaulting to a method that can
+  // only answer 'not_configured'. Options carry their availability in
+  // their labels; see src/utils/depositMethods.ts.
+  const depositOptions = getDepositMethodOptions({
+    paypalAvailable: PAYPAL_AVAILABLE,
+    mobileMoneyAvailable: MOBILE_MONEY_AVAILABLE,
+    stripeCardAvailable: canUseStripeGateway,
+  });
+  const [depositMethod, setDepositMethod] = useState(() =>
+    selectDefaultDepositMethod(depositOptions),
   );
 
   // Completes a PayPal deposit when the user returns from approval
@@ -130,19 +144,15 @@ const Wallet = () => {
             <SelectValue placeholder="Select deposit method" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="mobile_money">Mobile Money</SelectItem>
-            <SelectItem value="paypal" disabled={!PAYPAL_AVAILABLE}>
-              PayPal{!PAYPAL_AVAILABLE && ` — ${PAYPAL_COMING_SOON_LABEL}`}
-            </SelectItem>
-            {canUseStripeGateway ? (
-              <SelectItem value="stripe_card">
-                Card (Stripe){STRIPE_GATEWAY_MODE_LABEL}
+            {depositOptions.map((option) => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                disabled={option.disabled}
+              >
+                {option.label}
               </SelectItem>
-            ) : (
-              <SelectItem value="stripe_card" disabled>
-                Card (Stripe) — Coming soon
-              </SelectItem>
-            )}
+            ))}
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground text-center">
