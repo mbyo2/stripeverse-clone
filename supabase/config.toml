@@ -138,5 +138,8 @@ verify_jwt = true
 [functions.moonpay-admin]
 verify_jwt = true
 
+[functions.paypal-admin]
+verify_jwt = true
+
 [functions.moonpay-webhook]
 verify_jwt = false

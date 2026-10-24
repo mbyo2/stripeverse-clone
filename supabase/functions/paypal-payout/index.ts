@@ -29,6 +29,12 @@
 //            idempotency_key }
 //   status { withdrawal_id }  — refresh one withdrawal from PayPal
 //   list   {}                 — the caller's withdrawals, newest first
+//   float  {}                 — the platform float's public state
+//                               (allowance / used / remaining, USD)
+//                               so the withdraw form can preview the
+//                               combined available figure. The
+//                               reserve RPC re-derives everything
+//                               under lock; this is a preview only.
 //
 // Money movement runs through a dedicated service-role client that
 // does NOT forward the caller's JWT (getServiceRoleClient): the
@@ -45,12 +51,15 @@ import {
   isAccountFrozen,
 } from "../_shared/account-freeze.ts";
 import {
+  floatAvailable,
   isPayPalPayoutCurrency,
   isPlausibleEmail,
   normalizeCurrency,
   PAYOUT_DAILY_LIMIT,
   PAYOUT_MIN_AMOUNT,
+  provenanceAvailable,
   provenanceRefusalMessage,
+  withdrawalRefusalMessage,
 } from "../_shared/paypal-payout.ts";
 import {
   createPayPalPayout,
@@ -123,6 +132,9 @@ serve(async (req) => {
     }
     if (action === "list") {
       return await handleList(admin, user.id);
+    }
+    if (action === "float") {
+      return await handleFloat(admin);
     }
     return json({ success: false, error: "Unknown action" }, 400);
   } catch (error) {
@@ -199,6 +211,7 @@ async function handleCreate(admin: any, userId: string, body: any) {
         new_balance: number | null;
         provenance_available: number | null;
         daily_remaining: number | null;
+        float_available: number | null;
       }
     | undefined;
   if (!reserve) throw new Error("Withdrawal reservation returned no result");
@@ -218,12 +231,21 @@ async function handleCreate(admin: any, userId: string, body: any) {
         status: "failed",
         error: `That would pass today's PayPal withdrawal limit of ${PAYOUT_DAILY_LIMIT.toFixed(2)} ${currency} — you have ${Number(reserve.daily_remaining ?? 0).toFixed(2)} ${currency} of it left today.`,
       }, 400);
-    case "over_provenance_cap":
+    case "over_provenance_cap": {
+      // The cap is now provenance + platform float (20261213). The
+      // user hears ONE true figure: when float room is part of it,
+      // the combined copy explains both sources; with no float in
+      // play the original provenance copy is the exact truth.
+      const provenance = provenanceAvailable(Number(reserve.provenance_available ?? 0));
+      const float = Number(reserve.float_available ?? 0);
       return json({
         success: false,
         status: "failed",
-        error: provenanceRefusalMessage(Number(reserve.provenance_available ?? 0), currency),
+        error: float > 0
+          ? withdrawalRefusalMessage(provenance + float, currency)
+          : provenanceRefusalMessage(provenance, currency),
       }, 400);
+    }
     case "insufficient_balance":
       return json({
         success: false,
@@ -330,6 +352,27 @@ async function handleStatus(admin: any, userId: string, body: any) {
     status: outcome.row.status,
     withdrawal: withdrawalView(outcome.row),
     reachable: outcome.kind !== "unreachable",
+  });
+}
+
+// deno-lint-ignore no-explicit-any
+async function handleFloat(admin: any) {
+  const { data: settings, error: settingsError } = await admin
+    .from("platform_settings")
+    .select("paypal_float_allowance_usd")
+    .eq("id", true)
+    .maybeSingle();
+  if (settingsError) throw new Error(`Float settings read failed: ${settingsError.message}`);
+  const { data: used, error: usedError } = await admin.rpc("paypal_float_used_usd");
+  if (usedError) throw new Error(`Float usage read failed: ${usedError.message}`);
+  const allowance = Number(settings?.paypal_float_allowance_usd ?? 0);
+  const usedUsd = Number(used ?? 0);
+  return json({
+    success: true,
+    currency: "USD",
+    allowance_usd: allowance,
+    used_usd: usedUsd,
+    remaining_usd: floatAvailable(allowance, usedUsd),
   });
 }
 

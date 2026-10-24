@@ -63,6 +63,47 @@ export function computePayoutFee(amount: number, ratePercent: number): number {
   return roundMoney((amount * ratePercent) / 100);
 }
 
+/**
+ * The platform float (20261213): a USD withdrawal larger than the
+ * user's PayPal-sourced mark can draw the remainder from the
+ * platform's own PayPal money, capped by a super_admin-set allowance
+ * (default 0). Client mirror of _shared/paypal-payout.ts — the
+ * reserve RPC re-derives everything under lock; these exist so the
+ * withdraw form can preview the same combined figure.
+ */
+export function floatAvailable(allowanceUsd: number, usedUsd: number): number {
+  const allowance = Number.isFinite(allowanceUsd) ? allowanceUsd : 0;
+  const used = Number.isFinite(usedUsd) ? usedUsd : 0;
+  return Math.max(0, roundMoney(allowance - used));
+}
+
+export interface WithdrawalSplitPlan {
+  ok: boolean;
+  totalAvailable: number;
+  provenancePart: number;
+  floatPart: number;
+}
+
+/** Provenance is spent FIRST; the float covers only the remainder. */
+export function planWithdrawalSplit(
+  amount: number,
+  provenanceAvail: number,
+  floatAvail: number,
+): WithdrawalSplitPlan {
+  const provenance = Math.max(0, roundMoney(Number.isFinite(provenanceAvail) ? provenanceAvail : 0));
+  const float = Math.max(0, roundMoney(Number.isFinite(floatAvail) ? floatAvail : 0));
+  const totalAvailable = roundMoney(provenance + float);
+  const amt = roundMoney(Number.isFinite(amount) ? amount : 0);
+  const provenancePart = Math.min(amt, provenance);
+  const floatPart = roundMoney(amt - provenancePart);
+  return {
+    ok: amt > 0 && amt <= totalAvailable,
+    totalAvailable,
+    provenancePart,
+    floatPart,
+  };
+}
+
 /** Honest, plain status labels for the withdrawal history. */
 export const PAYOUT_STATUS_LABELS: Record<string, string> = {
   pending: "Sending…",

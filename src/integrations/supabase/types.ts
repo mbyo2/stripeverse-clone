@@ -1807,11 +1807,13 @@ export type Database = {
           currency: string
           failure_reason: string | null
           fee_amount: number
+          float_amount: number
           id: string
           idempotency_key: string
           payout_batch_id: string | null
           payout_item_id: string | null
           provider_status: string | null
+          provenance_amount: number
           recipient_email: string
           refunded_at: string | null
           status: string
@@ -1826,11 +1828,13 @@ export type Database = {
           currency: string
           failure_reason?: string | null
           fee_amount?: number
+          float_amount?: number
           id?: string
           idempotency_key: string
           payout_batch_id?: string | null
           payout_item_id?: string | null
           provider_status?: string | null
+          provenance_amount?: number
           recipient_email: string
           refunded_at?: string | null
           status?: string
@@ -1845,11 +1849,13 @@ export type Database = {
           currency?: string
           failure_reason?: string | null
           fee_amount?: number
+          float_amount?: number
           id?: string
           idempotency_key?: string
           payout_batch_id?: string | null
           payout_item_id?: string | null
           provider_status?: string | null
+          provenance_amount?: number
           recipient_email?: string
           refunded_at?: string | null
           status?: string
@@ -1862,6 +1868,7 @@ export type Database = {
       platform_settings: {
         Row: {
           id: boolean
+          paypal_float_allowance_usd: number
           paypal_payout_fee_percent: number
           send_money_fee_percent: number
           split_platform_fee_percent: number
@@ -1870,6 +1877,7 @@ export type Database = {
         }
         Insert: {
           id?: boolean
+          paypal_float_allowance_usd?: number
           paypal_payout_fee_percent?: number
           send_money_fee_percent?: number
           split_platform_fee_percent?: number
@@ -1878,6 +1886,7 @@ export type Database = {
         }
         Update: {
           id?: boolean
+          paypal_float_allowance_usd?: number
           paypal_payout_fee_percent?: number
           send_money_fee_percent?: number
           split_platform_fee_percent?: number

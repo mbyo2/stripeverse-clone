@@ -67,6 +67,7 @@ import AdminMastercardMove from '@/pages/AdminMastercardMove';
 import AdminPayoneer from '@/pages/AdminPayoneer';
 import AdminStripe from '@/pages/AdminStripe';
 import AdminMoonpay from '@/pages/AdminMoonpay';
+import AdminPaypal from '@/pages/AdminPaypal';
 import AdminTransactions from '@/pages/AdminTransactions';
 import Developers from '@/pages/Developers';
 import RequestMoney from '@/pages/RequestMoney';
@@ -236,6 +237,7 @@ const AnimatedRoutes = () => {
         <Route path="/admin/payoneer" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminPayoneer /></RoleGuardedPage>} />
         <Route path="/admin/stripe" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminStripe /></RoleGuardedPage>} />
         <Route path="/admin/moonpay" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminMoonpay /></RoleGuardedPage>} />
+        <Route path="/admin/paypal" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminPaypal /></RoleGuardedPage>} />
         <Route path="/admin/p2p" element={<RoleGuardedPage roles={P2P_ADMIN_ROLES}><AdminP2P /></RoleGuardedPage>} />
         <Route path="/admin/identity" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminIdentity /></RoleGuardedPage>} />
         <Route path="/admin/users/:userId" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminUserDetail /></RoleGuardedPage>} />

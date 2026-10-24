@@ -59,12 +59,15 @@ async function functionErrorMessage(error: any, data: any): Promise<string> {
  * Withdraw to PayPal — the fiat exit that pairs with PayPal
  * deposits. The form previews the fee and total; the server
  * (paypal-payout → reserve_paypal_withdrawal) recomputes
- * everything, enforces the provenance cap (you can withdraw to
- * PayPal at most the PayPal-sourced portion of your balance — the
- * mark follows the money when it's sent between users) and the
- * limits, and its refusal copy is shown verbatim. The available
- * figure below is an owner-read of that same counter
- * (paypal_provenance_balances, RLS owner SELECT).
+ * everything, enforces the funding cap and the limits, and its
+ * refusal copy is shown verbatim. The funding cap is the user's
+ * PayPal-sourced portion (the provenance counter — the mark
+ * follows the money when it's sent between users) PLUS, for USD,
+ * whatever room remains in the platform float allowance
+ * (20261213). The available figure below shows that combined
+ * total as ONE number: an owner-read of the counter
+ * (paypal_provenance_balances, RLS owner SELECT) plus the float
+ * remainder from the function's float action.
  */
 const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
   const { user } = useAuth();
@@ -117,9 +120,33 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
     },
   });
 
+  // The platform float (USD only): how much room is left in the
+  // super_admin-set allowance after non-failed withdrawals. The
+  // available figure below is provenance + this remainder — ONE
+  // number for the user; the split stays internal. The reserve RPC
+  // re-derives both sides under lock, so this preview can race but
+  // can never over-promise at settlement.
+  const floatQuery = useQuery({
+    queryKey: ["paypal-float"],
+    enabled: !!user?.id && supported && currency === "USD",
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("paypal-payout", {
+        body: { action: "float" },
+      });
+      if (error) throw error;
+      return Number(data?.remaining_usd ?? 0);
+    },
+  });
+
+  const availableToWithdraw =
+    provenanceQuery.data !== undefined
+      ? provenanceQuery.data + (currency === "USD" ? (floatQuery.data ?? 0) : 0)
+      : undefined;
+
   const refreshHistory = () => {
     queryClient.invalidateQueries({ queryKey: ["paypal-withdrawals"] });
     queryClient.invalidateQueries({ queryKey: ["paypal-provenance"] });
+    queryClient.invalidateQueries({ queryKey: ["paypal-float"] });
     // A created/refunded withdrawal changes the wallet balance and
     // the activity list too — refresh all money state, not just the
     // wallet root.
@@ -234,9 +261,10 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
           className="h-12 rounded-lg"
         />
         <p className="text-xs text-muted-foreground">
-          The payout is sent to this PayPal account. You can withdraw up to the part of
-          your balance that arrived via PayPal — it keeps that right when it's sent
-          between users.
+          The payout is sent to this PayPal account. Money that arrived via PayPal
+          can always be withdrawn back — it keeps that right when it's sent
+          between users — and when the platform can cover more from its own
+          PayPal account, that is included in the amount available below.
         </p>
       </div>
       <div className="space-y-2">
@@ -256,9 +284,9 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
           Minimum {PAYOUT_MIN_AMOUNT.toFixed(2)} {currency} · Daily limit{" "}
           {PAYOUT_DAILY_LIMIT.toLocaleString()}.00 {currency}
         </p>
-        {provenanceQuery.data !== undefined && (
+        {availableToWithdraw !== undefined && (
           <p className="text-xs text-muted-foreground text-center">
-            Available to withdraw to PayPal: {provenanceQuery.data.toFixed(2)} {currency}
+            Available to withdraw to PayPal: {availableToWithdraw.toFixed(2)} {currency}
           </p>
         )}
       </div>

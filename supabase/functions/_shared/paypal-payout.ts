@@ -22,6 +22,20 @@
 //     decremented inside the reserve_paypal_withdrawal RPC; this
 //     module carries the same cap arithmetic over a counter value
 //     for previews and for the function's fast, honest refusal copy.
+//   - PLATFORM FLOAT (CEO directive, 2026-10-24 — "make something
+//     that can be withdrawn in PayPal"; migration 20261213): a USD
+//     withdrawal larger than the user's mark draws the remainder
+//     from a platform float, capped by a super_admin-set allowance
+//     (platform_settings.paypal_float_allowance_usd, DEFAULT 0 =
+//     no float payouts). Provenance is spent FIRST; the split is
+//     recorded on the withdrawal row (provenance_amount /
+//     float_amount); float "used" is derived from those rows, so a
+//     failed payout releases its float automatically. Float payouts
+//     settle from the platform's own PayPal balance — if that
+//     account cannot cover one, PayPal refuses it and the existing
+//     refund path returns the user's money in full. The split math
+//     below mirrors the RPC for previews and refusal copy; the RPC
+//     is authoritative.
 //   - Finalization is a one-way state machine: pending/processing
 //     may become completed (PayPal says the item SUCCEEDED) or
 //     failed+refunded (PayPal says it FAILED / was RETURNED /
@@ -142,6 +156,123 @@ export function provenanceRefusalMessage(available: number, currency: string): s
     "BMaGlass users, converted, or withdrawn once other payout methods are live."
   );
 }
+
+// ── Platform float (the second funding source, 20261213) ─────────
+
+/**
+ * How much of the float is still available: the super_admin-set
+ * allowance minus what non-failed USD withdrawals have already
+ * drawn. Both inputs come from the ledger/settings (the RPC derives
+ * "used" from the withdrawal rows themselves); floored at zero so a
+ * lowered allowance never reports negative room.
+ */
+export function floatAvailable(allowanceUsd: number, usedUsd: number): number {
+  const allowance = Number.isFinite(allowanceUsd) ? allowanceUsd : 0;
+  const used = Number.isFinite(usedUsd) ? usedUsd : 0;
+  return Math.max(0, roundMoney(allowance - used));
+}
+
+export interface WithdrawalSplitPlan {
+  ok: boolean;
+  /** The total the user may withdraw to PayPal right now. */
+  totalAvailable: number;
+  /** The part of the amount funded by the user's own PayPal mark. */
+  provenancePart: number;
+  /** The part of the amount drawn on the platform float. */
+  floatPart: number;
+}
+
+/**
+ * Plan a withdrawal's funding split: provenance is spent FIRST and
+ * the float covers only the remainder (the reserve RPC's rule). The
+ * float exists only for USD — callers pass floatAvail = 0 for other
+ * currencies, which reduces this to the provenance-only plan.
+ */
+export function planWithdrawalSplit(
+  amount: number,
+  provenanceAvail: number,
+  floatAvail: number,
+): WithdrawalSplitPlan {
+  const provenance = provenanceAvailable(provenanceAvail);
+  const float = Math.max(0, roundMoney(Number.isFinite(floatAvail) ? floatAvail : 0));
+  const totalAvailable = roundMoney(provenance + float);
+  const amt = roundMoney(Number.isFinite(amount) ? amount : 0);
+  const provenancePart = Math.min(amt, provenance);
+  const floatPart = roundMoney(amt - provenancePart);
+  return {
+    ok: amt > 0 && amt <= totalAvailable,
+    totalAvailable,
+    provenancePart,
+    floatPart,
+  };
+}
+
+/**
+ * Refusal copy when the float is part of the picture: the figure is
+ * the COMBINED total (provenance + remaining float) — the user sees
+ * one true number; the split stays internal.
+ */
+export function withdrawalRefusalMessage(totalAvailable: number, currency: string): string {
+  return (
+    `You can withdraw up to ${formatPayPalMoney(totalAvailable)} ${normalizeCurrency(currency)} to PayPal right now — ` +
+    "that covers the part of your balance that arrived via PayPal, plus what BMaGlass Pay can currently " +
+    "pay out from its own PayPal account. The rest of your balance can be sent to other BMaGlass users or converted in the app."
+  );
+}
+
+// ── Admin gates (paypal-admin) ───────────────────────────────────
+
+/** Roles that may VIEW the PayPal admin console. */
+export const PAYPAL_ADMIN_ROLES = ["admin", "super_admin"] as const;
+
+export function canUsePaypalAdmin(roles: readonly string[]): boolean {
+  return roles.some((r) => (PAYPAL_ADMIN_ROLES as readonly string[]).includes(r));
+}
+
+/**
+ * Setting the float allowance is super_admin ONLY: the allowance is
+ * the owner's promise that the platform PayPal account holds the
+ * money to cover float payouts, so it is not a plain-admin power.
+ */
+export function canSetPaypalFloatAllowance(roles: readonly string[]): boolean {
+  return roles.includes("super_admin");
+}
+
+type RolesReader = {
+  // deno-lint-ignore no-explicit-any
+  from(table: string): any;
+};
+
+/** Resolve a caller's roles and apply the admin view gate. */
+export async function canUsePaypalAdminFor(
+  client: RolesReader,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await client
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId);
+  if (error) throw new Error(`Role lookup failed: ${error.message}`);
+  const roles = ((data ?? []) as Array<{ role: string }>).map((r) => r.role);
+  return canUsePaypalAdmin(roles);
+}
+
+/** Resolve a caller's roles and apply the super_admin set gate. */
+export async function canSetPaypalFloatAllowanceFor(
+  client: RolesReader,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await client
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId);
+  if (error) throw new Error(`Role lookup failed: ${error.message}`);
+  const roles = ((data ?? []) as Array<{ role: string }>).map((r) => r.role);
+  return canSetPaypalFloatAllowance(roles);
+}
+
+export const PAYPAL_ADMIN_REFUSAL_MESSAGE =
+  "This area is for the BMaGlass Pay admin team. If you need a hand with a PayPal withdrawal, contact support and we'll help.";
 
 // ── Payout creation payload ──────────────────────────────────────────
 

@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { countActiveUsers, activityWindowStart } from "@/utils/adminStats";
 import { Link } from "react-router-dom";
-import { Users, Shield, Activity, AlertTriangle, Settings, Database, ScanFace, Globe2, Inbox, ReceiptText, CreditCard } from "lucide-react";
+import { Users, Shield, Activity, AlertTriangle, Settings, Database, ScanFace, Globe2, Inbox, ReceiptText, CreditCard, Landmark } from "lucide-react";
 
 interface UserStat {
   total_users: number;
@@ -229,6 +229,13 @@ const AdminDashboard = () => {
       icon: <CreditCard className="h-6 w-6" />,
       link: "/admin/moonpay",
       color: "bg-violet-500"
+    },
+    {
+      title: "PayPal Withdrawals",
+      description: "PayPal payouts, the platform float and its allowance",
+      icon: <Landmark className="h-6 w-6" />,
+      link: "/admin/paypal",
+      color: "bg-sky-600"
     },
     {
       title: "Compliance Center",
