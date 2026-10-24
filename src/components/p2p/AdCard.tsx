@@ -26,15 +26,18 @@ import {
   type P2pPaymentMethod,
   type P2pTraderPublic,
 } from "@/services/p2pService";
-import { useP2pPaymentMethods } from "@/hooks/useP2p";
+import { useP2pAccount, useP2pPaymentMethods } from "@/hooks/useP2p";
+import { P2pTransferDialog } from "@/components/p2p/P2pAccountCard";
 import {
   adEffectivePriceZmw,
   cryptoFromFiat,
   formatBtcFromSats,
+  formatSats,
   formatZmw,
   isOffMarket,
   percentVsIndex,
   paymentMethodTypeLabel,
+  p2pShortfallSats,
   traderDisplayName,
 } from "@/utils/p2pUi";
 
@@ -69,11 +72,16 @@ export default function AdCard({
   const [sellerMethodId, setSellerMethodId] = useState("");
   const [idemKey, setIdemKey] = useState<string>(() => newIdempotencyKey());
   const [formError, setFormError] = useState<string | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   const isOwn = user?.id === ad.owner_id;
   // Ad side semantics: a sell_crypto ad means the ADVERTISER sells
   // and the taker BUYS; a buy_crypto ad is the reverse.
   const takerBuys = ad.side === "sell_crypto";
+  // When the taker is the SELLER, the order locks from their
+  // separate P2P account — fetch its balance for the order panel's
+  // shortfall notice (only while the panel is open on a sell flow).
+  const p2pAccountQuery = useP2pAccount(open && !takerBuys && !isOwn);
   const price = adEffectivePriceZmw(ad, indexZmw);
   const pct = percentVsIndex(price, indexZmw);
   const offMarket = isOffMarket(price, indexZmw);
@@ -90,6 +98,11 @@ export default function AdCard({
 
   const fiat = Number(fiatInput);
   const sats = price && Number.isFinite(fiat) && fiat > 0 ? cryptoFromFiat(fiat, price) : 0;
+  const p2pAvailableSats = p2pAccountQuery.data?.p2p.available_sats;
+  const sellerShortfallSats =
+    !takerBuys && p2pAvailableSats !== undefined && sats > 0
+      ? p2pShortfallSats(sats, p2pAvailableSats)
+      : 0;
 
   const createOrder = useMutation({
     mutationFn: async () => {
@@ -316,6 +329,27 @@ export default function AdCard({
               </label>
             )}
 
+            {!takerBuys && sellerShortfallSats > 0 && (
+              <Alert className="border-amber-500/40 bg-amber-500/5">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertDescription>
+                  <p>
+                    This sale locks Bitcoin from your P2P account — you have{" "}
+                    {formatSats(p2pAvailableSats ?? 0)} available and this order
+                    needs {formatSats(sats)}.
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => setTransferOpen(true)}
+                  >
+                    Move Bitcoin to your P2P account
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {formError && (
               <Alert variant="destructive">
                 <AlertDescription>{formError}</AlertDescription>
@@ -338,6 +372,11 @@ export default function AdCard({
             )}
           </div>
         )}
+        <P2pTransferDialog
+          open={transferOpen}
+          onOpenChange={setTransferOpen}
+          initialDirection="to_p2p"
+        />
       </CardContent>
     </Card>
   );

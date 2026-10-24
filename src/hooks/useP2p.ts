@@ -28,6 +28,7 @@ import {
   fetchMyKycState,
   fetchMyLimits,
   fetchMyOrders,
+  fetchMyP2pAccount,
   fetchMyPaymentMethods,
   fetchMySanctions,
   fetchMyTier,
@@ -42,6 +43,7 @@ import {
 
 export const p2pKeys = {
   enabled: ["p2p", "enabled"] as const,
+  account: ["p2p", "account"] as const,
   limits: ["p2p", "limits"] as const,
   tier: ["p2p", "tier"] as const,
   holds: ["p2p", "unmatured-holds"] as const,
@@ -67,6 +69,10 @@ export function useInvalidateP2p() {
   const qc = useQueryClient();
   return () => {
     void qc.invalidateQueries({ queryKey: ["p2p"] });
+    // The account query lives under ["p2p"] too, so the broad
+    // invalidation above already covers it — named explicitly so a
+    // future key reshuffle can't silently leave balances stale.
+    void qc.invalidateQueries({ queryKey: p2pKeys.account });
     void qc.refetchQueries({ queryKey: ["p2p"], type: "active" });
   };
 }
@@ -84,6 +90,17 @@ export function useP2pLimits(enabled = true) {
   return useQuery({
     queryKey: p2pKeys.limits,
     queryFn: fetchMyLimits,
+    enabled: enabled && !!user,
+    staleTime: MONEY_QUERY_STALE_TIME,
+    retry: 1,
+  });
+}
+
+export function useP2pAccount(enabled = true) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: p2pKeys.account,
+    queryFn: fetchMyP2pAccount,
     enabled: enabled && !!user,
     staleTime: MONEY_QUERY_STALE_TIME,
     retry: 1,

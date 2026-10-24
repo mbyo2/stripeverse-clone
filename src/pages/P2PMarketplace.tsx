@@ -13,6 +13,7 @@ import {
 import { Bitcoin, RefreshCw } from "lucide-react";
 import P2pShell from "@/components/p2p/P2pShell";
 import AdCard from "@/components/p2p/AdCard";
+import { P2pAccountCard } from "@/components/p2p/P2pAccountCard";
 import PageErrorState from "@/components/PageErrorState";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -110,6 +111,8 @@ export default function P2PMarketplace() {
           </div>
         </CardContent>
       </Card>
+
+      <P2pAccountCard />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-6">

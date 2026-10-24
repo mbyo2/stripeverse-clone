@@ -8,6 +8,7 @@ import { ArrowLeftRight } from "lucide-react";
 import P2pShell from "@/components/p2p/P2pShell";
 import PageErrorState from "@/components/PageErrorState";
 import Countdown from "@/components/p2p/Countdown";
+import { P2pAccountCard } from "@/components/p2p/P2pAccountCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useP2pMyOrders, useTraderPublicProfiles } from "@/hooks/useP2p";
 import {
@@ -35,6 +36,7 @@ export default function P2POrders() {
 
   return (
     <P2pShell title="My Orders" subtitle="Every P2P trade you are part of. Open a trade to pay, confirm, chat or dispute.">
+      <P2pAccountCard />
       {ordersQuery.isLoading ? (
         <div className="space-y-3">
           <Skeleton className="h-20 w-full" />

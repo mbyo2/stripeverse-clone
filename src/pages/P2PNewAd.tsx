@@ -17,15 +17,23 @@ import {
 } from "@/components/ui/select";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import P2pShell from "@/components/p2p/P2pShell";
+import { P2pTransferDialog } from "@/components/p2p/P2pAccountCard";
 import { useToast } from "@/hooks/use-toast";
 import { p2pAction, P2pActionError } from "@/services/p2pService";
-import { useInvalidateP2p, useP2pLimits, useP2pPrice } from "@/hooks/useP2p";
+import {
+  useInvalidateP2p,
+  useP2pAccount,
+  useP2pLimits,
+  useP2pPrice,
+} from "@/hooks/useP2p";
 import {
   adEffectivePriceZmw,
+  formatSats,
   formatZmw,
   isOffMarket,
   paymentMethodTypeLabel,
   percentVsIndex,
+  p2pShortfallSats,
 } from "@/utils/p2pUi";
 
 const WINDOW_OPTIONS = [15, 30, 45, 60, 120];
@@ -43,6 +51,7 @@ export default function P2PNewAd() {
   const invalidate = useInvalidateP2p();
   const limitsQuery = useP2pLimits();
   const priceQuery = useP2pPrice();
+  const accountQuery = useP2pAccount();
   const indexZmw = priceQuery.data ? Number(priceQuery.data.index_zmw) : null;
 
   const [side, setSide] = useState<"sell_crypto" | "buy_crypto">("sell_crypto");
@@ -59,6 +68,7 @@ export default function P2PNewAd() {
   const [minTier, setMinTier] = useState("T1");
   const [minTrades, setMinTrades] = useState("0");
   const [formError, setFormError] = useState<string | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   const previewPrice = useMemo(
     () =>
@@ -76,6 +86,19 @@ export default function P2PNewAd() {
   const offMarket = isOffMarket(previewPrice, indexZmw);
   const canPostAds = limitsQuery.data?.can_post_ads ?? false;
   const sellBlocked = side === "sell_crypto" && limitsQuery.data && !canPostAds;
+
+  // Sell ads settle from the separate P2P account: the ad's total
+  // (total_amount_minor, exactly as the create mutation sends it)
+  // must be covered by the P2P account's available balance. This is
+  // a notice with a one-tap fix, not a form block — the server
+  // stays the authority.
+  const neededSats =
+    side === "sell_crypto" ? Math.round(Number(totalBtc) * 100_000_000) : 0;
+  const p2pAvailableSats = accountQuery.data?.p2p.available_sats;
+  const sellShortfallSats =
+    p2pAvailableSats !== undefined && neededSats > 0
+      ? p2pShortfallSats(neededSats, p2pAvailableSats)
+      : 0;
 
   const createAd = useMutation({
     mutationFn: () =>
@@ -277,6 +300,29 @@ export default function P2PNewAd() {
             </div>
           </div>
 
+          {side === "sell_crypto" && sellShortfallSats > 0 && (
+            <Alert className="border-amber-500/40 bg-amber-500/5">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTitle>Your P2P account needs more Bitcoin</AlertTitle>
+              <AlertDescription>
+                <p>
+                  Sell ads run from your P2P account. This ad needs{" "}
+                  {formatSats(neededSats)} and your P2P account has{" "}
+                  {formatSats(p2pAvailableSats ?? 0)} available — you still need{" "}
+                  {formatSats(sellShortfallSats)} there.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => setTransferOpen(true)}
+                >
+                  Move Bitcoin to your P2P account
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <Label>Payment methods you accept</Label>
             <div className="flex gap-6">
@@ -385,6 +431,11 @@ export default function P2PNewAd() {
           </Button>
         </CardContent>
       </Card>
+      <P2pTransferDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        initialDirection="to_p2p"
+      />
     </P2pShell>
   );
 }

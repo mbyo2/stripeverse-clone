@@ -9,8 +9,12 @@
 //
 // Actions: the §4.2 table (payment methods, ads, orders, disputes,
 // sanctions, blocks/reports, self reads) via _shared/p2p-request.ts,
-// plus two actions implemented here:
+// plus actions implemented here:
 //   send_message        — trade chat with §3.7 scanning/masking.
+//   transfer_to_p2p / transfer_to_main / get_p2p_account — the
+//                         separate P2P (funding) account: own-wallet
+//                         transfers via p2p_account_transfer plus a
+//                         balance read; never paused by p2p_enabled.
 //   refresh_price_index — pg_cron caller (pg_net, every minute; see
 //                         migration 20261023_p2p_price_index_cron.sql)
 //                         that writes the next p2p_price_snapshots row.
@@ -45,9 +49,14 @@ import {
 } from "../_shared/supabase-client.ts";
 import {
   buildRpcArgs,
+  buildTransferArgs,
   isUuid,
   P2P_ACTIONS,
 } from "../_shared/p2p-request.ts";
+import {
+  ACCOUNT_FROZEN_MESSAGE,
+  assertAccountNotFrozen,
+} from "../_shared/account-freeze.ts";
 import { scanAdTerms, scanChatText, type ScanFlag } from "../_shared/p2p-chat-scan.ts";
 import {
   buildSnapshotInsert,
@@ -504,6 +513,119 @@ async function handleSendMessage(admin: any, user: any, body: any) {
 }
 
 // ---------------------------------------------------------------------
+// Separate P2P account (kind: "account" actions)
+// ---------------------------------------------------------------------
+// Binance-style funding account: trades run from p2p_wallets, never
+// from the main crypto_wallets balance. These actions are NOT gated
+// on p2p_enabled — moving your own sats between your own wallets
+// must work while the marketplace is paused. Identity is always the
+// verified JWT user; no user id is ever read from the body.
+
+async function readUnmaturedHoldsSats(
+  admin: any,
+  userId: string,
+): Promise<number> {
+  const { data, error } = await admin.rpc(
+    "p2p_unmatured_withdrawal_hold_sats",
+    { p_user_id: userId },
+  );
+  if (error) {
+    console.error("p2p unmatured holds read failed:", error);
+    return 0;
+  }
+  const n = Number(data);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+async function handleGetP2pAccount(admin: any, user: any) {
+  const [{ data: main }, { data: p2p }] = await Promise.all([
+    admin
+      .from("crypto_wallets")
+      .select("balance_sats, available_sats")
+      .eq("user_id", user.id)
+      .eq("asset", "BTC")
+      .maybeSingle(),
+    admin
+      .from("p2p_wallets")
+      .select("balance_sats, available_sats")
+      .eq("user_id", user.id)
+      .eq("asset", "BTC")
+      .maybeSingle(),
+  ]);
+  const mainBalance = {
+    balance_sats: Number(main?.balance_sats ?? 0),
+    available_sats: Number(main?.available_sats ?? 0),
+  };
+  const p2pBalance = {
+    balance_sats: Number(p2p?.balance_sats ?? 0),
+    available_sats: Number(p2p?.available_sats ?? 0),
+  };
+  const unmatured = await readUnmaturedHoldsSats(admin, user.id);
+  return json(200, {
+    success: true,
+    main: mainBalance,
+    p2p: p2pBalance,
+    unmatured_holds_sats: unmatured,
+    transferable_to_main_sats: Math.max(
+      0,
+      p2pBalance.available_sats - unmatured,
+    ),
+  });
+}
+
+async function handleAccountTransfer(admin: any, user: any, action: string, body: any) {
+  const built = buildTransferArgs(action, body);
+  if (!built.ok) return json(400, { error: built.error });
+
+  // Freeze guard: a frozen account cannot move money out of either
+  // wallet. The guard throws the crafted frozen/unverified message,
+  // which is written for the user, so it passes through verbatim.
+  try {
+    await assertAccountNotFrozen(admin, user.id);
+  } catch (e) {
+    return json(403, { error: thrownMessage(e, ACCOUNT_FROZEN_MESSAGE) });
+  }
+
+  const { data, error } = await admin.rpc("p2p_account_transfer", {
+    p_user_id: user.id,
+    p_direction: built.value.direction,
+    p_amount_sats: built.value.amount_sats,
+    p_idempotency_key: built.value.idempotency_key,
+  });
+  if (error) return rpcErrorResponse(error);
+
+  const result = (data ?? {}) as Record<string, unknown>;
+  const p2pAvailable = Number(result.p2p_available_sats ?? 0);
+  // Re-read the holds AFTER the transfer so the derived
+  // transferable figure reflects the post-transfer state.
+  const unmatured = await readUnmaturedHoldsSats(admin, user.id);
+  return json(200, {
+    success: true,
+    transfer_id: result.transfer_id,
+    direction: result.direction ?? built.value.direction,
+    amount_sats: Number(result.amount_sats ?? built.value.amount_sats),
+    replayed: result.replayed === true,
+    main: {
+      balance_sats: Number(result.main_balance_sats ?? 0),
+      available_sats: Number(result.main_available_sats ?? 0),
+    },
+    p2p: {
+      balance_sats: Number(result.p2p_balance_sats ?? 0),
+      available_sats: p2pAvailable,
+    },
+    unmatured_holds_sats: unmatured,
+    transferable_to_main_sats: Math.max(0, p2pAvailable - unmatured),
+  });
+}
+
+async function handleAccountAction(admin: any, user: any, action: string, body: any) {
+  if (action === "get_p2p_account") {
+    return handleGetP2pAccount(admin, user);
+  }
+  return handleAccountTransfer(admin, user, action, body);
+}
+
+// ---------------------------------------------------------------------
 // RPC dispatch
 // ---------------------------------------------------------------------
 
@@ -519,6 +641,8 @@ const USER_RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
   send_message: { limit: 30, windowMs: 60_000 },
   create_order: { limit: 10, windowMs: 60_000 },
   create_ad: { limit: 5, windowMs: 60_000 },
+  transfer_to_p2p: { limit: 10, windowMs: 60_000 },
+  transfer_to_main: { limit: 10, windowMs: 60_000 },
 };
 const userRateBuckets = new Map<string, { start: number; count: number }>();
 const USER_RATE_BUCKET_MAX = 5_000;
@@ -610,6 +734,14 @@ serve(async (req) => {
 
     if (action === "send_message") {
       return handleSendMessage(admin, user, body);
+    }
+
+    // Separate P2P account actions are handled here, before the
+    // RPC dispatch below (buildRpcArgs refuses non-RPC kinds, the
+    // same reason send_message is intercepted above). No
+    // p2p_enabled pause gate applies to them.
+    if (P2P_ACTIONS[action]?.kind === "account") {
+      return handleAccountAction(admin, user, action, body);
     }
 
     const built = buildRpcArgs(action, body);

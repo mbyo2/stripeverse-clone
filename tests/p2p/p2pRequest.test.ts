@@ -273,3 +273,170 @@ describe("validation", () => {
     expect(req.isUuid(null)).toBe(false);
   });
 });
+
+describe("separate P2P account actions", () => {
+  it("registers the three account actions with kind 'account'", () => {
+    for (const action of [
+      "transfer_to_p2p",
+      "transfer_to_main",
+      "get_p2p_account",
+    ]) {
+      const spec: any = (req.P2P_ACTIONS as any)[action];
+      expect(spec, action).toBeDefined();
+      expect(spec.kind, action).toBe("account");
+    }
+  });
+
+  it("account actions are not RPC actions and not entry actions", () => {
+    // The dispatcher intercepts kind "account" before buildRpcArgs,
+    // so buildRpcArgs must keep refusing them like send_message.
+    for (const action of [
+      "transfer_to_p2p",
+      "transfer_to_main",
+      "get_p2p_account",
+    ]) {
+      expect(req.buildRpcArgs(action, {}).ok, action).toBe(false);
+      const spec: any = (req.P2P_ACTIONS as any)[action];
+      expect(spec.entry, action).toBeFalsy();
+      expect(spec.admin, action).toBeFalsy();
+    }
+  });
+});
+
+describe("buildTransferArgs", () => {
+  it("builds a valid transfer_to_p2p", () => {
+    const r = req.buildTransferArgs("transfer_to_p2p", {
+      amount_sats: 50_000,
+      idempotency_key: KEY,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value).toEqual({
+      direction: "to_p2p",
+      amount_sats: 50_000,
+      idempotency_key: KEY,
+    });
+  });
+
+  it("builds a valid transfer_to_main", () => {
+    const r = req.buildTransferArgs("transfer_to_main", {
+      amount_sats: 1,
+      idempotency_key: KEY,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value).toEqual({
+      direction: "to_main",
+      amount_sats: 1,
+      idempotency_key: KEY,
+    });
+  });
+
+  it("derives direction from the action, never from body.direction", () => {
+    const toP2p = req.buildTransferArgs("transfer_to_p2p", {
+      amount_sats: 100,
+      idempotency_key: KEY,
+      direction: "to_main",
+    });
+    expect(toP2p.ok).toBe(true);
+    if (toP2p.ok) expect(toP2p.value.direction).toBe("to_p2p");
+
+    const toMain = req.buildTransferArgs("transfer_to_main", {
+      amount_sats: 100,
+      idempotency_key: KEY,
+      direction: "to_p2p",
+    });
+    expect(toMain.ok).toBe(true);
+    if (toMain.ok) expect(toMain.value.direction).toBe("to_main");
+  });
+
+  it("never reads a user id from the body", () => {
+    const r = req.buildTransferArgs("transfer_to_p2p", {
+      amount_sats: 100,
+      idempotency_key: KEY,
+      p_user_id: "attacker",
+      user_id: "attacker",
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(JSON.stringify(r.value)).not.toContain("attacker");
+    expect(r.value).not.toHaveProperty("p_user_id");
+    expect(r.value).not.toHaveProperty("user_id");
+  });
+
+  it("refuses unknown transfer actions", () => {
+    expect(
+      req.buildTransferArgs("get_p2p_account", {
+        amount_sats: 100,
+        idempotency_key: KEY,
+      }).ok,
+    ).toBe(false);
+    expect(
+      req.buildTransferArgs("nonsense", {
+        amount_sats: 100,
+        idempotency_key: KEY,
+      }).ok,
+    ).toBe(false);
+  });
+
+  it.each([
+    ["zero", 0],
+    ["negative", -100],
+    ["fraction", 1.5],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["negative Infinity", Number.NEGATIVE_INFINITY],
+    ["numeric string", "5000"],
+    ["boolean", true],
+    ["null", null],
+    ["unsafe integer", Number.MAX_SAFE_INTEGER + 1],
+  ])("rejects an invalid amount_sats: %s", (_label, amount) => {
+    const r = req.buildTransferArgs("transfer_to_p2p", {
+      amount_sats: amount,
+      idempotency_key: KEY,
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects a missing amount_sats", () => {
+    expect(
+      req.buildTransferArgs("transfer_to_p2p", { idempotency_key: KEY }).ok,
+    ).toBe(false);
+    expect(
+      req.buildTransferArgs("transfer_to_main", { idempotency_key: KEY }).ok,
+    ).toBe(false);
+  });
+
+  it("accepts the maximum safe integer amount", () => {
+    const r = req.buildTransferArgs("transfer_to_main", {
+      amount_sats: Number.MAX_SAFE_INTEGER,
+      idempotency_key: KEY,
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["empty", ""],
+    ["too short (7 chars)", "1234567"],
+    ["non-string", 12345678],
+    ["null", null],
+    ["too long (101 chars)", "k".repeat(101)],
+  ])("rejects an invalid idempotency_key: %s", (_label, key) => {
+    const body: Record<string, unknown> = { amount_sats: 100 };
+    if (key !== undefined) body.idempotency_key = key;
+    const r = req.buildTransferArgs("transfer_to_p2p", body);
+    expect(r.ok).toBe(false);
+  });
+
+  it("accepts idempotency keys at the 8 and 100 char boundaries", () => {
+    for (const key of ["k".repeat(8), "k".repeat(100)]) {
+      const r = req.buildTransferArgs("transfer_to_p2p", {
+        amount_sats: 100,
+        idempotency_key: key,
+      });
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.value.idempotency_key).toBe(key);
+    }
+  });
+});

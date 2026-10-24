@@ -359,6 +359,51 @@ export async function fetchMyUnmaturedHoldsSats(): Promise<number> {
   return Number(res.unmatured_sats ?? 0);
 }
 
+// ---------------------------------------------------------------------
+// Separate P2P account (Binance-style funding account)
+//
+// Trades run from the P2P account only; the main wallet is never
+// touched by trades. Moving sats between the two is a free own-pocket
+// transfer through the edge — except that sats still inside the T+1
+// safety hold cannot move back to main yet
+// (transferable_to_main_sats is the server's own computation).
+// ---------------------------------------------------------------------
+
+export interface P2pAccountState {
+  main: { balance_sats: number; available_sats: number };
+  p2p: { balance_sats: number; available_sats: number };
+  unmatured_holds_sats: number;
+  transferable_to_main_sats: number;
+}
+
+export interface P2pTransferResult extends P2pAccountState {
+  success: boolean;
+  transfer_id: string;
+  direction: "to_p2p" | "to_main";
+  amount_sats: number;
+  replayed: boolean;
+}
+
+export async function fetchMyP2pAccount(): Promise<P2pAccountState> {
+  return p2pAction<P2pAccountState>(
+    "get_p2p_account",
+    {},
+    "We couldn't load your P2P account. Please try again.",
+  );
+}
+
+export function transferP2pAccount(
+  direction: "to_p2p" | "to_main",
+  amountSats: number,
+  idempotencyKey: string,
+): Promise<P2pTransferResult> {
+  return p2pAction<P2pTransferResult>(
+    direction === "to_p2p" ? "transfer_to_p2p" : "transfer_to_main",
+    { amount_sats: amountSats, idempotency_key: idempotencyKey },
+    "The transfer could not be completed. Please try again.",
+  );
+}
+
 export interface SendMessageResult {
   success: boolean;
   message: P2pMessage;

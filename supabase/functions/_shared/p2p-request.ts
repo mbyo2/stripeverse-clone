@@ -186,7 +186,8 @@ export interface RpcActionSpec {
 export type ActionSpec =
   | RpcActionSpec
   | { kind: "message" }
-  | { kind: "cron" };
+  | { kind: "cron" }
+  | { kind: "account" };
 
 const rpc = (
   spec: Omit<RpcActionSpec, "kind">,
@@ -502,7 +503,58 @@ export const P2P_ACTIONS: Record<string, ActionSpec> = {
   // ── Non-RPC actions (handled by the dispatcher itself) ──────────
   send_message: { kind: "message" },
   refresh_price_index: { kind: "cron" },
+
+  // ── Separate P2P account (Binance-style funding account) ────────
+  // Handled by the dispatcher itself: get_p2p_account is a pair of
+  // service-role reads plus the unmatured-holds RPC, and the two
+  // transfers go through the single p2p_account_transfer RPC after
+  // the freeze guard. None of these are marketplace-entry actions —
+  // moving your own sats between your own wallets must work while
+  // the marketplace is paused.
+  transfer_to_p2p: { kind: "account" },
+  transfer_to_main: { kind: "account" },
+  get_p2p_account: { kind: "account" },
 };
+
+/** Validate a body for a P2P-account transfer and build the
+ *  p2p_account_transfer arguments (without the user id — the
+ *  dispatcher fills p_user_id from the verified JWT, as everywhere
+ *  in this module). The direction derives from the ACTION name,
+ *  never from the body: a body field named `direction` is ignored,
+ *  so a client cannot flip a transfer's direction by smuggling one. */
+export function buildTransferArgs(
+  action: string,
+  body: Body,
+): Validation<{
+  direction: "to_p2p" | "to_main";
+  amount_sats: number;
+  idempotency_key: string;
+}> {
+  const direction =
+    action === "transfer_to_p2p"
+      ? "to_p2p"
+      : action === "transfer_to_main"
+        ? "to_main"
+        : null;
+  if (direction === null) {
+    return fail(`Unknown transfer action: ${action}`);
+  }
+  const amount = body["amount_sats"];
+  if (
+    typeof amount !== "number" ||
+    !Number.isSafeInteger(amount) ||
+    amount <= 0
+  ) {
+    return fail(
+      "amount_sats must be a whole number of sats greater than zero",
+    );
+  }
+  const key = body["idempotency_key"];
+  if (typeof key !== "string" || key.length < 8 || key.length > 100) {
+    return fail("idempotency_key is required (8–100 chars)");
+  }
+  return ok({ direction, amount_sats: amount, idempotency_key: key });
+}
 
 /** Validate a body for an RPC action and build its argument object
  *  (without the actor argument — the dispatcher injects it). */

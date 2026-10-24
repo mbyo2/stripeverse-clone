@@ -285,6 +285,34 @@ export function round2(n: number): number {
 }
 
 // ---------------------------------------------------------------------
+// Separate P2P account — transfer maths
+// ---------------------------------------------------------------------
+
+/**
+ * Sats in the P2P account that can move back to the main wallet
+ * right now: what is available minus what the T+1 (24-hour) safety
+ * hold still covers. Held sats stay in the P2P account until the
+ * hold matures, so they never count as transferable.
+ */
+export function maxTransferableToMainSats(
+  p2pAvailableSats: number,
+  unmaturedHoldsSats: number,
+): number {
+  return Math.max(0, p2pAvailableSats - unmaturedHoldsSats);
+}
+
+/**
+ * Sats still missing from the P2P account to cover `neededSats`
+ * (a sell ad's total, an order's lock) — zero when already covered.
+ */
+export function p2pShortfallSats(
+  neededSats: number,
+  p2pAvailableSats: number,
+): number {
+  return Math.max(0, neededSats - p2pAvailableSats);
+}
+
+// ---------------------------------------------------------------------
 // §3.5 form validation
 // ---------------------------------------------------------------------
 

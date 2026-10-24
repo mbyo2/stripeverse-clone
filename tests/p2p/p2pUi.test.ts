@@ -19,9 +19,11 @@ import {
   formatSats,
   isOffMarket,
   limitsReasonText,
+  maxTransferableToMainSats,
   orderSteps,
   ORDER_STATUS_META,
   percentVsIndex,
+  p2pShortfallSats,
   sanctionDefaultDuration,
   slaInfo,
   traderDisplayName,
@@ -159,6 +161,39 @@ describe("price maths mirrors p2p_create_order", () => {
   it("sats → fiat rounds to the ngwee, exactly as the RPC", () => {
     expect(fiatFromCrypto(50_000, index)).toBe(1000);
     expect(fiatFromCrypto(33_333, 3_000_000)).toBe(999.99);
+  });
+});
+
+describe("separate P2P account — transfer maths", () => {
+  it("with zero holds, everything available can move to main", () => {
+    expect(maxTransferableToMainSats(50_000, 0)).toBe(50_000);
+    expect(maxTransferableToMainSats(0, 0)).toBe(0);
+  });
+
+  it("holds reduce what can move to main, sat for sat", () => {
+    expect(maxTransferableToMainSats(50_000, 20_000)).toBe(30_000);
+  });
+
+  it("holds above available leave nothing transferable — never negative", () => {
+    expect(maxTransferableToMainSats(10_000, 25_000)).toBe(0);
+  });
+
+  it("exact cover: holds equal to available leave zero transferable", () => {
+    expect(maxTransferableToMainSats(40_000, 40_000)).toBe(0);
+  });
+
+  it("shortfall is what is still needed beyond the P2P available balance", () => {
+    expect(p2pShortfallSats(50_000, 20_000)).toBe(30_000);
+    expect(p2pShortfallSats(50_000, 0)).toBe(50_000);
+  });
+
+  it("shortfall is zero when the P2P account exactly covers the need", () => {
+    expect(p2pShortfallSats(50_000, 50_000)).toBe(0);
+  });
+
+  it("shortfall is zero when the P2P account more than covers the need", () => {
+    expect(p2pShortfallSats(50_000, 75_000)).toBe(0);
+    expect(p2pShortfallSats(0, 0)).toBe(0);
   });
 });
 
