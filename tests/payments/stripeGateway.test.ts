@@ -16,19 +16,27 @@
 import { describe, it, expect } from "vitest";
 import {
   buildCheckoutSessionParams,
+  buildStripeRefundParams,
   canUseStripeGateway,
+  decideStripeRefundEligibility,
   fromMinorUnits,
   isStripeCurrencyRejection,
+  mapStripeRefundStatus,
   moneyEquals,
   parseMoney,
   parseStripeSignatureHeader,
   paymentIntentIdFromChargeEvent,
+  plainStripeRefundError,
   planStripeSettlement,
   sessionIdFromEvent,
   stripeErrorTrace,
   stripeEventAction,
   stripeGatewayConfig,
+  stripeGatewayStatus,
   stripeKeyMode,
+  stripePaymentIntentIdFromRow,
+  stripeRefundIdempotencyKey,
+  stripeSessionIdFromRow,
   timingSafeEqualHex,
   toMinorUnits,
   validateStripeTopUp,
@@ -383,5 +391,224 @@ describe("planStripeSettlement (exactly-once decision)", () => {
   it("refuses deposits that are no longer pending", () => {
     expect(planStripeSettlement({ ...pending, status: "failed" }, "cs_test_1")).toBe("not_pending");
     expect(planStripeSettlement({ ...pending, status: "cancelled" }, "cs_test_1")).toBe("not_pending");
+  });
+});
+
+// ── Admin: status mapping ──────────────────────────────────────────
+
+describe("stripeGatewayStatus (admin status mapping)", () => {
+  it("maps a test key, a present webhook secret and an enabled rail", () => {
+    expect(
+      stripeGatewayStatus({
+        secretKey: "sk_test_abc123",
+        webhookSecret: "whsec_present",
+        gatewayEnabled: true,
+      }),
+    ).toEqual({
+      configured: true,
+      mode: "test",
+      kill_switch_enabled: true,
+      webhook_configured: true,
+    });
+  });
+
+  it("maps a live key truthfully", () => {
+    expect(
+      stripeGatewayStatus({
+        secretKey: "rk_live_abc123",
+        webhookSecret: "whsec_present",
+        gatewayEnabled: true,
+      }).mode,
+    ).toBe("live");
+  });
+
+  it("reports unconfigured when the secret is absent or the wrong kind", () => {
+    expect(
+      stripeGatewayStatus({ secretKey: null, webhookSecret: null, gatewayEnabled: true }),
+    ).toEqual({
+      configured: false,
+      mode: null,
+      kill_switch_enabled: true,
+      webhook_configured: false,
+    });
+    expect(
+      stripeGatewayStatus({
+        secretKey: "pk_test_abc123",
+        webhookSecret: "  ",
+        gatewayEnabled: false,
+      }),
+    ).toEqual({
+      configured: false,
+      mode: null,
+      kill_switch_enabled: false,
+      webhook_configured: false,
+    });
+  });
+
+  it("treats only an explicit true as kill_switch_enabled", () => {
+    expect(
+      stripeGatewayStatus({ secretKey: null, webhookSecret: null, gatewayEnabled: null })
+        .kill_switch_enabled,
+    ).toBe(false);
+    expect(
+      stripeGatewayStatus({ secretKey: null, webhookSecret: null, gatewayEnabled: undefined })
+        .kill_switch_enabled,
+    ).toBe(false);
+  });
+});
+
+// ── Admin: refunds ───────────────────────────────────────────────
+
+const settledRow = {
+  status: "completed",
+  payment_method: "stripe",
+  reference: "cs_test_1",
+  external_reference: "cs_test_1",
+  metadata: {
+    kind: "wallet_deposit",
+    session_id: "cs_test_1",
+    payment_intent_id: "pi_123",
+  },
+};
+
+describe("stripePaymentIntentIdFromRow / stripeSessionIdFromRow", () => {
+  it("reads the payment intent settlement recorded in metadata", () => {
+    expect(stripePaymentIntentIdFromRow(settledRow)).toBe("pi_123");
+    expect(stripePaymentIntentIdFromRow({ ...settledRow, metadata: {} })).toBeNull();
+    expect(stripePaymentIntentIdFromRow(null)).toBeNull();
+    // A session id is not a payment reference.
+    expect(
+      stripePaymentIntentIdFromRow({
+        ...settledRow,
+        metadata: { payment_intent_id: "cs_test_1" },
+      }),
+    ).toBeNull();
+  });
+
+  it("reads the session id from metadata, then reference columns", () => {
+    expect(stripeSessionIdFromRow(settledRow)).toBe("cs_test_1");
+    expect(
+      stripeSessionIdFromRow({ ...settledRow, metadata: { stripe_session_id: "cs_early" } }),
+    ).toBe("cs_early");
+    expect(
+      stripeSessionIdFromRow({ ...settledRow, metadata: {}, reference: "cs_ref", external_reference: null }),
+    ).toBe("cs_ref");
+    expect(
+      stripeSessionIdFromRow({ ...settledRow, metadata: {}, reference: null, external_reference: null }),
+    ).toBeNull();
+    expect(stripeSessionIdFromRow(null)).toBeNull();
+  });
+});
+
+describe("decideStripeRefundEligibility", () => {
+  it("admits a completed deposit carrying a payment intent", () => {
+    expect(decideStripeRefundEligibility(settledRow)).toEqual({
+      ok: true,
+      paymentIntentId: "pi_123",
+      sessionId: "cs_test_1",
+    });
+    expect(decideStripeRefundEligibility({ ...settledRow, status: "settled" }).ok).toBe(true);
+  });
+
+  it("refuses a missing row as not_found (404)", () => {
+    const decision = decideStripeRefundEligibility(null);
+    expect(decision.ok).toBe(false);
+    if (!decision.ok) {
+      expect(decision.reason).toBe("not_found");
+      expect(decision.httpStatus).toBe(404);
+    }
+  });
+
+  it("refuses non-Stripe rows", () => {
+    const decision = decideStripeRefundEligibility({ ...settledRow, payment_method: "paypal" });
+    expect(decision.ok).toBe(false);
+    if (!decision.ok) expect(decision.reason).toBe("not_stripe");
+  });
+
+  it("refuses deposits that have not settled", () => {
+    for (const status of ["pending", "failed", "cancelled"]) {
+      const decision = decideStripeRefundEligibility({ ...settledRow, status });
+      expect(decision.ok).toBe(false);
+      if (!decision.ok) {
+        expect(decision.reason).toBe("not_settled");
+        expect(decision.httpStatus).toBe(400);
+      }
+    }
+  });
+
+  it("refuses a settled row with no Stripe payment reference", () => {
+    const decision = decideStripeRefundEligibility({
+      ...settledRow,
+      metadata: { kind: "wallet_deposit", session_id: "cs_test_1" },
+    });
+    expect(decision.ok).toBe(false);
+    if (!decision.ok) expect(decision.reason).toBe("missing_payment_reference");
+  });
+
+  it("refuses a deposit that already carries a refund", () => {
+    const decision = decideStripeRefundEligibility({
+      ...settledRow,
+      metadata: { ...settledRow.metadata, refund_id: "re_123" },
+    });
+    expect(decision.ok).toBe(false);
+    if (!decision.ok) expect(decision.reason).toBe("already_refunded");
+  });
+});
+
+describe("buildStripeRefundParams / stripeRefundIdempotencyKey", () => {
+  it("builds a full refund against the payment intent, with ledger metadata", () => {
+    expect(
+      buildStripeRefundParams({ paymentIntentId: "pi_123", ledgerId: "ledger-123" }),
+    ).toEqual({
+      payment_intent: "pi_123",
+      "metadata[ledger_id]": "ledger-123",
+    });
+  });
+
+  it("omits ledger metadata when none is known and never sends an amount", () => {
+    const params = buildStripeRefundParams({ paymentIntentId: "pi_123" });
+    expect(params).toEqual({ payment_intent: "pi_123" });
+    expect("amount" in params).toBe(false);
+  });
+
+  it("pins the idempotency key to the ledger id", () => {
+    expect(stripeRefundIdempotencyKey("ledger-123")).toBe("refund:ledger-123");
+  });
+});
+
+describe("mapStripeRefundStatus (status mapping)", () => {
+  it("normalises Stripe refund statuses", () => {
+    expect(mapStripeRefundStatus("pending")).toBe("pending");
+    expect(mapStripeRefundStatus("requires_action")).toBe("pending");
+    expect(mapStripeRefundStatus("succeeded")).toBe("succeeded");
+    expect(mapStripeRefundStatus("failed")).toBe("failed");
+    expect(mapStripeRefundStatus("canceled")).toBe("canceled");
+    expect(mapStripeRefundStatus("cancelled")).toBe("canceled");
+  });
+
+  it("maps anything unrecognised to unknown", () => {
+    expect(mapStripeRefundStatus("processing")).toBe("unknown");
+    expect(mapStripeRefundStatus(null)).toBe("unknown");
+    expect(mapStripeRefundStatus(undefined)).toBe("unknown");
+    expect(mapStripeRefundStatus("")).toBe("unknown");
+  });
+});
+
+describe("plainStripeRefundError (classified 502 language)", () => {
+  it("names an already-refunded charge plainly", () => {
+    expect(plainStripeRefundError({ code: "charge_already_refunded" })).toContain(
+      "already been refunded",
+    );
+  });
+
+  it("never echoes Stripe's raw message", () => {
+    const message = plainStripeRefundError({
+      type: "invalid_request_error",
+      code: "parameter_invalid",
+      message: "Echo of a secret-looking value sk_test_abc",
+    });
+    expect(message).not.toContain("sk_test_abc");
+    expect(message).toContain("No money has moved");
+    expect(plainStripeRefundError(null)).toContain("No money has moved");
   });
 });

@@ -45,9 +45,11 @@ const Wallet = () => {
   const { startStripeTopUp, isStartingStripeTopUp } = useStripeGatewayDeposit();
 
   // Stripe gateway top-ups (brief §3) are superadmin-only while the
-  // rail is in sandbox: the option renders only for admin /
-  // super_admin, and stripe-gateway-checkout enforces the same gate
-  // server-side. Everyone else keeps seeing the existing options.
+  // rail is in sandbox: admin / super_admin get the working option,
+  // everyone else sees it disabled as "Coming soon" (the PayPal
+  // convention), and stripe-gateway-checkout enforces the same gate
+  // server-side. Amount validation here is a courtesy only — the
+  // server-side guard in the checkout function is authoritative.
   const canUseStripeGateway = roles.some(
     (role) => role === "admin" || (role as string) === "super_admin",
   );
@@ -69,6 +71,10 @@ const Wallet = () => {
     // disabled, and this guard keeps the redirect flow unreachable
     // regardless. (The gate is ON — PayPal went live 2026-10-22.)
     if (depositMethod === 'paypal' && !PAYPAL_AVAILABLE) return;
+    // Stripe gate: plain users see the option disabled as
+    // "Coming soon"; this guard keeps the flow unreachable for them
+    // regardless of how depositMethod was set.
+    if (depositMethod === 'stripe_card' && !canUseStripeGateway) return;
     const parsedAmount = parseFloat(amount);
     if (!isNaN(parsedAmount) && parsedAmount > 0) {
       if (depositMethod === 'stripe_card') {
@@ -128,9 +134,13 @@ const Wallet = () => {
             <SelectItem value="paypal" disabled={!PAYPAL_AVAILABLE}>
               PayPal{!PAYPAL_AVAILABLE && ` — ${PAYPAL_COMING_SOON_LABEL}`}
             </SelectItem>
-            {canUseStripeGateway && (
+            {canUseStripeGateway ? (
               <SelectItem value="stripe_card">
                 Card (Stripe){STRIPE_GATEWAY_MODE_LABEL}
+              </SelectItem>
+            ) : (
+              <SelectItem value="stripe_card" disabled>
+                Card (Stripe) — Coming soon
               </SelectItem>
             )}
           </SelectContent>
