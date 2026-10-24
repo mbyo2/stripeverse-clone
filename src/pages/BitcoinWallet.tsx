@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -12,10 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBitcoinWallet } from "@/hooks/useBitcoinWallet";
 import { useInvalidateMoneyState } from "@/utils/moneyFreshness";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
+import { interpretOnchainSendResponse } from "@/utils/btcSend";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { formatBitcoinAmount, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import QRCode from "qrcode.react";
 import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound, ArrowUpRight, ArrowDownLeft, Bitcoin } from "lucide-react";
 
 const satsToBtc = (sats?: number) => (sats ? sats / 100_000_000 : 0);
@@ -52,7 +54,9 @@ function OnchainDeposit({ onDone }: { onDone: () => void }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Send BTC to your unique deposit address. Funds appear after 1 confirmation (~10 min).
+        Send BTC to your unique deposit address. Funds appear after 2 confirmations
+        for deposits under 500,000 sats, and 3 confirmations for larger deposits
+        (usually about 20–30 minutes).
       </p>
       {!address ? (
         <Button onClick={getAddress} disabled={loading} className="w-full">
@@ -61,6 +65,11 @@ function OnchainDeposit({ onDone }: { onDone: () => void }) {
         </Button>
       ) : (
         <div className="space-y-3">
+          <div className="flex justify-center">
+            <div className="rounded bg-white p-3">
+              <QRCode value={`bitcoin:${address}`} size={180} />
+            </div>
+          </div>
           <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all">{address}</div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={copy} className="flex-1">
@@ -77,16 +86,25 @@ function OnchainDeposit({ onDone }: { onDone: () => void }) {
   );
 }
 
-function LightningDeposit({ onDone }: { onDone: () => void }) {
+const LIGHTNING_UNAVAILABLE_MESSAGE =
+  "Lightning deposits are not available yet — please use an on-chain Bitcoin deposit for now.";
+
+function LightningDeposit({ onDone, onUseOnchain }: { onDone: () => void; onUseOnchain: () => void }) {
   const { toast } = useToast();
   const [sats, setSats] = useState(10000);
   const [invoice, setInvoice] = useState<{ bolt11: string; payment_id: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
+  // Set when the backend answers with its designed not-configured /
+  // unavailable 503: the panel then renders the honest unavailable
+  // state (no error box) and routes to the on-chain tab instead.
+  const [unavailable, setUnavailable] = useState(false);
   // Persistent in-dialog error: a transient toast alone left users
   // staring at an unchanged form with no explanation when invoice
   // creation failed (live QA, 2026-10-22 — the failure was invisible).
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const invoiceRef = useRef<{ bolt11: string; payment_id: string } | null>(null);
+  invoiceRef.current = invoice;
 
   const create = async () => {
     setLoading(true);
@@ -99,11 +117,18 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
       // A 2xx with an incomplete payload is still a failure — never
       // treat it as a created invoice.
       if (!data?.bolt11 || !data?.payment_id) {
-        throw new Error("Lightning deposits are not available yet — please use an on-chain Bitcoin deposit for now.");
+        throw new Error(LIGHTNING_UNAVAILABLE_MESSAGE);
       }
       setInvoice(data);
     } catch (e: any) {
       const msg = await resolveEdgeFunctionError(e, "Could not create a Lightning invoice. Please try again.");
+      // The designed 503 copy (not configured / provider unavailable)
+      // is a deployment state, not a user error: show the honest
+      // unavailable panel rather than an error box.
+      if (msg.includes("Lightning deposits are not available yet")) {
+        setUnavailable(true);
+        return;
+      }
       setErrorMsg(msg);
       toast({ title: "Failed to create invoice", description: msg, variant: "destructive" });
     } finally {
@@ -111,26 +136,59 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
     }
   };
 
-  const checkPaid = async () => {
-    if (!invoice) return;
-    setChecking(true);
+  // One status check against the open invoice. Returns the status so
+  // the auto-poller can stop itself; manual checks toast the outcome.
+  const checkPaid = async (manual: boolean): Promise<string | null> => {
+    const inv = invoiceRef.current;
+    if (!inv) return null;
+    if (manual) setChecking(true);
     try {
       const { data, error } = await supabase.functions.invoke("breez-lightning", {
-        body: { action: "check_status", breez_invoice_id: invoice.payment_id },
+        body: { action: "check_status", breez_invoice_id: inv.payment_id },
       });
       if (error) throw error;
       if (data.status === "paid") {
         toast({ title: "Payment received!" });
         onDone();
-      } else {
+        return "paid";
+      }
+      if (data.status === "expired") {
+        setInvoice(null);
+        setErrorMsg("That Lightning invoice expired before it was paid — create a new one to try again.");
+        return "expired";
+      }
+      if (manual) {
         toast({ title: "Still pending", description: "The invoice hasn't been paid yet." });
       }
+      return "pending";
     } catch (e: any) {
-      toast({ title: "Check failed", description: await resolveEdgeFunctionError(e, "Could not check the payment status. Please try again."), variant: "destructive" });
+      if (manual) {
+        toast({ title: "Check failed", description: await resolveEdgeFunctionError(e, "Could not check the payment status. Please try again."), variant: "destructive" });
+      }
+      return null;
     } finally {
-      setChecking(false);
+      if (manual) setChecking(false);
     }
   };
+
+  // Auto-poll every 5s while an unpaid invoice is open in the dialog;
+  // stops on paid/expired and cleans up on unmount / tab switch (the
+  // tab content unmounts) / invoice reset.
+  useEffect(() => {
+    if (!invoice) return;
+    let stopped = false;
+    const id = setInterval(async () => {
+      const status = await checkPaid(false);
+      if (stopped || status === "paid" || status === "expired") {
+        clearInterval(id);
+      }
+    }, 5000);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoice]);
 
   const copy = () => {
     if (invoice) {
@@ -138,6 +196,22 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
       toast({ title: "Invoice copied" });
     }
   };
+
+  if (unavailable) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-border bg-muted/50 p-3">
+          <p className="text-sm flex items-start gap-2">
+            <Zap className="h-4 w-4 mt-0.5 shrink-0" />
+            {LIGHTNING_UNAVAILABLE_MESSAGE}
+          </p>
+        </div>
+        <Button onClick={onUseOnchain} className="w-full">
+          Use on-chain deposit
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -162,6 +236,11 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
         </>
       ) : (
         <div className="space-y-3">
+          <div className="flex justify-center">
+            <div className="rounded bg-white p-3">
+              <QRCode value={invoice.bolt11} size={180} />
+            </div>
+          </div>
           <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all max-h-32 overflow-y-auto">
             {invoice.bolt11}
           </div>
@@ -169,11 +248,14 @@ function LightningDeposit({ onDone }: { onDone: () => void }) {
             <Button variant="outline" onClick={copy} className="flex-1">
               <Copy className="h-4 w-4 mr-2" /> Copy
             </Button>
-            <Button onClick={checkPaid} disabled={checking} className="flex-1">
+            <Button onClick={() => void checkPaid(true)} disabled={checking} className="flex-1">
               {checking ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               I've paid
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground text-center">
+            Checking for your payment automatically every few seconds…
+          </p>
         </div>
       )}
     </div>
@@ -189,7 +271,11 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
   // One idempotency key per send intent: a retried click can never
   // broadcast twice. Reset only after a completed send.
   const [idemKey, setIdemKey] = useState(() => crypto.randomUUID());
-  const [result, setResult] = useState<{ txid: string; fee_sats: number } | null>(null);
+  const [result, setResult] = useState<
+    | { kind: "broadcast"; txid: string; fee_sats: number }
+    | { kind: "verifying"; txid: string | null; message: string }
+    | null
+  >(null);
 
   const send = async () => {
     setSending(true);
@@ -203,8 +289,32 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
         },
       });
       if (error) throw error;
-      setResult({ txid: data.txid, fee_sats: data.fee_sats });
-      toast({ title: "Withdrawal broadcast", description: `Fee: ${Number(data.fee_sats).toLocaleString()} sats` });
+      // A 2xx is not always a broadcast: btc-onchain answers 202 with
+      // status "verifying" (and no fee_sats) when the broadcast outcome
+      // is ambiguous — the withdrawal stays reserved server-side and
+      // must NOT be retried. Route every response through the
+      // interpreter rather than assuming success fields exist.
+      const outcome = interpretOnchainSendResponse(data);
+      if (outcome.kind === "verifying") {
+        setResult({ kind: "verifying", txid: outcome.txid, message: outcome.message });
+        toast({ title: "Withdrawal being verified", description: outcome.message });
+        // Funds are now held in the reserved row: refresh shared money
+        // state so balances reflect the hold. The idempotency key is
+        // deliberately NOT rotated — this send must not be repeated.
+        invalidateMoney();
+        onDone();
+        return;
+      }
+      if (outcome.kind !== "broadcast") {
+        toast({
+          title: "Withdrawal status unclear",
+          description: "We couldn't confirm the result of this withdrawal. Please check your recent activity before trying again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setResult({ kind: "broadcast", txid: outcome.txid, fee_sats: outcome.feeSats });
+      toast({ title: "Withdrawal broadcast", description: `Fee: ${outcome.feeSats.toLocaleString()} sats` });
       setIdemKey(crypto.randomUUID());
       // The withdrawal wrote ledger rows: refresh shared money state
       // so the Wallet page / Dashboard activity reflects it.
@@ -218,6 +328,20 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
   };
 
   if (result) {
+    if (result.kind === "verifying") {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Your withdrawal is being verified</p>
+          <p className="text-sm text-muted-foreground">{result.message}</p>
+          {result.txid && (
+            <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all">{result.txid}</div>
+          )}
+          <p className="text-sm text-muted-foreground">
+            Your Bitcoin is held safely while this is checked — please do not send it again.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="space-y-3">
         <p className="text-sm">Your withdrawal is on its way. Transaction ID:</p>
@@ -407,6 +531,9 @@ export default function BitcoinWallet() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  // Controlled so the Lightning panel can route the user onto the
+  // On-chain tab (custodial Lightning deposits are unavailable).
+  const [depositTab, setDepositTab] = useState("onchain");
 
   useEffect(() => {
     document.title = "Bitcoin Wallet | BTC balance & deposits";
@@ -456,7 +583,15 @@ export default function BitcoinWallet() {
               </div>
 
               <div className="flex flex-wrap gap-3 mt-6">
-              <Dialog open={open} onOpenChange={setOpen}>
+              <Dialog
+                open={open}
+                onOpenChange={(next) => {
+                  setOpen(next);
+                  // Reopening Deposit always lands on the working
+                  // On-chain tab, as it did when Tabs was uncontrolled.
+                  if (!next) setDepositTab("onchain");
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button size="lg">Deposit BTC</Button>
                 </DialogTrigger>
@@ -465,7 +600,7 @@ export default function BitcoinWallet() {
                     <DialogTitle>Deposit Bitcoin</DialogTitle>
                   </DialogHeader>
 
-                  <Tabs defaultValue="onchain" className="w-full">
+                  <Tabs value={depositTab} onValueChange={setDepositTab} className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="onchain">On-chain</TabsTrigger>
                       <TabsTrigger value="lightning">Lightning</TabsTrigger>
@@ -474,7 +609,7 @@ export default function BitcoinWallet() {
                       <OnchainDeposit onDone={handleDone} />
                     </TabsContent>
                     <TabsContent value="lightning" className="pt-4">
-                      <LightningDeposit onDone={handleDone} />
+                      <LightningDeposit onDone={handleDone} onUseOnchain={() => setDepositTab("onchain")} />
                     </TabsContent>
                   </Tabs>
                 </DialogContent>

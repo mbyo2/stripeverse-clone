@@ -1865,6 +1865,7 @@ export type Database = {
           paypal_payout_fee_percent: number
           send_money_fee_percent: number
           split_platform_fee_percent: number
+          stripe_gateway_enabled: boolean
           transfer_fee_percent: number
         }
         Insert: {
@@ -1872,6 +1873,7 @@ export type Database = {
           paypal_payout_fee_percent?: number
           send_money_fee_percent?: number
           split_platform_fee_percent?: number
+          stripe_gateway_enabled?: boolean
           transfer_fee_percent?: number
         }
         Update: {
@@ -1879,6 +1881,7 @@ export type Database = {
           paypal_payout_fee_percent?: number
           send_money_fee_percent?: number
           split_platform_fee_percent?: number
+          stripe_gateway_enabled?: boolean
           transfer_fee_percent?: number
         }
         Relationships: []
@@ -3765,7 +3768,17 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "user" | "business" | "admin" | "beta_tester"
+      app_role:
+        | "user"
+        | "business"
+        | "admin"
+        | "beta_tester"
+        | "moderator"
+        | "super_admin"
+        | "p2p_admin"
+        | "support_admin"
+        | "compliance_admin"
+        | "finance_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3893,7 +3906,18 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["user", "business", "admin", "beta_tester"],
+      app_role: [
+        "user",
+        "business",
+        "admin",
+        "beta_tester",
+        "moderator",
+        "super_admin",
+        "p2p_admin",
+        "support_admin",
+        "compliance_admin",
+        "finance_admin",
+      ],
     },
   },
 } as const

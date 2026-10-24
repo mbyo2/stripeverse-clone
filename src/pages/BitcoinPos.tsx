@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import { resolveEdgeFunctionError } from '@/utils/edgeFunctionError';
 import { buildPosReceiptHtml, buildPosStatementHtml, openPosPrintWindow } from '@/utils/posStatement';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVisibilityPolling } from '@/lib/polling';
 
 // Bitcoin POS — data bridge. This page is a merchant data tool, not a
 // checkout: create a payment request at the till, the customer pays
@@ -96,8 +97,6 @@ export default function BitcoinPos() {
   const [exporting, setExporting] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const loadRequests = useCallback(async () => {
     try {
       const data = await invokePos({
@@ -126,13 +125,16 @@ export default function BitcoinPos() {
   useEffect(() => { loadKeys(); }, [loadKeys]);
 
   // Live status for the request currently on screen: poll every 15s
-  // while it is still awaiting payment.
-  useEffect(() => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    if (!active || active.status !== 'awaiting_payment') return;
-    pollRef.current = setInterval(async () => {
+  // while it is still awaiting payment. Visibility-gated (scalability
+  // fix #5): nothing fires from a hidden tab, one refresh lands the
+  // moment the merchant looks again, and polling stops for good once
+  // the request leaves awaiting_payment (paid / expired / cancelled).
+  const activeId = active?.id;
+  useVisibilityPolling(
+    async () => {
+      if (!activeId) return;
       try {
-        const data = await invokePos({ action: 'get_request', id: active.id });
+        const data = await invokePos({ action: 'get_request', id: activeId });
         if (data?.request) {
           setActive(data.request);
           if (data.request.status !== 'awaiting_payment') {
@@ -141,9 +143,10 @@ export default function BitcoinPos() {
           }
         }
       } catch { /* polling is best-effort */ }
-    }, 15_000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [active, loadRequests]);
+    },
+    15_000,
+    { enabled: !!active && active.status === 'awaiting_payment' },
+  );
 
   const handleCreate = async () => {
     if (!reference.trim()) { toast.error('Enter your till or order reference first.'); return; }

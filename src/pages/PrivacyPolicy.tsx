@@ -8,7 +8,7 @@ const PrivacyPolicy = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-4xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 max-w-4xl mx-auto w-full">
         <h1 className="text-3xl font-bold mb-6">Privacy Policy</h1>
         
         <div className="prose max-w-none text-foreground">

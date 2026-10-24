@@ -56,6 +56,15 @@ verify_jwt = true
 [functions.paypal-webhook] 
 verify_jwt = false
 
+# Stripe gateway wallet top-ups (brief §3): checkout is called by a
+# signed-in admin (JWT on); the webhook is called by Stripe itself
+# and authenticates with the Stripe-Signature header instead.
+[functions.stripe-gateway-checkout]
+verify_jwt = true
+
+[functions.stripe-gateway-webhook]
+verify_jwt = false
+
 [functions.paypal-marketplace]
 verify_jwt = true
 
@@ -93,4 +102,17 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.verify-identity]
+verify_jwt = true
+
+# Delta-audit E6: explicit on purpose — the p2p function verifies
+# user JWTs itself and the cron path authenticates with the
+# service-key bearer (isCronCall), so the gateway check stays ON,
+# matching production intent.
+[functions.p2p]
+verify_jwt = true
+
+[functions.mastercard-move]
+verify_jwt = true
+
+[functions.mastercard-processing]
 verify_jwt = true

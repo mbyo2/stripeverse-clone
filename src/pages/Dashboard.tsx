@@ -32,7 +32,8 @@ import {
   Eye,
   TrendingUp,
   PieChart,
-  BarChart
+  BarChart,
+  Bitcoin
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,7 @@ import { groupWalletsByAccount } from "@/utils/accountGrouping";
 import RewardsCard from "@/components/rewards/RewardsCard";
 import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { useBitcoinWallet } from "@/hooks/useBitcoinWallet";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -56,6 +58,7 @@ const Dashboard = () => {
   const { formatAmount } = useCurrency();
   const { showOnboarding, kycLevel, walletBalance, hasProfile, dismiss } = useOnboarding();
   const { accounts } = useAccount();
+  const { wallet: btcWallet, isLoading: btcLoading } = useBitcoinWallet();
   const { data: allWallets = [] } = useMultiCurrencyWallets();
   const accountGroups = groupWalletsByAccount(allWallets, accounts);
 
@@ -69,7 +72,7 @@ const Dashboard = () => {
     return (
       <div className="min-h-screen flex flex-col bg-muted">
         <Header />
-        <main className="flex-1 pt-20 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+        <main className="flex-1 pt-2 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <div className="mb-6 mt-6">
             <Skeleton className="h-8 w-48 mb-2" />
             <Skeleton className="h-5 w-64" />
@@ -86,7 +89,7 @@ const Dashboard = () => {
     return (
       <div className="min-h-screen flex flex-col bg-muted">
         <Header />
-        <main className="flex-1 pt-20 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+        <main className="flex-1 pt-2 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <PageErrorState
             title="We couldn't load your dashboard"
             message="Your balance and recent activity didn't load. Check your connection and try again."
@@ -108,7 +111,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen flex flex-col bg-muted">
       <Header />
-      <main className="flex-1 pt-20 pb-16">
+      <main className="flex-1 pt-2 pb-16">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
           {/* Balance Summary */}
           <div className="bg-[#003087] rounded-[24px] px-6 py-8 md:px-8 mb-6">
@@ -137,6 +140,53 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {/* Bitcoin Wallet — the main product gets the primary panel,
+              directly under the balance band. Everything below it on this
+              page is everyday-money tooling that supports the wallet. */}
+          <div className="bg-black dark:bg-[#0A0F1A] rounded-[24px] px-6 py-6 md:px-8 mb-6 border border-black/10 dark:border-white/10">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+              <div className="flex items-start gap-4 min-w-0">
+                <div className="w-12 h-12 shrink-0 rounded-full bg-[#F7931A] flex items-center justify-center">
+                  <Bitcoin className="h-6 w-6 text-black" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-white font-display font-semibold text-xl leading-tight">Bitcoin Wallet</p>
+                  {btcWallet ? (
+                    <p className="text-white/70 text-sm mt-1">
+                      {(btcWallet.available_sats ?? 0).toLocaleString()} sats available
+                      <span className="text-white/50"> · {(btcWallet.balance_sats ?? 0).toLocaleString()} sats total</span>
+                    </p>
+                  ) : (
+                    <p className="text-white/70 text-sm mt-1">
+                      {btcLoading
+                        ? "Loading your Bitcoin wallet…"
+                        : "Deposit, buy, sell and withdraw Bitcoin — held for you, or self-custody with your own seed phrase. Your choice."}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2.5 shrink-0">
+                <Button asChild className="rounded-full bg-[#F7931A] text-black font-semibold hover:bg-[#DE830A] shadow-none">
+                  <Link to="/bitcoin-wallet">Open wallet</Link>
+                </Button>
+                <Button asChild variant="outline" className="rounded-full bg-transparent border-white/30 text-white hover:bg-white/10 hover:text-white shadow-none">
+                  <Link to="/bitcoin-wallet/self-custody">Self-custody</Link>
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-5">
+              {["Deposit", "Buy", "Sell", "Withdraw"].map((action) => (
+                <Link
+                  key={action}
+                  to="/bitcoin-wallet"
+                  className="rounded-full bg-white/10 hover:bg-white/15 transition-colors px-4 py-1.5 text-[13px] font-medium text-white"
+                >
+                  {action}
+                </Link>
+              ))}
+            </div>
+          </div>
+
           {/* Onboarding */}
           {showOnboarding && (
             <div className="mb-6">
@@ -148,6 +198,9 @@ const Dashboard = () => {
               />
             </div>
           )}
+
+          {/* Supporting layer: everyday money and activity under the wallet. */}
+          <h2 className="text-base font-semibold text-foreground mb-4">Your everyday money</h2>
 
           {/* Main column + side stack */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">

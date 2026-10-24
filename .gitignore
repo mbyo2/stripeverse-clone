@@ -23,6 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 tests/bitcoin/.tmp-btc-core.mjs
+tests/bitcoin/.tmp-btc-core-ln.mjs
 tests/p2p/.tmp-*.mjs
 tests/pos/.tmp-pos-core.mjs
 tests/pos/.tmp-pos-statement.mjs

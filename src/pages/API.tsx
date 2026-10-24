@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -250,7 +251,7 @@ const API = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">API Management</h1>
           <p className="text-muted-foreground">
@@ -258,13 +259,32 @@ const API = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="keys" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="keys">API Keys</TabsTrigger>
+        {/* The documentation is public; key and webhook management are
+            account-specific and only render for signed-in users. */}
+        {!user && (
+          <Card className="mb-6">
+            <CardContent className="flex flex-col sm:flex-row sm:items-center gap-4 pt-6">
+              <div className="flex-1">
+                <p className="font-medium">You're reading the public API documentation</p>
+                <p className="text-sm text-muted-foreground">
+                  Sign in to create API keys and manage webhooks for your account.
+                </p>
+              </div>
+              <Button asChild>
+                <Link to="/login">Sign In</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        <Tabs defaultValue={user ? "keys" : "docs"} className="space-y-6">
+          <TabsList className={`grid w-full ${user ? "grid-cols-3" : "grid-cols-1"}`}>
+            {user && <TabsTrigger value="keys">API Keys</TabsTrigger>}
             <TabsTrigger value="docs">Documentation</TabsTrigger>
-            <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+            {user && <TabsTrigger value="webhooks">Webhooks</TabsTrigger>}
           </TabsList>
 
+          {user && (
           <TabsContent value="keys">
             <div className="space-y-6">
               <Card>
@@ -324,6 +344,7 @@ const API = () => {
               </Card>
             </div>
           </TabsContent>
+          )}
 
           <TabsContent value="docs">
             <Card>
@@ -338,8 +359,8 @@ const API = () => {
                   <div>
                     <h3 className="font-medium mb-2">Quick Start</h3>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Authenticate with your API key in the Authorization header. Keys are
-                      created above and shown only once.
+                      Authenticate with your API key in the Authorization header. Sign in and
+                      open the API Keys tab to create one — keys are shown only once.
                     </p>
                     <div className="bg-muted p-4 rounded-lg">
                       <pre className="text-sm overflow-x-auto">
@@ -381,6 +402,7 @@ const API = () => {
             </Card>
           </TabsContent>
 
+          {user && (
           <TabsContent value="webhooks">
             <Card>
               <CardHeader>
@@ -462,6 +484,7 @@ const API = () => {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
         </Tabs>
       </main>
 

@@ -82,32 +82,67 @@ serve(async (req) => {
 })
 
 async function generateAuditReport(supabaseClient: any, filters: any, format: string) {
-  const { data: auditLogs, error } = await supabaseClient
+  const f = filters ?? {}
+
+  let query = supabaseClient
     .from('audit_logs')
-    .select(`
-      *,
-      profiles:user_id(first_name, last_name)
-    `)
-    .gte('created_at', filters.start_date || '1970-01-01')
-    .lte('created_at', filters.end_date || new Date().toISOString())
-    .eq('table_name', filters.table_name || filters.table_name)
+    .select('*')
+    .gte('created_at', f.start_date || '1970-01-01')
+    .lte('created_at', f.end_date || new Date().toISOString())
     .order('created_at', { ascending: false })
-    .limit(filters.limit || 1000)
+    .limit(f.limit || 1000)
+
+  // Only filter by table when the caller actually supplied one:
+  // `.eq('table_name', undefined)` would silently match nothing.
+  if (typeof f.table_name === 'string' && f.table_name.length > 0) {
+    query = query.eq('table_name', f.table_name)
+  }
+
+  const { data: auditLogs, error } = await query
 
   if (error) {
     throw new Error(`Failed to fetch audit logs: ${error.message}`)
   }
 
+  // audit_logs has NO foreign key to profiles, so PostgREST cannot
+  // embed the actor's name — the old `profiles:user_id(...)` embed
+  // failed every report with a schema-cache relationship error.
+  // Resolve names in a second step, keyed by the distinct actor ids
+  // in the result set: the same approach the Audit Logs page uses
+  // (src/utils/auditLogProfiles.ts). Names are cosmetic in an
+  // export — a missing profile (or a failed lookup) leaves the name
+  // blank and never fails the report.
+  const actorIds = [...new Set(
+    (auditLogs ?? [])
+      .map((log: any) => log.user_id)
+      .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+  )]
+  const nameById = new Map<string, string>()
+  if (actorIds.length > 0) {
+    const { data: profiles } = await supabaseClient
+      .from('profiles')
+      .select('id, first_name, last_name')
+      .in('id', actorIds)
+    for (const p of profiles ?? []) {
+      const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim()
+      if (name) nameById.set(p.id, name)
+    }
+  }
+  const records = (auditLogs ?? []).map((log: any) => ({
+    ...log,
+    actor_name: log.user_id ? nameById.get(log.user_id) ?? '' : '',
+  }))
+
   const report = {
     generated_at: new Date().toISOString(),
-    total_records: auditLogs.length,
-    filters_applied: filters,
-    summary: generateAuditSummary(auditLogs),
-    records: auditLogs
+    total_records: records.length,
+    filters_applied: f,
+    summary: generateAuditSummary(records),
+    records
   }
 
   if (format === 'csv') {
-    const csv = convertToCSV(auditLogs)
+    const csv = convertToCSV(records)
     return new Response(csv, {
       headers: {
         ...corsHeaders,
@@ -321,7 +356,14 @@ function convertToCSV(data: any[]): string {
   for (const row of data) {
     const values = headers.map(header => {
       const value = row[header]
-      return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value
+      if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`
+      // jsonb cells (old_values / new_values) arrive as objects/arrays:
+      // render their JSON text, quoted like a string — never the raw
+      // object, which stringifies as "[object Object]".
+      if (value !== null && typeof value === 'object') {
+        return `"${JSON.stringify(value).replace(/"/g, '""')}"`
+      }
+      return value
     })
     csvRows.push(values.join(','))
   }

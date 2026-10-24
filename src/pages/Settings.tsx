@@ -233,7 +233,7 @@ const Settings = () => {
     return (
       <div className="min-h-screen flex flex-col bg-muted/30">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full flex items-center justify-center">
+        <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </main>
         <Footer />
@@ -244,7 +244,7 @@ const Settings = () => {
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         {/* Page header */}
         <div className="mb-8">
           <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Settings</h1>

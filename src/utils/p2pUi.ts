@@ -19,6 +19,33 @@ export type P2pOrderStatus =
   | "cancelled_unpaid"
   | "expired_unpaid";
 
+/** Order statuses the trade can never leave — the escrow is settled
+ *  or was never funded, so polling surfaces may stop (scalability
+ *  fix #5: a settled trade generates no standing load). */
+export const TERMINAL_P2P_ORDER_STATUSES: readonly P2pOrderStatus[] = [
+  "completed",
+  "refunded",
+  "cancelled_unpaid",
+  "expired_unpaid",
+];
+
+export function isTerminalP2pOrderStatus(
+  status: string | null | undefined,
+): boolean {
+  return (
+    status != null &&
+    (TERMINAL_P2P_ORDER_STATUSES as readonly string[]).includes(status)
+  );
+}
+
+/** A dispute is live only while "open"; every ruled/negotiated
+ *  outcome is final (see DISPUTE_STATUS_LABELS). */
+export function isTerminalP2pDisputeStatus(
+  status: string | null | undefined,
+): boolean {
+  return status != null && status !== "open";
+}
+
 export type P2pAdSide = "sell_crypto" | "buy_crypto";
 
 // ---------------------------------------------------------------------

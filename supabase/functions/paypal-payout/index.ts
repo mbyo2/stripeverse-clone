@@ -40,6 +40,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
 import {
+  ACCOUNT_FROZEN_MESSAGE,
+  isAccountFrozen,
+} from "../_shared/account-freeze.ts";
+import {
   isPayPalPayoutCurrency,
   isPlausibleEmail,
   normalizeCurrency,
@@ -132,6 +136,13 @@ serve(async (req) => {
 
 // deno-lint-ignore no-explicit-any
 async function handleCreate(admin: any, userId: string, body: any) {
+  // ── Freeze guard: a frozen account cannot withdraw ──
+  // (status/list stay available to a frozen user; only new money-out
+  // is refused.)
+  if (await isAccountFrozen(admin, userId)) {
+    return json({ success: false, status: "account_frozen", error: ACCOUNT_FROZEN_MESSAGE }, 403);
+  }
+
   const amount = Number(body.amount);
   const currency = normalizeCurrency(body.currency);
   const recipientEmail = typeof body.recipient_email === "string" ? body.recipient_email.trim() : "";

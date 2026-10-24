@@ -15,6 +15,7 @@ import {
   type P2pOrder,
 } from "@/services/p2pService";
 import { p2pKeys, useP2pMessages } from "@/hooks/useP2p";
+import { isTerminalP2pOrderStatus } from "@/utils/p2pUi";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
@@ -33,7 +34,15 @@ export default function TradeChat({ order }: { order: P2pOrder }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const messagesQuery = useP2pMessages(order.id, true);
+  // Chat stays live (and keeps polling) while the trade is open and
+  // for 24h after it closes (parties may still need to talk); once
+  // read-only it never polls again (scalability fix #5).
+  const terminal = isTerminalP2pOrderStatus(order.status);
+  const closedAt = new Date(
+    order.completed_at ?? order.cancelled_at ?? order.updated_at,
+  ).getTime();
+  const readOnly = terminal && Date.now() - closedAt > CHAT_POST_CLOSE_MS;
+  const messagesQuery = useP2pMessages(order.id, !readOnly);
   const [draft, setDraft] = useState("");
   const [attachment, setAttachment] = useState<{ path: string; name: string } | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -45,14 +54,6 @@ export default function TradeChat({ order }: { order: P2pOrder }) {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
-
-  const terminal = ["completed", "refunded", "cancelled_unpaid", "expired_unpaid"].includes(
-    order.status,
-  );
-  const closedAt = new Date(
-    order.completed_at ?? order.cancelled_at ?? order.updated_at,
-  ).getTime();
-  const readOnly = terminal && Date.now() - closedAt > CHAT_POST_CLOSE_MS;
 
   const send = useMutation({
     mutationFn: () =>

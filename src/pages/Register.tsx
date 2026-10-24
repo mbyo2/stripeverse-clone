@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { createSubmitGuard } from "@/lib/submitGuard";
 import { UserPlus, Mail, Lock, Phone, User, CheckCircle2, XCircle } from "lucide-react";
 
 const Register = () => {
@@ -20,6 +21,11 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const { signUp, isLoading, user } = useAuth();
   const { toast } = useToast();
+  // Double-submit guard: the ref-held guard refuses a second attempt
+  // instantly (before React re-renders the disabled button), and the
+  // state mirror keeps the button disabled for the whole flight.
+  const submitGuardRef = useRef(createSubmitGuard());
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const passwordChecks = [
     { label: "At least 8 characters", valid: password.length >= 8 },
@@ -32,21 +38,28 @@ const Register = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!allPasswordValid) {
-      toast({ title: "Weak password", description: "Please meet all password requirements.", variant: "destructive" });
-      return;
-    }
+    if (!submitGuardRef.current.begin()) return;
+    setIsSubmitting(true);
+    try {
+      if (!allPasswordValid) {
+        toast({ title: "Weak password", description: "Please meet all password requirements.", variant: "destructive" });
+        return;
+      }
 
-    if (password !== confirmPassword) {
-      toast({ title: "Passwords don't match", description: "Please make sure both passwords are the same.", variant: "destructive" });
-      return;
-    }
+      if (password !== confirmPassword) {
+        toast({ title: "Passwords don't match", description: "Please make sure both passwords are the same.", variant: "destructive" });
+        return;
+      }
 
-    await signUp(email, password, {
-      first_name: firstName,
-      last_name: lastName,
-      phone: phone,
-    });
+      await signUp(email, password, {
+        first_name: firstName,
+        last_name: lastName,
+        phone: phone,
+      });
+    } finally {
+      submitGuardRef.current.end();
+      setIsSubmitting(false);
+    }
   };
 
   if (user) {
@@ -56,7 +69,7 @@ const Register = () => {
   return (
     <div className="min-h-screen flex flex-col bg-muted">
       <Header />
-      <main className="flex-1 flex items-center justify-center p-4 pt-24 pb-16">
+      <main className="flex-1 flex items-center justify-center p-4 pt-6 pb-16">
         <div className="w-full max-w-[480px]">
           {/* Brand header */}
           <div className="text-center mb-8">
@@ -189,9 +202,9 @@ const Register = () => {
                 <Button
                   type="submit"
                   className="w-full h-12 text-base font-semibold mt-2"
-                  disabled={isLoading || !allPasswordValid || (confirmPassword !== "" && password !== confirmPassword)}
+                  disabled={isLoading || isSubmitting || !allPasswordValid || (confirmPassword !== "" && password !== confirmPassword)}
                 >
-                  {isLoading ? "Creating account..." : "Sign Up"}
+                  {isLoading || isSubmitting ? "Creating account..." : "Sign Up"}
                 </Button>
               </form>
             </CardContent>

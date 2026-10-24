@@ -36,7 +36,7 @@ const Escrow = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-20 pb-24 px-4 max-w-5xl mx-auto">
+      <main className="pt-2 pb-24 px-4 max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Marketplace Escrow</h1>

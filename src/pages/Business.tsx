@@ -6,9 +6,10 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRoles } from "@/contexts/RoleContext";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { 
   Store, CreditCard, BarChart3, Settings, Shield, Wallet, FileText, 
   Webhook, TrendingUp, Activity, ArrowUpRight, ArrowRight, 
@@ -27,17 +28,18 @@ import { transactionTitle } from "@/utils/transactionLabels";
 
 const Business = () => {
   const { user } = useAuth();
+  const { hasRole, isLoading: rolesLoading } = useRoles();
   const { merchantAccount, metrics, monthlyChart, paymentMethodBreakdown, businessTransactions, isLoading } = useBusinessData();
   const { formatAmount } = useCurrency();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const navigate = useNavigate();
 
-  if (isLoading) {
+  if (rolesLoading || isLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-20 pb-16">
+        <main className="flex-1 pt-2 pb-16">
           <div className="bg-[#003087] py-8">
             <div className="max-w-[1320px] mx-auto px-4 sm:px-6">
               <Skeleton className="h-8 w-48 mb-2 bg-white/20" />
@@ -53,6 +55,14 @@ const Business = () => {
         </main>
       </div>
     );
+  }
+
+  // The portal below is the account-specific merchant console — it is
+  // gated here, inside the page, so /business itself stays public:
+  // logged-out visitors and users without the business role get the
+  // public business overview instead of a login wall.
+  if (!hasRole('business')) {
+    return <BusinessPublicView isSignedIn={!!user} />;
   }
 
   const setupProgress = [
@@ -522,6 +532,102 @@ const Business = () => {
         </div>
 
         <BusinessSettings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+// Public view of /business for logged-out visitors and signed-in users
+// without the business role. Copy mirrors what the site already says
+// about the business offering (merchant dashboard, API keys, webhook
+// management, settlement tools) — no new claims.
+const BusinessPublicView = ({ isSignedIn }: { isSignedIn: boolean }) => {
+  const features = [
+    {
+      icon: Store,
+      title: "Merchant dashboard",
+      description: "See revenue, transactions, and settlements for your business in one place.",
+    },
+    {
+      icon: CreditCard,
+      title: "Accept payments",
+      description: "Take Mobile Money, card, and Bitcoin payments from your customers.",
+    },
+    {
+      icon: Webhook,
+      title: "API keys & webhooks",
+      description: "Integrate payments into your website or app and get notified as events happen.",
+    },
+    {
+      icon: BarChart3,
+      title: "Business analytics",
+      description: "Follow your sales and payment methods with built-in analytics.",
+    },
+  ];
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <Header />
+      <main className="flex-1 pt-14">
+        <div className="bg-[#003087]">
+          <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-10">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+              BMaGlass Pay for Business
+            </h1>
+            <p className="text-white/70 text-sm sm:text-base max-w-2xl">
+              Run your business payments on BMaGlass Pay: a merchant dashboard,
+              API keys, webhook management, and settlement tools.
+            </p>
+          </div>
+        </div>
+
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {features.map((feature) => (
+              <Card key={feature.title}>
+                <CardHeader>
+                  <div className="p-2.5 rounded-xl bg-primary/10 w-fit mb-2">
+                    <feature.icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <CardTitle className="text-base">{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{feature.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card>
+            <CardContent className="flex flex-col sm:flex-row sm:items-center gap-4 pt-6">
+              <div className="flex-1">
+                <p className="font-medium">
+                  {isSignedIn ? "Your account doesn't have business access yet" : "Open a business account"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {isSignedIn
+                    ? "Request the Business role and, once approved, this page becomes your merchant portal."
+                    : "Create an account, then request the Business role to turn this page into your merchant portal."}
+                </p>
+              </div>
+              {isSignedIn ? (
+                <Button asChild>
+                  <Link to="/role-management">Request Business Access</Link>
+                </Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button asChild>
+                    <Link to="/register">Create an Account</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link to="/login">Sign In</Link>
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </main>
       <Footer />
     </div>

@@ -1,20 +1,34 @@
 import { toUserFacingError } from "@/utils/userFacingError";
+import {
+  classifyResendConfirmation,
+  isEmailNotConfirmedError,
+  type ResendConfirmationOutcome,
+} from "@/lib/authRecovery";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+// What a sign-in attempt came to. `emailNotConfirmed` is the one
+// failure the login page can act on itself (offer a resend), so it
+// travels back to the caller instead of only reaching a toast.
+export type SignInResult = {
+  ok: boolean;
+  emailNotConfirmed: boolean;
+};
+
 type AuthContextType = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
-  signIn: (email: string, password: string, twoFactorCode?: string) => Promise<void>;
+  signIn: (email: string, password: string, twoFactorCode?: string) => Promise<SignInResult>;
   signUp: (email: string, password: string, userData: UserData) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserPassword: (password: string) => Promise<void>;
   resendEmailConfirmation: () => Promise<void>;
+  resendConfirmationEmail: (email: string) => Promise<ResendConfirmationOutcome>;
   enable2FA: () => Promise<{ qrCode: string; secret: string }>;
   verify2FA: (token: string) => Promise<boolean>;
   disable2FA: (token: string) => Promise<void>;
@@ -155,11 +169,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signIn = async (email: string, password: string, twoFactorCode?: string) => {
+  const signIn = async (email: string, password: string, twoFactorCode?: string): Promise<SignInResult> => {
     try {
       setIsLoading(true);
-      
-      if (!(await checkRateLimit('login'))) return;
+
+      if (!(await checkRateLimit('login'))) return { ok: false, emailNotConfirmed: false };
 
       const { error } = await supabase.auth.signInWithPassword({ 
         email, 
@@ -188,7 +202,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               description: "2FA code must be exactly 6 digits.",
               variant: "destructive",
             });
-            return;
+            return { ok: false, emailNotConfirmed: false };
           }
           
           const isValid = await verify2FA(twoFactorCode);
@@ -206,7 +220,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               description: "Please check your authenticator app and try again.",
               variant: "destructive",
             });
-            return;
+            return { ok: false, emailNotConfirmed: false };
           }
         }
       }
@@ -215,19 +229,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         title: "Welcome back!",
         description: "You've successfully signed in.",
       });
-      
+
+      return { ok: true, emailNotConfirmed: false };
       // Navigation will be handled by components that use this context
     } catch (error: any) {
       if (error.message === '2FA_REQUIRED') {
         // Handle 2FA requirement in UI
-        return;
+        return { ok: false, emailNotConfirmed: false };
       }
-      
+
       toast({
         title: "Sign in failed",
         description: toUserFacingError(error),
         variant: "destructive",
       });
+      return { ok: false, emailNotConfirmed: isEmailNotConfirmedError(error) };
     } finally {
       setIsLoading(false);
     }
@@ -381,6 +397,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Resend a signup confirmation email to an address typed on the
+  // login page, where there is no signed-in user yet (the existing
+  // resendEmailConfirmation above works off the session user). The
+  // outcome is returned, not toasted, so the page can present the
+  // crafted feedback for each state in place.
+  const resendConfirmationEmail = async (email: string): Promise<ResendConfirmationOutcome> => {
+    try {
+      if (!(await checkRateLimit('email_confirmation'))) return 'rate_limited';
+
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+
+      return classifyResendConfirmation(error);
+    } catch (error: any) {
+      return classifyResendConfirmation(error);
+    }
+  };
+
   const enable2FA = async (): Promise<{ qrCode: string; secret: string }> => {
     try {
       const { data, error } = await supabase.functions.invoke('generate-totp-secret', {
@@ -474,6 +513,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       resetPassword,
       updateUserPassword,
       resendEmailConfirmation,
+      resendConfirmationEmail,
       enable2FA,
       verify2FA,
       disable2FA,

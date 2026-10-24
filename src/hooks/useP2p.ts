@@ -11,6 +11,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { MONEY_QUERY_STALE_TIME } from "@/utils/moneyFreshness";
+import { pollUntil } from "@/lib/polling";
+import {
+  isTerminalP2pDisputeStatus,
+  isTerminalP2pOrderStatus,
+} from "@/utils/p2pUi";
+import type { P2pDispute, P2pOrder } from "@/services/p2pService";
 import {
   fetchActiveAds,
   fetchDispute,
@@ -159,17 +165,25 @@ export function useP2pOrder(orderId: string | undefined, poll = false) {
     queryFn: () => fetchOrder(orderId!),
     enabled: !!orderId,
     staleTime: MONEY_QUERY_STALE_TIME,
-    refetchInterval: poll ? 10_000 : undefined,
+    // Poll while the trade is live; stop for good once it settles
+    // (scalability fix #5 — pollUntil, src/lib/polling.ts).
+    refetchInterval: poll
+      ? pollUntil<P2pOrder | null>(10_000, (o) =>
+          isTerminalP2pOrderStatus(o?.status),
+        )
+      : undefined,
   });
 }
 
-export function useP2pOrderClaim(orderId: string | undefined) {
+export function useP2pOrderClaim(orderId: string | undefined, poll = true) {
   return useQuery({
     queryKey: p2pKeys.claim(orderId ?? ""),
     queryFn: () => fetchOrderClaim(orderId!),
     enabled: !!orderId,
     staleTime: MONEY_QUERY_STALE_TIME,
-    refetchInterval: 15_000,
+    // The claim row carries no status of its own, so the CALLER gates
+    // polling on the order/dispute state it already has (fix #5).
+    refetchInterval: poll ? pollUntil(15_000) : undefined,
   });
 }
 
@@ -179,7 +193,9 @@ export function useP2pMessages(orderId: string | undefined, poll = false) {
     queryFn: () => fetchOrderMessages(orderId!),
     enabled: !!orderId,
     staleTime: MONEY_QUERY_STALE_TIME,
-    refetchInterval: poll ? 8_000 : undefined,
+    // Caller gates `poll` on the trade still being live (TradeChat
+    // passes its own read-only rule — fix #5).
+    refetchInterval: poll ? pollUntil(8_000) : undefined,
   });
 }
 
@@ -189,7 +205,11 @@ export function useP2pDisputeByOrder(orderId: string | undefined) {
     queryFn: () => fetchDisputeByOrder(orderId!),
     enabled: !!orderId,
     staleTime: MONEY_QUERY_STALE_TIME,
-    refetchInterval: 15_000,
+    // Keep polling while no dispute exists (one may open) or while
+    // it is open; stop once it is ruled/settled (fix #5).
+    refetchInterval: pollUntil<P2pDispute | null>(15_000, (d) =>
+      d != null ? isTerminalP2pDisputeStatus(d.status) : false,
+    ),
   });
 }
 
@@ -199,7 +219,9 @@ export function useP2pDispute(disputeId: string | undefined) {
     queryFn: () => fetchDispute(disputeId!),
     enabled: !!disputeId,
     staleTime: MONEY_QUERY_STALE_TIME,
-    refetchInterval: 15_000,
+    refetchInterval: pollUntil<P2pDispute | null>(15_000, (d) =>
+      d != null ? isTerminalP2pDisputeStatus(d.status) : false,
+    ),
   });
 }
 

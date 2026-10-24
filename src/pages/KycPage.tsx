@@ -9,7 +9,7 @@ const KycPage = () => {
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Identity Verification</h1>
         </div>
@@ -35,7 +35,7 @@ const KycPage = () => {
                   </li>
                   <li className="flex items-start">
                     <span className="bg-primary/10 text-primary rounded-full p-1 mr-2 mt-0.5">✓</span>
-                    <span>Access advanced payment features</span>
+                    <span>Trade on higher P2P tiers</span>
                   </li>
                   <li className="flex items-start">
                     <span className="bg-primary/10 text-primary rounded-full p-1 mr-2 mt-0.5">✓</span>

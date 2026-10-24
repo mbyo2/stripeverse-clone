@@ -72,13 +72,27 @@ function json(status: number, body: unknown) {
   });
 }
 
-// PostgREST/RPC failures are plain objects with a message, not Error
-// instances (the btc-trade lesson).
-function thrownMessage(e: unknown, fallback: string): string {
-  if (e instanceof Error && e.message.trim()) return e.message;
-  const m = (e as { message?: unknown } | null | undefined)?.message;
-  if (typeof m === "string" && m.trim()) return m;
-  return fallback;
+// Delta-audit E3: every database failure leaves this function as a
+// crafted response, mirroring the p2p function's rpcErrorResponse.
+// P0001 is a deliberate RAISE from our RPCs — its message is crafted
+// plain language written for the user, so it passes through. Known
+// constraint codes get crafted messages; everything else is a
+// generic 500. Raw Postgres text appears ONLY in the server log —
+// never in a response body (standing CEO rule: no raw system text).
+function posErrorResponse(error: any) {
+  console.error("pos rpc/query failed:", error);
+  if (error?.code === "P0001") return json(400, { error: error.message });
+  if (error?.code === "23505") {
+    return json(409, {
+      error: "That already exists — it may have been saved already. Check first, and try again if needed.",
+    });
+  }
+  if (error?.code === "42501") {
+    return json(403, { error: "You don't have permission to do that." });
+  }
+  return json(500, {
+    error: "Something went wrong on our side. Please try again.",
+  });
 }
 
 // ── Machine rate limiting (in-memory; isolates are ephemeral, so this
@@ -89,10 +103,51 @@ function machineRateOk(keyId: string): boolean {
   const bucket = rateBuckets.get(keyId);
   if (!bucket || now - bucket.start >= 60_000) {
     rateBuckets.set(keyId, { start: now, count: 1 });
+    pruneMap(rateBuckets, 5_000);
     return true;
   }
   bucket.count += 1;
   return bucket.count <= MACHINE_RATE_LIMIT;
+}
+
+// ── Delta-audit E4: pre-lookup throttling for machine tokens. The
+// key lookup is the cost centre (a database round-trip per attempt)
+// and it used to run BEFORE any limiter, so key enumeration was
+// unthrottled. Two in-memory brakes now sit in front of it:
+//   - a negative cache: a token hash that just failed is refused
+//     from memory for 60s, with no query at all;
+//   - a per-source-IP failure budget (30 failed attempts/minute)
+//     that slows enumeration floods across many distinct tokens.
+// Legitimate keys never accumulate failures, so real tills are
+// unaffected. Same isolate caveat as above: burst brakes, not quotas.
+const failedKeyHashes = new Map<string, number>();
+const machineFailures = new Map<string, { start: number; count: number }>();
+const MACHINE_FAILURE_LIMIT = 30;
+const FAILED_KEY_TTL_MS = 60_000;
+
+function pruneMap<K, V>(map: Map<K, V>, max: number) {
+  while (map.size > max) {
+    const oldest = map.keys().next().value;
+    if (oldest === undefined) break;
+    map.delete(oldest as K);
+  }
+}
+
+function machineFailureBudgetOk(ip: string): boolean {
+  const bucket = machineFailures.get(ip);
+  if (!bucket || Date.now() - bucket.start >= 60_000) return true;
+  return bucket.count < MACHINE_FAILURE_LIMIT;
+}
+
+function recordMachineFailure(ip: string) {
+  const now = Date.now();
+  const bucket = machineFailures.get(ip);
+  if (!bucket || now - bucket.start >= 60_000) {
+    machineFailures.set(ip, { start: now, count: 1 });
+    pruneMap(machineFailures, 5_000);
+  } else {
+    bucket.count += 1;
+  }
 }
 
 const REQUEST_COLUMNS =
@@ -127,7 +182,7 @@ serve(async (req) => {
 
     // ── Machine path: POS API key ──────────────────────────────────
     if (isPosApiKey(token)) {
-      return await handleMachine(admin, token, action, body);
+      return await handleMachine(admin, req, token, action, body);
     }
 
     // ── Merchant UI path: user JWT ─────────────────────────────────
@@ -161,9 +216,11 @@ serve(async (req) => {
         return json(400, { error: `Unknown action: ${action}` });
     }
   } catch (e) {
+    // Delta-audit E3: nothing raw ever reaches the client — the
+    // detail goes to the server log only.
     console.error("pos error:", e);
     return json(500, {
-      error: thrownMessage(e, "Something went wrong. Please try again."),
+      error: "Something went wrong on our side. Please try again.",
     });
   }
 });
@@ -172,6 +229,7 @@ serve(async (req) => {
 
 async function handleMachine(
   admin: ReturnType<typeof getServiceRoleClient>,
+  req: Request,
   plainKey: string,
   action: string,
   body: Record<string, unknown>,
@@ -183,13 +241,33 @@ async function handleMachine(
   }
 
   const keyHash = await sha256Hex(plainKey);
+
+  // Delta-audit E4: both brakes run BEFORE the key lookup (see the
+  // limiter block above). A cached failure gets the same crafted
+  // 401 as a fresh one — the responses are indistinguishable.
+  const sourceIp =
+    (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
+    "unknown";
+  const negUntil = failedKeyHashes.get(keyHash);
+  if (negUntil && negUntil > Date.now()) {
+    return json(401, { error: "That API key is not valid. Check the key, or create a new one in the app." });
+  }
+  if (!machineFailureBudgetOk(sourceIp)) {
+    return json(429, {
+      error: "Too many failed API key attempts from this connection. Wait a minute and try again.",
+    });
+  }
+
   const { data: keyRow, error } = await admin
     .from("pos_api_keys")
     .select("id, user_id, key_hash, revoked")
     .eq("key_hash", keyHash)
     .maybeSingle();
-  if (error) throw error;
+  if (error) return posErrorResponse(error);
   if (!keyRow || keyRow.revoked || !timingSafeEqual(String(keyRow.key_hash), keyHash)) {
+    failedKeyHashes.set(keyHash, Date.now() + FAILED_KEY_TTL_MS);
+    pruneMap(failedKeyHashes, 10_000);
+    recordMachineFailure(sourceIp);
     return json(401, { error: "That API key is not valid. Check the key, or create a new one in the app." });
   }
 
@@ -363,7 +441,7 @@ async function createRequest(
     if ((error as { code?: string }).code === "P0001") {
       return json(400, { error: error.message });
     }
-    throw error;
+    return posErrorResponse(error);
   }
   return json(200, { success: true, request: shapeRequest(row) });
 }
@@ -404,7 +482,7 @@ async function listRequests(
   }
 
   const { data, error, count } = await query;
-  if (error) throw error;
+  if (error) return posErrorResponse(error);
   return json(200, {
     success: true,
     requests: (data ?? []).map(shapeRequest),
@@ -427,7 +505,7 @@ async function getRequest(
     .eq("user_id", userId)
     .eq("id", id)
     .maybeSingle();
-  if (error) throw error;
+  if (error) return posErrorResponse(error);
   if (!data) return json(404, { error: "That payment request could not be found." });
   return json(200, { success: true, request: shapeRequest(data) });
 }
@@ -445,7 +523,7 @@ async function getRequestByReference(
     .eq("user_id", userId)
     .eq("merchant_reference", reference)
     .maybeSingle();
-  if (error) throw error;
+  if (error) return posErrorResponse(error);
   if (!data) {
     return json(404, { error: `No payment request with reference ${reference} was found.` });
   }
@@ -467,7 +545,7 @@ async function cancelRequest(
     if ((error as { code?: string }).code === "P0001") {
       return json(400, { error: error.message });
     }
-    throw error;
+    return posErrorResponse(error);
   }
   return json(200, { success: true, request: shapeRequest(data) });
 }
@@ -497,7 +575,7 @@ async function createApiKey(
     p_key_hash: keyHash,
     p_key_prefix: displayPrefix,
   });
-  if (error) throw error;
+  if (error) return posErrorResponse(error);
 
   return json(200, {
     success: true,
@@ -519,7 +597,7 @@ async function listApiKeys(
     .select("id, label, key_prefix, last_used_at, revoked, revoked_at, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
-  if (error) throw error;
+  if (error) return posErrorResponse(error);
   return json(200, { success: true, keys: data ?? [] });
 }
 
@@ -538,7 +616,7 @@ async function revokeApiKey(
     if ((error as { code?: string }).code === "P0001") {
       return json(400, { error: error.message });
     }
-    throw error;
+    return posErrorResponse(error);
   }
   return json(200, { success: true });
 }
@@ -572,7 +650,7 @@ async function exportCsv(
     .lte("created_at", to.toISOString())
     .order("created_at", { ascending: true })
     .limit(10_000);
-  if (error) throw error;
+  if (error) return posErrorResponse(error);
 
   const rows = data ?? [];
   return json(200, {

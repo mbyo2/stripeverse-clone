@@ -48,12 +48,13 @@ import {
   isUuid,
   P2P_ACTIONS,
 } from "../_shared/p2p-request.ts";
-import { scanAdTerms, scanChatText } from "../_shared/p2p-chat-scan.ts";
+import { scanAdTerms, scanChatText, type ScanFlag } from "../_shared/p2p-chat-scan.ts";
 import {
   buildSnapshotInsert,
   computeBtcIndex,
   fetchBtcUsdPrices,
   fetchUsdZmwFallback,
+  isFxDeviationStale,
 } from "../_shared/price-index.ts";
 
 const corsHeaders = {
@@ -85,14 +86,19 @@ const PAUSED_MESSAGE =
 // Small service-role helpers
 // ---------------------------------------------------------------------
 
+// P2P console authority: full admins, the super_admin, and the
+// per-feature p2p_admin (superadmin foundation, 20261105). Mirrors the
+// database helper public.p2p_is_admin, which the in-DB RPC checks use.
+const P2P_ADMIN_ROLES = ["admin", "super_admin", "p2p_admin"];
+
 async function isAdmin(admin: any, userId: string): Promise<boolean> {
   const { data } = await admin
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  return !!data;
+    .in("role", P2P_ADMIN_ROLES)
+    .limit(1);
+  return Array.isArray(data) && data.length > 0;
 }
 
 async function p2pEnabled(admin: any): Promise<boolean> {
@@ -191,8 +197,41 @@ async function handleRefreshPriceIndex(admin: any) {
       error: "Price sources are unavailable; no snapshot written.",
     });
   }
-  const index = computeBtcIndex(prices.coinbaseUsd, prices.krakenUsd, usdZmw);
+  let index: ReturnType<typeof computeBtcIndex>;
+  try {
+    index = computeBtcIndex(prices.coinbaseUsd, prices.krakenUsd, usdZmw);
+  } catch (e) {
+    console.error("p2p price refresh: index computation failed:", e);
+    return json(503, {
+      success: false,
+      error: "Price sources are unavailable; no snapshot written.",
+    });
+  }
   const row = buildSnapshotInsert(index);
+  // Delta-audit E5: the FX leg is single-sourced, so a bad USD/ZMW
+  // row would silently misprice everything. Sanity-band it against
+  // the previous snapshot's rate; a breach lands the snapshot as
+  // stale (order creation refuses on stale) instead of poisoning
+  // the index. The deviation is kept in sources for the audit trail.
+  const { data: prev } = await admin
+    .from("p2p_price_snapshots")
+    .select("sources")
+    .eq("asset", "BTC")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const prevUsdZmw = Number(
+    (prev?.sources as { usd_zmw?: unknown } | null)?.usd_zmw,
+  );
+  if (isFxDeviationStale(prevUsdZmw, usdZmw)) {
+    row.is_stale = true;
+    row.sources = {
+      ...row.sources,
+      fx_deviation_from_previous:
+        Math.round((Math.abs(usdZmw - prevUsdZmw) / prevUsdZmw) * 10000) /
+        10000,
+    };
+  }
   const { error } = await admin.from("p2p_price_snapshots").insert(row);
   if (error) {
     console.error("p2p price refresh: snapshot insert failed:", error);
@@ -220,6 +259,45 @@ const CONTACT_MASKED_MESSAGE =
   "Contact details in a message were hidden. Keep all communication " +
   "and payment inside this trade — moving off-platform removes every " +
   "protection the escrow gives you.";
+
+/** Delta-audit E1: an attachment path is accepted only when it is
+ *  exactly where THIS trade's uploads live in the p2p-evidence
+ *  bucket — chat/<order_id>/<file>, or the evidence folder of this
+ *  order's own dispute, disputes/<dispute_id>/<file>. Anything else
+ *  (another order's folder, traversal segments, an arbitrary string)
+ *  is refused, so a message can never point its "evidence" at a file
+ *  that does not belong to this trade. */
+async function attachmentBelongsToOrder(
+  admin: any,
+  orderId: string,
+  attachmentPath: string,
+): Promise<boolean> {
+  if (attachmentPath.length > 300 || attachmentPath.includes("\\")) {
+    return false;
+  }
+  const parts = attachmentPath.split("/");
+  if (
+    parts.length !== 3 ||
+    !parts[1] ||
+    !parts[2] ||
+    parts[2] === "." ||
+    parts[2] === ".."
+  ) {
+    return false;
+  }
+  if (parts[0] === "chat") return parts[1] === orderId;
+  if (parts[0] === "disputes") {
+    if (!isUuid(parts[1])) return false;
+    const { data: dispute } = await admin
+      .from("p2p_disputes")
+      .select("id")
+      .eq("id", parts[1])
+      .eq("order_id", orderId)
+      .maybeSingle();
+    return !!dispute;
+  }
+  return false;
+}
 
 async function handleSendMessage(admin: any, user: any, body: any) {
   const orderId = body?.order_id;
@@ -280,6 +358,23 @@ async function handleSendMessage(admin: any, user: any, body: any) {
     }
   }
 
+  // Delta-audit E1: validate the attachment path against this
+  // trade before anything is stored, and record the
+  // attachment_unscanned flag — files are evidence and are never
+  // content-scanned, so the flag is how strike/dispute logic knows
+  // the attachment channel was used. An attachment-only message is
+  // therefore possible only with a valid path.
+  const attachmentFlags: ScanFlag[] = [];
+  if (attachmentPath) {
+    if (!(await attachmentBelongsToOrder(admin, orderId, attachmentPath))) {
+      return json(400, {
+        error:
+          "That attachment isn't part of this trade. Attach a file from this trade's chat or its dispute evidence.",
+      });
+    }
+    attachmentFlags.push({ category: "attachment_unscanned", masked: "" });
+  }
+
   if (senderType === "support") {
     // Staff messages are not scanned and never strike anyone.
     const { data: row, error } = await admin
@@ -290,7 +385,7 @@ async function handleSendMessage(admin: any, user: any, body: any) {
         sender_type: "support",
         body: rawBody,
         attachment_path: attachmentPath,
-        scan_flags: [],
+        scan_flags: attachmentFlags,
       })
       .select()
       .single();
@@ -310,7 +405,7 @@ async function handleSendMessage(admin: any, user: any, body: any) {
       sender_type: "user",
       body: scan.maskedText,
       attachment_path: attachmentPath,
-      scan_flags: scan.flags,
+      scan_flags: [...scan.flags, ...attachmentFlags],
     })
     .select()
     .single();
@@ -325,7 +420,9 @@ async function handleSendMessage(admin: any, user: any, body: any) {
     success: true,
     message: row,
     masked: scan.hasContactDetails,
-    flags: scan.categories,
+    flags: attachmentPath
+      ? [...scan.categories, "attachment_unscanned"]
+      : scan.categories,
   };
 
   if (scan.hasContactDetails) {
@@ -410,6 +507,45 @@ async function handleSendMessage(admin: any, user: any, body: any) {
 // RPC dispatch
 // ---------------------------------------------------------------------
 
+// Delta-audit E4: per-user burst limits, enforced BEFORE dispatch.
+// Fixed-window, in-memory — edge isolates are ephemeral and
+// per-instance, so this is a burst brake of the same class as the
+// POS machine-key limiter, not a durable quota. The durable caps
+// live in the database (order-velocity gates in p2p_create_order,
+// the strike pipeline for chat); this layer exists so a single
+// client cannot hammer the RPC surface (notably the price-index
+// read + escrow-lock path in create_order) faster than any human.
+const USER_RATE_LIMITS: Record<string, { limit: number; windowMs: number }> = {
+  send_message: { limit: 30, windowMs: 60_000 },
+  create_order: { limit: 10, windowMs: 60_000 },
+  create_ad: { limit: 5, windowMs: 60_000 },
+};
+const userRateBuckets = new Map<string, { start: number; count: number }>();
+const USER_RATE_BUCKET_MAX = 5_000;
+
+function userRateOk(userId: string, action: string): boolean {
+  const rule = USER_RATE_LIMITS[action];
+  if (!rule) return true;
+  const key = `${userId}:${action}`;
+  const now = Date.now();
+  const bucket = userRateBuckets.get(key);
+  if (!bucket || now - bucket.start >= rule.windowMs) {
+    if (userRateBuckets.size >= USER_RATE_BUCKET_MAX) {
+      // Bounded memory: drop expired buckets before growing further.
+      for (const [k, b] of userRateBuckets) {
+        if (now - b.start >= rule.windowMs) userRateBuckets.delete(k);
+      }
+      if (userRateBuckets.size >= USER_RATE_BUCKET_MAX) {
+        userRateBuckets.clear();
+      }
+    }
+    userRateBuckets.set(key, { start: now, count: 1 });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= rule.limit;
+}
+
 function rpcErrorResponse(error: any) {
   console.error("p2p rpc failed:", error);
   // P0001 is a deliberate RAISE from our RPCs — its message is crafted
@@ -464,6 +600,14 @@ serve(async (req) => {
       return json(401, { error: "Unauthorized" });
     }
 
+    // Delta-audit E4: burst brake before any dispatch (see
+    // USER_RATE_LIMITS above).
+    if (!userRateOk(user.id, action)) {
+      return json(429, {
+        error: "You're doing that too often — wait a moment and try again.",
+      });
+    }
+
     if (action === "send_message") {
       return handleSendMessage(admin, user, body);
     }
@@ -481,7 +625,10 @@ serve(async (req) => {
     }
 
     if (spec.actorArg) args[spec.actorArg] = user.id;
-    if (spec.rpc === "p2p_apply_sanction") args.p_applied_by = "admin";
+    // Delta-audit D10/E7: applied_by carries the acting admin's REAL
+    // verified id (the column's original meaning), never a literal —
+    // and the RPC re-verifies that id against has_role in the DB.
+    if (spec.rpc === "p2p_apply_sanction") args.p_applied_by = user.id;
 
     // §3.7: ad terms go through the same scan at posting. A contact
     // hit refuses the ad (terms are contract text — they are never

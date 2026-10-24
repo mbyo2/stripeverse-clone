@@ -65,7 +65,7 @@ const PaymentForm = ({ amount, onSuccess, onCancel }: PaymentFormProps) => {
             )}
             
             <Tabs defaultValue="card" onValueChange={setPaymentMethod}>
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5">
                 <TabsTrigger value="card">
                   <CreditCard className="mr-2 h-4 w-4" /> Card
                 </TabsTrigger>

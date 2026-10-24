@@ -25,6 +25,8 @@ const Support = () => {
   const [activeTab, setActiveTab] = useState("faq");
   const [searchTerm, setSearchTerm] = useState('');
   const [ticketForm, setTicketForm] = useState({
+    name: '',
+    email: '',
     subject: '',
     priority: 'medium',
     message: '',
@@ -75,12 +77,19 @@ const Support = () => {
       toast({ title: "Missing fields", description: "Please fill in subject and description.", variant: "destructive" });
       return;
     }
+    // Logged-out visitors type their own contact details (the fields
+    // render only for them); signed-in users are identified from their
+    // account, as before.
+    if (!user && (!ticketForm.name.trim() || !ticketForm.email.trim())) {
+      toast({ title: "Missing fields", description: "Please add your name and email so we can reply to you.", variant: "destructive" });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       const { error } = await supabase.from('contact_messages').insert({
-        name: user?.user_metadata?.first_name || user?.email || 'User',
-        email: user?.email || '',
+        name: user ? (user.user_metadata?.first_name || user.email || 'User') : ticketForm.name.trim(),
+        email: user ? (user.email || '') : ticketForm.email.trim(),
         subject: `[${ticketForm.priority.toUpperCase()}] ${ticketForm.subject}`,
         message: ticketForm.message,
       });
@@ -88,7 +97,7 @@ const Support = () => {
       if (error) throw error;
 
       toast({ title: "Ticket Submitted", description: "We'll get back to you within 24 hours." });
-      setTicketForm({ subject: '', priority: 'medium', message: '' });
+      setTicketForm({ name: '', email: '', subject: '', priority: 'medium', message: '' });
     } catch (error: any) {
       toast({ title: "Submission Failed", description: toUserFacingError(error), variant: "destructive" });
     } finally {
@@ -99,7 +108,7 @@ const Support = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Support Center</h1>
           <p className="text-muted-foreground">
@@ -204,6 +213,27 @@ const Support = () => {
                 <CardTitle>Create Support Ticket</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {!user && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Your Name</Label>
+                      <Input
+                        placeholder="Your full name"
+                        value={ticketForm.name}
+                        onChange={(e) => setTicketForm({ ...ticketForm, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Your Email</Label>
+                      <Input
+                        type="email"
+                        placeholder="you@example.com"
+                        value={ticketForm.email}
+                        onChange={(e) => setTicketForm({ ...ticketForm, email: e.target.value })}
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="space-y-2">
                   <Label>Subject</Label>
                   <Input

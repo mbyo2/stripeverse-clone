@@ -66,11 +66,12 @@ import {
   Lock,
   MapPin,
   Search,
-  Store
+  Store,
+  Bitcoin
 } from "lucide-react";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { AccountSwitcher, AccountSwitcherList } from "@/components/AccountSwitcher";
+import { AccountSwitcherList } from "@/components/AccountSwitcher";
 import Logo from "@/components/Logo";
 
 const Header = () => {
@@ -115,16 +116,16 @@ const Header = () => {
   return (
     <>
     <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-[#0A0F1A] border-b border-[#CFD3D8]/70 dark:border-white/10">
-      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between">
+      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
         {/* Logo */}
-        <div className="flex items-center gap-10">
-          <Link to="/" aria-label="BMaGlass Pay — home" className="flex items-center">
+        <div className="flex items-center gap-3 xl:gap-6 2xl:gap-10 min-w-0">
+          <Link to="/" aria-label="BMaGlass Pay — home" className="flex items-center shrink-0">
             <Logo variant={resolvedTheme === "dark" ? "white" : "color"} />
           </Link>
 
           {/* Logged-out Nav */}
           {!user && (
-            <nav className="hidden lg:flex items-center gap-8">
+            <nav className="hidden xl:flex items-center gap-8">
               <Link to="/" className="text-[15px] font-medium text-black dark:text-white hover:underline underline-offset-4">
                 Personal
               </Link>
@@ -139,21 +140,33 @@ const Header = () => {
 
           {/* Desktop Nav */}
           {user && (
-            <nav className="hidden lg:flex items-center gap-1">
+            <nav className="hidden xl:flex items-center gap-1 min-w-0">
               <Link to="/dashboard">
-                <Button variant={isActive("/dashboard") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9">
+                <Button variant={isActive("/dashboard") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 px-3 2xl:px-4">
                   Dashboard
                 </Button>
               </Link>
+              {/* The Bitcoin wallet is the product — first destination after
+                  Dashboard, styled as the primary action in Bitcoin orange. */}
+              <Link to="/bitcoin-wallet">
+                <Button
+                  size="sm"
+                  className={`h-9 rounded-full px-3.5 2xl:px-4 text-sm font-semibold text-black shadow-none gap-1.5 ${
+                    isActive("/bitcoin-wallet") ? "bg-[#DE830A]" : "bg-[#F7931A] hover:bg-[#DE830A]"
+                  }`}
+                >
+                  <Bitcoin className="h-4 w-4" /> Bitcoin Wallet
+                </Button>
+              </Link>
               <Link to="/p2p">
-                <Button variant={isActive("/p2p") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9">
+                <Button variant={isActive("/p2p") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 px-3 2xl:px-4">
                   P2P Trading
                 </Button>
               </Link>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1">
+                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1 px-3 2xl:px-4">
                     Send & Request <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -203,11 +216,17 @@ const Header = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1">
+                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1 px-3 2xl:px-4">
                     Wallet <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuItem asChild>
+                    <Link to="/bitcoin-wallet" className="flex items-center gap-2">
+                      <Bitcoin className="h-4 w-4 text-[#F7931A]" /> Bitcoin Wallet
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/wallet" className="flex items-center gap-2">
                       <Wallet className="h-4 w-4" /> My Wallet
@@ -273,7 +292,7 @@ const Header = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1">
+                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1 px-3 2xl:px-4">
                     Business <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -373,38 +392,46 @@ const Header = () => {
                       <Code2 className="h-4 w-4" /> Checkout Widget
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/developers" className="flex items-center gap-2">
+                      <Code2 className="h-4 w-4" /> Developers
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              <Link to="/developers">
-                <Button variant={isActive("/developers") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9">
-                  Developers
-                </Button>
-              </Link>
             </nav>
           )}
         </div>
 
         {/* Right Side */}
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="hidden xl:flex items-center gap-2 shrink-0">
           {user ? (
             <>
-              <AccountSwitcher />
+              {/* Width budget: the 1320px container leaves 1232px at 1280 and
+                  1272px at ≥1366 for the whole row. The account switcher,
+                  language/currency selectors and role badge live in the
+                  avatar menu (below) so the row fits at every width ≥1280. */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setSearchOpen(true)}
-                className="h-9 gap-2 text-muted-foreground font-normal w-40 justify-start"
+                className="hidden 2xl:flex h-9 gap-2 text-muted-foreground font-normal w-32 justify-start"
               >
                 <Search className="h-3.5 w-3.5" />
                 <span className="text-xs">Search...</span>
                 <kbd className="ml-auto text-[10px] bg-muted px-1.5 py-0.5 rounded">⌘K</kbd>
               </Button>
-              <LanguageSelector compact />
-              <CurrencySelector compact />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSearchOpen(true)}
+                className="h-9 w-9 2xl:hidden"
+                aria-label="Search"
+              >
+                <Search className="h-4 w-4" />
+              </Button>
               <NotificationBell />
-              <RoleBadge />
-              
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -424,7 +451,24 @@ const Header = () => {
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuContent align="end" className="w-72">
+                  {/* Account hub: switcher, role and display preferences moved
+                      here from the header row (see width budget above). */}
+                  <div className="px-2 pt-1.5 pb-1">
+                    <RoleBadge />
+                  </div>
+                  <AccountSwitcherList />
+                  <div className="px-2 py-1 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">Language</span>
+                      <LanguageSelector compact />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">Currency</span>
+                      <CurrencySelector compact />
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/settings" className="flex items-center gap-2">
                       <Settings className="h-4 w-4" /> Settings
@@ -487,7 +531,7 @@ const Header = () => {
                 </Button>
               </Link>
               <Link to="/register">
-                <Button className="h-12 rounded-full bg-[#F7931A] px-7 text-[15px] font-semibold text-black shadow-none hover:bg-[#DE830A]">
+                <Button className="h-12 rounded-full bg-black px-7 text-[15px] font-semibold text-white shadow-none hover:bg-black/85">
                   Sign Up
                 </Button>
               </Link>
@@ -496,22 +540,23 @@ const Header = () => {
         </div>
 
         {/* Mobile Menu */}
-        <div className="lg:hidden flex items-center gap-2">
+        <div className="xl:hidden flex items-center gap-2 shrink-0">
           {user && <NotificationBell />}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Open menu">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-80 overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle className="text-left">
+            <SheetContent side="right" className="w-[85vw] max-w-80 p-0 gap-0 flex flex-col overflow-hidden">
+              <SheetHeader className="px-6 pt-6 pb-2 shrink-0">
+                <SheetTitle className="text-left pr-8">
                   <Logo variant={resolvedTheme === "dark" ? "white" : "color"} />
                 </SheetTitle>
               </SheetHeader>
-              
-              <div className="mt-6 space-y-1">
+
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+              <div className="mt-2 space-y-1">
                 {user ? (
                   <>
                     <div className="px-4 py-3 mb-2">
@@ -522,6 +567,19 @@ const Header = () => {
 
                     <Separator className="my-2" />
                     <MobileNavLink to="/dashboard" icon={Home}>Dashboard</MobileNavLink>
+                    {/* The main product, first in the drawer with Bitcoin-orange weight. */}
+                    <Link
+                      to="/bitcoin-wallet"
+                      onClick={closeMobileMenu}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-semibold ${
+                        isActive("/bitcoin-wallet")
+                          ? "bg-[#F7931A] text-black"
+                          : "bg-[#F7931A]/15 text-foreground hover:bg-[#F7931A]/25"
+                      }`}
+                    >
+                      <Bitcoin className={`h-4 w-4 ${isActive("/bitcoin-wallet") ? "text-black" : "text-[#F7931A]"}`} />
+                      <span>Bitcoin Wallet</span>
+                    </Link>
                     <MobileNavLink to="/p2p" icon={ArrowLeftRight}>P2P Trading</MobileNavLink>
                     
                     <Separator className="my-2" />
@@ -568,19 +626,26 @@ const Header = () => {
                     <MobileNavLink to="/agent-network" icon={MapPin}>Agent Network</MobileNavLink>
                     <MobileNavLink to="/fraud-rules" icon={Shield}>Fraud Rules</MobileNavLink>
                     <MobileNavLink to="/ip-whitelist" icon={ShieldCheck}>IP Whitelist</MobileNavLink>
+                    <MobileNavLink to="/checkout-widget" icon={Code2}>Checkout Widget</MobileNavLink>
                     <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
                     <MobileNavLink to="/rewards" icon={Star}>Rewards</MobileNavLink>
                     <MobileNavLink to="/tier-management" icon={Layers}>Subscription</MobileNavLink>
+                    <MobileNavLink to="/role-management" icon={Users}>Role Management</MobileNavLink>
                     <MobileNavLink to="/settings" icon={Settings}>Settings</MobileNavLink>
                     <MobileNavLink to="/security-settings" icon={Shield}>Security</MobileNavLink>
+                    <MobileNavLink to="/audit-logs" icon={FileText}>Audit Logs</MobileNavLink>
+                    <MobileNavLink to="/backup-export" icon={Package}>Backup & Export</MobileNavLink>
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Preferences</p>
                     <div className="px-4 py-2">
                       <CurrencySelector />
+                    </div>
+                    <div className="px-4 py-2">
+                      <LanguageSelector />
                     </div>
 
                     <button 
@@ -594,19 +659,11 @@ const Header = () => {
                     <Separator className="my-2" />
                     <MobileNavLink to="/support" icon={HelpCircle}>Help & Support</MobileNavLink>
                     <MobileNavLink to="/faq" icon={BookOpen}>FAQ</MobileNavLink>
-                    
-                    <Separator className="my-2" />
-                    <button 
-                      onClick={() => { signOut(); closeMobileMenu(); }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-lg w-full text-left text-destructive hover:bg-destructive/10 transition-colors text-sm font-medium"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      <span>Sign Out</span>
-                    </button>
                   </>
                 ) : (
                   <>
                     <MobileNavLink to="/" icon={Home}>Home</MobileNavLink>
+                    <MobileNavLink to="/bitcoin-wallet" icon={Bitcoin}>Bitcoin Wallet</MobileNavLink>
                     <MobileNavLink to="/about" icon={Users}>About</MobileNavLink>
                     <MobileNavLink to="/pricing" icon={DollarSign}>Pricing</MobileNavLink>
                     <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
@@ -621,21 +678,35 @@ const Header = () => {
                       {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                       <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
                     </button>
-                    
-                    <Separator className="my-4" />
-                    <div className="px-4 space-y-3">
-                      <Link to="/login" onClick={closeMobileMenu}>
-                        <Button variant="ghost" className="w-full gap-2 rounded-full h-12 bg-[#E9EEF5] text-[15px] font-semibold text-[#003087] shadow-none hover:bg-[#DBE5F1] hover:text-[#003087]">
-                          <LogIn className="h-4 w-4" /> Log In
-                        </Button>
-                      </Link>
-                      <Link to="/register" onClick={closeMobileMenu}>
-                        <Button className="w-full gap-2 rounded-full h-12 bg-[#F7931A] text-[15px] font-semibold text-black shadow-none hover:bg-[#DE830A]">
-                          <UserPlus className="h-4 w-4" /> Sign Up
-                        </Button>
-                      </Link>
-                    </div>
                   </>
+                )}
+              </div>
+              </div>
+
+              {/* Pinned footer — Sign Out (or Log In / Sign Up) is always
+                  visible at the bottom of the drawer, no scrolling needed. */}
+              <div className="shrink-0 border-t border-border bg-background px-6 py-4">
+                {user ? (
+                  <button
+                    onClick={() => { signOut(); closeMobileMenu(); }}
+                    className="flex items-center justify-center gap-2 w-full h-12 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/15 transition-colors text-[15px] font-semibold"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Sign Out</span>
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <Link to="/login" onClick={closeMobileMenu}>
+                      <Button variant="ghost" className="w-full gap-2 rounded-full h-12 bg-[#E9EEF5] text-[15px] font-semibold text-[#003087] shadow-none hover:bg-[#DBE5F1] hover:text-[#003087]">
+                        <LogIn className="h-4 w-4" /> Log In
+                      </Button>
+                    </Link>
+                    <Link to="/register" onClick={closeMobileMenu}>
+                      <Button className="w-full gap-2 rounded-full h-12 bg-black text-[15px] font-semibold text-white shadow-none hover:bg-black/85">
+                        <UserPlus className="h-4 w-4" /> Sign Up
+                      </Button>
+                    </Link>
+                  </div>
                 )}
               </div>
             </SheetContent>
@@ -643,6 +714,13 @@ const Header = () => {
         </div>
       </div>
     </header>
+    {/* The header is fixed, so it contributes no layout height. This in-flow
+        spacer reserves exactly the header's height (72px) at the top of
+        every page that renders <Header />, so page content — back buttons,
+        titles, everything — starts below the header at rest and scrolls
+        under it. This is the ONLY header offset in the app: pages must not
+        add their own pt- compensation for the header. */}
+    <div aria-hidden="true" className="h-[72px] shrink-0" />
     <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </>
   );

@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,6 +36,9 @@ serve(async (req) => {
     
     const user = userData.user;
     if (!user?.id) throw new Error("User not authenticated");
+
+    // ── Freeze guard: a frozen account cannot fund a card ──
+    await assertAccountNotFrozen(supabaseClient, user.id);
 
     // Virtual cards are "Coming soon" for the public (CEO decision,
     // 2026-10-22): funding a card is a card action, so it stays

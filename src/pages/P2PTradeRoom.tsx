@@ -31,6 +31,7 @@ import {
   DISPUTE_STATUS_LABELS,
   formatBtcFromSats,
   formatZmw,
+  isTerminalP2pOrderStatus,
   ORDER_STATUS_META,
   paymentMethodTypeLabel,
   traderDisplayName,
@@ -52,7 +53,12 @@ export default function P2PTradeRoom() {
   const { user } = useAuth();
   const orderQuery = useP2pOrder(id, true);
   const order = orderQuery.data;
-  const claimQuery = useP2pOrderClaim(order?.id);
+  // The claim can only appear/change while the trade is live — stop
+  // polling it once the order settles (scalability fix #5).
+  const claimQuery = useP2pOrderClaim(
+    order?.id,
+    !isTerminalP2pOrderStatus(order?.status),
+  );
   const disputeQuery = useP2pDisputeByOrder(order?.id);
 
   const counterpartyId = useMemo(() => {

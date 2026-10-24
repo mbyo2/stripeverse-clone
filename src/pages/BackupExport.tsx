@@ -30,7 +30,7 @@ const BackupExport = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-6xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-3 mb-8">
           <div className="p-2.5 rounded-xl bg-primary/10">
             <Database className="h-6 w-6 text-primary" />

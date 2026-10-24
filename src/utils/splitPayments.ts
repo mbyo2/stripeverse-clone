@@ -66,6 +66,31 @@ export function computePlatformFee(amount: number, ratePercent: number): number 
   return Math.min(roundMoney((amount * ratePercent) / 100), roundMoney(amount));
 }
 
+export interface PaymentLinkNet {
+  platformFee: number;
+  sellerReceives: number;
+}
+
+/**
+ * What the owner of a payment link receives from one payment of
+ * `amount`: the payment minus the platform fee, BEFORE any of the
+ * owner's split rules divide it further (the Split Payments page
+ * explains that second step, and its preview starts from this same
+ * figure). The Payment Links page discloses this at creation time —
+ * before this, the fee was visible only after the fact in the
+ * transaction history, so a seller's first warning was a K2.00 link
+ * payment landing as K1.95 (Wave B QA, 2026-10-24). Mirrors the fee
+ * step of execute_payment_link_settlement in SQL exactly; the
+ * server-side exceptions noted in the module header (rate <= 0,
+ * no platform operator, owner IS the operator) mean the disclosed
+ * figure is the standard case.
+ */
+export function computePaymentLinkNet(amount: number, ratePercent: number): PaymentLinkNet {
+  const platformFee = computePlatformFee(amount, ratePercent);
+  const sellerReceives = amount > 0 ? roundMoney(roundMoney(amount) - platformFee) : 0;
+  return { platformFee, sellerReceives };
+}
+
 /** Shared leg loop: percentages are shares of `amount` (the ORIGINAL
  *  payment), capped at a remainder that starts at `startingRemaining`. */
 function computeLegsFrom(

@@ -24,7 +24,7 @@ const WebhookLogs = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-6xl mt-14">
+      <main className="flex-1 container mx-auto px-4 py-8 max-w-6xl">
         <div className="mb-6">
           <h1 className="text-2xl font-bold flex items-center gap-2"><Zap className="h-6 w-6" />Webhook Delivery Logs</h1>
           <p className="text-muted-foreground">Monitor webhook deliveries and re-queue failed ones for another delivery attempt</p>

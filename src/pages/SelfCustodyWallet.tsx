@@ -922,6 +922,11 @@ function SelfCustodyWallet() {
                 <CardContent className="space-y-2">
                   {receiveAddress ? (
                     <>
+                      <div className="flex justify-center">
+                        <div className="rounded bg-white p-3">
+                          <QRCode value={`bitcoin:${receiveAddress}`} size={180} />
+                        </div>
+                      </div>
                       <p className="font-mono text-xs break-all rounded bg-muted p-2">{receiveAddress}</p>
                       <Button variant="outline" size="sm" onClick={() => copy(receiveAddress, "Address")}>
                         <Copy className="h-4 w-4 mr-1" /> Copy address

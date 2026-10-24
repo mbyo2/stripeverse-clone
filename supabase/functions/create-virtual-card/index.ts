@@ -1,6 +1,41 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  currentTimestamp,
+  generateNonce,
+  signMastercardRequest,
+} from "../_shared/mastercard-oauth.ts";
+import {
+  PROCESSING_NOT_CONFIGURED_MESSAGE,
+  accountsUrl,
+  buildCreateAccountBody,
+  buildCreateCardBody,
+  buildCreateClientBody,
+  cardContractIdFrom,
+  cardContractUrl,
+  cardExpiryFrom,
+  cardNumberFrom,
+  cardsUrl,
+  classifyProviderRefusal,
+  clientIdFrom,
+  clientsUrl,
+  craftedProcessingError,
+  deriveAccountContractNumber,
+  deriveClientNumber,
+  expiryDateFromYymm,
+  expiryDisplayFromYymm,
+  idFromLocationHeader,
+  isProcessingConfigured,
+  maskPan,
+  providerReasonCode,
+  redactSensitive,
+  resolveAccountProductCode,
+  resolveCardProductCode,
+  resolveClientType,
+  accountContractIdFrom,
+  type MastercardProcessingConfig,
+} from "../_shared/mastercard-processing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +46,315 @@ const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[CREATE-VIRTUAL-CARD] ${step}${detailsStr}`);
 };
+
+// ── Mastercard Processing provider path ───────────────────────────
+// When MASTERCARD_ENV is set, a mastercard card is issued through
+// Mastercard Processing (gateway brief §1.1) instead of the local
+// number generator: CMS client → account contract → card contract
+// via the shared client logic in _shared/mastercard-processing.ts
+// (the same code the mastercard-processing edge function runs),
+// signed with the portal project's OAuth key.
+//
+// Honesty rules:
+//   * A provider refusal is surfaced truthfully (crafted message +
+//     refusal class + ReasonCode) and NO local card is minted in
+//     its place — presenting a locally generated number as a
+//     Mastercard-issued card is exactly what this layer prevents.
+//   * The CMS-generated PAN is revealed once, in this response,
+//     and never stored or logged; the row keeps the masked number
+//     and the provider contract ids (migration 20261107).
+//   * The CMS returns no CVV at issuance, so none is claimed.
+// When MASTERCARD_ENV is not set, the local interim path below runs
+// exactly as before.
+function processingConfig(): MastercardProcessingConfig {
+  return {
+    env: Deno.env.get("MASTERCARD_ENV") === "production" ? "production" : "sandbox",
+    consumerKey: Deno.env.get("MASTERCARD_CONSUMER_KEY") ?? null,
+    signingKeyPem: Deno.env.get("MASTERCARD_SIGNING_KEY_PEM") ?? null,
+    clientType: Deno.env.get("MC_PROCESSING_CLIENT_TYPE") ?? null,
+    accountProductCode: Deno.env.get("MC_PROCESSING_ACCOUNT_PRODUCT_CODE") ?? null,
+    cardProductCode: Deno.env.get("MC_PROCESSING_CARD_PRODUCT_CODE") ?? null,
+  };
+}
+
+interface ProcessingCallResult {
+  httpStatus: number;
+  payload: Record<string, unknown> | null;
+  location: string | null;
+}
+
+async function processingCall(
+  config: MastercardProcessingConfig,
+  method: string,
+  url: string,
+  bodyObject: Record<string, unknown> | null,
+): Promise<ProcessingCallResult> {
+  const body = bodyObject ? JSON.stringify(bodyObject) : "";
+  const authorization = await signMastercardRequest(
+    method,
+    url,
+    {
+      consumerKey: config.consumerKey ?? "",
+      body,
+      nonce: generateNonce(),
+      timestamp: currentTimestamp(),
+    },
+    config.signingKeyPem ?? "",
+  );
+  const response = await fetch(url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: authorization,
+    },
+    body: method === "GET" ? undefined : body,
+  });
+  const text = await response.text();
+  let payload: Record<string, unknown> | null = null;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      payload = parsed as Record<string, unknown>;
+    }
+  } catch {
+    payload = null;
+  }
+  return { httpStatus: response.status, payload, location: response.headers.get("Location") };
+}
+
+function processingFailure(result: ProcessingCallResult, status = 502): Response {
+  logStep("Mastercard Processing refused the request", {
+    httpStatus: result.httpStatus,
+    refusalClass: classifyProviderRefusal(result.httpStatus, result.payload),
+    reasonCode: providerReasonCode(result.payload),
+    payload: redactSensitive(result.payload),
+  });
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: craftedProcessingError(result.httpStatus, result.payload),
+      provider_http_status: result.httpStatus,
+      refusal_class: classifyProviderRefusal(result.httpStatus, result.payload),
+      reason_code: providerReasonCode(result.payload),
+    }),
+    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
+}
+
+async function createCardViaProcessing(args: {
+  supabaseClient: any;
+  userId: string;
+  name: string;
+  cardType: string;
+  cardWallet: { id: string; currency: string };
+  dailyLimit?: number;
+  monthlyLimit?: number;
+  transactionLimit?: number;
+  allowOnline?: boolean;
+  allowInternational?: boolean;
+}): Promise<Response> {
+  const { supabaseClient, userId } = args;
+  const config = processingConfig();
+  if (!isProcessingConfigured(config)) {
+    return new Response(
+      JSON.stringify({ success: false, error: PROCESSING_NOT_CONFIGURED_MESSAGE }),
+      { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  // Cardholder names for the CMS: the caller's profile first (the
+  // admin creates cards for their own account in this flow), then
+  // the card name's tokens.
+  const { data: profile } = await supabaseClient
+    .from("profiles")
+    .select("first_name, last_name")
+    .eq("id", userId)
+    .maybeSingle();
+  const nameTokens = args.name.trim().split(/\s+/).filter(Boolean);
+  const firstName = profile?.first_name || nameTokens[0] || "Virtual";
+  const lastName = profile?.last_name || nameTokens.slice(1).join(" ") || "Card";
+
+  // The documented sandbox products are EUR-denominated
+  // (STD-DEBCH-EUR / STD-MCDEBVF-EUR); the CMS account/card currency
+  // follows the environment. The platform row keeps its own ZMW
+  // currency — funding stays in the platform ledger either way.
+  const cmsCurrency = config.env === "sandbox" ? "EUR" : args.cardWallet.currency;
+
+  // 1) CMS client — one per platform user, reused across their
+  //    cards (the CMS refuses a duplicate clientNumber).
+  let providerClientId: string | null = null;
+  const { data: priorCard } = await supabaseClient
+    .from("virtual_cards")
+    .select("provider_client_id")
+    .eq("user_id", userId)
+    .not("provider_client_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+  if (priorCard?.provider_client_id) {
+    providerClientId = priorCard.provider_client_id as string;
+  } else {
+    const clientResult = await processingCall(config, "POST", clientsUrl(config), buildCreateClientBody({
+      clientNumber: deriveClientNumber(userId),
+      clientType: resolveClientType(config) as string,
+      firstName,
+      lastName,
+    }));
+    if (clientResult.httpStatus < 200 || clientResult.httpStatus >= 300) {
+      return processingFailure(clientResult);
+    }
+    providerClientId = clientIdFrom(clientResult.payload)
+      ?? idFromLocationHeader(clientResult.location, "clients");
+    if (!providerClientId) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Mastercard created the cardholder record but did not return its reference. No card was created — please let an administrator know." }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+  }
+
+  // 2) CMS account contract — one per issued card.
+  const accountResult = await processingCall(config, "POST", accountsUrl(config), buildCreateAccountBody({
+    accountContractNumber: deriveAccountContractNumber(crypto.randomUUID()),
+    clientId: providerClientId,
+    productCode: resolveAccountProductCode(config) as string,
+    currency: cmsCurrency,
+  }));
+  if (accountResult.httpStatus < 200 || accountResult.httpStatus >= 300) {
+    return processingFailure(accountResult);
+  }
+  const providerAccountId = accountContractIdFrom(accountResult.payload)
+    ?? idFromLocationHeader(accountResult.location, "accounts");
+  if (!providerAccountId) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Mastercard created the account but did not return its reference. No card was created — please let an administrator know." }),
+      { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  // 3) CMS card contract — the CMS generates the PAN from the BIN
+  //    range configured for the card productCode.
+  const cardResult = await processingCall(config, "POST", cardsUrl(config), buildCreateCardBody({
+    accountContractId: providerAccountId,
+    clientId: providerClientId,
+    productCode: resolveCardProductCode(config) as string,
+    currency: cmsCurrency,
+    firstName,
+    lastName,
+  }));
+  if (cardResult.httpStatus < 200 || cardResult.httpStatus >= 300) {
+    return processingFailure(cardResult);
+  }
+  const providerCardId = cardContractIdFrom(cardResult.payload)
+    ?? idFromLocationHeader(cardResult.location, "cards");
+  if (!providerCardId) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Mastercard created the card but did not return its reference. Please let an administrator know before trying again." }),
+      { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  // 4) Read the card contract back: it carries the CMS-generated
+  //    number + expiry (cardContractNumber is a required field of
+  //    the contract in the reference). No number → we cannot record
+  //    the card honestly, so the issuance is reported as failed
+  //    WITH the provider reference for reconciliation.
+  let pan: string | null = null;
+  let expiryRaw: string | null = null;
+  try {
+    const details = await processingCall(config, "GET", cardContractUrl(config, providerCardId), null);
+    if (details.httpStatus >= 200 && details.httpStatus < 300) {
+      pan = cardNumberFrom(details.payload);
+      expiryRaw = cardExpiryFrom(details.payload);
+    }
+  } catch {
+    pan = null;
+  }
+  if (!pan) {
+    logStep("Processing card issued but number unreadable", { providerCardId });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "Mastercard issued the card but its details could not be read back, so it has not been added here. An administrator can reconcile it in Mastercard Processing.",
+        provider_card_id: providerCardId,
+      }),
+      { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  const masked = await supabaseClient.rpc("mask_card_number", { card_number: pan });
+  const maskedNumber = (masked.data as string | null) ?? maskPan(pan);
+  const expiryDate = expiryDateFromYymm(expiryRaw) ?? (() => {
+    const now = new Date();
+    return new Date(Date.UTC(now.getUTCFullYear() + 3, now.getUTCMonth() + 1, 0))
+      .toISOString()
+      .slice(0, 10);
+  })();
+  const expiry = expiryDisplayFromYymm(expiryRaw) ?? (() => {
+    const d = new Date(expiryDate + "T00:00:00Z");
+    return `${String(d.getUTCMonth() + 1).padStart(2, "0")}/${String(d.getUTCFullYear()).slice(-2)}`;
+  })();
+
+  const { data: newCard, error: createError } = await supabaseClient
+    .from("virtual_cards")
+    .insert({
+      user_id: userId,
+      wallet_id: args.cardWallet.id,
+      name: args.name,
+      masked_number: maskedNumber,
+      expiry_date: expiryDate,
+      balance: 0,
+      currency: args.cardWallet.currency,
+      status: "active",
+      provider: "mastercard",
+      card_type: args.cardType,
+      daily_limit: args.dailyLimit,
+      monthly_limit: args.monthlyLimit,
+      transaction_limit: args.transactionLimit,
+      online_transactions: args.allowOnline,
+      international_transactions: args.allowInternational,
+      provider_client_id: providerClientId,
+      provider_account_id: providerAccountId,
+      provider_card_id: providerCardId,
+    })
+    .select()
+    .single();
+  if (createError) {
+    logStep("Error recording Processing card", { message: createError.message, providerCardId });
+    throw new Error(`Failed to create virtual card: ${createError.message}`);
+  }
+
+  logStep("Virtual card created via Mastercard Processing", { cardId: newCard.id, providerCardId });
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      issuance: "mastercard_processing",
+      card: {
+        id: newCard.id,
+        name: newCard.name,
+        masked_number: newCard.masked_number,
+        status: newCard.status,
+        provider: newCard.provider,
+        balance: newCard.balance,
+        created_at: newCard.created_at,
+        provider_client_id: providerClientId,
+        provider_account_id: providerAccountId,
+        provider_card_id: providerCardId,
+        // One-time reveal — the CMS-generated number only; the CMS
+        // returns no CVV at issuance, so none is claimed.
+        card_number: pan,
+        cvv: null,
+        expiry_date: expiryDate,
+        expiry: expiry,
+      },
+    }),
+    {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    },
+  );
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -118,6 +462,25 @@ serve(async (req) => {
       throw new Error("Wallet is not active");
     }
 
+    // Mastercard Processing provider path: when MASTERCARD_ENV is
+    // set, mastercard cards are issued by the CMS via
+    // createCardViaProcessing — a provider refusal returns from
+    // there truthfully and never falls through to local generation.
+    if (Deno.env.get("MASTERCARD_ENV") && schema.provider === "mastercard") {
+      return await createCardViaProcessing({
+        supabaseClient,
+        userId: user.id,
+        name,
+        cardType,
+        cardWallet,
+        dailyLimit,
+        monthlyLimit,
+        transactionLimit,
+        allowOnline,
+        allowInternational,
+      });
+    }
+
     // Generate card details
     const { data: cardNumberData, error: cardNumberError } = await supabaseClient
       .rpc('generate_card_number');
@@ -185,6 +548,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
+      issuance: "local",
       card: {
         id: newCard.id,
         name: newCard.name,

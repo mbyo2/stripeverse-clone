@@ -1,0 +1,280 @@
+// Unit tests for supabase/functions/_shared/lightning-provider.ts —
+// the Coinos provider leg behind the breez-lightning edge function.
+// The module is dependency-free, so it is imported directly (same
+// pattern as tests/admin/accountFreeze.test.ts). Fetch is stubbed;
+// no network is touched.
+
+import { describe, it, expect, vi, afterEach, beforeAll } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+import ts from "typescript";
+import {
+  LightningNotConfiguredError,
+  LightningUpstreamError,
+  lightningProviderConfigured,
+  parseCoinosInvoice,
+  parseCoinosInvoiceState,
+  parseCoinosPaymentHash,
+  providerCreateInvoice,
+  providerGetInvoice,
+  providerPayInvoice,
+  readLightningProviderConfig,
+} from "../../supabase/functions/_shared/lightning-provider";
+
+// decodeBolt11Msat lives in btc-core.ts, whose `npm:` specifiers Node
+// cannot resolve — load it with the same rewrite-and-transpile trick
+// as tests/bitcoin/btc-core.test.ts.
+type Core = typeof import("../../supabase/functions/_shared/btc-core");
+let core: Core;
+
+function bareSpecifier(spec: string): string {
+  const m = spec.match(/^npm:((?:@[^/]+\/)?[^@/]+)(?:@[^/"]+)?(\/.*)?$/);
+  if (!m) return spec;
+  return m[1] + (m[2] ?? "");
+}
+
+beforeAll(async () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const coreSourcePath = path.resolve(here, "../../supabase/functions/_shared/btc-core.ts");
+  const tmpModulePath = path.join(here, ".tmp-btc-core-ln.mjs");
+  const source = fs.readFileSync(coreSourcePath, "utf8");
+  const rewritten = source.replace(
+    /from\s+"(npm:[^"]+)"/g,
+    (_all, spec: string) => `from "${bareSpecifier(spec)}"`,
+  );
+  const { outputText } = ts.transpileModule(rewritten, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  });
+  fs.writeFileSync(tmpModulePath, outputText);
+  core = await import(tmpModulePath);
+});
+
+const CFG = { provider: "coinos", token: "test-token", base: "https://coinos.test/api" };
+
+// HRP-only bolt11 strings: decodeBolt11Msat reads the amount from the
+// human-readable part, which is all the amount guard in breez-lightning
+// looks at. lnbc1000n = 100 sats, lnbc2000n = 200 sats.
+const BOLT11_100 = "lnbc1000n1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9qy9qsq";
+const BOLT11_200 = "lnbc2000n1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9qy9qsq";
+
+function stubFetch(status: number, payload: unknown) {
+  const fetchMock = vi.fn(async () => ({
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => payload,
+    text: async () => (typeof payload === "string" ? payload : JSON.stringify(payload)),
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("provider configuration gate", () => {
+  it("is configured only for coinos with a token", () => {
+    expect(lightningProviderConfigured(CFG)).toBe(true);
+    expect(lightningProviderConfigured({ ...CFG, token: null })).toBe(false);
+    expect(lightningProviderConfigured({ ...CFG, token: "  " })).toBe(false);
+    expect(lightningProviderConfigured({ ...CFG, provider: "breez" })).toBe(false);
+    expect(lightningProviderConfigured({ ...CFG, provider: null })).toBe(false);
+  });
+
+  it("reads config from an env map with the Coinos default base", () => {
+    const cfg = readLightningProviderConfig({
+      LIGHTNING_PROVIDER: "Coinos",
+      COINOS_API_TOKEN: "tok",
+    });
+    expect(cfg.provider).toBe("coinos");
+    expect(cfg.token).toBe("tok");
+    expect(cfg.base).toBe("https://coinos.io/api");
+    const override = readLightningProviderConfig({
+      LIGHTNING_PROVIDER: "coinos",
+      COINOS_API_TOKEN: "tok",
+      COINOS_API_BASE: "https://example.test/api/",
+    });
+    expect(override.base).toBe("https://example.test/api");
+  });
+});
+
+describe("Coinos invoice response mapping", () => {
+  // The live-verified Coinos shape (2026-10-24): bolt11 in `text`,
+  // payment hash in `paymentHash`, lookup key in `id` — and the
+  // `hash` field is a DUPLICATE of the bolt11 string, not a hash.
+  const HASH64 = "a".repeat(64);
+
+  it("maps the live invoice shape (id = lookup key, paymentHash = hash)", () => {
+    const inv = parseCoinosInvoice({
+      id: "69c5e5d1-0b16-44b2-95f3-8cea33dba6ed",
+      text: BOLT11_100,
+      hash: BOLT11_100,
+      paymentHash: HASH64,
+      amount: 100,
+    });
+    expect(inv).toEqual({
+      bolt11: BOLT11_100,
+      providerId: "69c5e5d1-0b16-44b2-95f3-8cea33dba6ed",
+      paymentHash: HASH64,
+    });
+  });
+
+  it("never treats the bolt11-duplicate `hash` field as a payment hash", () => {
+    const inv = parseCoinosInvoice({ id: "inv-1", text: BOLT11_100, hash: BOLT11_100 });
+    expect(inv?.providerId).toBe("inv-1");
+    expect(inv?.paymentHash).toBeNull();
+  });
+
+  it("accepts a genuine 64-hex `hash` field as the payment hash", () => {
+    const inv = parseCoinosInvoice({ id: "inv-2", text: BOLT11_100, hash: HASH64 });
+    expect(inv?.paymentHash).toBe(HASH64);
+  });
+
+  it("maps a response nested under `invoice`", () => {
+    const inv = parseCoinosInvoice({ invoice: { id: "inv-3", text: BOLT11_100, paymentHash: HASH64 } });
+    expect(inv?.bolt11).toBe(BOLT11_100);
+    expect(inv?.providerId).toBe("inv-3");
+    expect(inv?.paymentHash).toBe(HASH64);
+  });
+
+  it("falls back to the payment hash as the lookup key when no id is present", () => {
+    const inv = parseCoinosInvoice({ text: BOLT11_100, paymentHash: HASH64 });
+    expect(inv?.providerId).toBe(HASH64);
+  });
+
+  it("returns null for incomplete or malformed payloads", () => {
+    expect(parseCoinosInvoice({ paymentHash: HASH64 })).toBeNull();
+    expect(parseCoinosInvoice({ text: BOLT11_100 })).toBeNull();
+    expect(parseCoinosInvoice(null)).toBeNull();
+    expect(parseCoinosInvoice("nope")).toBeNull();
+    expect(parseCoinosInvoice([])).toBeNull();
+  });
+});
+
+describe("Coinos invoice state mapping", () => {
+  const now = Date.parse("2026-10-24T12:00:00Z");
+
+  it("maps received >= amount to paid (the live-verified shape)", () => {
+    expect(parseCoinosInvoiceState({ amount: 100, received: 100 }, now)).toBe("paid");
+    expect(parseCoinosInvoiceState({ amount: 100, received: 150 }, now)).toBe("paid");
+    expect(parseCoinosInvoiceState({ amount: 100, received: 99 }, now)).toBe("pending");
+    expect(parseCoinosInvoiceState({ amount: 100, received: 0 }, now)).toBe("pending");
+    expect(parseCoinosInvoiceState({ amount: 0, received: 0 }, now)).toBe("pending");
+  });
+
+  it("maps settled invoices to paid", () => {
+    expect(parseCoinosInvoiceState({ settled: true }, now)).toBe("paid");
+    expect(parseCoinosInvoiceState({ status: "paid" }, now)).toBe("paid");
+    expect(parseCoinosInvoiceState({ preimage: "00ff" }, now)).toBe("paid");
+  });
+
+  it("maps explicitly expired invoices to expired", () => {
+    expect(parseCoinosInvoiceState({ status: "expired" }, now)).toBe("expired");
+    expect(parseCoinosInvoiceState({ expired: true }, now)).toBe("expired");
+  });
+
+  it("maps an unpaid invoice past its expiry window to expired", () => {
+    // created 2h ago (epoch seconds), expiry 3600s → expired 1h ago.
+    const created = Math.floor(now / 1000) - 7200;
+    expect(parseCoinosInvoiceState({ created, expiry: 3600 }, now)).toBe("expired");
+  });
+
+  it("maps an unpaid invoice inside its expiry window to pending", () => {
+    const created = Math.floor(now / 1000) - 600;
+    expect(parseCoinosInvoiceState({ created, expiry: 3600 }, now)).toBe("pending");
+    expect(parseCoinosInvoiceState({ settled: false }, now)).toBe("pending");
+    expect(parseCoinosInvoiceState({}, now)).toBe("pending");
+    expect(parseCoinosInvoiceState(null, now)).toBe("pending");
+  });
+
+  it("paid wins over an elapsed expiry window", () => {
+    const created = Math.floor(now / 1000) - 7200;
+    expect(parseCoinosInvoiceState({ settled: true, created, expiry: 3600 }, now)).toBe("paid");
+  });
+});
+
+describe("Coinos payment hash mapping", () => {
+  it("extracts the hash from flat and nested payment payloads", () => {
+    expect(parseCoinosPaymentHash({ hash: "d".repeat(64) })).toBe("d".repeat(64));
+    expect(parseCoinosPaymentHash({ paymentHash: "e".repeat(64) })).toBe("e".repeat(64));
+    expect(parseCoinosPaymentHash({ payment: { payment_hash: "f".repeat(64) } })).toBe("f".repeat(64));
+    // A bolt11-shaped `hash` field is not a payment hash.
+    expect(parseCoinosPaymentHash({ hash: BOLT11_100 })).toBeNull();
+    expect(parseCoinosPaymentHash({})).toBeNull();
+    expect(parseCoinosPaymentHash(null)).toBeNull();
+  });
+});
+
+describe("provider calls (stubbed fetch)", () => {
+  it("creates an invoice with the Coinos request shape and maps the response", async () => {
+    const fetchMock = stubFetch(200, {
+      id: "inv-uuid-1",
+      text: BOLT11_100,
+      hash: BOLT11_100,
+      paymentHash: "b".repeat(64),
+      amount: 100,
+    });
+    const inv = await providerCreateInvoice(100, "Deposit test", CFG);
+    expect(inv).toEqual({ bolt11: BOLT11_100, providerId: "inv-uuid-1", paymentHash: "b".repeat(64) });
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://coinos.test/api/invoice");
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer test-token");
+    expect(JSON.parse(init.body as string)).toEqual({
+      invoice: { amount: 100, currency: "SAT", memo: "Deposit test" },
+    });
+  });
+
+  it("maps an upstream error to LightningUpstreamError without leaking through", async () => {
+    stubFetch(500, "internal coinos detail");
+    await expect(providerCreateInvoice(100, "x", CFG)).rejects.toBeInstanceOf(LightningUpstreamError);
+  });
+
+  it("refuses an incomplete invoice payload as an upstream error", async () => {
+    stubFetch(200, { amount: 100 });
+    await expect(providerCreateInvoice(100, "x", CFG)).rejects.toBeInstanceOf(LightningUpstreamError);
+  });
+
+  it("throws LightningNotConfiguredError when unconfigured", async () => {
+    stubFetch(200, {});
+    await expect(
+      providerCreateInvoice(100, "x", { provider: null, token: null, base: CFG.base }),
+    ).rejects.toBeInstanceOf(LightningNotConfiguredError);
+  });
+
+  it("fetches invoice state by invoice id", async () => {
+    const fetchMock = stubFetch(200, { id: "inv-uuid-1", amount: 100, received: 0 });
+    const res = await providerGetInvoice("inv-uuid-1", CFG);
+    expect(res.state).toBe("pending");
+    expect(res.paymentHash).toBe("inv-uuid-1");
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://coinos.test/api/invoice/inv-uuid-1");
+    expect(init.method).toBe("GET");
+  });
+
+  it("pays an invoice and returns its payment hash", async () => {
+    const fetchMock = stubFetch(200, { paymentHash: "c".repeat(64) });
+    const res = await providerPayInvoice(BOLT11_100, CFG);
+    expect(res.paymentHash).toBe("c".repeat(64));
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://coinos.test/api/payments");
+    expect(JSON.parse(init.body as string)).toEqual({ payment: { text: BOLT11_100 } });
+  });
+});
+
+describe("amount-mismatch refusal (the breez-lightning create guard)", () => {
+  // breez-lightning refuses a created invoice whose decoded bolt11
+  // amount differs from the requested sats:
+  //   decodeBolt11Msat(bolt11) !== BigInt(sats) * 1000n → upstream error
+  // These cases pin the guard's inputs: a same-amount invoice passes,
+  // a different-amount invoice trips it.
+  it("accepts an invoice encoding exactly the requested sats", () => {
+    expect(core.decodeBolt11Msat(BOLT11_100)).toBe(BigInt(100) * 1000n);
+  });
+
+  it("trips the guard when the provider returns a different amount", () => {
+    expect(core.decodeBolt11Msat(BOLT11_200)).not.toBe(BigInt(100) * 1000n);
+    expect(core.decodeBolt11Msat("not-an-invoice")).toBeNull();
+  });
+});

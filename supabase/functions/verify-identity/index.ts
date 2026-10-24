@@ -106,11 +106,17 @@ const PAUSED_MESSAGE =
 // ---------------------------------------------------------------------
 
 async function isAdmin(admin: any, userId: string): Promise<boolean> {
+  // Platform convention (superadmin foundation): the admin console
+  // admits admin OR super_admin — super_admin is additive over admin.
+  // A super_admin-only operator must never be locked out of the
+  // review queue (adversarial window probe, 2026-10-24: a
+  // super_admin-only account got 403 here while every other console
+  // surface admits it).
   const { data } = await admin
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
-    .eq("role", "admin")
+    .in("role", ["admin", "super_admin"])
     .maybeSingle();
   return !!data;
 }

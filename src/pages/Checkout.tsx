@@ -133,7 +133,7 @@ const Checkout = () => {
   const shell = (children: React.ReactNode) => (
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4">{children}</main>
+      <main className="flex-1 pt-6 pb-16 px-4">{children}</main>
       <Footer />
     </div>
   );
