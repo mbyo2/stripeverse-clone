@@ -129,6 +129,13 @@ serve(async (req) => {
           error: "Choose a deposit to refund, then try again.",
         }, 400);
       }
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(transactionId)) {
+        return json({
+          success: false,
+          status: "invalid",
+          error: "That transaction reference is not valid.",
+        }, 400);
+      }
 
       const { data: row, error: lookupError } = await supabase
         .from("transactions")
