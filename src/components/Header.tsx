@@ -531,7 +531,7 @@ const Header = () => {
                 </Button>
               </Link>
               <Link to="/register">
-                <Button className="h-12 rounded-full bg-[#F7931A] px-7 text-[15px] font-semibold text-black shadow-none hover:bg-[#DE830A]">
+                <Button className="h-12 rounded-full bg-black px-7 text-[15px] font-semibold text-white shadow-none hover:bg-black/85">
                   Sign Up
                 </Button>
               </Link>
@@ -702,7 +702,7 @@ const Header = () => {
                       </Button>
                     </Link>
                     <Link to="/register" onClick={closeMobileMenu}>
-                      <Button className="w-full gap-2 rounded-full h-12 bg-[#F7931A] text-[15px] font-semibold text-black shadow-none hover:bg-[#DE830A]">
+                      <Button className="w-full gap-2 rounded-full h-12 bg-black text-[15px] font-semibold text-white shadow-none hover:bg-black/85">
                         <UserPlus className="h-4 w-4" /> Sign Up
                       </Button>
                     </Link>
