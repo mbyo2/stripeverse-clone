@@ -383,7 +383,7 @@ export function limitsReasonText(code: string): string {
   }
   switch (code) {
     case "kyc_required":
-      return "Verify your identity to start P2P trading.";
+      return "Verify your identity to start P2P trading — complete both steps: your KYC documents and face verification.";
     case "marketplace_paused":
       return "P2P trading is paused right now.";
     case "account_too_new":

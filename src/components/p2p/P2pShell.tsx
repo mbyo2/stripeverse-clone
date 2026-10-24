@@ -101,9 +101,14 @@ export default function P2pShell({
                 )}
               </ul>
               {limits.tier === "T0" && (
-                <Link to="/kyc" className="underline font-medium">
-                  Verify your identity
-                </Link>
+                <span className="flex flex-wrap gap-x-4 gap-y-1">
+                  <Link to="/kyc" className="underline font-medium">
+                    Step 1: Verify your identity (KYC documents)
+                  </Link>
+                  <Link to="/verify-identity" className="underline font-medium">
+                    Step 2: Complete face verification
+                  </Link>
+                </span>
               )}
             </AlertDescription>
           </Alert>
