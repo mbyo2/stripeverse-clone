@@ -65,6 +65,9 @@ verify_jwt = true
 [functions.stripe-gateway-webhook]
 verify_jwt = false
 
+[functions.stripe-gateway-admin]
+verify_jwt = true
+
 [functions.paypal-marketplace]
 verify_jwt = true
 
