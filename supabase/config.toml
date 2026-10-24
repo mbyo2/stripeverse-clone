@@ -111,6 +111,15 @@ verify_jwt = true
 [functions.p2p]
 verify_jwt = true
 
+# Payoneer payouts (brief §2): payouts is called by a signed-in
+# admin (JWT on); the webhook is called by Payoneer itself and
+# authenticates with the shared-secret HMAC header instead.
+[functions.payoneer-payouts]
+verify_jwt = true
+
+[functions.payoneer-webhook]
+verify_jwt = false
+
 [functions.mastercard-move]
 verify_jwt = true
 
