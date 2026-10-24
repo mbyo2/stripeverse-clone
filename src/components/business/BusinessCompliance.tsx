@@ -67,13 +67,18 @@ const BusinessCompliance = () => {
   useEffect(() => {
     const loadSubmissions = async () => {
       if (!user) return;
+      // The kyc-documents bucket policy requires the FIRST path segment to
+      // be the owner's auth uid, so business documents live directly under
+      // the user's own folder as business_req-<id>_<ts>.<ext> — the same
+      // <uid>/<type>_<ts> shape the KYC wizard uses. Listing must use the
+      // same prefix or the policy hides the objects.
       const { data, error } = await supabase.storage
         .from('kyc-documents')
-        .list(`business/${user.id}`, { limit: 100 });
+        .list(user.id, { limit: 100 });
       if (error || !data) return;
       const found = new Set<number>();
       data.forEach(file => {
-        const match = file.name.match(/^req-(\d+)-/);
+        const match = file.name.match(/^business_req-(\d+)_/);
         if (match) found.add(Number(match[1]));
       });
       setSubmittedIds(found);
@@ -106,7 +111,9 @@ const BusinessCompliance = () => {
     try {
       setUploadingId(requirementId);
       const fileExt = file.name.split('.').pop();
-      const filePath = `business/${user.id}/req-${requirementId}-${Date.now()}.${fileExt}`;
+      // First segment MUST be the auth uid (bucket RLS policy) — a
+      // business/<uid>/… path is rejected on every upload.
+      const filePath = `${user.id}/business_req-${requirementId}_${Date.now()}.${fileExt}`;
       const { error } = await supabase.storage
         .from('kyc-documents')
         .upload(filePath, file, { cacheControl: '3600', upsert: true });
