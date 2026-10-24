@@ -217,6 +217,13 @@ const AdminDashboard = () => {
       color: "bg-blue-600"
     },
     {
+      title: "Payoneer Payouts",
+      description: "Payoneer partner payouts",
+      icon: <Globe2 className="h-6 w-6" />,
+      link: "/admin/payoneer",
+      color: "bg-emerald-500"
+    },
+    {
       title: "Compliance Center",
       description: "Manage compliance and KYC",
       icon: <AlertTriangle className="h-6 w-6" />,
