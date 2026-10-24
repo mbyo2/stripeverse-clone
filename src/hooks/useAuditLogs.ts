@@ -1,4 +1,5 @@
 import { toUserFacingError } from "@/utils/userFacingError";
+import { attachProfileNames, auditActorIds } from "@/utils/auditLogProfiles";
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -40,12 +41,14 @@ export const useAuditLogs = () => {
   const { data: auditLogs, isLoading, error } = useQuery({
     queryKey: ['audit-logs', filters, config],
     queryFn: async () => {
+      // NOTE: no profiles embed here — audit_logs has no FK to profiles,
+      // so embedding profiles through user_id made PostgREST fail EVERY
+      // load with a schema-cache relationship error. Actor names are
+      // merged in below from a separate profiles read (see
+      // utils/auditLogProfiles).
       let query = supabase
         .from('audit_logs')
-        .select(`
-          *,
-          profiles:user_id(first_name, last_name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (filters.start_date) {
@@ -69,7 +72,22 @@ export const useAuditLogs = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+
+      const logs = data ?? [];
+      const actorIds = auditActorIds(logs);
+      if (actorIds.length === 0) {
+        return attachProfileNames(logs, []);
+      }
+
+      // Names are decoration on the audit trail: if this read is
+      // unavailable to the caller, the logs still load without them
+      // rather than failing the whole page.
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .in('id', actorIds);
+
+      return attachProfileNames(logs, profiles ?? []);
     }
   });
 
