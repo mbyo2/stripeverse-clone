@@ -25,9 +25,9 @@ export interface AuditProfileName {
 
 /**
  * The label an audit surface shows for an actor: their profile name
- * when one exists, otherwise their email, otherwise "" (the page
- * still shows the actor's uuid, so the row is never anonymous-blank
- * when an email is resolvable).
+ * when one exists, otherwise their email, otherwise "". The page
+ * renders rows through auditRowActorLabel below, which layers the
+ * never-blank fallbacks (actor id fragment, then "System") on top.
  */
 export function auditActorLabel(
   profile: AuditProfileName | null | undefined,
@@ -72,4 +72,34 @@ export function attachProfileNames<T extends Pick<AuditLogRow, "user_id">>(
     ...log,
     profiles: log.user_id ? byId.get(log.user_id) ?? null : null,
   }));
+}
+
+/**
+ * The actor label the Audit Logs page renders for ONE row — never
+ * blank, so every row visibly carries its actor (BUG-7: the page
+ * previously rendered the actor only when a profile resolved, and
+ * the meta line showed nothing at all for every other row).
+ *
+ * Tiers, in order:
+ *  1. The resolved actor label (profile name, else account email
+ *     from the audit-manager resolve_actors merge).
+ *  2. The actor's id fragment when the row names an actor whose
+ *     label could not be resolved (e.g. the account has since been
+ *     deleted) — the same truncated style as the Record id.
+ *  3. "System" when the row records no end-user actor. The audit
+ *     trigger stamps audit_logs.user_id from auth.uid(), and the
+ *     platform's writes overwhelmingly run through service-role edge
+ *     functions where no end-user identity reaches the database
+ *     session, so user_id is null: the platform itself made the
+ *     change, and the row says so instead of showing a blank.
+ */
+export function auditRowActorLabel(
+  row: Pick<AuditLogRow, "user_id"> & { profiles?: AuditProfileName | null }
+): string {
+  const resolved = auditActorLabel(row.profiles);
+  if (resolved) return resolved;
+  if (typeof row.user_id === "string" && row.user_id.length > 0) {
+    return `${row.user_id.substring(0, 8)}...`;
+  }
+  return "System";
 }
