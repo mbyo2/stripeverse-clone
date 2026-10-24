@@ -26,6 +26,19 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { classifyProvider } from "../_shared/payment-providers.ts";
+import {
+  buildKycDocumentInsertFields,
+  buildKycDocumentUpdateFields,
+} from "../_shared/kyc-submission.ts";
+import {
+  PHONE_STAMP_AUDIT_FAILED_MESSAGE,
+  PHONE_STAMP_FAILED_MESSAGE,
+  PHONE_STAMP_FORBIDDEN_MESSAGE,
+  PHONE_STAMP_SUCCESS_MESSAGE,
+  hasPhoneStampAdmin,
+  validatePhoneForStamp,
+  validatePhoneStampTarget,
+} from "../_shared/phone-stamp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +62,21 @@ const getSupabaseClient = (req: Request) => {
     {
       auth: { persistSession: false, autoRefreshToken: false },
       global: { headers: { Authorization: authHeader || "" } },
+    },
+  );
+};
+
+// Service-role client WITHOUT forwarding the caller's Authorization
+// header. Required for the admin phone-stamp action: the role check,
+// the GoTrue admin stamp and the audit insert must run as
+// service_role, not in the caller's `authenticated` PostgREST role
+// (same reasoning as _shared/supabase-client.ts getServiceRoleClient).
+const getServiceRoleClient = () => {
+  return createClient(
+    Deno.env.get("SUPABASE_URL") || "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
     },
   );
 };
@@ -109,6 +137,10 @@ async function verifyKyc(
         date_of_birth: dateOfBirth,
         address: address || existingKyc.address,
         selfie_url: selfieImage || existingKyc.selfie_url,
+        // Document URLs (idFrontUrl/idBackUrl/addressDocUrl or their
+        // snake_case aliases) — fall back to the stored values when
+        // the new submission omits them, like address/selfie above.
+        ...buildKycDocumentUpdateFields(data, existingKyc),
         updated_at: new Date().toISOString(),
         metadata: {},
       })
@@ -127,6 +159,8 @@ async function verifyKyc(
         date_of_birth: dateOfBirth,
         address: address || null,
         selfie_url: selfieImage || null,
+        // Document URLs — null when the submission did not provide them.
+        ...buildKycDocumentInsertFields(data),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         metadata: {},
@@ -207,6 +241,84 @@ serve(async (req) => {
 
     const requestData = await req.json();
     const { paymentMethod } = requestData;
+
+    // ── Admin action: stamp a phone number as confirmed ──
+    // Dispatched BEFORE the KYC own-record guard below: by design it
+    // acts on ANOTHER user. It is still after authentication, and it
+    // additionally requires an admin / super_admin role (checked via
+    // a service-role client that does not forward the caller header).
+    // Interim mechanism for vetted early users: P2P tier T1 requires
+    // auth.users.phone_confirmed_at, which no user flow can write —
+    // only the GoTrue admin API stamps it.
+    if (paymentMethod === "admin-stamp-phone") {
+      const service = getServiceRoleClient();
+
+      const { data: roleRows, error: roleError } = await service
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
+      if (roleError) {
+        console.error("admin-stamp-phone: role lookup failed:", roleError);
+      }
+      const roles = (roleRows ?? []).map((r: { role: string }) => r.role);
+      if (!hasPhoneStampAdmin(roles)) {
+        return json(
+          { success: false, error: PHONE_STAMP_FORBIDDEN_MESSAGE, message: PHONE_STAMP_FORBIDDEN_MESSAGE },
+          403,
+        );
+      }
+
+      const target = validatePhoneStampTarget(requestData.userId);
+      if (!target.ok) {
+        return json({ success: false, error: target.error, message: target.error }, 400);
+      }
+      const phoneCheck = validatePhoneForStamp(requestData.phone);
+      if (!phoneCheck.ok) {
+        return json({ success: false, error: phoneCheck.error, message: phoneCheck.error }, 400);
+      }
+
+      const { error: stampError } = await service.auth.admin.updateUserById(
+        target.userId,
+        { phone: phoneCheck.phone, phone_confirm: true },
+      );
+      if (stampError) {
+        console.error("admin-stamp-phone: GoTrue stamp failed:", stampError);
+        return json(
+          { success: false, error: PHONE_STAMP_FAILED_MESSAGE, message: PHONE_STAMP_FAILED_MESSAGE },
+          500,
+        );
+      }
+
+      // Audit is REQUIRED, not best-effort. Choice (documented per
+      // spec): if the audit insert fails we return 500 even though
+      // the GoTrue stamp has already happened and cannot be rolled
+      // back — the phone IS confirmed at that point, but returning
+      // success would silently lose the audit trail for a privileged
+      // action. The error tells the admin the audit failed so it can
+      // be surfaced / reconciled instead of hidden.
+      const { error: auditError } = await service
+        .from("audit_logs")
+        .insert({
+          user_id: user.id,
+          action: "admin_phone_stamp",
+          table_name: "auth.users",
+          record_id: target.userId,
+          new_values: { phone: phoneCheck.phone },
+        });
+      if (auditError) {
+        console.error(
+          "admin-stamp-phone: AUDIT INSERT FAILED after successful stamp — " +
+            "phone was confirmed for target but no audit row was written:",
+          auditError,
+        );
+        return json(
+          { success: false, error: PHONE_STAMP_AUDIT_FAILED_MESSAGE, message: PHONE_STAMP_AUDIT_FAILED_MESSAGE },
+          500,
+        );
+      }
+
+      return json({ success: true, message: PHONE_STAMP_SUCCESS_MESSAGE });
+    }
 
     // ── KYC actions (real DB work) ──
     if (paymentMethod === "kyc-verification" || paymentMethod === "check-kyc") {

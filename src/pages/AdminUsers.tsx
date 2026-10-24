@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Search, UserCheck, UserX, Eye, Snowflake } from "lucide-react";
+import { Search, UserCheck, UserX, Eye, Snowflake, Phone } from "lucide-react";
 import {
   directoryUserMatchesSearch,
   listDirectoryUsers,
@@ -21,6 +21,7 @@ import {
   type DirectoryUser,
 } from "@/lib/adminConsole";
 import { toUserFacingError } from "@/utils/userFacingError";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 
 const roleBadgeVariant = (role: string) =>
   role === "super_admin" || role === "admin"
@@ -49,6 +50,8 @@ const AdminUsers = () => {
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState("all");
+  const [phoneByKycId, setPhoneByKycId] = useState<Record<number, string>>({});
+  const [stampingKycId, setStampingKycId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -104,6 +107,51 @@ const AdminUsers = () => {
     } else {
       toast({ title: "KYC Approved", description: "User verification has been approved." });
       fetchData();
+    }
+  };
+
+  const handleStampPhone = async (k: KycRow) => {
+    if (!k.user_id) return;
+    const phone = (phoneByKycId[k.id] ?? "").trim();
+    if (!phone) {
+      toast({
+        title: "Phone number needed",
+        description: "Enter the user's phone number first, then confirm it.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setStampingKycId(k.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("mobile-money", {
+        body: { paymentMethod: "admin-stamp-phone", userId: k.user_id, phone },
+      });
+      if (error) throw error;
+      if (data && (data as { success?: boolean }).success === false) {
+        throw new Error(
+          (data as { error?: string; message?: string }).error ||
+            (data as { message?: string }).message ||
+            "We couldn't confirm that phone number. Please try again.",
+        );
+      }
+      toast({
+        title: "Phone confirmed",
+        description:
+          (data as { message?: string } | null)?.message ||
+          "Phone number confirmed for this user.",
+      });
+      setPhoneByKycId((prev) => ({ ...prev, [k.id]: "" }));
+    } catch (err) {
+      toast({
+        title: "Couldn't confirm phone",
+        description: await resolveEdgeFunctionError(
+          err,
+          "We couldn't confirm that phone number. Please try again.",
+        ),
+        variant: "destructive",
+      });
+    } finally {
+      setStampingKycId(null);
     }
   };
 
@@ -300,23 +348,50 @@ const AdminUsers = () => {
                               ? new Date(k.created_at).toLocaleDateString()
                               : "—"}
                           </TableCell>
-                          <TableCell className="space-x-2">
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={() => handleApproveKyc(k.id, k.user_id)}
-                            >
-                              <UserCheck className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleRejectKyc(k.id)}
-                            >
-                              <UserX className="h-4 w-4 mr-1" />
-                              Reject
-                            </Button>
+                          <TableCell>
+                            <div className="flex flex-col gap-2">
+                              <div className="space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => handleApproveKyc(k.id, k.user_id)}
+                                >
+                                  <UserCheck className="h-4 w-4 mr-1" />
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleRejectKyc(k.id)}
+                                >
+                                  <UserX className="h-4 w-4 mr-1" />
+                                  Reject
+                                </Button>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="tel"
+                                  placeholder="Phone e.g. +260…"
+                                  value={phoneByKycId[k.id] ?? ""}
+                                  onChange={(e) =>
+                                    setPhoneByKycId((prev) => ({
+                                      ...prev,
+                                      [k.id]: e.target.value,
+                                    }))
+                                  }
+                                  className="h-8 w-36 text-xs"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={stampingKycId === k.id || !k.user_id}
+                                  onClick={() => handleStampPhone(k)}
+                                >
+                                  <Phone className="h-3 w-3 mr-1" />
+                                  {stampingKycId === k.id ? "Confirming…" : "Confirm phone"}
+                                </Button>
+                              </div>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
