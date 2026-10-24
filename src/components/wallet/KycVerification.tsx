@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,8 +71,37 @@ const KycVerification = () => {
   });
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
   const [verificationStarted, setVerificationStarted] = useState(false);
-  
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+
+  // Fields the user has actually typed/selected in this session. The
+  // mount-time hydration below must never overwrite these — it resolves
+  // asynchronously (DB read + an edge-function call) and previously
+  // landed AFTER the user started typing, wiping their input back to
+  // empty/profile values.
+  const dirtyFieldsRef = useRef<Set<string>>(new Set());
+  // True once mount hydration has finished; the draft-save effect must
+  // not run before this or it would overwrite a saved draft with the
+  // empty initial state before the draft is read.
+  const hydratedRef = useRef(false);
+
   const { toast } = useToast();
+
+  // Restore + persist an in-progress draft (sessionStorage, per user).
+  // Together with forceMount on the tab panels this guarantees that no
+  // step transition — in either direction, and not even a page reload —
+  // can throw away personal-info fields, uploaded document URLs, or the
+  // user's place in the wizard. The draft is cleared on submit.
+  const draftKey = authUserId ? `kyc-draft:${authUserId}` : null;
+
+  useEffect(() => {
+    if (!draftKey || !hydratedRef.current) return;
+    try {
+      const { selfieImage: _file, ...serializable } = formData;
+      sessionStorage.setItem(draftKey, JSON.stringify({ form: serializable, activeTab }));
+    } catch {
+      // Storage full/blocked — the in-memory state still protects the session.
+    }
+  }, [formData, activeTab, draftKey]);
   
   // Check current KYC level on component mount
   useEffect(() => {
@@ -90,6 +119,19 @@ const KycVerification = () => {
           return;
         }
         
+        setAuthUserId(userData.user.id);
+
+        // Read any in-progress draft saved earlier this session (see
+        // the draft-save effect) so a reload or remount resumes exactly
+        // where the user left off instead of at empty fields.
+        let savedDraft: { form?: Partial<KycFormState>; activeTab?: string } | null = null;
+        try {
+          const rawDraft = sessionStorage.getItem(`kyc-draft:${userData.user.id}`);
+          if (rawDraft) savedDraft = JSON.parse(rawDraft);
+        } catch {
+          savedDraft = null;
+        }
+
         // Call our edge function to check KYC level
         const { data, error } = await supabase.functions.invoke('mobile-money', {
           body: {
@@ -113,6 +155,27 @@ const KycVerification = () => {
           throw kycError;
         }
         
+        // Resume the saved draft first (lowest priority — the stored
+        // row below may still override it). Fields the user has already
+        // edited during this visit always win.
+        if (savedDraft?.form) {
+          const draftForm = savedDraft.form;
+          setFormData(prev => {
+            const next = { ...prev };
+            const applyDraft = (key: keyof KycFormState) => {
+              const v = draftForm[key];
+              if (!dirtyFieldsRef.current.has(key) && typeof v === 'string' && v.length > 0) {
+                (next as Record<string, unknown>)[key] = v;
+              }
+            };
+            (['firstName', 'lastName', 'idType', 'idNumber', 'dateOfBirth', 'address', 'idFrontUrl', 'idBackUrl', 'addressDocUrl'] as const).forEach(applyDraft);
+            return next;
+          });
+          if (savedDraft.activeTab === 'documents' || savedDraft.activeTab === 'address') {
+            setActiveTab(savedDraft.activeTab);
+          }
+        }
+
         if (kycData) {
           // Check if verification has been started
           setVerificationStarted(true);
@@ -134,19 +197,28 @@ const KycVerification = () => {
             }
           }
           
-          // Set existing document URLs
-          setFormData(prev => ({
-            ...prev,
-            firstName: kycData.first_name || '',
-            lastName: kycData.last_name || '',
-            idType: kycData.id_type || '',
-            idNumber: kycData.id_number || '',
-            dateOfBirth: kycData.date_of_birth || '',
-            address: kycData.address || '',
-            idFrontUrl: kycData.id_front_url || null,
-            idBackUrl: kycData.id_back_url || null,
-            addressDocUrl: kycData.address_doc_url || null
-          }));
+          // Set the stored values — but never over a field the user
+          // has already edited while this check was in flight (that
+          // late overwrite is what made filled-in fields "disappear").
+          setFormData(prev => {
+            const next = { ...prev };
+            const applyStored = (key: keyof KycFormState, value: string | null | undefined) => {
+              if (dirtyFieldsRef.current.has(key)) return;
+              if (value !== null && value !== undefined && value !== '') {
+                (next as Record<string, unknown>)[key] = value;
+              }
+            };
+            applyStored('firstName', kycData.first_name);
+            applyStored('lastName', kycData.last_name);
+            applyStored('idType', kycData.id_type);
+            applyStored('idNumber', kycData.id_number);
+            applyStored('dateOfBirth', kycData.date_of_birth);
+            applyStored('address', kycData.address);
+            applyStored('idFrontUrl', kycData.id_front_url);
+            applyStored('idBackUrl', kycData.id_back_url);
+            applyStored('addressDocUrl', kycData.address_doc_url);
+            return next;
+          });
           
           if (kycData.selfie_url) {
             setSelfiePreview(kycData.selfie_url);
@@ -161,10 +233,12 @@ const KycVerification = () => {
           .single();
           
         if (profileData) {
+          // Prefill only fields that are still empty and untouched —
+          // never replace something the user has typed.
           setFormData(prev => ({
             ...prev,
-            firstName: profileData.first_name || '',
-            lastName: profileData.last_name || ''
+            firstName: dirtyFieldsRef.current.has('firstName') ? prev.firstName : (prev.firstName || profileData.first_name || ''),
+            lastName: dirtyFieldsRef.current.has('lastName') ? prev.lastName : (prev.lastName || profileData.last_name || '')
           }));
         }
         
@@ -176,6 +250,7 @@ const KycVerification = () => {
           variant: "destructive"
         });
       } finally {
+        hydratedRef.current = true;
         setLoading(false);
       }
     };
@@ -232,10 +307,12 @@ const KycVerification = () => {
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    dirtyFieldsRef.current.add(name);
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-  
+
   const handleSelectChange = (name: string, value: string) => {
+    dirtyFieldsRef.current.add(name);
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
@@ -254,14 +331,17 @@ const KycVerification = () => {
   };
   
   const handleIdFrontUpload = (url: string) => {
+    dirtyFieldsRef.current.add('idFrontUrl');
     setFormData(prev => ({ ...prev, idFrontUrl: url }));
   };
-  
+
   const handleIdBackUpload = (url: string) => {
+    dirtyFieldsRef.current.add('idBackUrl');
     setFormData(prev => ({ ...prev, idBackUrl: url }));
   };
-  
+
   const handleAddressDocUpload = (url: string) => {
+    dirtyFieldsRef.current.add('addressDocUrl');
     setFormData(prev => ({ ...prev, addressDocUrl: url }));
   };
   
@@ -300,7 +380,9 @@ const KycVerification = () => {
           }
         }
       
-        const fileName = `kyc/${userData.user.id}/selfie_${Date.now()}.jpg`;
+        // The kyc-documents storage policy requires the first path
+        // segment to be the owner's auth user id (see DocumentUploader).
+        const fileName = `${userData.user.id}/selfie_${Date.now()}.jpg`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('kyc-documents')
           .upload(fileName, formData.selfieImage, {
@@ -339,6 +421,12 @@ const KycVerification = () => {
       setKycLevel(data.level as KycLevel);
       setKycStatus(KycStatus.PENDING);
       setVerificationStarted(true);
+
+      // The submission has landed — the in-progress draft has served
+      // its purpose and must not resurrect stale values next visit.
+      if (draftKey) {
+        try { sessionStorage.removeItem(draftKey); } catch { /* ignore */ }
+      }
       
       // Update the notification context to create a system notification
       await supabase
@@ -441,28 +529,26 @@ const KycVerification = () => {
             </TabsList>
             
             <form onSubmit={handleSubmit}>
-              <TabsContent value="personal">
+              <TabsContent value="personal" forceMount>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input 
+                      <Input
                         id="firstName"
                         name="firstName"
                         value={formData.firstName}
                         onChange={handleInputChange}
-                        required
                       />
                     </div>
                     
                     <div className="space-y-2">
                       <Label htmlFor="lastName">Last Name</Label>
-                      <Input 
+                      <Input
                         id="lastName"
                         name="lastName"
                         value={formData.lastName}
                         onChange={handleInputChange}
-                        required
                       />
                     </div>
                   </div>
@@ -478,35 +564,31 @@ const KycVerification = () => {
                           <SelectValue placeholder="Select ID type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="national_id">National ID</SelectItem>
+                          <SelectItem value="national_id">National Registration Card (NRC)</SelectItem>
                           <SelectItem value="passport">Passport</SelectItem>
-                          <SelectItem value="drivers_license">Driver's License</SelectItem>
-                          <SelectItem value="voter_card">Voter's Card</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     
                     <div className="space-y-2">
                       <Label htmlFor="idNumber">ID Number</Label>
-                      <Input 
+                      <Input
                         id="idNumber"
                         name="idNumber"
                         value={formData.idNumber}
                         onChange={handleInputChange}
-                        required
                       />
                     </div>
                   </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                    <Input 
+                    <Input
                       id="dateOfBirth"
                       name="dateOfBirth"
                       type="date"
                       value={formData.dateOfBirth}
                       onChange={handleInputChange}
-                      required
                     />
                   </div>
                   
@@ -522,12 +604,12 @@ const KycVerification = () => {
                 </div>
               </TabsContent>
               
-              <TabsContent value="documents">
+              <TabsContent value="documents" forceMount>
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-lg font-medium mb-4">ID Document (Front)</h3>
                     <DocumentUploader 
-                      userId={formData.idNumber} 
+                      userId={authUserId ?? ''} 
                       documentType="id_front" 
                       onUploadComplete={handleIdFrontUpload} 
                       existingUrl={formData.idFrontUrl} 
@@ -537,7 +619,7 @@ const KycVerification = () => {
                   <div>
                     <h3 className="text-lg font-medium mb-4">ID Document (Back)</h3>
                     <DocumentUploader 
-                      userId={formData.idNumber} 
+                      userId={authUserId ?? ''} 
                       documentType="id_back" 
                       onUploadComplete={handleIdBackUpload} 
                       existingUrl={formData.idBackUrl} 
@@ -607,7 +689,7 @@ const KycVerification = () => {
                 </div>
               </TabsContent>
               
-              <TabsContent value="address">
+              <TabsContent value="address" forceMount>
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="address">Physical Address</Label>
@@ -624,7 +706,7 @@ const KycVerification = () => {
                   <div>
                     <h3 className="text-lg font-medium mb-4">Proof of Address Document</h3>
                     <DocumentUploader 
-                      userId={formData.idNumber} 
+                      userId={authUserId ?? ''} 
                       documentType="address_proof" 
                       onUploadComplete={handleAddressDocUpload}
                       existingUrl={formData.addressDocUrl}
@@ -642,7 +724,13 @@ const KycVerification = () => {
                     >
                       Back
                     </Button>
-                    <Button type="submit" disabled={submitting || !formData.idFrontUrl || !selfiePreview}>
+                    {/* No HTML `required` on the personal fields above:
+                        the tab panels stay mounted (forceMount), and a
+                        hidden required field can silently block form
+                        submission in some browsers. Completeness is
+                        enforced here instead — plus server-side in
+                        verifyKyc, which refuses incomplete submissions. */}
+                    <Button type="submit" disabled={submitting || !formData.idFrontUrl || !selfiePreview || !formData.firstName || !formData.lastName || !formData.idType || !formData.idNumber || !formData.dateOfBirth}>
                       {submitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

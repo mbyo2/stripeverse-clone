@@ -77,10 +77,14 @@ export function DocumentUploader({ userId, documentType, onUploadComplete, exist
         });
       }
       
-      // Generate a unique file name
+      // Generate a unique file name. The storage policy for the
+      // kyc-documents bucket requires the FIRST path segment to be the
+      // owner's auth user id ((storage.foldername(name))[1] = auth.uid()),
+      // and the parent passes exactly that as `userId` — so the path must
+      // start with it. The old `kyc/<id-number>/…` prefix failed the
+      // policy on every upload and no document ever landed.
       const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}/${documentType}_${Date.now()}.${fileExt}`;
-      const filePath = `kyc/${fileName}`;
+      const filePath = `${userId}/${documentType}_${Date.now()}.${fileExt}`;
       
       // Upload the file
       const { error: uploadError } = await supabase.storage
@@ -136,6 +140,7 @@ export function DocumentUploader({ userId, documentType, onUploadComplete, exist
             />
             {!uploading && !existingUrl && (
               <Button
+                type="button"
                 size="icon"
                 variant="destructive"
                 className="absolute top-2 right-2 h-8 w-8 rounded-full"
@@ -157,6 +162,7 @@ export function DocumentUploader({ userId, documentType, onUploadComplete, exist
                 {file.name} ({Math.round(file.size / 1024)}KB)
               </p>
               <Button
+                type="button"
                 onClick={uploadDocument}
                 disabled={uploading}
                 className="w-full"
