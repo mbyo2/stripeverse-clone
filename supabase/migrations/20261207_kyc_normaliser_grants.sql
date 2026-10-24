@@ -1,0 +1,22 @@
+-- 20261207_kyc_normaliser_grants.sql
+-- DEFECT found by the 2026-10-24 go-live gauntlet (real-user KYC path):
+-- a user's own KYC submission (mobile-money 'kyc-verification' -> INSERT
+-- into public.kyc_verifications under the caller's JWT) failed with
+-- 42501 "permission denied for function p2p_normalise_name".
+--
+-- Root cause: the BEFORE INSERT/UPDATE trigger trg_p2p_kyc_sync_normalised
+-- calls the pure IMMUTABLE helpers p2p_normalise_name(text) and
+-- p2p_normalise_id_number(text). Both carried proacl
+-- {postgres, service_role} only — fallout of the Phase-3 blanket EXECUTE
+-- revocation on service-only functions. Trigger functions fire without an
+-- EXECUTE check, but their internal function CALLS do check, so every
+-- authenticated KYC insert/update died inside the trigger. Fixture-based
+-- QA never saw it: fixture rows were written as postgres/service_role.
+--
+-- Fix: grant EXECUTE on the two pure text-normalisation helpers to
+-- authenticated. They access no data (upper/regexp transforms), so the
+-- grant re-opens nothing else. Applied live 2026-10-24 via Management
+-- API and verified: proacl now includes authenticated=X on both, and a
+-- real user KYC submission + admin approval completes end to end.
+GRANT EXECUTE ON FUNCTION public.p2p_normalise_name(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.p2p_normalise_id_number(text) TO authenticated;
