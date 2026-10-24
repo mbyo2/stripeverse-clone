@@ -1,4 +1,8 @@
-// breez-lightning: Lightning Network via Breez nodeless API.
+// breez-lightning: custodial Lightning Network via the configured
+// Lightning provider (Coinos — see _shared/lightning-provider.ts).
+// The function name is historical (the original Breez leg is gone);
+// clients invoke it as "breez-lightning" and its response shapes are
+// unchanged.
 // Actions:
 //   POST { action: "create_invoice", amount_sats, description } → bolt11 invoice
 //   POST { action: "pay_invoice", bolt11 } → pay from user balance
@@ -23,8 +27,21 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
 import { decodeBolt11Msat } from "../_shared/btc-core.ts";
+import {
+  LightningNotConfiguredError,
+  LightningUpstreamError,
+  PROVIDER_PAY_CONFIRMED,
+  lightningProviderConfigured,
+  providerCreateInvoice,
+  providerGetInvoice,
+  providerPayInvoice,
+} from "../_shared/lightning-provider.ts";
+import {
+  ACCOUNT_FROZEN_MESSAGE,
+  ACCOUNT_STATUS_UNVERIFIED_MESSAGE,
+  assertAccountNotFrozen,
+} from "../_shared/account-freeze.ts";
 
-const BREEZ_API = "https://api.breez.technology";
 const MAX_SATS = (() => {
   const raw = Deno.env.get("BREEZ_MAX_SATS");
   const n = raw ? Number.parseInt(raw, 10) : NaN;
@@ -36,25 +53,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-/**
- * Thrown when the Breez server key is absent. Mapped in the top-level
- * catch to a designed 503 refusal — Lightning being unconfigured is a
- * deployment state the user should be told about truthfully, not a
- * bare 500 leaking the secret's name.
- */
-class LightningNotConfiguredError extends Error {}
-
-/**
- * Thrown when the Lightning provider cannot be reached or answers with
- * an error. The Breez server API this function was built against does
- * not exist (its host does not resolve), so EVERY upstream call fails
- * this way today. Mapped in the top-level catch to a plain-language
- * 503 refusal — the raw fetch/DNS error must never reach the user
- * (proven live 2026-10-22: create_invoice returned the verbatim DNS
- * failure text and the wallet UI showed the user nothing useful).
- */
-class LightningUpstreamError extends Error {}
-
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
@@ -63,8 +61,9 @@ function json(status: number, body: unknown) {
 }
 
 // Designed refusals, in the { error } shape the frontend surfaces
-// verbatim. Lightning gates on the BREEZ_API_KEY alone: Breez nodeless
-// custody never touches the on-chain seed, so the seed⇄xpub interlock
+// verbatim. Lightning gates on the provider configuration alone
+// (LIGHTNING_PROVIDER + provider token): the provider runs its own
+// custodial wallet server-side, so the on-chain seed⇄xpub interlock
 // does not apply here and the wording names Lightning, not Bitcoin
 // custody. Inbound settlement is exactly-once by construction:
 // check_status credits through the single-transaction
@@ -82,11 +81,11 @@ const LIGHTNING_DEPOSITS_UNAVAILABLE =
 const LIGHTNING_PAYMENTS_UNAVAILABLE =
   "Lightning payments are not available yet — please use an on-chain Bitcoin payment for now.";
 
-// Returns the designed 503 refusal while the key is absent, else null.
-function lightningKeyGate(refusal: string): Response | null {
-  const key = Deno.env.get("BREEZ_API_KEY");
-  if (!key || key.trim().length === 0) {
-    console.error("breez-lightning: BREEZ_API_KEY not configured");
+// Returns the designed 503 refusal while the provider is not
+// configured, else null.
+function lightningProviderGate(refusal: string): Response | null {
+  if (!lightningProviderConfigured()) {
+    console.error("breez-lightning: Lightning provider not configured");
     return json(503, { error: refusal });
   }
   return null;
@@ -101,35 +100,6 @@ function thrownMessage(e: unknown, fallback: string): string {
   const m = (e as { message?: unknown } | null | undefined)?.message;
   if (typeof m === "string" && m.trim()) return m;
   return fallback;
-}
-
-async function breezFetch(path: string, method: string, body?: unknown) {
-  const apiKey = Deno.env.get("BREEZ_API_KEY");
-  if (!apiKey) throw new LightningNotConfiguredError("BREEZ_API_KEY not configured");
-  let res: Response;
-  try {
-    res = await fetch(`${BREEZ_API}${path}`, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-KEY": apiKey,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(30_000),
-    });
-  } catch (e) {
-    // Network/DNS/timeout: the provider could not be reached at all.
-    // Tag it so the top-level catch answers in plain language; the raw
-    // message stays server-side in the logs.
-    throw new LightningUpstreamError(
-      `Breez upstream unreachable: ${e instanceof Error ? e.message : String(e)}`,
-    );
-  }
-  if (!res.ok) {
-    const text = await res.text();
-    throw new LightningUpstreamError(`Breez API ${res.status}: ${text.slice(0, 200)}`);
-  }
-  return res.json();
 }
 
 serve(async (req) => {
@@ -158,7 +128,7 @@ serve(async (req) => {
 
     // ── Create inbound Lightning invoice ──
     if (action === "create_invoice") {
-      const gate = lightningKeyGate(LIGHTNING_DEPOSITS_NOT_CONFIGURED);
+      const gate = lightningProviderGate(LIGHTNING_DEPOSITS_NOT_CONFIGURED);
       if (gate) return gate;
 
       const sats = Number(amount_sats);
@@ -166,23 +136,33 @@ serve(async (req) => {
         return json(400, { error: `amount_sats must be an integer between 1 and ${MAX_SATS}` });
       }
 
-      const invoice = await breezFetch("/v2/invoices", "POST", {
-        amount_msat: sats * 1000,
-        description: description || `Deposit for ${user.id.slice(0, 8)}`,
-      });
-      const bolt11Invoice = invoice.bolt11 || invoice.invoice;
-      const breezId = invoice.id || invoice.invoice_id;
-      if (!bolt11Invoice || !breezId) {
-        throw new LightningUpstreamError("Breez returned an incomplete invoice");
+      const invoice = await providerCreateInvoice(
+        sats,
+        description || `Deposit for ${user.id.slice(0, 8)}`,
+      );
+
+      // Never trust the provider's say-so on the amount: decode the
+      // returned bolt11 with integer math and refuse (upstream error)
+      // if it does not encode exactly the requested sats — crediting
+      // keys off the ledger row amount, so a mismatched invoice must
+      // never reach the ledger at all.
+      const msat = decodeBolt11Msat(invoice.bolt11);
+      if (msat === null || msat !== BigInt(sats) * 1000n) {
+        throw new LightningUpstreamError(
+          "Lightning provider returned an invoice with a mismatched amount",
+        );
       }
 
+      // breez_invoice_id stores the provider's invoice id — it is
+      // the status-lookup key for check_status (the Coinos payment
+      // hash is kept separately in payment_hash).
       const { data: payment, error } = await admin.from("lightning_payments").insert({
         user_id: user.id,
         direction: "inbound",
         amount_sats: sats,
-        breez_invoice_id: breezId,
-        bolt11: bolt11Invoice,
-        payment_hash: invoice.payment_hash ?? null,
+        breez_invoice_id: invoice.providerId,
+        bolt11: invoice.bolt11,
+        payment_hash: invoice.paymentHash,
         status: "pending",
       }).select("id").single();
 
@@ -190,15 +170,39 @@ serve(async (req) => {
 
       return json(200, {
         payment_id: payment.id,
-        bolt11: bolt11Invoice,
-        payment_hash: invoice.payment_hash ?? null,
+        bolt11: invoice.bolt11,
+        payment_hash: invoice.paymentHash,
       });
     }
 
     // ── Pay an outbound Lightning invoice (from wallet balance) ──
     if (action === "pay_invoice") {
-      const gate = lightningKeyGate(LIGHTNING_PAYMENTS_NOT_CONFIGURED);
+      const gate = lightningProviderGate(LIGHTNING_PAYMENTS_NOT_CONFIGURED);
       if (gate) return gate;
+
+      // Freeze guard: a frozen account cannot send Lightning payments
+      // (receiving stays open). Refuse with the shared crafted message
+      // BEFORE any balance is reserved. A failed status read fails
+      // closed with the unverified message, same as every other
+      // money-out function using this helper.
+      try {
+        await assertAccountNotFrozen(admin, user.id);
+      } catch (e) {
+        const msg = thrownMessage(e, ACCOUNT_STATUS_UNVERIFIED_MESSAGE);
+        if (msg === ACCOUNT_FROZEN_MESSAGE) return json(403, { error: msg });
+        return json(503, { error: msg });
+      }
+
+      // The provider's pay contract could not be confirmed live
+      // (Coinos POST /payments answered 200/empty with no observable
+      // effect at zero balance for every probed shape), so outbound
+      // Lightning stays at the designed not-available refusal — with
+      // the full reserve/pay/settle flow below wired and ready —
+      // until a funded drill confirms the shape and flips
+      // PROVIDER_PAY_CONFIRMED in _shared/lightning-provider.ts.
+      if (!PROVIDER_PAY_CONFIRMED) {
+        return json(503, { error: LIGHTNING_PAYMENTS_UNAVAILABLE });
+      }
 
       if (!bolt11 || typeof bolt11 !== "string") {
         return json(400, { error: "bolt11 required" });
@@ -243,10 +247,10 @@ serve(async (req) => {
         return json(400, { error: "Insufficient BTC balance" });
       }
 
-      // Balance reserved — now pay via Breez.
-      let payResult: any;
+      // Balance reserved — now pay via the Lightning provider.
+      let payResult: { paymentHash?: string };
       try {
-        payResult = await breezFetch("/v2/payments", "POST", { bolt11 });
+        payResult = await providerPayInvoice(bolt11);
       } catch (e) {
         // Payment provably not made by us: release the reservation.
         await admin.rpc("btc_adjust_crypto_wallet", {
@@ -271,7 +275,7 @@ serve(async (req) => {
         console.error("CRITICAL: Lightning paid but balance settle failed", payment.id, settleErr);
       }
 
-      const paymentHash = payResult.payment_hash ?? null;
+      const paymentHash = payResult.paymentHash ?? null;
       await admin.from("lightning_payments").update({
         status: "paid",
         payment_hash: paymentHash,
@@ -315,11 +319,11 @@ serve(async (req) => {
         return json(200, { status: payment.status });
       }
 
-      const status = await breezFetch(`/v2/invoices/${payment.breez_invoice_id}`, "GET");
-      const isPaid = status.settled || status.status === "paid";
+      const { state } = await providerGetInvoice(payment.breez_invoice_id);
+      const isPaid = state === "paid";
 
       if (!isPaid) {
-        if (status.status === "expired" || status.expired) {
+        if (state === "expired") {
           await admin.from("lightning_payments")
             .update({ status: "expired" }).eq("id", payment.id);
           return json(200, { status: "expired" });
@@ -357,7 +361,7 @@ serve(async (req) => {
     return json(400, { error: `Unknown action: ${action}` });
   } catch (e) {
     if (e instanceof LightningNotConfiguredError) {
-      console.error("breez-lightning: BREEZ_API_KEY not configured");
+      console.error("breez-lightning: Lightning provider not configured");
       return json(503, { error: "Lightning is not available yet — it is not configured on this deployment." });
     }
     if (e instanceof LightningUpstreamError) {
