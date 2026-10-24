@@ -31,6 +31,11 @@ import {
   buildKycDocumentUpdateFields,
 } from "../_shared/kyc-submission.ts";
 import {
+  KYC_WRITE_LOST_MESSAGE,
+  assertKycWriteLanded,
+  isKycWriteLostError,
+} from "../_shared/kyc-write.ts";
+import {
   PHONE_STAMP_AUDIT_FAILED_MESSAGE,
   PHONE_STAMP_FAILED_MESSAGE,
   PHONE_STAMP_FORBIDDEN_MESSAGE,
@@ -126,7 +131,11 @@ async function verifyKyc(
     : KycVerificationLevel.BASIC;
 
   if (existingKyc) {
-    const { error: updateError } = await supabase
+    // .select("id") requests the written row back: a 0-row update
+    // returns no PostgREST error, so without it a blocked write used
+    // to pass as success while nothing was saved (the re-submission
+    // bug). assertKycWriteLanded turns that into a hard failure.
+    const { data: updatedRows, error: updateError } = await supabase
       .from("kyc_verifications")
       .update({
         level: verificationLevel,
@@ -144,10 +153,12 @@ async function verifyKyc(
         updated_at: new Date().toISOString(),
         metadata: {},
       })
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .select("id");
     if (updateError) throw updateError;
+    assertKycWriteLanded(updatedRows);
   } else {
-    const { error: insertError } = await supabase
+    const { data: insertedRows, error: insertError } = await supabase
       .from("kyc_verifications")
       .insert({
         user_id: userId,
@@ -164,8 +175,10 @@ async function verifyKyc(
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         metadata: {},
-      });
+      })
+      .select("id");
     if (insertError) throw insertError;
+    assertKycWriteLanded(insertedRows);
   }
 
   return {
@@ -337,6 +350,15 @@ serve(async (req) => {
           return json(result);
         } catch (error) {
           console.error("KYC verification error:", error);
+          // A write that landed on 0 rows is NOT a generic failure:
+          // answer with the crafted plain-language message so the
+          // user learns nothing was saved (never a silent success).
+          if (isKycWriteLostError(error)) {
+            return json(
+              { success: false, error: KYC_WRITE_LOST_MESSAGE, message: KYC_WRITE_LOST_MESSAGE },
+              500,
+            );
+          }
           return json({ error: "Failed to process KYC verification" }, 500);
         }
       }
