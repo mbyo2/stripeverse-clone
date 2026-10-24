@@ -202,6 +202,10 @@ const AnimatedRoutes = () => {
         <Route path="/billing" element={<ProtectedPage><Billing /></ProtectedPage>} />
         <Route path="/analytics" element={<ProtectedRoute requiredFeature="analytics"><PageTransition><Analytics /></PageTransition></ProtectedRoute>} />
         <Route path="/card/new" element={<ProtectedPage><VirtualCardNew /></ProtectedPage>} />
+        {/* Natural card URLs (what people type and what older links
+            may still carry) — the canonical create page is /card/new. */}
+        <Route path="/cards" element={<Navigate to="/card/new" replace />} />
+        <Route path="/virtual-cards" element={<Navigate to="/card/new" replace />} />
         <Route path="/card/:id" element={<ProtectedPage><VirtualCardDetails /></ProtectedPage>} />
         <Route path="/card/:id/fund" element={<ProtectedPage><VirtualCardFund /></ProtectedPage>} />
         <Route path="/transfer" element={<ProtectedRoute requiredFeature="transfers"><PageTransition><Transfer /></PageTransition></ProtectedRoute>} />
@@ -250,6 +254,10 @@ const AnimatedRoutes = () => {
         <Route path="/payment-links" element={<ProtectedPage><PaymentLinks /></ProtectedPage>} />
         <Route path="/pos" element={<ProtectedPage><BitcoinPos /></ProtectedPage>} />
         <Route path="/sub-accounts" element={<ProtectedPage><SubAccounts /></ProtectedPage>} />
+        {/* "/splits" is the natural short URL people type — the real
+            page (recipients, rules, settlement preview) lives at
+            /split-payments, which is also where the menus point. */}
+        <Route path="/splits" element={<Navigate to="/split-payments" replace />} />
         <Route path="/split-payments" element={<ProtectedPage><SplitPayments /></ProtectedPage>} />
         <Route path="/multi-currency" element={<ProtectedPage><MultiCurrencyWallet /></ProtectedPage>} />
         <Route path="/bulk-payments" element={<ProtectedPage><BulkPayments /></ProtectedPage>} />
