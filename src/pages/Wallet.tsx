@@ -25,6 +25,8 @@ import PageErrorState from "@/components/PageErrorState";
 import { usePayPalDepositReturn } from "@/hooks/usePayPalDepositReturn";
 import { useStripeGatewayDeposit, useStripeGatewayReturn } from "@/hooks/useStripeGatewayDeposit";
 import { STRIPE_GATEWAY_MODE, STRIPE_GATEWAY_MODE_LABEL } from "@/config/stripeGateway";
+import { useMoonpay } from "@/hooks/useMoonpay";
+import { MOONPAY_COMING_SOON_LABEL } from "@/config/moonpay";
 import { useRoles } from "@/contexts/RoleContext";
 import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from "@/config/paypal";
 import PayPalWithdraw from "@/components/wallet/PayPalWithdraw";
@@ -43,6 +45,7 @@ const Wallet = () => {
   const { toast } = useToast();
   const { roles } = useRoles();
   const { startStripeTopUp, isStartingStripeTopUp } = useStripeGatewayDeposit();
+  const { enabled: moonpayEnabled, startMoonpayBuy, isStartingMoonpayBuy } = useMoonpay();
 
   // Stripe gateway top-ups (brief §3) are superadmin-only while the
   // rail is in sandbox: admin / super_admin get the working option,
@@ -75,8 +78,21 @@ const Wallet = () => {
     // "Coming soon"; this guard keeps the flow unreachable for them
     // regardless of how depositMethod was set.
     if (depositMethod === 'stripe_card' && !canUseStripeGateway) return;
+    // MoonPay gate: while moonpay_enabled is off the option is
+    // disabled as "Coming soon"; this guard keeps the flow
+    // unreachable for everyone regardless of how it was set.
+    if (depositMethod === 'moonpay_card' && !moonpayEnabled) return;
     const parsedAmount = parseFloat(amount);
     if (!isNaN(parsedAmount) && parsedAmount > 0) {
+      if (depositMethod === 'moonpay_card') {
+        // MoonPay buys Bitcoin (it is not a wallet top-up): the
+        // amount is in USD — MoonPay does not support ZMW — and the
+        // Bitcoin is delivered straight to the user's Bitcoin
+        // wallet once MoonPay confirms the purchase.
+        void startMoonpayBuy({ fiatAmount: parsedAmount, fiatCurrency: 'USD' });
+        setAmount("");
+        return;
+      }
       if (depositMethod === 'stripe_card') {
         // Stripe gateway top-up: its own edge function + redirect
         // flow (the wallet-deposit function has no Stripe path). The
@@ -143,6 +159,15 @@ const Wallet = () => {
                 Card (Stripe) — Coming soon
               </SelectItem>
             )}
+            {moonpayEnabled ? (
+              <SelectItem value="moonpay_card">
+                Card (MoonPay)
+              </SelectItem>
+            ) : (
+              <SelectItem value="moonpay_card" disabled>
+                Card (MoonPay) — {MOONPAY_COMING_SOON_LABEL}
+              </SelectItem>
+            )}
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground text-center">
@@ -154,6 +179,8 @@ const Wallet = () => {
             ? STRIPE_GATEWAY_MODE === 'test'
               ? "Sandbox rail — you'll be redirected to Stripe's test checkout. Use a Stripe test card; no real money moves. Your wallet is credited once Stripe confirms."
               : "You'll be redirected to Stripe's secure checkout. Your wallet is credited once Stripe confirms the payment."
+            : depositMethod === 'moonpay_card'
+            ? "Buy Bitcoin with a debit or credit card, delivered straight to your wallet. Purchases are in US dollars and completed on MoonPay."
             : "Mobile money deposits are not live yet — you'll be told before anything is charged."}
         </p>
         {depositMethod === 'paypal' && PAYPAL_AVAILABLE && wallet?.currency === 'ZMW' && (
@@ -186,9 +213,9 @@ const Wallet = () => {
       <Button 
         onClick={handleAddMoney} 
         className="w-full h-12 rounded-full text-base font-semibold" 
-        disabled={!amount || parseFloat(amount) <= 0 || isDepositing || isStartingStripeTopUp}
+        disabled={!amount || parseFloat(amount) <= 0 || isDepositing || isStartingStripeTopUp || isStartingMoonpayBuy}
       >
-        {isDepositing || isStartingStripeTopUp ? "Processing..." : "Add Money"}
+        {isDepositing || isStartingStripeTopUp || isStartingMoonpayBuy ? "Processing..." : "Add Money"}
       </Button>
     </div>
   );
