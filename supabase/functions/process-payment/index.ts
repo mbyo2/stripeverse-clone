@@ -42,6 +42,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyProvider } from "../_shared/payment-providers.ts";
+import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
 import { paypalErrorTrace } from "../_shared/deposit-capture.ts";
 import { parseCheckoutTerms } from "../_shared/checkout-capture.ts";
 
@@ -87,6 +88,10 @@ serve(async (req) => {
     if (userError || !user) {
       return json({ success: false, status: "unauthorized", error: "Unauthorized" }, 401);
     }
+
+    // ── Freeze guard: a frozen account cannot move money out ──
+    // (supabaseClient here is the service-role client.)
+    await assertAccountNotFrozen(supabaseClient, user.id);
 
     const paymentData: PaymentRequest = await req.json();
 

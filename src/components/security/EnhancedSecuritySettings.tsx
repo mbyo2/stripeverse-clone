@@ -14,8 +14,14 @@ import {
   ExternalLink 
 } from 'lucide-react';
 import { SecurityMonitor } from './SecurityMonitor';
+import { useRoles } from '@/contexts/RoleContext';
 
 export const EnhancedSecuritySettings: React.FC = () => {
+  // Platform-level configuration (Supabase Auth settings, database upgrades)
+  // is operated by BMaGlass Pay administrators — end users cannot action it,
+  // so the "Recommended Actions" card is only shown to admins.
+  const { hasRole } = useRoles();
+  const isAdmin = hasRole('admin');
   const securityFeatures = [
     {
       title: "Enhanced Card Encryption",
@@ -111,7 +117,7 @@ export const EnhancedSecuritySettings: React.FC = () => {
         ))}
       </div>
 
-      {pendingActions.length > 0 && (
+      {isAdmin && pendingActions.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">

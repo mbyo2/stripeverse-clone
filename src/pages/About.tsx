@@ -24,7 +24,7 @@ const About = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-5xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 max-w-5xl mx-auto w-full">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4">About BMaGlass Pay</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">

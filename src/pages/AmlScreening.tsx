@@ -241,7 +241,7 @@ const AmlScreening = () => {
                 {selectedScreening.match_details && (
                   <div className="bg-muted rounded-lg p-4">
                     <p className="text-sm font-medium mb-2">Match Details</p>
-                    <pre className="text-xs whitespace-pre-wrap font-mono">
+                    <pre className="text-xs whitespace-pre-wrap break-words font-mono">
                       {JSON.stringify(selectedScreening.match_details, null, 2)}
                     </pre>
                   </div>

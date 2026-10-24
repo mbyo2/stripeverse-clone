@@ -1,0 +1,26 @@
+-- =====================================================================
+-- 20261109_drop_admin_wallet_write_policy.sql
+--
+-- Post-proof fix for 20261105_superadmin_foundation.sql §7.
+--
+-- The foundation added SELECT-only admin oversight on the money
+-- tables — but public.wallets also carried a legacy FOR ALL policy:
+--   "System can manage wallets" (USING has_role(auth.uid(), 'admin'))
+-- RLS permissive policies are OR'd, so any plain admin could
+-- INSERT/UPDATE/DELETE every wallet despite the oversight policy
+-- being read-only. Caught by proof P8 of
+-- supabase/qa/superadmin_foundation_proofs.sql on 2026-10-23 (the
+-- impersonated admin UPDATE on another user's wallet reported
+-- ROW_COUNT 1 inside the self-rolling-back proof block; nothing
+-- persisted, and the protect_wallet_balance trigger would have
+-- neutralised the balance change regardless).
+--
+-- Platform rule: money moves only through service-role edge
+-- functions and RPCs. Admin oversight of wallets is READ-ONLY.
+-- Fix: drop the legacy policy. The other four oversight tables
+-- (accounts, payment_links, crypto_wallets, btc_deposits) were
+-- enumerated the same day and carry no equivalent write policy —
+-- their only non-SELECT policies are owner-scoped.
+-- =====================================================================
+
+DROP POLICY IF EXISTS "System can manage wallets" ON public.wallets;

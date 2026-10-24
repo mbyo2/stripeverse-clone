@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { countActiveUsers, activityWindowStart } from "@/utils/adminStats";
 import { Link } from "react-router-dom";
-import { Users, Shield, Activity, AlertTriangle, Settings, Database } from "lucide-react";
+import { Users, Shield, Activity, AlertTriangle, Settings, Database, Globe2, Inbox, ReceiptText } from "lucide-react";
 
 interface UserStat {
   total_users: number;
@@ -168,11 +168,39 @@ const AdminDashboard = () => {
       color: "bg-green-500"
     },
     {
+      title: "P2P Disputes",
+      description: "Rule P2P disputes and manage sanctions",
+      icon: <AlertTriangle className="h-6 w-6" />,
+      link: "/admin/p2p",
+      color: "bg-orange-500"
+    },
+    {
       title: "Role Management",
-      description: "Approve role requests and changes",
+      description: "View your roles and request changes",
       icon: <Shield className="h-6 w-6" />,
       link: "/role-management",
       color: "bg-[#003087]"
+    },
+    {
+      title: "Role Requests",
+      description: "Approve or reject user role requests",
+      icon: <Inbox className="h-6 w-6" />,
+      link: "/admin/role-requests",
+      color: "bg-indigo-500"
+    },
+    {
+      title: "Refunds Console",
+      description: "Track every refund request platform-wide",
+      icon: <ReceiptText className="h-6 w-6" />,
+      link: "/admin/refunds",
+      color: "bg-rose-500"
+    },
+    {
+      title: "Cross-Border Payouts",
+      description: "Mastercard Move payouts (sandbox)",
+      icon: <Globe2 className="h-6 w-6" />,
+      link: "/admin/mastercard-move",
+      color: "bg-purple-500"
     },
     {
       title: "Compliance Center",
@@ -194,14 +222,14 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen flex flex-col bg-muted">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-6">
           <h1 className="text-[28px] leading-tight font-display font-semibold">Admin Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">System overview and management tools</p>
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="system">System</TabsTrigger>

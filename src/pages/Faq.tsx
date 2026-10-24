@@ -17,7 +17,7 @@ const Faq = () => {
       title: "General",
       faqs: [
         { question: "What is BMaGlass Pay?", answer: "BMaGlass Pay is a comprehensive payment solution enabling businesses and individuals to send, receive, and manage payments securely. We offer mobile money, card processing, USSD payments, virtual cards, and Bitcoin." },
-        { question: "How do I create an account?", answer: "Click 'Sign Up' on the homepage. Enter your name, email, and phone number. Verify your email, then complete KYC verification to unlock all features." },
+        { question: "How do I create an account?", answer: "Click 'Sign Up' on the homepage. Enter your name, email, and phone number, then verify your email — that's all you need to start using BMaGlass Pay, including your wallet and Bitcoin. A few specific features, like higher P2P trading tiers and bigger limits, ask for identity verification; if you use one of those, we'll ask at the time and explain why." },
         { question: "Is my money safe with BMaGlass Pay?", answer: "Yes. We use AES-256 encryption, tokenised card storage, two-factor authentication, and fraud monitoring." },
         { question: "What are the transaction fees?", answer: "Mobile Money: 1-2%, Card payments: 2.5-3%, USSD: 1.5%, Bank transfers: K5 flat fee. Volume discounts available for Business accounts. See our Pricing page for details." },
       ]
@@ -35,7 +35,7 @@ const Faq = () => {
       title: "Payments & Cards",
       faqs: [
         { question: "Which payment methods are supported?", answer: "Visa, Mastercard, Mobile Money (MTN, Airtel, Zamtel), USSD, bank transfers, and Bitcoin." },
-        { question: "Are international payments supported?", answer: "Yes, through virtual cards and Bitcoin. International transactions may require additional KYC verification." },
+        { question: "Are international payments supported?", answer: "Yes, through virtual cards and Bitcoin. Some international transfers ask for identity verification — if one does, we'll ask at the time and explain why." },
         { question: "How do virtual cards work?", answer: "Create a virtual card from your Wallet, load funds, and use it for online purchases anywhere Visa/Mastercard is accepted. Cards can be frozen or cancelled instantly." },
         { question: "What happens if a payment fails?", answer: "You'll receive an instant notification with the failure reason. Retry or choose a different payment method. Failed transactions are never charged." },
       ]
@@ -59,7 +59,7 @@ const Faq = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-5xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 max-w-5xl mx-auto w-full">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold mb-4">Frequently Asked Questions</h1>
           <p className="text-muted-foreground mb-8">

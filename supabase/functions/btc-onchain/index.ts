@@ -3,7 +3,11 @@
 // Actions (POST JSON { action, ... }):
 //   receive         (user JWT)  → the caller's unique BIP84 deposit address
 //   check_deposits  (service role only) → scan assigned addresses on an
-//                   esplora API, record deposits, credit at 1 confirmation
+//                   esplora API, record deposits, credit at the tiered
+//                   confirmation count (audit M2: 2 confs below
+//                   BTC_DEPOSIT_MEDIUM_SATS, 3 at/above it; deposits at
+//                   or above BTC_DEPOSIT_LARGE_SATS must additionally
+//                   agree on a second, independent explorer)
 //   send            (user JWT)  → withdraw to an external mainnet address;
 //                   reserved → built → signed → broadcast → finalized,
 //                   with automatic refund ONLY for failures BEFORE
@@ -28,23 +32,35 @@
 //                      only when it matches BTC_XPUB (the interlock)
 // Optional config:
 //   ESPLORA_API_URL    default https://mempool.space/api
+//   ESPLORA_SECONDARY_API_URL  default https://blockstream.info/api —
+//                      the independent explorer for the M2 cross-check
 //   BTC_MIN_WITHDRAWAL_SATS (10000), BTC_MAX_TX_SATS (2000000),
 //   BTC_MAX_DAILY_SATS (5000000)
+//   BTC_DEPOSIT_MEDIUM_SATS (500000), BTC_DEPOSIT_LARGE_SATS (2000000)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
 import {
+  ACCOUNT_FROZEN_MESSAGE,
+  isAccountFrozen,
+} from "../_shared/account-freeze.ts";
+import {
   buildWithdrawalTx,
   classifyBroadcastOutcome,
+  crossCheckDeposit,
   custodyStatus,
+  depositNeedsCrossCheck,
   deriveAddress,
   deriveScript,
   filterUncommittedUtxos,
   receiveStatus,
+  requiredConfirmationsFor,
   selectCoins,
   spentOutpointsFromTx,
   validateMainnetAddress,
   type BroadcastClassification,
+  type DepositCrossCheck,
+  type DepositTxView,
   type Outpoint,
   type Utxo,
 } from "../_shared/btc-core.ts";
@@ -55,7 +71,16 @@ const corsHeaders = {
 };
 
 const ESPLORA = (Deno.env.get("ESPLORA_API_URL") || "https://mempool.space/api").replace(/\/$/, "");
-const REQUIRED_CONFIRMATIONS = 1;
+// Deposit crediting tiers (audit M2 / P2-16): deposits used to credit
+// at 1 confirmation trusting this one explorer. Now the count is
+// tiered by amount — 2 confirmations below BTC_DEPOSIT_MEDIUM_SATS
+// (default 500_000), 3 at or above it — and deposits at or above
+// BTC_DEPOSIT_LARGE_SATS (default 2_000_000) must ALSO agree on a
+// second, independent explorer (default blockstream.info) before they
+// may credit. The tier/cross-check decisions are the pure policy in
+// btc-core (requiredConfirmationsFor / crossCheckDeposit); the
+// thresholds are read per scan in checkDeposits.
+const ESPLORA_SECONDARY = (Deno.env.get("ESPLORA_SECONDARY_API_URL") || "https://blockstream.info/api").replace(/\/$/, "");
 const MAX_SCAN_ADDRESSES = 2000;
 
 function json(status: number, body: unknown) {
@@ -244,6 +269,9 @@ async function checkDeposits(supabase: any) {
     .limit(MAX_SCAN_ADDRESSES);
   if (error) throw error;
 
+  const mediumSats = envInt("BTC_DEPOSIT_MEDIUM_SATS", 500_000);
+  const largeSats = envInt("BTC_DEPOSIT_LARGE_SATS", 2_000_000);
+
   const tipRes = await esplora("/blocks/tip/height");
   if (!tipRes.ok) throw new Error(`Esplora tip height failed: ${tipRes.status}`);
   const tipHeight = Number.parseInt(await tipRes.text(), 10);
@@ -266,6 +294,27 @@ async function checkDeposits(supabase: any) {
             ? tipHeight - tx.status.block_height + 1
             : 0;
 
+          // M2: the required count is per-deposit, tiered by amount.
+          const requiredConfs = requiredConfirmationsFor(vout.value, mediumSats, largeSats);
+
+          // M2: a large deposit that is otherwise creditable must
+          // first agree on the second, independent explorer. A held
+          // deposit is NOT recorded this round (no RPC call) — the
+          // next scan retries it; fail-closed.
+          if (
+            depositNeedsCrossCheck(vout.value, largeSats) &&
+            confirmations >= requiredConfs
+          ) {
+            const verdict = await crossCheckLargeDeposit(tx, voutIndex, assignment.address, vout.value);
+            if (!verdict.ok) {
+              errors.push({
+                address: assignment.address,
+                error: `cross-check pending for large deposit ${tx.txid}: ${verdict.reason}`,
+              });
+              continue;
+            }
+          }
+
           const { data: result, error: rpcErr } = await supabase.rpc("btc_record_deposit", {
             p_user_id: assignment.user_id,
             p_address: assignment.address,
@@ -273,7 +322,7 @@ async function checkDeposits(supabase: any) {
             p_vout: voutIndex,
             p_amount_sats: vout.value,
             p_confirmations: confirmations,
-            p_required_confs: REQUIRED_CONFIRMATIONS,
+            p_required_confs: requiredConfs,
           });
           if (rpcErr) throw rpcErr;
           seen++;
@@ -294,6 +343,45 @@ async function checkDeposits(supabase: any) {
     credited,
     errors,
   });
+}
+
+/**
+ * M2 cross-check: fetch the deposit's transaction from the SECOND,
+ * independent explorer and let the pure btc-core policy judge the
+ * agreement. Any fetch failure or non-OK answer yields a null
+ * secondary view, which the policy treats as a hold (fail-closed).
+ */
+async function crossCheckLargeDeposit(
+  primaryTx: any,
+  voutIndex: number,
+  address: string,
+  valueSats: number,
+): Promise<DepositCrossCheck> {
+  const primary: DepositTxView = {
+    confirmed: primaryTx.status?.confirmed === true,
+    blockHeight: primaryTx.status?.block_height ?? null,
+    voutValue: null,
+    voutAddress: null,
+  };
+  let secondary: DepositTxView | null = null;
+  try {
+    const res = await fetch(`${ESPLORA_SECONDARY}/tx/${primaryTx.txid}`, {
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (res.ok) {
+      const tx2 = await res.json();
+      const v2 = tx2.vout?.[voutIndex];
+      secondary = {
+        confirmed: tx2.status?.confirmed === true,
+        blockHeight: tx2.status?.block_height ?? null,
+        voutValue: v2 ? Number(v2.value) : null,
+        voutAddress: v2?.scriptpubkey_address ?? null,
+      };
+    }
+  } catch {
+    secondary = null;
+  }
+  return crossCheckDeposit(primary, secondary, address, valueSats);
 }
 
 async function fetchAddressTxs(address: string): Promise<any[]> {
@@ -321,6 +409,12 @@ async function send(supabase: any, userId: string, body: any) {
   if (!c.configured) {
     console.error("btc-onchain send: custody not configured (" + c.reason + ")");
     return json(503, { error: WITHDRAWALS_NOT_CONFIGURED });
+  }
+
+  // ── Freeze guard: a frozen account cannot withdraw on-chain ──
+  // (Receiving stays open; only the send path checks.)
+  if (await isAccountFrozen(supabase, userId)) {
+    return json(403, { error: ACCOUNT_FROZEN_MESSAGE });
   }
   const accountPriv = c.accountPriv;
   const accountPub = c.accountPub;
@@ -416,6 +510,10 @@ async function send(supabase: any, userId: string, body: any) {
     p_amount_sats: amountSats,
     p_fee_sats: selection.feeSats,
     p_idempotency_key: idempotencyKey,
+    // M1 (P2-15): the cap is enforced inside the reserving
+    // transaction, under a per-user advisory lock — this pre-check
+    // above and the post-reservation re-check remain as outer layers.
+    p_max_daily_sats: maxDailySats,
   });
   if (reserveErr) {
     return json(400, { error: reserveErr.message });

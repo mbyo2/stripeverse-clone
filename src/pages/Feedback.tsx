@@ -171,7 +171,7 @@ const Feedback = () => {
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-2">
             <div className="bg-amber-500 text-black px-2 py-1 rounded text-xs font-medium">BETA v{version}</div>

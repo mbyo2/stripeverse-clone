@@ -47,7 +47,7 @@ const AgentNetwork = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-20 pb-24 px-4 max-w-6xl mx-auto">
+      <main className="pt-2 pb-24 px-4 max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Agent Network</h1>

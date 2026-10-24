@@ -122,7 +122,7 @@ const VirtualCardFund = () => {
     return (
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
@@ -135,7 +135,7 @@ const VirtualCardFund = () => {
     return (
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <VirtualCardsComingSoon />
         </main>
         <Footer />
@@ -147,7 +147,7 @@ const VirtualCardFund = () => {
     return (
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
@@ -164,7 +164,7 @@ const VirtualCardFund = () => {
         <CardTitle>Quick Fund Options</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-2">
           {[50, 100, 200, 500, 1000, 2000].map((value) => (
             <Button 
               key={value} 
@@ -182,7 +182,7 @@ const VirtualCardFund = () => {
   return (
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Fund Virtual Card</h1>
           <p className="text-muted-foreground mt-2">

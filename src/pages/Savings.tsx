@@ -31,7 +31,7 @@ const Savings = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+      <main className="pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Savings</h1>

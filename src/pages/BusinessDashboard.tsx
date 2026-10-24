@@ -21,7 +21,7 @@ const BusinessDashboard = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full space-y-6">
+        <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full space-y-6">
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-40 rounded-[24px]" />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -67,7 +67,7 @@ const BusinessDashboard = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         {/* Header */}
         <motion.div 
           className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"

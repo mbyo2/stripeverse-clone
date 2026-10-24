@@ -9,7 +9,17 @@ import React, {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
-export type Role = "admin" | "business" | "user" | "beta_tester";
+export type Role =
+  | "admin"
+  | "super_admin"
+  | "business"
+  | "user"
+  | "beta_tester"
+  | "moderator"
+  | "p2p_admin"
+  | "support_admin"
+  | "compliance_admin"
+  | "finance_admin";
 export type Feature =
   | "dashboard_access"
   | "feedback_submission"
@@ -52,7 +62,9 @@ export const RoleProvider = ({ children }: RoleProviderProps) => {
 
   const checkRoleAccess = useCallback(
     (feature: Feature): boolean => {
-      if (roles.includes("admin")) return true;
+      // super_admin is additive over admin (foundation design): it
+      // holds every feature access an admin holds, never less.
+      if (roles.includes("admin") || roles.includes("super_admin")) return true;
 
       const featureRoles: { [key in Feature]?: Role[] } = {
         feedback_dashboard: ["admin"],

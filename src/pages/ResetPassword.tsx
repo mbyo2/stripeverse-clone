@@ -36,7 +36,7 @@ const ResetPassword = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 flex items-center justify-center p-4 pt-24">
+      <main className="flex-1 flex items-center justify-center p-4 pt-6">
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">

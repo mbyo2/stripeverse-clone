@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import {
   PhotoBand,
   BitcoinSection,
+  SupportingIntro,
   MobileMoneySection,
   CheckoutSection,
   BusinessSection,
@@ -27,7 +28,10 @@ const Index = () => {
       <main>
         <Hero isAuthenticated={false} />
         <PhotoBand />
-        <BitcoinSection />
+        <div id="bitcoin" className="scroll-mt-[72px]">
+          <BitcoinSection />
+        </div>
+        <SupportingIntro />
         <MobileMoneySection />
         <CheckoutSection />
         <BusinessSection />

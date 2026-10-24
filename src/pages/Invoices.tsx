@@ -79,7 +79,7 @@ const Invoices = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-[28px] leading-tight font-display font-semibold">Invoices</h1>

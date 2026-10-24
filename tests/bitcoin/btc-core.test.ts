@@ -698,3 +698,101 @@ describe("classifyBroadcastOutcome (no broadcast outcome may authorise a refund)
     expect(cls.outcome).toBe("unknown");
   });
 });
+
+describe("deposit crediting tiers (audit M2 / P2-16)", () => {
+  const MEDIUM = 500_000;
+  const LARGE = 2_000_000;
+  const req = (amount: number) => core.requiredConfirmationsFor(amount, MEDIUM, LARGE);
+
+  it("small deposits need 2 confirmations (never the old 1)", () => {
+    expect(req(1)).toBe(2);
+    expect(req(10_000)).toBe(2);
+    expect(req(MEDIUM - 1)).toBe(2);
+  });
+
+  it("medium deposits need 3 confirmations, boundary inclusive", () => {
+    expect(req(MEDIUM)).toBe(3);
+    expect(req(LARGE - 1)).toBe(3);
+  });
+
+  it("large deposits still need 3 confirmations (plus the cross-check)", () => {
+    expect(req(LARGE)).toBe(3);
+    expect(req(100_000_000)).toBe(3);
+  });
+
+  it("honours caller-supplied thresholds", () => {
+    expect(core.requiredConfirmationsFor(50, 100, 200)).toBe(2);
+    expect(core.requiredConfirmationsFor(100, 100, 200)).toBe(3);
+    expect(core.requiredConfirmationsFor(250, 100, 200)).toBe(3);
+  });
+
+  it("cross-check is required exactly at/above the large threshold", () => {
+    expect(core.depositNeedsCrossCheck(LARGE - 1, LARGE)).toBe(false);
+    expect(core.depositNeedsCrossCheck(LARGE, LARGE)).toBe(true);
+    expect(core.depositNeedsCrossCheck(LARGE + 1, LARGE)).toBe(true);
+  });
+});
+
+describe("deposit cross-check verdicts (audit M2 / P2-16, fail-closed)", () => {
+  const ADDR = ADDR_0_0;
+  const VALUE = 2_500_000;
+  const primary: import("../../supabase/functions/_shared/btc-core").DepositTxView = {
+    confirmed: true,
+    blockHeight: 900_000,
+    voutValue: null,
+    voutAddress: null,
+  };
+  const agreeing: import("../../supabase/functions/_shared/btc-core").DepositTxView = {
+    confirmed: true,
+    blockHeight: 900_001,
+    voutValue: VALUE,
+    voutAddress: ADDR,
+  };
+  const check = (
+    secondary: import("../../supabase/functions/_shared/btc-core").DepositTxView | null,
+    prim = primary,
+  ) => core.crossCheckDeposit(prim, secondary, ADDR, VALUE);
+
+  it("passes when the secondary explorer agrees", () => {
+    expect(check(agreeing)).toEqual({ ok: true });
+    // Same height and the ±2 edge both pass.
+    expect(check({ ...agreeing, blockHeight: 900_000 })).toEqual({ ok: true });
+    expect(check({ ...agreeing, blockHeight: 900_002 })).toEqual({ ok: true });
+    expect(check({ ...agreeing, blockHeight: 899_998 })).toEqual({ ok: true });
+  });
+
+  it("holds when the secondary explorer could not be consulted", () => {
+    const v = check(null);
+    expect(v.ok).toBe(false);
+    if (!v.ok) expect(v.reason).toContain("secondary explorer");
+  });
+
+  it("holds when the transaction is unconfirmed on the secondary", () => {
+    const v = check({ ...agreeing, confirmed: false, blockHeight: null });
+    expect(v.ok).toBe(false);
+    if (!v.ok) expect(v.reason).toContain("not confirmed");
+  });
+
+  it("holds on a value mismatch (different vout, or no vout at the index)", () => {
+    expect(check({ ...agreeing, voutValue: VALUE - 1 }).ok).toBe(false);
+    expect(check({ ...agreeing, voutValue: null }).ok).toBe(false);
+  });
+
+  it("holds on an address mismatch", () => {
+    const v = check({ ...agreeing, voutAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" });
+    expect(v.ok).toBe(false);
+    if (!v.ok) expect(v.reason).toContain("address mismatch");
+  });
+
+  it("holds when block heights disagree by more than 2", () => {
+    const v = check({ ...agreeing, blockHeight: 900_003 });
+    expect(v.ok).toBe(false);
+    if (!v.ok) expect(v.reason).toContain("block height");
+    expect(check({ ...agreeing, blockHeight: 899_997 }).ok).toBe(false);
+  });
+
+  it("a missing height on either side cannot manufacture a disagreement", () => {
+    expect(check({ ...agreeing, blockHeight: null })).toEqual({ ok: true });
+    expect(check(agreeing, { ...primary, blockHeight: null })).toEqual({ ok: true });
+  });
+});

@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import QRCode from 'qrcode.react';
 import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
+import { useVisibilityPolling } from "@/lib/polling";
 
 interface BitcoinPaymentProps {
   amount: number;
@@ -28,6 +29,9 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
   const [invoiceId, setInvoiceId] = useState("");
   const [lightningPaymentId, setLightningPaymentId] = useState("");
   const confirmedRef = useRef(false);
+  // Terminal state for the status poller (scalability fix #5): once
+  // the payment is confirmed, polling stops entirely.
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -60,6 +64,12 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         // Lightning invoice via Breez. The amount is in ZMW; convert at
         // the real BTC/ZMW rate via btc-trade's quote (the same price
         // path the wallet's Buy flow uses — no fixed-rate conversions).
+        // Tracks whether a REAL Lightning invoice exists for this
+        // checkout. breez-lightning's custodial backend is not live
+        // yet (it 503s by design), so today this stays false and the
+        // Lightning tab must show its honest unavailable state — never
+        // a QR of an empty string presented as payable.
+        let lightningReady = false;
         try {
           const { data: quote } = await supabase.functions.invoke('btc-trade', {
             body: { action: 'quote', side: 'buy', amount_zmw: amount }
@@ -74,6 +84,7 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
             });
             if (lnData?.bolt11) {
               setLightningInvoice(lnData.bolt11);
+              lightningReady = true;
               // Kept so the status poller below can settle THIS invoice.
               if (lnData.payment_id) setLightningPaymentId(lnData.payment_id);
             }
@@ -84,7 +95,9 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
 
         toast({
           title: "Payment details generated",
-          description: "You can now pay with Bitcoin or Lightning.",
+          description: lightningReady
+            ? "You can now pay with Bitcoin or Lightning."
+            : "You can now pay with Bitcoin (on-chain).",
         });
       } catch (error) {
         console.error("Error fetching payment details:", error);
@@ -115,69 +128,75 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
     };
   }, [amount, toast]);
   
-  useEffect(() => {
-    if ((!bitcoinAddress && !lightningPaymentId) || isLoading) return;
+  const checkOnchainStatus = async () => {
+    if (confirmedRef.current || !bitcoinAddress) return;
+    try {
+      // Deposit detection runs server-side: the btc-onchain
+      // check_deposits pg_cron scans assigned addresses every
+      // 5 minutes and records credited deposits in btc_deposits
+      // (credited at the tiered confirmation count — 2 under
+      // 500,000 sats, 3 at or above it). Poll for this address's row.
+      // btc_deposits is not in the generated types — untyped access
+      // is the codebase pattern for such tables.
+      const { data, error } = await (supabase as any)
+        .from('btc_deposits')
+        .select('status')
+        .eq('address', bitcoinAddress)
+        .eq('status', 'credited')
+        .limit(1);
 
-    const checkOnchainStatus = async () => {
-      if (confirmedRef.current || !bitcoinAddress) return;
-      try {
-        // Deposit detection runs server-side: the btc-onchain
-        // check_deposits pg_cron scans assigned addresses every
-        // 5 minutes and records credited deposits in btc_deposits
-        // (credited at 1 confirmation). Poll for this address's row.
-        // btc_deposits is not in the generated types — untyped access
-        // is the codebase pattern for such tables.
-        const { data, error } = await (supabase as any)
-          .from('btc_deposits')
-          .select('status')
-          .eq('address', bitcoinAddress)
-          .eq('status', 'credited')
-          .limit(1);
-
-        if (error) {
-          console.error("Error checking payment status:", error);
-          return;
-        }
-
-        if (data && data.length > 0) {
-          handlePaymentConfirmed("bitcoin");
-        }
-      } catch (error) {
+      if (error) {
         console.error("Error checking payment status:", error);
+        return;
       }
-    };
 
-    const checkLightningStatus = async () => {
-      if (confirmedRef.current || !lightningPaymentId) return;
-      try {
-        // Settlement happens inside breez-lightning's check_status
-        // (exactly-once RPC); 'paid' here means the wallet was
-        // actually credited.
-        const { data } = await supabase.functions.invoke('breez-lightning', {
-          body: { action: 'check_status', breez_invoice_id: lightningPaymentId }
-        });
-        if (data?.status === 'paid') {
-          handlePaymentConfirmed("lightning");
-        }
-      } catch (error) {
-        console.error("Error checking Lightning status:", error);
+      if (data && data.length > 0) {
+        handlePaymentConfirmed("bitcoin");
       }
-    };
+    } catch (error) {
+      console.error("Error checking payment status:", error);
+    }
+  };
 
-    const statusInterval = setInterval(() => {
-      checkOnchainStatus();
-      checkLightningStatus();
-    }, 15000);
+  const checkLightningStatus = async () => {
+    if (confirmedRef.current || !lightningPaymentId) return;
+    try {
+      // Settlement happens inside breez-lightning's check_status
+      // (exactly-once RPC); 'paid' here means the wallet was
+      // actually credited.
+      const { data } = await supabase.functions.invoke('breez-lightning', {
+        body: { action: 'check_status', breez_invoice_id: lightningPaymentId }
+      });
+      if (data?.status === 'paid') {
+        handlePaymentConfirmed("lightning");
+      }
+    } catch (error) {
+      console.error("Error checking Lightning status:", error);
+    }
+  };
 
-    checkOnchainStatus();
-    checkLightningStatus();
-
-    return () => clearInterval(statusInterval);
-  }, [bitcoinAddress, lightningPaymentId, isLoading]);
+  // Poll both rails every 15s while a payment is outstanding.
+  // Visibility-gated (scalability fix #5): nothing fires from a
+  // hidden tab, one check lands the moment the payer returns, and
+  // polling stops for good once the payment is confirmed.
+  useVisibilityPolling(
+    () => {
+      void checkOnchainStatus();
+      void checkLightningStatus();
+    },
+    15000,
+    {
+      enabled:
+        (!!bitcoinAddress || !!lightningPaymentId) &&
+        !isLoading &&
+        !paymentConfirmed,
+    },
+  );
 
   const handlePaymentConfirmed = (method: "bitcoin" | "lightning") => {
     if (confirmedRef.current) return;
     confirmedRef.current = true;
+    setPaymentConfirmed(true);
     toast({
       title: "Payment Received!",
       description: "Your Bitcoin payment has been confirmed.",
@@ -257,13 +276,14 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         
         <TabsContent value="bitcoin" className="space-y-4 pt-4">
           <div className="bg-muted p-4 rounded-lg flex flex-col items-center">
-            <QRCode 
-              value={bitcoinAddress}
-              size={180}
-              level="H"
-              includeMargin={true}
-              className="mb-4"
-            />
+            <div className="bg-white p-3 rounded-lg mb-4">
+              <QRCode
+                value={bitcoinAddress}
+                size={180}
+                level="H"
+                includeMargin={true}
+              />
+            </div>
             
             <div className="w-full">
               <Label htmlFor="btc-address" className="sr-only">Bitcoin Address</Label>
@@ -287,47 +307,59 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
           
           <Alert>
             <AlertDescription>
-              Send exactly {formatBitcoinAmount(bitcoinAmount)} to the address above. The transaction will be confirmed after 1 confirmation.
+              Send exactly {formatBitcoinAmount(bitcoinAmount)} to the address above. The payment completes once the deposit is credited — after 2 confirmations for amounts under 500,000 sats, and 3 confirmations for larger amounts.
             </AlertDescription>
           </Alert>
         </TabsContent>
         
         <TabsContent value="lightning" className="space-y-4 pt-4">
-          <div className="bg-muted p-4 rounded-lg flex flex-col items-center">
-            <QRCode 
-              value={lightningInvoice}
-              size={180}
-              level="H"
-              includeMargin={true}
-              className="mb-4"
-            />
-            
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => copyToClipboard(lightningInvoice)}
-            >
-              {copied ? "Copied!" : "Copy Invoice"}
-              {copied ? <CheckCircle className="ml-2 h-4 w-4" /> : <Copy className="ml-2 h-4 w-4" />}
-            </Button>
-            
-            <Button
-              variant="link"
-              className="mt-2"
-              onClick={() => {
-                window.open(`lightning:${lightningInvoice}`, '_blank');
-              }}
-            >
-              Open in Lightning Wallet
-              <ExternalLink className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-          
-          <Alert>
-            <AlertDescription>
-              Pay this Lightning invoice using your Lightning wallet. The payment will be confirmed instantly.
-            </AlertDescription>
-          </Alert>
+          {lightningInvoice ? (
+            <>
+              <div className="bg-muted p-4 rounded-lg flex flex-col items-center">
+                <QRCode
+                  value={lightningInvoice}
+                  size={180}
+                  level="H"
+                  includeMargin={true}
+                  className="mb-4"
+                />
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => copyToClipboard(lightningInvoice)}
+                >
+                  {copied ? "Copied!" : "Copy Invoice"}
+                  {copied ? <CheckCircle className="ml-2 h-4 w-4" /> : <Copy className="ml-2 h-4 w-4" />}
+                </Button>
+
+                <Button
+                  variant="link"
+                  className="mt-2"
+                  onClick={() => {
+                    window.open(`lightning:${lightningInvoice}`, '_blank');
+                  }}
+                >
+                  Open in Lightning Wallet
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+
+              <Alert>
+                <AlertDescription>
+                  Pay this Lightning invoice using your Lightning wallet. The payment will be confirmed instantly.
+                </AlertDescription>
+              </Alert>
+            </>
+          ) : (
+            <Alert>
+              <AlertDescription>
+                Lightning isn't available for this payment yet. Please use the
+                Bitcoin tab above to pay on-chain instead — it works the same,
+                it just takes a little longer to confirm.
+              </AlertDescription>
+            </Alert>
+          )}
         </TabsContent>
       </Tabs>
       

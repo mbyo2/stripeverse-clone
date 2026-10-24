@@ -1,6 +1,7 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import type { Role } from '@/contexts/RoleContext';
 import BusinessRouteGuard from '@/components/business/BusinessRouteGuard';
 import PageTransition from '@/components/PageTransition';
 
@@ -61,6 +62,7 @@ import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
 import NotFound from '@/pages/NotFound';
 import AdminUsers from '@/pages/AdminUsers';
+import AdminMastercardMove from '@/pages/AdminMastercardMove';
 import AdminTransactions from '@/pages/AdminTransactions';
 import Developers from '@/pages/Developers';
 import RequestMoney from '@/pages/RequestMoney';
@@ -72,6 +74,7 @@ import ScheduledPayments from '@/pages/ScheduledPayments';
 import BankTransfers from '@/pages/BankTransfers';
 import CollectPayments from '@/pages/CollectPayments';
 import PaymentLinks from '@/pages/PaymentLinks';
+import BitcoinPos from '@/pages/BitcoinPos';
 import SubAccounts from '@/pages/SubAccounts';
 import SplitPayments from '@/pages/SplitPayments';
 import MultiCurrencyWallet from '@/pages/MultiCurrencyWallet';
@@ -101,11 +104,29 @@ import AuditLogs from '@/pages/AuditLogs';
 import BackupExport from '@/pages/BackupExport';
 import ApiRateLimits from '@/pages/ApiRateLimits';
 
+// P2P marketplace (Phase 1c)
+import P2PMarketplace from '@/pages/P2PMarketplace';
+import P2PNewAd from '@/pages/P2PNewAd';
+import P2PMyAds from '@/pages/P2PMyAds';
+import P2POrders from '@/pages/P2POrders';
+import P2PTradeRoom from '@/pages/P2PTradeRoom';
+import P2PProfile from '@/pages/P2PProfile';
+import P2PDispute from '@/pages/P2PDispute';
+import AdminP2P from '@/pages/AdminP2P';
+import AdminUserDetail from '@/pages/AdminUserDetail';
+import AdminRoleRequests from '@/pages/AdminRoleRequests';
+import AdminRefunds from '@/pages/AdminRefunds';
+
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
 );
 
-type Role = 'admin' | 'business' | 'user' | 'beta_tester';
+// Admin console gate: every admin route admits admin OR super_admin
+// (super_admin is additive over admin — the foundation's design), so a
+// super_admin-only holder is never locked out of the console. The P2P
+// console additionally admits the per-feature p2p_admin role.
+const ADMIN_ROLES: Role[] = ['admin', 'super_admin'];
+const P2P_ADMIN_ROLES: Role[] = ['admin', 'super_admin', 'p2p_admin'];
 const RoleGuardedPage = ({ children, roles }: { children: React.ReactNode; roles: Role[] }) => (
   <ProtectedRoute requiredRoles={roles}><PageTransition>{children}</PageTransition></ProtectedRoute>
 );
@@ -131,6 +152,18 @@ const AnimatedRoutes = () => {
         <Route path="/faq" element={<PageTransition><Faq /></PageTransition>} />
         <Route path="/privacy-policy" element={<PageTransition><PrivacyPolicy /></PageTransition>} />
         <Route path="/terms-of-service" element={<PageTransition><TermsOfService /></PageTransition>} />
+        {/* Natural short URLs for the legal pages (bookmarks, printed
+            material, partner links) — the canonical pages live at the
+            long paths above. */}
+        <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
+        <Route path="/terms" element={<Navigate to="/terms-of-service" replace />} />
+        {/* Public content pages the public nav links to: these render
+            for logged-out visitors. Account-specific sections inside
+            them are gated within the pages themselves. */}
+        <Route path="/business" element={<PageTransition><Business /></PageTransition>} />
+        <Route path="/api" element={<PageTransition><API /></PageTransition>} />
+        <Route path="/support" element={<PageTransition><Support /></PageTransition>} />
+        <Route path="/help" element={<PageTransition><Help /></PageTransition>} />
         <Route path="/developers" element={<PageTransition><Developers /></PageTransition>} />
         <Route path="/pay/:code" element={<PageTransition><PublicCheckout /></PageTransition>} />
         <Route path="/sdk-docs" element={<PageTransition><SdkDocs /></PageTransition>} />
@@ -140,18 +173,20 @@ const AnimatedRoutes = () => {
         {/* Protected routes */}
         <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
         <Route path="/user-dashboard" element={<ProtectedPage><UserDashboard /></ProtectedPage>} />
-        <Route path="/admin-dashboard" element={<RoleGuardedPage roles={['admin']}><AdminDashboard /></RoleGuardedPage>} />
-        <Route path="/beta-dashboard" element={<RoleGuardedPage roles={['beta_tester','admin']}><BetaTesterDashboard /></RoleGuardedPage>} />
+        <Route path="/admin-dashboard" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminDashboard /></RoleGuardedPage>} />
+        <Route path="/beta-dashboard" element={<RoleGuardedPage roles={['beta_tester','admin','super_admin']}><BetaTesterDashboard /></RoleGuardedPage>} />
 
         <Route path="/business-dashboard" element={
           <ProtectedRoute><BusinessRouteGuard><PageTransition><BusinessDashboard /></PageTransition></BusinessRouteGuard></ProtectedRoute>
         } />
-        <Route path="/business" element={
-          <ProtectedRoute><BusinessRouteGuard><PageTransition><Business /></PageTransition></BusinessRouteGuard></ProtectedRoute>
-        } />
-        
-        <Route path="/role-management" element={<RoleGuardedPage roles={['admin']}><RoleManagement /></RoleGuardedPage>} />
-        <Route path="/tier-management" element={<RoleGuardedPage roles={['admin']}><TierManagement /></RoleGuardedPage>} />
+
+        {/* Role Management is the self-service page (own roles, role
+            requests, security tab) linked from every account menu and
+            from ProtectedRoute's own "Request Access" action — it is
+            for every signed-in user, not an admin console page. The
+            admin side of role requests lives at /admin/role-requests. */}
+        <Route path="/role-management" element={<ProtectedPage><RoleManagement /></ProtectedPage>} />
+        <Route path="/tier-management" element={<RoleGuardedPage roles={ADMIN_ROLES}><TierManagement /></RoleGuardedPage>} />
         <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
         <Route path="/security-settings" element={<ProtectedPage><SecuritySettings /></ProtectedPage>} />
         <Route path="/two-factor-auth" element={<ProtectedPage><TwoFactorAuth /></ProtectedPage>} />
@@ -166,17 +201,14 @@ const AnimatedRoutes = () => {
         <Route path="/transaction-search" element={<ProtectedPage><TransactionSearch /></ProtectedPage>} />
         <Route path="/billing" element={<ProtectedPage><Billing /></ProtectedPage>} />
         <Route path="/analytics" element={<ProtectedRoute requiredFeature="analytics"><PageTransition><Analytics /></PageTransition></ProtectedRoute>} />
-        <Route path="/api" element={<ProtectedRoute requiredFeature="business_tools"><PageTransition><API /></PageTransition></ProtectedRoute>} />
-        <Route path="/support" element={<ProtectedPage><Support /></ProtectedPage>} />
         <Route path="/card/new" element={<ProtectedPage><VirtualCardNew /></ProtectedPage>} />
         <Route path="/card/:id" element={<ProtectedPage><VirtualCardDetails /></ProtectedPage>} />
         <Route path="/card/:id/fund" element={<ProtectedPage><VirtualCardFund /></ProtectedPage>} />
         <Route path="/transfer" element={<ProtectedRoute requiredFeature="transfers"><PageTransition><Transfer /></PageTransition></ProtectedRoute>} />
         <Route path="/send-money" element={<ProtectedPage><SendMoney /></ProtectedPage>} />
-        <Route path="/compliance" element={<RoleGuardedPage roles={['admin','business']}><Compliance /></RoleGuardedPage>} />
-        <Route path="/feedback-dashboard" element={<RoleGuardedPage roles={['admin']}><FeedbackDashboard /></RoleGuardedPage>} />
+        <Route path="/compliance" element={<RoleGuardedPage roles={['admin','super_admin','business']}><Compliance /></RoleGuardedPage>} />
+        <Route path="/feedback-dashboard" element={<RoleGuardedPage roles={ADMIN_ROLES}><FeedbackDashboard /></RoleGuardedPage>} />
         <Route path="/feedback" element={<ProtectedPage><Feedback /></ProtectedPage>} />
-        <Route path="/help" element={<ProtectedPage><Help /></ProtectedPage>} />
         <Route path="/rewards" element={<ProtectedPage><Rewards /></ProtectedPage>} />
         <Route path="/payment-processor" element={<ProtectedRoute requiredFeature="business_tools"><PageTransition><PaymentProcessor /></PageTransition></ProtectedRoute>} />
         <Route path="/payment-services" element={<ProtectedPage><PaymentServices /></ProtectedPage>} />
@@ -184,8 +216,29 @@ const AnimatedRoutes = () => {
         <Route path="/notifications" element={<ProtectedPage><Notifications /></ProtectedPage>} />
         <Route path="/kyc" element={<ProtectedPage><KycPage /></ProtectedPage>} />
         <Route path="/ussd-access" element={<ProtectedPage><UssdAccess /></ProtectedPage>} />
-        <Route path="/admin/users" element={<RoleGuardedPage roles={['admin']}><AdminUsers /></RoleGuardedPage>} />
-        <Route path="/admin/transactions" element={<RoleGuardedPage roles={['admin']}><AdminTransactions /></RoleGuardedPage>} />
+        <Route path="/admin/users" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminUsers /></RoleGuardedPage>} />
+        <Route path="/admin/transactions" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminTransactions /></RoleGuardedPage>} />
+        <Route path="/admin/mastercard-move" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminMastercardMove /></RoleGuardedPage>} />
+        <Route path="/admin/p2p" element={<RoleGuardedPage roles={P2P_ADMIN_ROLES}><AdminP2P /></RoleGuardedPage>} />
+        <Route path="/admin/users/:userId" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminUserDetail /></RoleGuardedPage>} />
+        <Route path="/admin/role-requests" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminRoleRequests /></RoleGuardedPage>} />
+        <Route path="/admin/refunds" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminRefunds /></RoleGuardedPage>} />
+        {/* Admin landing + natural console URLs: /admin itself and the
+            section names people type land on the real console pages
+            instead of the 404 catch-all. */}
+        <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
+        <Route path="/admin/analytics" element={<Navigate to="/analytics" replace />} />
+        <Route path="/admin/compliance" element={<Navigate to="/compliance" replace />} />
+        <Route path="/admin/disputes" element={<Navigate to="/admin/p2p" replace />} />
+
+        {/* P2P marketplace */}
+        <Route path="/p2p" element={<ProtectedPage><P2PMarketplace /></ProtectedPage>} />
+        <Route path="/p2p/ads/new" element={<ProtectedPage><P2PNewAd /></ProtectedPage>} />
+        <Route path="/p2p/my-ads" element={<ProtectedPage><P2PMyAds /></ProtectedPage>} />
+        <Route path="/p2p/orders" element={<ProtectedPage><P2POrders /></ProtectedPage>} />
+        <Route path="/p2p/orders/:id" element={<ProtectedPage><P2PTradeRoom /></ProtectedPage>} />
+        <Route path="/p2p/profile" element={<ProtectedPage><P2PProfile /></ProtectedPage>} />
+        <Route path="/p2p/disputes/:id" element={<ProtectedPage><P2PDispute /></ProtectedPage>} />
         <Route path="/request-money" element={<ProtectedPage><RequestMoney /></ProtectedPage>} />
         <Route path="/contacts" element={<ProtectedPage><Contacts /></ProtectedPage>} />
         <Route path="/spending-insights" element={<ProtectedPage><SpendingInsights /></ProtectedPage>} />
@@ -195,6 +248,7 @@ const AnimatedRoutes = () => {
         <Route path="/bank-transfers" element={<ProtectedPage><BankTransfers /></ProtectedPage>} />
         <Route path="/collect-payments" element={<ProtectedPage><CollectPayments /></ProtectedPage>} />
         <Route path="/payment-links" element={<ProtectedPage><PaymentLinks /></ProtectedPage>} />
+        <Route path="/pos" element={<ProtectedPage><BitcoinPos /></ProtectedPage>} />
         <Route path="/sub-accounts" element={<ProtectedPage><SubAccounts /></ProtectedPage>} />
         <Route path="/split-payments" element={<ProtectedPage><SplitPayments /></ProtectedPage>} />
         <Route path="/multi-currency" element={<ProtectedPage><MultiCurrencyWallet /></ProtectedPage>} />
@@ -210,15 +264,15 @@ const AnimatedRoutes = () => {
         <Route path="/savings" element={<ProtectedPage><Savings /></ProtectedPage>} />
         <Route path="/bill-payments" element={<ProtectedPage><BillPayments /></ProtectedPage>} />
         <Route path="/agent-network" element={<ProtectedPage><AgentNetwork /></ProtectedPage>} />
-        <Route path="/fraud-rules" element={<RoleGuardedPage roles={['admin','business']}><FraudRules /></RoleGuardedPage>} />
+        <Route path="/fraud-rules" element={<RoleGuardedPage roles={['admin','super_admin','business']}><FraudRules /></RoleGuardedPage>} />
         <Route path="/statements" element={<ProtectedPage><Statements /></ProtectedPage>} />
         <Route path="/ip-whitelist" element={<ProtectedPage><IpWhitelist /></ProtectedPage>} />
         <Route path="/qr-payments" element={<ProtectedPage><QrPayments /></ProtectedPage>} />
         <Route path="/checkout-widget" element={<ProtectedPage><CheckoutWidget /></ProtectedPage>} />
-        <Route path="/aml-screening" element={<RoleGuardedPage roles={['admin']}><AmlScreening /></RoleGuardedPage>} />
-        <Route path="/audit-logs" element={<RoleGuardedPage roles={['admin']}><AuditLogs /></RoleGuardedPage>} />
-        <Route path="/backup-export" element={<RoleGuardedPage roles={['admin']}><BackupExport /></RoleGuardedPage>} />
-        <Route path="/api-rate-limits" element={<RoleGuardedPage roles={['admin','business']}><ApiRateLimits /></RoleGuardedPage>} />
+        <Route path="/aml-screening" element={<RoleGuardedPage roles={ADMIN_ROLES}><AmlScreening /></RoleGuardedPage>} />
+        <Route path="/audit-logs" element={<RoleGuardedPage roles={ADMIN_ROLES}><AuditLogs /></RoleGuardedPage>} />
+        <Route path="/backup-export" element={<RoleGuardedPage roles={ADMIN_ROLES}><BackupExport /></RoleGuardedPage>} />
+        <Route path="/api-rate-limits" element={<RoleGuardedPage roles={['admin','super_admin','business']}><ApiRateLimits /></RoleGuardedPage>} />
 
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
