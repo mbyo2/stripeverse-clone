@@ -174,6 +174,12 @@ function SelfCustodyWallet() {
   const [sendAmountSats, setSendAmountSats] = useState("");
   const [preparedSend, setPreparedSend] = useState<PreparedSend | null>(null);
   const [preparedLnurl, setPreparedLnurl] = useState<PreparedLnurlPay | null>(null);
+  // Send: whether the QR scanner dialog is open. While it is, the
+  // wallet counts as active for the auto-lock (see the keep-alive
+  // effect below) — aiming a camera or picking an image in the OS
+  // file picker produces no clicks in this UI, so without the hold
+  // the 5-minute lock fired mid-scan (rendered pass, 2026-10-25).
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
   // Buy (MoonPay).
   const [buyAmount, setBuyAmount] = useState("");
   // Automatic Claims preference (device-local; default ON, fixed 500-sat limit).
@@ -478,14 +484,29 @@ function SelfCustodyWallet() {
     spBusyRef.current = spBusy;
   }, [spBusy]);
 
+  // QR scanner open-state from the send form's Scan button.
+  // Opening the scanner is wallet activity in its own right: reset
+  // the countdown immediately, then the keep-alive below holds it
+  // for as long as the dialog stays open (including an OS
+  // file-picker round-trip, which leaves this UI entirely). When
+  // the dialog closes the hold releases and genuine idleness locks
+  // on the usual 5-minute schedule.
+  const handleQrScannerOpenChange = (next: boolean) => {
+    setQrScannerOpen(next);
+    if (next) touchSession();
+  };
+
   // While any wallet operation is in flight (Spark connect/sync,
-  // chain scan, broadcast), keep the self-custody session's
-  // auto-lock countdown reset. A first Spark connect downloads a
-  // large engine module and can outlast the 5-minute auto-lock on a
-  // slow connection; without this, the lock fired mid-operation,
-  // wiped the SDK storage under the in-flight connect and bounced
-  // the user to the locked screen (CEO report, 2026-10-25).
-  const anyBusy = spBusy || scanning || sending;
+  // chain scan, broadcast) — or the QR scanner dialog is open —
+  // keep the self-custody session's auto-lock countdown reset. A
+  // first Spark connect downloads a large engine module and can
+  // outlast the 5-minute auto-lock on a slow connection; without
+  // this, the lock fired mid-operation, wiped the SDK storage
+  // under the in-flight connect and bounced the user to the locked
+  // screen (CEO report, 2026-10-25). The scanner case is the same
+  // shape: holding a phone up to a code is active use, not
+  // idleness (rendered pass, 2026-10-25).
+  const anyBusy = spBusy || scanning || sending || qrScannerOpen;
   useEffect(() => {
     if (!anyBusy) return;
     const id = setInterval(touchSession, 60_000);
@@ -1383,7 +1404,7 @@ function SelfCustodyWallet() {
                       <div className="space-y-1">
                         <div className="flex items-center justify-between gap-2">
                           <Label htmlFor="sp-send">Send to — paste or scan any destination</Label>
-                          <QrScanButton onScan={handleScanned} disabled={!session.mnemonic} />
+                          <QrScanButton onScan={handleScanned} onOpenChange={handleQrScannerOpenChange} disabled={!session.mnemonic} />
                         </div>
                         <Textarea
                           id="sp-send"

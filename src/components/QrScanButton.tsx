@@ -73,11 +73,22 @@ type ScanPhase = "starting" | "scanning" | "decoding" | "error";
 type QrScanButtonProps = {
   /** Called with the raw decoded text once a code is read. */
   onScan: (rawText: string) => void;
+  /**
+   * Optional open-state hook, notified on every open/close
+   * transition (including unmount while open). Opt-in: the
+   * self-custody wallet passes it to hold its idle auto-lock while
+   * the scanner is up — aiming a camera or picking an image in the
+   * OS file picker produces no clicks in the wallet UI, so without
+   * the hold the 5-minute lock fired mid-scan (rendered pass,
+   * 2026-10-25). The custodial wallet has no auto-lock and does
+   * not pass this.
+   */
+  onOpenChange?: (open: boolean) => void;
   disabled?: boolean;
   className?: string;
 };
 
-export function QrScanButton({ onScan, disabled, className }: QrScanButtonProps) {
+export function QrScanButton({ onScan, onOpenChange, disabled, className }: QrScanButtonProps) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<ScanPhase>("starting");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -87,6 +98,16 @@ export function QrScanButton({ onScan, disabled, className }: QrScanButtonProps)
   // through a ref keeps the camera lifecycle stable while scanning.
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+
+  // Every open-state change goes through here so the parent's
+  // open-state hook can never be missed on any path (button, dialog
+  // dismiss, successful scan).
+  const setScannerOpen = useCallback((next: boolean) => {
+    setOpen(next);
+    onOpenChangeRef.current?.(next);
+  }, []);
   const scannerRef = useRef<Html5QrcodeInstance | null>(null);
   const openRef = useRef(false);
   const sessionRef = useRef(0);
@@ -114,10 +135,10 @@ export function QrScanButton({ onScan, disabled, className }: QrScanButtonProps)
       if (handledRef.current) return;
       handledRef.current = true;
       void stopScanner();
-      setOpen(false);
+      setScannerOpen(false);
       onScanRef.current(text);
     },
-    [stopScanner],
+    [setScannerOpen, stopScanner],
   );
 
   const startCamera = useCallback(async () => {
@@ -191,11 +212,15 @@ export function QrScanButton({ onScan, disabled, className }: QrScanButtonProps)
     }
   }, [open, startCamera, stopScanner]);
 
-  // Never leak a camera stream if the form unmounts mid-scan.
+  // Never leak a camera stream if the form unmounts mid-scan — and
+  // release the parent's open-state hold so nothing stays "active"
+  // after the scanner is gone.
   useEffect(
     () => () => {
+      const wasOpen = openRef.current;
       openRef.current = false;
       sessionRef.current++;
+      if (wasOpen) onOpenChangeRef.current?.(false);
       void stopScanner();
     },
     [stopScanner],
@@ -204,8 +229,8 @@ export function QrScanButton({ onScan, disabled, className }: QrScanButtonProps)
   const close = useCallback(() => {
     sessionRef.current++;
     void stopScanner();
-    setOpen(false);
-  }, [stopScanner]);
+    setScannerOpen(false);
+  }, [setScannerOpen, stopScanner]);
 
   return (
     <>
@@ -215,7 +240,7 @@ export function QrScanButton({ onScan, disabled, className }: QrScanButtonProps)
         size="sm"
         className={className}
         disabled={disabled}
-        onClick={() => setOpen(true)}
+        onClick={() => setScannerOpen(true)}
         aria-label="Scan a QR code"
       >
         <ScanLine className="h-4 w-4 mr-1.5" />
@@ -226,7 +251,7 @@ export function QrScanButton({ onScan, disabled, className }: QrScanButtonProps)
         open={open}
         onOpenChange={(next) => {
           if (!next) close();
-          else setOpen(true);
+          else setScannerOpen(true);
         }}
       >
         <DialogContent className="max-w-md">
