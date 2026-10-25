@@ -61,7 +61,7 @@ Deposits/withdrawals move real BTC in/out, so wallet total and user totals move 
 | `btc_quotes` | Buy/sell price quotes |
 | `btc_treasury` | Singleton `id = 1`, `float_sats` |
 
-Deploy to project paymentgetway: `btc-onchain`, `btc-trade`, plus updated `breez-lightning` and `btc-payment`.
+Deploy to project paymentgetway: `btc-onchain`, `btc-trade`, plus updated `lightning-service` and `btc-payment`.
 
 Implementation note (for developers): every `btc_*` RPC is granted to
 the service role only and the `btc_*` tables are service-write-only

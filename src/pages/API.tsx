@@ -383,7 +383,7 @@ const API = () => {
                         { fn: "process-payment", desc: "Initiate a payment (mobile money, card)" },
                         { fn: "atomic-transfer", desc: "Atomic wallet-to-wallet transfer" },
                         { fn: "btc-onchain", desc: "Bitcoin on-chain receive / send" },
-                        { fn: "breez-lightning", desc: "Lightning Network invoices and payments" },
+                        { fn: "lightning-service", desc: "Lightning Network invoices and payments" },
                         { fn: "generate-api-key", desc: "Create a new API key" },
                         { fn: "revoke-api-key", desc: "Revoke an API key" },
                       ].map((e) => (

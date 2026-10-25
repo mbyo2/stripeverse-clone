@@ -65,7 +65,7 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
         // the real BTC/ZMW rate via btc-trade's quote (the same price
         // path the wallet's Buy flow uses — no fixed-rate conversions).
         // Tracks whether a REAL Lightning invoice exists for this
-        // checkout. breez-lightning's custodial backend is not live
+        // checkout. lightning-service's custodial backend is not live
         // yet (it 503s by design), so today this stays false and the
         // Lightning tab must show its honest unavailable state — never
         // a QR of an empty string presented as payable.
@@ -79,7 +79,7 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
             // checkout — display it so the payer sends the right sum
             // (previously fetched but never shown: the UI said 0 BTC).
             setBitcoinAmount(quote.amount_sats / 100_000_000);
-            const { data: lnData } = await supabase.functions.invoke('breez-lightning', {
+            const { data: lnData } = await supabase.functions.invoke('lightning-service', {
               body: { action: 'create_invoice', amount_sats: quote.amount_sats }
             });
             if (lnData?.bolt11) {
@@ -161,10 +161,10 @@ const BitcoinPayment = ({ amount, onSuccess, onCancel }: BitcoinPaymentProps) =>
   const checkLightningStatus = async () => {
     if (confirmedRef.current || !lightningPaymentId) return;
     try {
-      // Settlement happens inside breez-lightning's check_status
+      // Settlement happens inside lightning-service's check_status
       // (exactly-once RPC); 'paid' here means the wallet was
       // actually credited.
-      const { data } = await supabase.functions.invoke('breez-lightning', {
+      const { data } = await supabase.functions.invoke('lightning-service', {
         body: { action: 'check_status', breez_invoice_id: lightningPaymentId }
       });
       if (data?.status === 'paid') {

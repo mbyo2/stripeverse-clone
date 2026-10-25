@@ -44,6 +44,9 @@ verify_jwt = true
 [functions.btc-trade]
 verify_jwt = true
 
+[functions.lightning-service]
+verify_jwt = true
+
 [functions.generate-api-key]
 verify_jwt = true
 

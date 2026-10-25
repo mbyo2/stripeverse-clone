@@ -112,7 +112,7 @@ function LightningDeposit({ onDone, onUseOnchain }: { onDone: () => void; onUseO
     setLoading(true);
     setErrorMsg(null);
     try {
-      const { data, error } = await supabase.functions.invoke("breez-lightning", {
+      const { data, error } = await supabase.functions.invoke("lightning-service", {
         body: { action: "create_invoice", amount_sats: sats },
       });
       if (error) throw error;
@@ -145,7 +145,7 @@ function LightningDeposit({ onDone, onUseOnchain }: { onDone: () => void; onUseO
     if (!inv) return null;
     if (manual) setChecking(true);
     try {
-      const { data, error } = await supabase.functions.invoke("breez-lightning", {
+      const { data, error } = await supabase.functions.invoke("lightning-service", {
         body: { action: "check_status", breez_invoice_id: inv.payment_id },
       });
       if (error) throw error;

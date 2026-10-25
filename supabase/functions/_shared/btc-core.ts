@@ -546,7 +546,7 @@ export function quoteSellZmw(
  * Decode a BOLT11 invoice's amount to millisatoshis using BigInt — no
  * floating point anywhere near money. Returns null for amount-less or
  * malformed invoices. (The previous implementation used floats and could
- * misprice pico-denominated invoices; see breez-lightning history.)
+ * misprice pico-denominated invoices; see lightning-service history.)
  */
 export function decodeBolt11Msat(bolt11: string): bigint | null {
   const match = bolt11.toLowerCase().match(/^ln(bc|tb|bcrt)(\d+)([munp]?)1/);

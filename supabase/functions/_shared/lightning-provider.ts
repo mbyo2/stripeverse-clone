@@ -1,7 +1,7 @@
 // lightning-provider: the custodial Lightning provider leg behind the
-// breez-lightning edge function (Coinos, https://coinos.io).
+// lightning-service edge function (Coinos, https://coinos.io).
 //
-// The ledger side of breez-lightning (lightning_payments rows, the
+// The ledger side of lightning-service (lightning_payments rows, the
 // btc_* RPCs, exactly-once settlement) is provider-agnostic and lives
 // in the function itself; everything provider-specific — base URL,
 // auth header, request/response shapes — lives here so swapping or

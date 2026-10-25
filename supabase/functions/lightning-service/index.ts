@@ -1,7 +1,7 @@
-// breez-lightning: custodial Lightning Network via the configured
+// lightning-service: custodial Lightning Network via the configured
 // Lightning provider (Coinos — see _shared/lightning-provider.ts).
 // The function name is historical (the original Breez leg is gone);
-// clients invoke it as "breez-lightning" and its response shapes are
+// clients invoke it as "lightning-service" and its response shapes are
 // unchanged.
 // Actions:
 //   POST { action: "create_invoice", amount_sats, description } → bolt11 invoice
@@ -85,7 +85,7 @@ const LIGHTNING_PAYMENTS_UNAVAILABLE =
 // configured, else null.
 function lightningProviderGate(refusal: string): Response | null {
   if (!lightningProviderConfigured()) {
-    console.error("breez-lightning: Lightning provider not configured");
+    console.error("lightning-service: Lightning provider not configured");
     return json(503, { error: refusal });
   }
   return null;
@@ -352,7 +352,7 @@ serve(async (req) => {
       // The row changed state under us (e.g. expired concurrently) —
       // report its recorded status rather than inventing one.
       console.error(
-        "breez-lightning check_status: settle outcome",
+        "lightning-service check_status: settle outcome",
         outcome.outcome, "for payment", payment.id,
       );
       return json(200, { status: outcome.payment_status ?? "pending" });
@@ -361,7 +361,7 @@ serve(async (req) => {
     return json(400, { error: `Unknown action: ${action}` });
   } catch (e) {
     if (e instanceof LightningNotConfiguredError) {
-      console.error("breez-lightning: Lightning provider not configured");
+      console.error("lightning-service: Lightning provider not configured");
       return json(503, { error: "Lightning is not available yet — it is not configured on this deployment." });
     }
     if (e instanceof LightningUpstreamError) {
@@ -370,14 +370,14 @@ serve(async (req) => {
       // Lightning is not available on the custodial wallet yet. Never
       // leak the raw network/provider error (live-proven leak,
       // 2026-10-22: verbatim DNS failure text reached the API caller).
-      console.error("breez-lightning: Lightning provider unavailable:", e.message);
+      console.error("lightning-service: Lightning provider unavailable:", e.message);
       return json(503, {
         error: currentAction === "pay_invoice"
           ? LIGHTNING_PAYMENTS_UNAVAILABLE
           : LIGHTNING_DEPOSITS_UNAVAILABLE,
       });
     }
-    console.error("breez-lightning error:", e);
+    console.error("lightning-service error:", e);
     return json(500, { error: thrownMessage(e, "Lightning operation failed") });
   }
 });
