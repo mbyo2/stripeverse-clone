@@ -302,9 +302,9 @@ const AdminUsers = () => {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Phone</TableHead>
+                      <TableHead className="hidden lg:table-cell">Phone</TableHead>
                       <TableHead>Roles</TableHead>
-                      <TableHead>Joined</TableHead>
+                      <TableHead className="hidden lg:table-cell">Joined</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -327,8 +327,8 @@ const AdminUsers = () => {
                             )}
                           </span>
                         </TableCell>
-                        <TableCell>{u.email || "—"}</TableCell>
-                        <TableCell>{u.phone || "—"}</TableCell>
+                        <TableCell className="max-w-[170px] truncate lg:max-w-none">{u.email || "—"}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{u.phone || "—"}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {sortRolesForDisplay(u.roles).map((r) => (
@@ -338,7 +338,7 @@ const AdminUsers = () => {
                             ))}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           {u.created_at
                             ? new Date(u.created_at).toLocaleDateString()
                             : "—"}

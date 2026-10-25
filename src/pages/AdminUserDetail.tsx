@@ -674,7 +674,7 @@ const AdminUserDetail = () => {
                 {sectionErrors.wallets ? (
                   <SectionError message={sectionErrors.wallets} />
                 ) : (
-                  <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
+                  <Table className="[&_td]:px-2 [&_th]:px-2 md:[&_td]:px-4 md:[&_th]:px-4">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Currency</TableHead>
@@ -712,7 +712,7 @@ const AdminUserDetail = () => {
                 {sectionErrors.accounts ? (
                   <SectionError message={sectionErrors.accounts} />
                 ) : (
-                  <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
+                  <Table className="[&_td]:px-2 [&_th]:px-2 md:[&_td]:px-4 md:[&_th]:px-4">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
@@ -752,7 +752,7 @@ const AdminUserDetail = () => {
                 {sectionErrors.paymentLinks ? (
                   <SectionError message={sectionErrors.paymentLinks} />
                 ) : (
-                  <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
+                  <Table className="[&_td]:px-2 [&_th]:px-2 md:[&_td]:px-4 md:[&_th]:px-4">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Title</TableHead>
@@ -760,7 +760,7 @@ const AdminUserDetail = () => {
                         <TableHead>Amount</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="hidden md:table-cell">Collected</TableHead>
-                        <TableHead>Payments</TableHead>
+                        <TableHead className="hidden md:table-cell">Payments</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -777,7 +777,7 @@ const AdminUserDetail = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">{fmtMoney(l.currency, l.total_collected)}</TableCell>
-                          <TableCell>{l.payment_count}</TableCell>
+                          <TableCell className="hidden md:table-cell">{l.payment_count}</TableCell>
                         </TableRow>
                       ))}
                       {paymentLinks.length === 0 && (
@@ -800,7 +800,7 @@ const AdminUserDetail = () => {
                 {sectionErrors.cryptoWallets ? (
                   <SectionError message={sectionErrors.cryptoWallets} />
                 ) : (
-                  <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
+                  <Table className="[&_td]:px-2 [&_th]:px-2 md:[&_td]:px-4 md:[&_th]:px-4">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Asset</TableHead>
@@ -838,7 +838,46 @@ const AdminUserDetail = () => {
                 {sectionErrors.btcDeposits ? (
                   <SectionError message={sectionErrors.btcDeposits} />
                 ) : (
-                  <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
+                  <>
+                    {/* Phone: stacked rows (address + txid + amount +
+                        status cannot fit a phone-width table). Tablet
+                        and up keep the full table. */}
+                    <div className="divide-y md:hidden">
+                      {btcDeposits.map((d) => (
+                        <div key={d.id} className="py-3">
+                          <div className="flex items-start gap-3">
+                            <div className="min-w-0 flex-1 truncate font-mono text-xs">
+                              {truncateMiddle(d.address)}
+                            </div>
+                            <div className="shrink-0 font-medium">
+                              {fmtSats(d.amount_sats)}
+                            </div>
+                          </div>
+                          <div className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                            {truncateMiddle(d.txid)}
+                          </div>
+                          <div className="mt-2 flex items-center gap-2">
+                            <Badge
+                              variant={
+                                d.status === "credited" ? "default" : "secondary"
+                              }
+                            >
+                              {d.status}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {d.confirmations} conf · {fmtDate(d.created_at)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      {btcDeposits.length === 0 && (
+                        <p className="py-6 text-center text-muted-foreground">
+                          No Bitcoin deposits
+                        </p>
+                      )}
+                    </div>
+                    <div className="hidden md:block">
+                    <Table className="[&_td]:px-2 [&_th]:px-2 md:[&_td]:px-4 md:[&_th]:px-4">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Address</TableHead>
@@ -873,6 +912,8 @@ const AdminUserDetail = () => {
                       )}
                     </TableBody>
                   </Table>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>

@@ -200,8 +200,8 @@ const AdminRoleRequests = () => {
                     disabled={busyId === req.id}
                     onClick={() => handleApprove(req)}
                   >
-                    <Check className="h-4 w-4 mr-1" />
-                    Approve
+                    <Check className="h-4 w-4 md:mr-1" />
+                    <span className="hidden md:inline">Approve</span>
                   </Button>
                   <Button
                     size="sm"
@@ -209,8 +209,8 @@ const AdminRoleRequests = () => {
                     disabled={busyId === req.id}
                     onClick={() => handleReject(req)}
                   >
-                    <X className="h-4 w-4 mr-1" />
-                    Reject
+                    <X className="h-4 w-4 md:mr-1" />
+                    <span className="hidden md:inline">Reject</span>
                   </Button>
                 </div>
               </TableCell>
