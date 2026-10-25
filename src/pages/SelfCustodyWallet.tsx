@@ -14,15 +14,19 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   AlertTriangle,
   ArrowLeft,
+  Bitcoin,
   CheckCircle2,
   Copy,
   Eye,
   KeyRound,
+  Loader2,
   Lock,
   RefreshCw,
   Send,
   ShieldAlert,
+  Sparkles,
   Trash2,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -209,6 +213,11 @@ function SelfCustodyWallet() {
     [session.mnemonic],
   );
 
+  // The account xpub is a BIP32 derivation (seed → account node):
+  // cheap once, wasteful on every render — and this page re-renders
+  // on every keystroke in every form field. Memoised on the account.
+  const xpub = useMemo(() => (account ? accountXpub(account) : null), [account]);
+
   useEffect(() => {
     if (session.mnemonic) {
       setStage("wallet");
@@ -232,6 +241,10 @@ function SelfCustodyWallet() {
 
   const doScan = async () => {
     if (!account) return;
+    // A scan over a degraded endpoint can run long; it counts as
+    // wallet activity from start to finish so the auto-lock cannot
+    // fire mid-scan and wipe the wallet under the user.
+    touchSession();
     setScanning(true);
     setScanError(null);
     try {
@@ -245,20 +258,21 @@ function SelfCustodyWallet() {
         balanceSats: result.balanceSats,
         updatedAt: Date.now(),
       };
-      saveLastKnown(accountXpub(account), reading);
+      if (xpub) saveLastKnown(xpub, reading);
       setLastKnown(reading);
       if (rate) setFeeRate(rate);
     } catch (e: any) {
       setScanError(friendlyScanError(e));
     } finally {
       setScanning(false);
+      touchSession();
     }
   };
 
   // Load the last-known reading for whichever wallet is unlocked.
   useEffect(() => {
-    setLastKnown(account ? loadLastKnown(accountXpub(account)) : null);
-  }, [account]);
+    setLastKnown(xpub ? loadLastKnown(xpub) : null);
+  }, [xpub]);
 
   useEffect(() => {
     if (stage === "wallet" && account) doScan();
@@ -341,7 +355,7 @@ function SelfCustodyWallet() {
   };
 
   const doDelete = () => {
-    if (account) clearLastKnown(accountXpub(account));
+    if (xpub) clearLastKnown(xpub);
     deleteVault();
     lockSession();
     setHasVault(false);
@@ -393,6 +407,13 @@ function SelfCustodyWallet() {
 
   const refreshSpark = async () => {
     if (!session.mnemonic) return;
+    // The first connect downloads and initialises the Spark engine
+    // and can take a while on a slow connection. The whole operation
+    // is wallet activity: the auto-lock must not fire mid-connect
+    // (it would wipe the SDK storage under the in-flight connect and
+    // bounce the user to the locked screen — the "kicked out while
+    // loading" the CEO reported on 2026-10-25).
+    touchSession();
     setSpBusy(true);
     try {
       const [balance, payments, deposits] = await Promise.all([
@@ -407,6 +428,7 @@ function SelfCustodyWallet() {
       toast.error(toUserFacingError(e, "Could not connect the Spark wallet"));
     } finally {
       setSpBusy(false);
+      touchSession();
     }
   };
 
@@ -419,6 +441,20 @@ function SelfCustodyWallet() {
   useEffect(() => {
     spBusyRef.current = spBusy;
   }, [spBusy]);
+
+  // While any wallet operation is in flight (Spark connect/sync,
+  // chain scan, broadcast), keep the self-custody session's
+  // auto-lock countdown reset. A first Spark connect downloads a
+  // large engine module and can outlast the 5-minute auto-lock on a
+  // slow connection; without this, the lock fired mid-operation,
+  // wiped the SDK storage under the in-flight connect and bounced
+  // the user to the locked screen (CEO report, 2026-10-25).
+  const anyBusy = spBusy || scanning || sending;
+  useEffect(() => {
+    if (!anyBusy) return;
+    const id = setInterval(touchSession, 60_000);
+    return () => clearInterval(id);
+  }, [anyBusy]);
 
   useEffect(() => {
     if (stage !== "wallet" || !session.mnemonic) return;
@@ -497,6 +533,9 @@ function SelfCustodyWallet() {
 
   const doSparkReceive = async () => {
     if (!session.mnemonic) return;
+    // Same protection as refreshSpark: creating a destination may
+    // first have to connect the Spark engine — activity throughout.
+    touchSession();
     setSpBusy(true);
     setReceiveDest(null);
     try {
@@ -516,6 +555,7 @@ function SelfCustodyWallet() {
       toast.error(toUserFacingError(e, "Could not create that receive destination"));
     } finally {
       setSpBusy(false);
+      touchSession();
     }
   };
 
@@ -661,10 +701,14 @@ function SelfCustodyWallet() {
   // index is next (first unused); until a scan lands we use the
   // last-known index, then index 0. Any of these is the user's own
   // address, so showing it early can never misdirect funds.
-  const receiveAddress = account
-    ? deriveAddress(account, 0, scan?.nextReceiveIndex ?? lastKnown?.receiveIndex ?? 0)
-    : null;
-  const vaultMeta = getVaultMeta();
+  const receiveAddress = useMemo(
+    () =>
+      account
+        ? deriveAddress(account, 0, scan?.nextReceiveIndex ?? lastKnown?.receiveIndex ?? 0)
+        : null,
+    [account, scan?.nextReceiveIndex, lastKnown?.receiveIndex],
+  );
+  const vaultMeta = useMemo(() => getVaultMeta(), [hasVault]);
 
   return (
     <div className="min-h-screen bg-background" onClick={touchSession}>
@@ -941,7 +985,7 @@ function SelfCustodyWallet() {
                   )}
                   <div className="pt-2">
                     <Label className="text-xs text-muted-foreground">Account public key (zpub — watch-only export)</Label>
-                    <p className="font-mono text-[10px] break-all rounded bg-muted p-2 mt-1">{accountXpub(account)}</p>
+                    <p className="font-mono text-[10px] break-all rounded bg-muted p-2 mt-1">{xpub}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -1075,15 +1119,44 @@ function SelfCustodyWallet() {
                     </div>
 
                     <div className="border-t pt-4 space-y-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Button size="sm" variant={receiveKind === "bolt11" ? "default" : "outline"} onClick={() => { setReceiveKind("bolt11"); setReceiveDest(null); }}>
-                          Lightning invoice
+                      {/* Receive type selector: one segmented pill group,
+                          identical treatment for all three kinds. The
+                          options are inert while a Spark operation is
+                          in flight, so the destination type can never
+                          be switched mid-request. */}
+                      <div className="grid grid-cols-3 gap-1 rounded-full bg-muted p-1" role="group" aria-label="Receive type">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={receiveKind === "bolt11" ? "default" : "ghost"}
+                          className="h-10 rounded-full text-xs sm:text-sm"
+                          disabled={spBusy}
+                          aria-pressed={receiveKind === "bolt11"}
+                          onClick={() => { setReceiveKind("bolt11"); setReceiveDest(null); }}
+                        >
+                          <Zap className="h-4 w-4 mr-1.5 shrink-0" /> Lightning invoice
                         </Button>
-                        <Button size="sm" variant={receiveKind === "bitcoin" ? "default" : "outline"} onClick={() => { setReceiveKind("bitcoin"); setReceiveDest(null); }}>
-                          Bitcoin address
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={receiveKind === "bitcoin" ? "default" : "ghost"}
+                          className="h-10 rounded-full text-xs sm:text-sm"
+                          disabled={spBusy}
+                          aria-pressed={receiveKind === "bitcoin"}
+                          onClick={() => { setReceiveKind("bitcoin"); setReceiveDest(null); }}
+                        >
+                          <Bitcoin className="h-4 w-4 mr-1.5 shrink-0" /> Bitcoin address
                         </Button>
-                        <Button size="sm" variant={receiveKind === "spark" ? "default" : "outline"} onClick={() => { setReceiveKind("spark"); setReceiveDest(null); }}>
-                          Spark address
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={receiveKind === "spark" ? "default" : "ghost"}
+                          className="h-10 rounded-full text-xs sm:text-sm"
+                          disabled={spBusy}
+                          aria-pressed={receiveKind === "spark"}
+                          onClick={() => { setReceiveKind("spark"); setReceiveDest(null); }}
+                        >
+                          <Sparkles className="h-4 w-4 mr-1.5 shrink-0" /> Spark address
                         </Button>
                       </div>
                       {receiveKind === "bolt11" && (
@@ -1106,8 +1179,39 @@ function SelfCustodyWallet() {
                           Your Spark address — instant transfers from other Spark wallets.
                         </p>
                       )}
-                      <Button variant="outline" className="w-full" disabled={spBusy || !session.mnemonic} onClick={doSparkReceive}>
-                        {receiveKind === "bolt11" ? "Create invoice" : "Show address"}
+                      {/* The receive action: a solid Bitcoin-orange
+                          pill — the same treatment as "Buy Bitcoin"
+                          above — so it unmistakably reads as THE
+                          tappable action for the selected kind (the
+                          previous thin outline button did not read as
+                          clickable at all; CEO report 2026-10-25).
+                          While the engine works it shows a spinner
+                          and stays disabled. */}
+                      <Button
+                        type="button"
+                        className="h-11 w-full rounded-full bg-[#F7931A] text-black font-semibold hover:bg-[#DE830A] active:scale-[0.99] transition"
+                        disabled={spBusy || !session.mnemonic}
+                        aria-busy={spBusy}
+                        onClick={doSparkReceive}
+                      >
+                        {spBusy ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            {receiveKind === "bolt11" ? "Creating invoice…" : "Loading address…"}
+                          </>
+                        ) : receiveKind === "bolt11" ? (
+                          <>
+                            <Zap className="h-4 w-4 mr-2" /> Create Lightning invoice
+                          </>
+                        ) : receiveKind === "bitcoin" ? (
+                          <>
+                            <Bitcoin className="h-4 w-4 mr-2" /> Show Bitcoin address
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2" /> Show Spark address
+                          </>
+                        )}
                       </Button>
                       {receiveDest && (
                         <div className="space-y-2">

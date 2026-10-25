@@ -21,6 +21,45 @@ export const ESPLORA_BASES = ["https://mempool.space/api", "https://blockstream.
 export function esploraUrls(path: string): string[] {
   return ESPLORA_BASES.map((base) => `${base}${path}`);
 }
+
+/**
+ * Sticky endpoint preference (speed, 2026-10-25): the fallback loop
+ * above costs a full failed-request round trip (up to the 15s
+ * timeout) on EVERY call when the primary endpoint is blocked or
+ * down on the user's network — and a wallet scan makes dozens of
+ * calls. Once an endpoint answers successfully it becomes the
+ * preferred one and is tried first for the rest of the page
+ * session; the other endpoint remains the fallback, so a later
+ * failure of the preferred endpoint still falls through and
+ * re-earns the preference. Healthy-path behaviour is unchanged:
+ * the primary answers first, exactly as before.
+ */
+let preferredEsploraBase: string = ESPLORA_BASES[0];
+
+/** Endpoint try-order for a given preferred base: preferred first, the rest in canonical order. Pure — unit-tested. */
+export function esploraOrderFor(preferred: string): string[] {
+  return [
+    preferred,
+    ...ESPLORA_BASES.filter((base) => base !== preferred),
+  ];
+}
+
+/** The current endpoint try-order (sticky preference applied). */
+export function currentEsploraOrder(): string[] {
+  return esploraOrderFor(preferredEsploraBase);
+}
+
+/** Record that an endpoint answered; it becomes the preferred one. */
+export function noteEsploraSuccess(base: string): void {
+  if ((ESPLORA_BASES as readonly string[]).includes(base)) {
+    preferredEsploraBase = base;
+  }
+}
+
+/** Restore the canonical preference (primary first). Test seam. */
+export function resetEsploraPreference(): void {
+  preferredEsploraBase = ESPLORA_BASES[0];
+}
 /** BIP44 gap limit: stop scanning a chain after this many unused addresses in a row. */
 export const GAP_LIMIT = 20;
 
@@ -61,10 +100,12 @@ async function esplora(path: string, init?: RequestInit): Promise<any> {
   // (the custodial server twin uses 20s). Callers may pass their own
   // signal in init, which then wins.
   let lastError: unknown = null;
-  for (const url of esploraUrls(path)) {
+  for (const base of currentEsploraOrder()) {
+    const url = `${base}${path}`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(15_000), ...init });
       if (!res.ok) throw new Error(`Chain data request failed (${res.status})`);
+      noteEsploraSuccess(base);
       const text = await res.text();
       try {
         return JSON.parse(text);
@@ -185,7 +226,8 @@ export async function broadcastTransaction(txHex: string): Promise<string> {
   // signed transaction is identical, so a duplicate relay is harmless —
   // the network rejects an already-known txid, it can never double-spend.
   let lastError: unknown = null;
-  for (const url of esploraUrls("/tx")) {
+  for (const base of currentEsploraOrder()) {
+    const url = `${base}/tx`;
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -195,6 +237,7 @@ export async function broadcastTransaction(txHex: string): Promise<string> {
       });
       const text = await res.text();
       if (!res.ok) throw new Error(`Broadcast failed: ${text.slice(0, 200)}`);
+      noteEsploraSuccess(base);
       return text.trim();
     } catch (e) {
       lastError = e;

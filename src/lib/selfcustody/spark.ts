@@ -937,32 +937,36 @@ export async function sparkListUnclaimedDeposits(mnemonic: string): Promise<Uncl
   const sdk = await connectSpark(mnemonic);
   const pref = loadAutoClaimPreference();
   const { deposits } = await sdk.listUnclaimedDeposits({});
-  const summaries: UnclaimedDepositSummary[] = [];
-  for (const deposit of deposits) {
-    let claimFeeSats: number | null = null;
-    let instantFeeSats: number | null = null;
-    let creditSats: number | null = null;
-    try {
-      const quote = await sdk.fetchClaimDepositQuote({ txid: deposit.txid, vout: deposit.vout });
-      claimFeeSats = quote.mature.feeSats;
-      creditSats = quote.mature.creditAmountSats;
-      instantFeeSats = quote.instant ? quote.instant.feeSats : null;
-    } catch {
-      // Quote unavailable (e.g. provider offline): show the deposit with
-      // unknown fees rather than dropping it.
-    }
-    summaries.push({
-      txid: deposit.txid,
-      vout: deposit.vout,
-      amountSats: deposit.amountSats,
-      isMature: deposit.isMature,
-      claimFeeSats,
-      instantFeeSats,
-      creditSats,
-      ...unclaimedDepositStatus(deposit, pref, claimFeeSats),
-    });
-  }
-  return summaries;
+  // The per-deposit quotes are independent: fetch them in parallel
+  // instead of one round trip per deposit in sequence (a wallet with
+  // several unclaimed deposits used to wait for every quote before
+  // showing any of them).
+  return Promise.all(
+    deposits.map(async (deposit) => {
+      let claimFeeSats: number | null = null;
+      let instantFeeSats: number | null = null;
+      let creditSats: number | null = null;
+      try {
+        const quote = await sdk.fetchClaimDepositQuote({ txid: deposit.txid, vout: deposit.vout });
+        claimFeeSats = quote.mature.feeSats;
+        creditSats = quote.mature.creditAmountSats;
+        instantFeeSats = quote.instant ? quote.instant.feeSats : null;
+      } catch {
+        // Quote unavailable (e.g. provider offline): show the deposit with
+        // unknown fees rather than dropping it.
+      }
+      return {
+        txid: deposit.txid,
+        vout: deposit.vout,
+        amountSats: deposit.amountSats,
+        isMature: deposit.isMature,
+        claimFeeSats,
+        instantFeeSats,
+        creditSats,
+        ...unclaimedDepositStatus(deposit, pref, claimFeeSats),
+      };
+    }),
+  );
 }
 
 /**

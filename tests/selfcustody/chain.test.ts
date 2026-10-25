@@ -1,5 +1,11 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { netChangeSats, esploraUrls, ESPLORA_BASES, scanWallet, fetchRecommendedFeeRate } from "../../src/lib/selfcustody/chain";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { netChangeSats, esploraUrls, ESPLORA_BASES, scanWallet, fetchRecommendedFeeRate, resetEsploraPreference } from "../../src/lib/selfcustody/chain";
+
+// The sticky endpoint preference (chain.ts) is module state: reset
+// it before each test so fallback-order assertions stay canonical.
+beforeEach(() => {
+  resetEsploraPreference();
+});
 import { accountFromMnemonic } from "../../src/lib/selfcustody/wallet";
 
 const MINE = "bc1qmine";
