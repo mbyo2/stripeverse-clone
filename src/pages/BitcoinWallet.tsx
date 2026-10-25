@@ -23,6 +23,8 @@ import QRCode from "qrcode.react";
 import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound, ArrowUpRight, ArrowDownLeft, Bitcoin, CreditCard } from "lucide-react";
 import { useMoonpay } from "@/hooks/useMoonpay";
 import { MOONPAY_COMING_SOON_COPY } from "@/config/moonpay";
+import { QrScanButton } from "@/components/QrScanButton";
+import { parseQrPayload } from "@/lib/qrScan";
 
 const satsToBtc = (sats?: number) => (sats ? sats / 100_000_000 : 0);
 
@@ -281,6 +283,42 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
     | null
   >(null);
 
+  /**
+   * Scan-to-send: a scanned code only FILLS the address (plus the
+   * amount for a BIP21 code) — the user still checks it and taps
+   * Send themselves. This form sends on-chain only, so Lightning
+   * codes get a plain-language explanation instead of being filled
+   * into an address field they can never work in.
+   */
+  const handleScanned = (raw: string) => {
+    const payload = parseQrPayload(raw);
+    if (payload.kind === "address" || payload.kind === "bip21") {
+      setAddress(payload.destination);
+      if (payload.kind === "bip21" && payload.amountSats !== undefined) {
+        setSats(String(payload.amountSats));
+      }
+      toast({
+        title: "Address filled in from the QR code",
+        description: "Check it carefully before sending — scans fill the form, they never send.",
+      });
+      return;
+    }
+    if (payload.kind === "unknown") {
+      toast({
+        title: "That QR code could not be recognised",
+        description: "It doesn't look like a Bitcoin address. Try again, or paste the address instead.",
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: "That code isn't a Bitcoin address",
+      description:
+        "This form sends Bitcoin on-chain, so it can't pay a Lightning invoice, LNURL, or Spark address. Scan a Bitcoin address (bc1…) here, or pay Lightning codes from your self-custody wallet.",
+      variant: "destructive",
+    });
+  };
+
   const send = async () => {
     setSending(true);
     try {
@@ -358,7 +396,10 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-2">
-        <Label htmlFor="dest">Destination address (mainnet)</Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="dest">Destination address (mainnet)</Label>
+          <QrScanButton onScan={handleScanned} />
+        </div>
         <Input id="dest" placeholder="bc1…" value={address} onChange={(e) => setAddress(e.target.value)} />
       </div>
       <div className="grid gap-2">

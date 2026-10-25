@@ -29,6 +29,8 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { QrScanButton } from "@/components/QrScanButton";
+import { parseQrPayload } from "@/lib/qrScan";
 import {
   createVault,
   unlockVault,
@@ -557,6 +559,30 @@ function SelfCustodyWallet() {
       setSpBusy(false);
       touchSession();
     }
+  };
+
+  /**
+   * Scan-to-send: a scanned code only FILLS the destination field
+   * (plus the amount for a BIP21 code) — the user then runs the same
+   * Review → Prepare → Confirm steps as for a pasted destination.
+   * A scan never sends anything by itself.
+   */
+  const handleScanned = (raw: string) => {
+    const payload = parseQrPayload(raw);
+    if (payload.kind === "unknown") {
+      toast.error(
+        "That code was not recognised as a Bitcoin or Lightning destination. Try again, or paste the destination instead.",
+      );
+      return;
+    }
+    setSendText(payload.destination);
+    setParsedInput(null);
+    setPreparedSend(null);
+    setPreparedLnurl(null);
+    if (payload.kind === "bip21" && payload.amountSats !== undefined) {
+      setSendAmountSats(String(payload.amountSats));
+    }
+    toast.success("Destination filled in from the QR code — review it before sending.");
   };
 
   /** Step 1 of sending: parse the pasted input so the UI drives the right flow. */
@@ -1236,7 +1262,10 @@ function SelfCustodyWallet() {
 
                     <div className="border-t pt-4 space-y-3">
                       <div className="space-y-1">
-                        <Label htmlFor="sp-send">Send to — paste any destination</Label>
+                        <div className="flex items-center justify-between gap-2">
+                          <Label htmlFor="sp-send">Send to — paste or scan any destination</Label>
+                          <QrScanButton onScan={handleScanned} disabled={!session.mnemonic} />
+                        </div>
                         <Textarea
                           id="sp-send"
                           rows={3}
