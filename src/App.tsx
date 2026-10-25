@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { prefetchWalletRoutes, scheduleIdle } from "@/lib/routePrefetch";
 import { AccountProvider } from "@/contexts/AccountContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
@@ -23,6 +25,20 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+/**
+ * Once a user is signed in, warm the wallet route chunks during
+ * idle time so wallet navigation doesn't pay the chunk fetch on
+ * the click path (see lib/routePrefetch.ts).
+ */
+const WalletRoutePrefetcher = () => {
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    return scheduleIdle(prefetchWalletRoutes);
+  }, [user]);
+  return null;
+};
 
 function App() {
   return (
@@ -45,6 +61,7 @@ function App() {
                     <CurrencyProvider>
                       <LanguageProvider>
                         <SessionTimeoutWarning />
+                        <WalletRoutePrefetcher />
                         <MobileBottomNav />
                         <AnimatedRoutes />
                       </LanguageProvider>

@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
+import { noteChunkLoadSuccess } from '@/lib/chunkRecovery';
 import { AnimatePresence } from 'framer-motion';
 import { RouteShellSkeleton } from '@/components/ui/skeletons';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -151,6 +152,12 @@ const RoleGuardedPage = ({ children, roles }: { children: React.ReactNode; roles
 
 const AnimatedRoutes = () => {
   const location = useLocation();
+
+  // Reaching a route means its chunk loaded: re-arm the one-time
+  // stale-chunk auto-reload for the next deploy (lib/chunkRecovery).
+  useEffect(() => {
+    noteChunkLoadSuccess();
+  }, [location.pathname]);
 
   return (
     <AnimatePresence mode="wait">
