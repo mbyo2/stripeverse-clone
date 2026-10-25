@@ -61,3 +61,37 @@ export const holdsAnyRole = (
  */
 export const isAdminTier = (roles: readonly string[]): boolean =>
   roles.includes("admin") || roles.includes("super_admin");
+
+/**
+ * The Header's role-owned menu entries, as one model. Four entries
+ * in the account menus (desktop dropdown + mobile drawer) belong to
+ * roles, not to every signed-in user:
+ *
+ *   - Subscription, Audit Logs, Backup & Export are admin-console
+ *     destinations: admin tier only.
+ *   - Fraud Rules is a business surface whose route gate ALSO admits
+ *     the admin tier (BusinessRouteGuard / /fraud-rules parity), so
+ *     it renders for business holders OR the admin tier — a
+ *     super_admin-only holder (the owner holds no business role row)
+ *     must still see it.
+ *
+ * Every other role (plain user, beta_tester, lone p2p_admin) gets
+ * none of the four. Kept as a pure function of the held roles so the
+ * menu model is pinned directly by tests.
+ */
+export interface HeaderMenuVisibility {
+  /** Subscription, Audit Logs, Backup & Export — admin tier only. */
+  adminLinks: boolean;
+  /** Fraud Rules — business holders OR the admin tier. */
+  fraudRules: boolean;
+}
+
+export const headerMenuVisibility = (
+  roles: readonly string[],
+): HeaderMenuVisibility => {
+  const adminTier = isAdminTier(roles);
+  return {
+    adminLinks: adminTier,
+    fraudRules: adminTier || holdsAnyRole(roles, ["business"]),
+  };
+};

@@ -20,6 +20,7 @@ import {
   ADMIN_CONSOLE_HOME,
   DEFAULT_ROLE_HOME,
   P2P_CONSOLE_HOME,
+  headerMenuVisibility,
   holdsAnyRole,
   isAdminTier,
   roleHomePath,
@@ -73,6 +74,44 @@ describe("roleHomePath — every role lands on its own home", () => {
     expect(ADMIN_CONSOLE_HOME).toBe("/admin/users");
     expect(P2P_CONSOLE_HOME).toBe("/admin/p2p");
     expect(DEFAULT_ROLE_HOME).toBe("/dashboard");
+  });
+});
+
+// ---------------------------------------------------------------------
+// headerMenuVisibility — the Header account menus' four role-owned
+// entries: Subscription, Audit Logs, Backup & Export (admin tier
+// only) and Fraud Rules (business OR admin tier — the /fraud-rules
+// route gate admits both, so the menu must too; a super_admin-only
+// holder owns no business row and must not lose the entry).
+// ---------------------------------------------------------------------
+
+describe("headerMenuVisibility — the account menus show each role its own entries", () => {
+  it("admin tier sees all four entries", () => {
+    for (const roles of [["admin"], ["user", "admin"], ["business", "admin"]]) {
+      expect(headerMenuVisibility(roles)).toEqual({ adminLinks: true, fraudRules: true });
+    }
+  });
+
+  it("super_admin sees all four entries without holding business", () => {
+    // The owner case: super_admin is additive over admin, and the
+    // Fraud Rules entry must not depend on a business role row.
+    expect(headerMenuVisibility(["super_admin"])).toEqual({ adminLinks: true, fraudRules: true });
+    expect(headerMenuVisibility(["user", "super_admin"])).toEqual({ adminLinks: true, fraudRules: true });
+  });
+
+  it("plain user sees none of the four entries", () => {
+    expect(headerMenuVisibility(["user"])).toEqual({ adminLinks: false, fraudRules: false });
+    expect(headerMenuVisibility([])).toEqual({ adminLinks: false, fraudRules: false });
+  });
+
+  it("business sees Fraud Rules but not the admin-console entries", () => {
+    expect(headerMenuVisibility(["business"])).toEqual({ adminLinks: false, fraudRules: true });
+    expect(headerMenuVisibility(["user", "business"])).toEqual({ adminLinks: false, fraudRules: true });
+  });
+
+  it("roles without a stake in either surface see none of the four", () => {
+    expect(headerMenuVisibility(["beta_tester"])).toEqual({ adminLinks: false, fraudRules: false });
+    expect(headerMenuVisibility(["user", "p2p_admin"])).toEqual({ adminLinks: false, fraudRules: false });
   });
 });
 
@@ -151,8 +190,8 @@ describe("BusinessRouteGuard — business + admin tier in, everyone else home", 
 describe("Header — role-owned menu entries are not rendered for others", () => {
   const src = read("../../src/components/Header.tsx");
 
-  it("derives menu visibility from the console gate", () => {
-    expect(src).toContain("canViewAdminConsole(roles)");
+  it("derives menu visibility from the roleVisibility menu model", () => {
+    expect(src).toContain("headerMenuVisibility(roles)");
     expect(src).toContain("showAdminLinks");
     expect(src).toContain("showFraudRules");
   });
@@ -168,8 +207,29 @@ describe("Header — role-owned menu entries are not rendered for others", () =>
     // Desktop dropdown items are wrapped in the same flags.
     const gatedBlocks = src.match(/showAdminLinks &&/g) ?? [];
     expect(gatedBlocks.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("Fraud Rules sits with the other role-owned entries in BOTH account menus", () => {
+    // Four /fraud-rules links in the Header: the desktop Business
+    // dropdown, the desktop account menu, and the mobile drawer's
+    // Business and Account sections — each behind showFraudRules,
+    // so the entry renders for exactly the roles its route admits
+    // (business OR admin tier) in every menu path, including the
+    // account menus where Subscription / Audit Logs / Backup &
+    // Export live.
+    const fraudLinks = src.match(/to="\/fraud-rules"/g) ?? [];
+    expect(fraudLinks.length).toBe(4);
     const fraudGates = src.match(/showFraudRules &&/g) ?? [];
-    expect(fraudGates.length).toBeGreaterThanOrEqual(2);
+    expect(fraudGates.length).toBe(4);
+    // The desktop account-menu entry sits immediately after the
+    // Audit Logs / Backup & Export block, as a sibling DropdownMenuItem.
+    const accountMenuFraud = src.indexOf('Backup & Export');
+    expect(accountMenuFraud).toBeGreaterThan(-1);
+    const afterBackup = src.slice(accountMenuFraud);
+    expect(afterBackup.indexOf('to="/fraud-rules"')).toBeGreaterThan(-1);
+    expect(afterBackup.indexOf('to="/fraud-rules"')).toBeLessThan(
+      afterBackup.indexOf('to="/support"'),
+    );
   });
 });
 
