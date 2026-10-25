@@ -674,13 +674,13 @@ const AdminUserDetail = () => {
                 {sectionErrors.wallets ? (
                   <SectionError message={sectionErrors.wallets} />
                 ) : (
-                  <Table>
+                  <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Currency</TableHead>
                         <TableHead>Balance</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
+                        <TableHead className="hidden md:table-cell">Created</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -693,7 +693,7 @@ const AdminUserDetail = () => {
                               {w.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>{fmtDate(w.created_at)}</TableCell>
+                          <TableCell className="hidden md:table-cell">{fmtDate(w.created_at)}</TableCell>
                         </TableRow>
                       ))}
                       {wallets.length === 0 && <EmptyRow colSpan={4} text="No wallets" />}
@@ -712,13 +712,13 @@ const AdminUserDetail = () => {
                 {sectionErrors.accounts ? (
                   <SectionError message={sectionErrors.accounts} />
                 ) : (
-                  <Table>
+                  <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Kind</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
+                        <TableHead className="hidden md:table-cell">Created</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -731,7 +731,7 @@ const AdminUserDetail = () => {
                               {a.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>{fmtDate(a.created_at)}</TableCell>
+                          <TableCell className="hidden md:table-cell">{fmtDate(a.created_at)}</TableCell>
                         </TableRow>
                       ))}
                       {accounts.length === 0 && <EmptyRow colSpan={4} text="No accounts" />}
@@ -752,22 +752,22 @@ const AdminUserDetail = () => {
                 {sectionErrors.paymentLinks ? (
                   <SectionError message={sectionErrors.paymentLinks} />
                 ) : (
-                  <Table>
+                  <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Title</TableHead>
-                        <TableHead>Code</TableHead>
+                        <TableHead className="hidden md:table-cell">Code</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Collected</TableHead>
+                        <TableHead className="hidden md:table-cell">Collected</TableHead>
                         <TableHead>Payments</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {paymentLinks.map((l) => (
                         <TableRow key={l.id}>
-                          <TableCell className="font-medium">{l.title || "—"}</TableCell>
-                          <TableCell className="font-mono text-xs">{l.link_code}</TableCell>
+                          <TableCell className="max-w-[120px] truncate font-medium md:max-w-none">{l.title || "—"}</TableCell>
+                          <TableCell className="hidden font-mono text-xs md:table-cell">{l.link_code}</TableCell>
                           <TableCell>
                             {l.amount != null ? fmtMoney(l.currency, l.amount) : "Any amount"}
                           </TableCell>
@@ -776,7 +776,7 @@ const AdminUserDetail = () => {
                               {l.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>{fmtMoney(l.currency, l.total_collected)}</TableCell>
+                          <TableCell className="hidden md:table-cell">{fmtMoney(l.currency, l.total_collected)}</TableCell>
                           <TableCell>{l.payment_count}</TableCell>
                         </TableRow>
                       ))}
@@ -800,13 +800,13 @@ const AdminUserDetail = () => {
                 {sectionErrors.cryptoWallets ? (
                   <SectionError message={sectionErrors.cryptoWallets} />
                 ) : (
-                  <Table>
+                  <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Asset</TableHead>
                         <TableHead>Balance</TableHead>
                         <TableHead>Available</TableHead>
-                        <TableHead>Updated</TableHead>
+                        <TableHead className="hidden md:table-cell">Updated</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -815,7 +815,7 @@ const AdminUserDetail = () => {
                           <TableCell className="font-medium">{c.asset}</TableCell>
                           <TableCell>{fmtSats(c.balance_sats)}</TableCell>
                           <TableCell>{fmtSats(c.available_sats)}</TableCell>
-                          <TableCell>{fmtDate(c.updated_at)}</TableCell>
+                          <TableCell className="hidden md:table-cell">{fmtDate(c.updated_at)}</TableCell>
                         </TableRow>
                       ))}
                       {cryptoWallets.length === 0 && (
@@ -838,15 +838,15 @@ const AdminUserDetail = () => {
                 {sectionErrors.btcDeposits ? (
                   <SectionError message={sectionErrors.btcDeposits} />
                 ) : (
-                  <Table>
+                  <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Address</TableHead>
                         <TableHead>Amount</TableHead>
-                        <TableHead>Confirmations</TableHead>
+                        <TableHead className="hidden md:table-cell">Confirmations</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Transaction</TableHead>
-                        <TableHead>Detected</TableHead>
+                        <TableHead className="hidden md:table-cell">Detected</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -856,7 +856,7 @@ const AdminUserDetail = () => {
                             {truncateMiddle(d.address)}
                           </TableCell>
                           <TableCell>{fmtSats(d.amount_sats)}</TableCell>
-                          <TableCell>{d.confirmations}</TableCell>
+                          <TableCell className="hidden md:table-cell">{d.confirmations}</TableCell>
                           <TableCell>
                             <Badge variant={d.status === "credited" ? "default" : "secondary"}>
                               {d.status}
@@ -865,7 +865,7 @@ const AdminUserDetail = () => {
                           <TableCell className="font-mono text-xs">
                             {truncateMiddle(d.txid)}
                           </TableCell>
-                          <TableCell>{fmtDate(d.created_at)}</TableCell>
+                          <TableCell className="hidden md:table-cell">{fmtDate(d.created_at)}</TableCell>
                         </TableRow>
                       ))}
                       {btcDeposits.length === 0 && (

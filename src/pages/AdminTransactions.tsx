@@ -120,6 +120,51 @@ const AdminTransactions = () => {
             </div>
           </CardHeader>
           <CardContent>
+            {/* Phone: stacked rows (the 6-column table is wider than a
+                phone screen). Tablet and up keep the full table. */}
+            <div className="divide-y md:hidden">
+              {filtered.map((t) => (
+                <div key={t.id} className="flex items-center gap-3 py-3">
+                  {t.direction === "incoming" ? (
+                    <ArrowDownLeft className="h-4 w-4 shrink-0 text-primary" />
+                  ) : (
+                    <ArrowUpRight className="h-4 w-4 shrink-0 text-destructive" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">
+                      {t.recipient_name || "—"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {t.created_at
+                        ? new Date(t.created_at).toLocaleString()
+                        : "—"}{" "}
+                      · {t.payment_method}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div
+                      className={
+                        t.direction === "outgoing"
+                          ? "text-destructive"
+                          : "text-primary"
+                      }
+                    >
+                      {t.direction === "outgoing" ? "-" : "+"}
+                      {formatAmount(t.amount)}
+                    </div>
+                    <Badge variant={statusColor(t.status) as any}>
+                      {t.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+              {filtered.length === 0 && (
+                <p className="py-8 text-center text-muted-foreground">
+                  No transactions found
+                </p>
+              )}
+            </div>
+            <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -168,6 +213,7 @@ const AdminTransactions = () => {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       </main>

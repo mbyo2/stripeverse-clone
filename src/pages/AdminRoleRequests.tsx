@@ -162,12 +162,12 @@ const AdminRoleRequests = () => {
   }
 
   const renderTable = (rows: RoleRequest[], showActions: boolean) => (
-    <Table>
+    <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
       <TableHeader>
         <TableRow>
           <TableHead>Requester</TableHead>
           <TableHead>Requested role</TableHead>
-          <TableHead>Requested</TableHead>
+          <TableHead className="hidden md:table-cell">Requested</TableHead>
           <TableHead>Status</TableHead>
           {showActions && <TableHead>Actions</TableHead>}
         </TableRow>
@@ -178,7 +178,7 @@ const AdminRoleRequests = () => {
             <TableCell className="font-medium">
               {requesterName(req.user_id)}
               {directoryById.get(req.user_id)?.email && (
-                <span className="block text-xs font-normal text-muted-foreground">
+                <span className="block max-w-[130px] truncate text-xs font-normal text-muted-foreground md:max-w-none">
                   {directoryById.get(req.user_id)?.email}
                 </span>
               )}
@@ -188,13 +188,13 @@ const AdminRoleRequests = () => {
                 {roleLabel(req.requested_role)}
               </Badge>
             </TableCell>
-            <TableCell>{new Date(req.created_at).toLocaleDateString()}</TableCell>
+            <TableCell className="hidden md:table-cell">{new Date(req.created_at).toLocaleDateString()}</TableCell>
             <TableCell>
               <Badge variant={statusVariant(req.status)}>{req.status}</Badge>
             </TableCell>
             {showActions && (
               <TableCell>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-1.5 md:flex-row md:gap-2">
                   <Button
                     size="sm"
                     disabled={busyId === req.id}

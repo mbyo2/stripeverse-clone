@@ -202,9 +202,9 @@ const TierFeatureMatrix = () => {
             <table className="w-full">
               <thead>
                 <tr>
-                  <th className="text-left py-3 px-4 font-medium">Feature</th>
+                  <th className="px-2 py-2.5 text-left font-medium md:px-4 md:py-3">Feature</th>
                   {tiers.map((tier) => (
-                    <th key={tier.id} className="text-center py-3 px-4 font-medium">
+                    <th key={tier.id} className="px-2 py-2.5 text-center font-medium md:px-4 md:py-3">
                       {tier.name}
                     </th>
                   ))}
@@ -214,7 +214,7 @@ const TierFeatureMatrix = () => {
                 {categories.map((category) => (
                   <React.Fragment key={category}>
                     <tr>
-                      <td colSpan={5} className="py-2 px-4 bg-muted font-medium text-sm">
+                      <td colSpan={5} className="bg-muted px-2 py-2 font-medium text-sm md:px-4">
                         {category} Features
                       </td>
                     </tr>
@@ -222,18 +222,18 @@ const TierFeatureMatrix = () => {
                       .filter(feature => feature.category === category)
                       .map((feature) => (
                         <tr key={feature.feature_id} className="border-b">
-                          <td className="py-3 px-4">
+                          <td className="px-2 py-2.5 md:px-4 md:py-3">
                             <div>
                               <div className="font-medium">{feature.name}</div>
-                              <div className="text-sm text-muted-foreground">{feature.description}</div>
+                              <div className="hidden text-sm text-muted-foreground md:block">{feature.description}</div>
                             </div>
                           </td>
                           {tierIds.map((tierId) => (
-                            <td key={tierId} className="text-center py-3 px-4">
+                            <td key={tierId} className="px-2 py-2.5 text-center md:px-4 md:py-3">
                               {matrix[tierId][feature.feature_id] ? (
-                                <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto" />
+                                <CheckCircle2 className="mx-auto h-4 w-4 text-green-500 md:h-5 md:w-5" />
                               ) : (
-                                <XCircle className="h-5 w-5 text-red-400 mx-auto" />
+                                <XCircle className="mx-auto h-4 w-4 text-red-400 md:h-5 md:w-5" />
                               )}
                             </td>
                           ))}

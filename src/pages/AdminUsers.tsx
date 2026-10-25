@@ -241,6 +241,62 @@ const AdminUsers = () => {
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Phone: stacked rows (the 6-column table is wider than a
+                    phone screen). Tablet and up keep the full table. */}
+                <div className="divide-y md:hidden">
+                  {filteredUsers.map((u) => (
+                    <div key={u.id} className="flex items-start gap-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">
+                            {u.first_name || ""} {u.last_name || ""}
+                            {!u.first_name && !u.last_name && (
+                              <span className="text-muted-foreground italic">No name</span>
+                            )}
+                          </span>
+                          {u.is_frozen && (
+                            <Badge variant="destructive" className="text-xs">
+                              <Snowflake className="h-3 w-3 mr-1" />
+                              Frozen
+                            </Badge>
+                          )}
+                        </span>
+                        <span className="block truncate text-sm text-muted-foreground">
+                          {u.email || "—"}
+                        </span>
+                        <span className="mt-1.5 flex flex-wrap gap-1">
+                          {sortRolesForDisplay(u.roles).map((r) => (
+                            <Badge key={r} variant={roleBadgeVariant(r)}>
+                              {roleLabel(r)}
+                            </Badge>
+                          ))}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {u.phone ? `${u.phone} · ` : ""}
+                          Joined{" "}
+                          {u.created_at
+                            ? new Date(u.created_at).toLocaleDateString()
+                            : "—"}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="shrink-0"
+                        title={`View ${u.first_name || "user"}'s full account`}
+                        onClick={() => navigate(`/admin/users/${u.id}`)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {filteredUsers.length === 0 && (
+                    <p className="py-8 text-center text-muted-foreground">
+                      No users found
+                    </p>
+                  )}
+                </div>
+                <div className="hidden md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -308,6 +364,7 @@ const AdminUsers = () => {
                     )}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

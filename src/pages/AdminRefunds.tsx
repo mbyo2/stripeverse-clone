@@ -189,14 +189,14 @@ const AdminRefunds = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Requested</TableHead>
+                    <TableHead className="hidden md:table-cell">Requested</TableHead>
                     <TableHead>Requester</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Reason</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead className="hidden md:table-cell">Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -204,18 +204,18 @@ const AdminRefunds = () => {
                 <TableBody>
                   {filtered.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="hidden md:table-cell">{new Date(r.created_at).toLocaleDateString()}</TableCell>
                       <TableCell className="font-medium">
                         {userName(r.user_id)}
                         {directoryById.get(r.user_id)?.email && (
-                          <span className="block text-xs font-normal text-muted-foreground">
+                          <span className="block max-w-[140px] truncate text-xs font-normal text-muted-foreground md:max-w-none">
                             {directoryById.get(r.user_id)?.email}
                           </span>
                         )}
                       </TableCell>
                       <TableCell>{fmtMoney(r.currency, r.amount)}</TableCell>
-                      <TableCell className="max-w-[220px] truncate">{r.reason}</TableCell>
-                      <TableCell>{r.refund_type}</TableCell>
+                      <TableCell className="max-w-[110px] truncate md:max-w-[220px]">{r.reason}</TableCell>
+                      <TableCell className="hidden md:table-cell">{r.refund_type}</TableCell>
                       <TableCell>
                         <Badge variant={statusVariant(r.status)}>{r.status}</Badge>
                       </TableCell>
