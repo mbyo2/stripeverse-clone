@@ -129,6 +129,48 @@
 }
 
 @layer components {
+  /* YouTube-style skeleton loading: a neutral grey placeholder (a tint
+     of the foreground token, so it reads correctly on light AND dark
+     surfaces) with one subtle light sweep passing over it. Under
+     prefers-reduced-motion the sweep is disabled and the placeholder
+     is static. Used by ui/skeleton and the ui/skeletons kit. */
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+    background-color: hsl(var(--foreground) / 0.1);
+  }
+  .skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(0 0% 100% / 0.55),
+      transparent
+    );
+    animation: skeleton-sweep 1.6s ease-in-out infinite;
+  }
+  .dark .skeleton-shimmer::after {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(0 0% 100% / 0.09),
+      transparent
+    );
+  }
+  @keyframes skeleton-sweep {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-shimmer::after {
+      animation: none;
+    }
+  }
+
   .section {
     @apply py-16 px-4 sm:px-6 md:px-8 lg:px-10 max-w-7xl mx-auto;
   }

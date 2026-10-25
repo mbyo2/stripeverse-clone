@@ -3,6 +3,7 @@ import { toUserFacingError } from "@/utils/userFacingError";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
+import { CardPageSkeleton } from "@/components/ui/skeletons";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -305,9 +306,7 @@ const VirtualCardDetails = () => {
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
+          <CardPageSkeleton />
         </main>
         <Footer />
       </div>
@@ -331,9 +330,7 @@ const VirtualCardDetails = () => {
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
+          <CardPageSkeleton />
         </main>
         <Footer />
       </div>

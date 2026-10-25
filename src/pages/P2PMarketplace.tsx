@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonCardRow } from "@/components/ui/skeletons";
 import EmptyState from "@/components/ui/empty-state";
 import {
   Select,
@@ -157,10 +157,10 @@ export default function P2PMarketplace() {
 
       {/* Ads */}
       {adsQuery.isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-28 w-full" />
+        <div className="space-y-3" role="status" aria-label="Loading marketplace">
+          <SkeletonCardRow />
+          <SkeletonCardRow />
+          <SkeletonCardRow />
         </div>
       ) : adsQuery.isError ? (
         <PageErrorState

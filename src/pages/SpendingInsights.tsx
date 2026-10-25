@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Skeleton } from "@/components/ui/skeleton";
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -304,7 +305,7 @@ const SpendingInsights = () => {
             {goalsLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[1, 2, 3].map((i) => (
-                  <Card key={i} className="animate-pulse"><CardContent className="p-6"><div className="h-32 bg-muted rounded" /></CardContent></Card>
+                  <Card key={i}><CardContent className="p-6"><Skeleton className="h-32" /></CardContent></Card>
                 ))}
               </div>
             ) : goals.length === 0 ? (

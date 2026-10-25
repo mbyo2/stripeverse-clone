@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useCardTokens } from '@/hooks/useCardTokens';
+import { Skeleton } from "@/components/ui/skeleton";
 import { CreditCard, Plus, Star, Trash2, Shield, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -62,7 +63,10 @@ const CardVault = () => {
         </Card>
 
         {isLoading ? (
-          <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" role="status" aria-label="Loading saved cards">
+            <Skeleton className="h-44 rounded-xl" />
+            <Skeleton className="h-44 rounded-xl" />
+          </div>
         ) : tokens.length === 0 ? (
           <Card>
             <CardContent className="pt-6 text-center py-12">

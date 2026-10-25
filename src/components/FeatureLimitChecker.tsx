@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Lock } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -43,7 +44,7 @@ const FeatureLimitChecker = ({
   }, [feature, limitType, amount, hasFeatureAccess, checkUsageLimit]);
 
   if (canProceed === null) {
-    return <div className="animate-pulse h-8 bg-muted rounded"></div>;
+    return <Skeleton className="h-8" />;
   }
 
   if (!canProceed) {

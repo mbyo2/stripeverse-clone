@@ -49,6 +49,7 @@ import RewardsCard from "@/components/rewards/RewardsCard";
 import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useBitcoinWallet } from "@/hooks/useBitcoinWallet";
+import { DashboardSkeleton } from "@/components/ui/skeletons";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -73,12 +74,9 @@ const Dashboard = () => {
       <div className="min-h-screen flex flex-col bg-muted">
         <Header />
         <main className="flex-1 pt-2 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
-          <div className="mb-6 mt-6">
-            <Skeleton className="h-8 w-48 mb-2" />
-            <Skeleton className="h-5 w-64" />
+          <div className="mt-6" role="status" aria-label="Loading dashboard">
+            <DashboardSkeleton />
           </div>
-          <Skeleton className="h-44 rounded-[24px] mb-6" />
-          <Skeleton className="h-72 rounded-[24px]" />
         </main>
         <Footer />
       </div>
@@ -156,11 +154,11 @@ const Dashboard = () => {
                       {(btcWallet.available_sats ?? 0).toLocaleString()} sats available
                       <span className="text-white/50"> · {(btcWallet.balance_sats ?? 0).toLocaleString()} sats total</span>
                     </p>
+                  ) : btcLoading ? (
+                    <Skeleton className="h-4 w-64 max-w-full bg-white/20 mt-1" aria-label="Loading your Bitcoin wallet" />
                   ) : (
                     <p className="text-white/70 text-sm mt-1">
-                      {btcLoading
-                        ? "Loading your Bitcoin wallet…"
-                        : "Deposit, buy, sell and withdraw Bitcoin — held for you, or self-custody with your own seed phrase. Your choice."}
+                      Deposit, buy, sell and withdraw Bitcoin — held for you, or self-custody with your own seed phrase. Your choice.
                     </p>
                   )}
                 </div>

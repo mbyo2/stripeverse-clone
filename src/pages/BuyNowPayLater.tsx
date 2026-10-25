@@ -1,4 +1,5 @@
 import Header from '@/components/Header';
+import { Skeleton } from "@/components/ui/skeleton";
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -90,7 +91,7 @@ const BuyNowPayLater = () => {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="animate-pulse"><CardContent className="p-4"><div className="h-24 bg-muted rounded" /></CardContent></Card>
+              <Card key={i}><CardContent className="p-4"><Skeleton className="h-24" /></CardContent></Card>
             ))}
           </div>
         ) : plans.length === 0 ? (

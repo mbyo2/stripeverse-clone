@@ -2,6 +2,7 @@ import { toUserFacingError } from "@/utils/userFacingError";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
+import { Skeleton } from "@/components/ui/skeleton";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -933,7 +934,10 @@ function SelfCustodyWallet() {
                       </Button>
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Loading address…</p>
+                    <div className="flex flex-col items-center gap-2" role="status" aria-label="Loading address">
+                      <Skeleton className="h-[204px] w-[204px]" />
+                      <Skeleton className="h-8 w-full" />
+                    </div>
                   )}
                   <div className="pt-2">
                     <Label className="text-xs text-muted-foreground">Account public key (zpub — watch-only export)</Label>

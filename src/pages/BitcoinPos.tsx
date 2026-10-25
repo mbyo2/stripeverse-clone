@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { resolveEdgeFunctionError } from '@/utils/edgeFunctionError';
 import { buildPosReceiptHtml, buildPosStatementHtml, openPosPrintWindow } from '@/utils/posStatement';
 import { useProfile } from '@/hooks/useProfile';
+import { SkeletonTableRows } from "@/components/ui/skeletons";
 import { useAuth } from '@/contexts/AuthContext';
 import { useVisibilityPolling } from '@/lib/polling';
 
@@ -435,7 +436,7 @@ export default function BitcoinPos() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+              <SkeletonTableRows rows={5} />
             ) : requests.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No payment requests yet.</p>
             ) : (

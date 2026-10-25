@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 import { Search, Filter, Download, Calendar as CalendarIcon, ArrowUpRight, ArrowDownLeft, Receipt } from "lucide-react";
 import { formatCurrency } from "@/utils/walletUtils";
 import { format } from "date-fns";
@@ -302,9 +303,7 @@ const TransactionList = () => {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Loading transactions…</p>
-              </div>
+              <SkeletonListRows rows={6} />
             ) : isError ? (
               <div className="text-center py-8">
                 <p className="text-destructive mb-4">Failed to load transactions.</p>

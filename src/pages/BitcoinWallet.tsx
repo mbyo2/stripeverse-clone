@@ -4,6 +4,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -640,7 +642,7 @@ export default function BitcoinWallet() {
             <CardContent>
               <div>
                 {isLoading ? (
-                  <div className="h-10 w-40 animate-pulse bg-muted rounded" />
+                  <Skeleton className="h-10 w-44" aria-label="Loading balance" />
                 ) : (
                   <p className="text-[40px] md:text-[44px] leading-none font-display font-semibold">{btcBalance}</p>
                 )}
@@ -712,7 +714,7 @@ export default function BitcoinWallet() {
             </CardHeader>
             <CardContent>
               {isTxLoading ? (
-                <div className="h-24 animate-pulse bg-muted rounded" />
+                <SkeletonListRows rows={3} />
               ) : transactions.length === 0 ? (
                 <div className="text-center py-6">
                   <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">

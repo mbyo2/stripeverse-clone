@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { trackRender } from "@/lib/performance";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { transactionTitle } from "@/utils/transactionLabels";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 
 interface TransactionItemProps {
   transaction: Transaction;
@@ -123,22 +124,7 @@ const OptimizedTransactionList: React.FC<OptimizedTransactionListProps> = ({
   }, [endRenderTracking]);
   
   if (isLoading) {
-    return (
-      <div className={`space-y-4 ${className}`}>
-        {Array(5).fill(0).map((_, i) => (
-          <div key={i} className="flex items-center justify-between py-4 border-b last:border-0 animate-pulse">
-            <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-secondary"></div>
-              <div className="ml-4">
-                <div className="h-4 w-32 bg-secondary rounded"></div>
-                <div className="h-3 w-24 mt-2 bg-secondary rounded"></div>
-              </div>
-            </div>
-            <div className="h-4 w-20 bg-secondary rounded"></div>
-          </div>
-        ))}
-      </div>
-    );
+    return <SkeletonListRows rows={5} className={className} />;
   }
   
   if (transactions.length === 0) {

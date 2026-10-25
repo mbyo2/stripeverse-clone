@@ -31,6 +31,7 @@ import { formatDate } from "@/lib/utils";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { CreateDisputeDialog } from "@/components/disputes/CreateDisputeDialog";
 import { format, subDays, isValid } from "date-fns";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 
 interface TransactionManagerProps {
   limit?: number;
@@ -313,20 +314,7 @@ const TransactionManager = ({
         </CardHeader>
         <CardContent className="p-4">
           {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center justify-between py-4 border-b last:border-0 animate-pulse">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-secondary"></div>
-                    <div className="ml-4">
-                      <div className="h-4 w-32 bg-secondary rounded"></div>
-                      <div className="h-3 w-24 mt-2 bg-secondary rounded"></div>
-                    </div>
-                  </div>
-                  <div className="h-4 w-20 bg-secondary rounded"></div>
-                </div>
-              ))}
-            </div>
+            <SkeletonListRows rows={5} />
           ) : isError ? (
             <div className="text-center text-destructive py-8">
               <p>Failed to load transactions</p>

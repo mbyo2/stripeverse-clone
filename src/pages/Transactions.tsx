@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import EnhancedTransactionManager from "@/components/wallet/EnhancedTransactionManager";
 import { Suspense } from "react";
-import { ArrowDownLeft, ArrowUpRight, Filter, Loader2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Filter } from "lucide-react";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 import { useAccount } from "@/contexts/AccountContext";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 
@@ -80,7 +81,7 @@ const Transactions = () => {
             Real-time sync
           </Badge>
         </div>
-        <Suspense fallback={<LoadingState />}>
+        <Suspense fallback={<SkeletonListRows rows={6} />}>
           <EnhancedTransactionManager
             showFilters={true}
             showExport={true}
@@ -93,12 +94,5 @@ const Transactions = () => {
     </div>
   );
 };
-
-const LoadingState = () => (
-  <div className="flex flex-col items-center justify-center py-16">
-    <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
-    <p className="text-sm text-muted-foreground">Loading transactions...</p>
-  </div>
-);
 
 export default Transactions;

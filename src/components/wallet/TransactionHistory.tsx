@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useTransactions } from '@/hooks/useTransactions';
 import { transactionTitle } from "@/utils/transactionLabels";
 import TransactionReceipt from '@/components/TransactionReceipt';
+import { SkeletonListRow } from "@/components/ui/skeletons";
 
 interface Transaction {
   id: string;
@@ -160,21 +161,9 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
 
         <div className="divide-y divide-border">
           {isLoading ? (
-            // Loading skeleton
+            // Loading skeleton — kit rows mirror the real rows below
             Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="flex items-center justify-between py-4 animate-pulse">
-                <div className="flex items-center space-x-4">
-                  <div className="w-8 h-8 bg-muted rounded-full"></div>
-                  <div className="flex-1">
-                    <div className="h-4 bg-muted rounded mb-2"></div>
-                    <div className="h-3 bg-muted rounded w-2/3"></div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="h-4 bg-muted rounded mb-2 w-20"></div>
-                  <div className="h-3 bg-muted rounded w-16"></div>
-                </div>
-              </div>
+              <SkeletonListRow key={index} />
             ))
           ) : error ? (
             <div className="text-center py-8">

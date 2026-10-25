@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonCardRow } from "@/components/ui/skeletons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import EmptyState from "@/components/ui/empty-state";
 import { Megaphone, Pause, Play, Plus, XCircle } from "lucide-react";
@@ -80,9 +80,9 @@ export default function P2PMyAds() {
       )}
 
       {adsQuery.isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
+        <div className="space-y-3" role="status" aria-label="Loading your ads">
+          <SkeletonCardRow />
+          <SkeletonCardRow />
         </div>
       ) : adsQuery.isError ? (
         <PageErrorState

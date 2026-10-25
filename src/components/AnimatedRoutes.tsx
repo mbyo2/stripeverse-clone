@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
+import { RouteShellSkeleton } from '@/components/ui/skeletons';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import type { Role } from '@/contexts/RoleContext';
 import BusinessRouteGuard from '@/components/business/BusinessRouteGuard';
@@ -128,15 +128,12 @@ const AdminUserDetail = lazy(() => import('@/pages/AdminUserDetail'));
 const AdminRoleRequests = lazy(() => import('@/pages/AdminRoleRequests'));
 const AdminRefunds = lazy(() => import('@/pages/AdminRefunds'));
 
-// Minimal route-loading fallback: a single centred spinner in the app's
-// primary colour. Deliberately NOT PageSkeleton — that imports Header/Footer
-// and would drag the heavy shell into the entry chunk / duplicate chrome.
-const RouteFallback = () => (
-  <div className="flex min-h-[50vh] items-center justify-center" role="status" aria-label="Loading">
-    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-    <span className="sr-only">Loading…</span>
-  </div>
-);
+// Route-loading fallback: a YouTube-style shell skeleton (header bar +
+// a generic page shape) from the tiny ui/skeletons kit, so a lazy route
+// swaps skeleton → content with no blank flash. Deliberately NOT
+// PageSkeleton — that imports Header/Footer and would drag the heavy
+// shell into the entry chunk / duplicate chrome.
+const RouteFallback = () => <RouteShellSkeleton />;
 
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>

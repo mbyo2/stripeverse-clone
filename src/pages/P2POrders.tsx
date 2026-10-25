@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonCardRow } from "@/components/ui/skeletons";
 import EmptyState from "@/components/ui/empty-state";
 import { ArrowLeftRight } from "lucide-react";
 import P2pShell from "@/components/p2p/P2pShell";
@@ -38,9 +38,9 @@ export default function P2POrders() {
     <P2pShell title="My Orders" subtitle="Every P2P trade you are part of. Open a trade to pay, confirm, chat or dispute.">
       <P2pAccountCard />
       {ordersQuery.isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
+        <div className="space-y-3" role="status" aria-label="Loading orders">
+          <SkeletonCardRow />
+          <SkeletonCardRow />
         </div>
       ) : ordersQuery.isError ? (
         <PageErrorState

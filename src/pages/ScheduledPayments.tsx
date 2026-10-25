@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Skeleton } from "@/components/ui/skeleton";
 import { format } from 'date-fns';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -186,8 +187,8 @@ const ScheduledPayments = () => {
         {isLoading ? (
           <div className="grid gap-4">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="h-24" />
+              <Card key={i}>
+                <CardContent className="p-4"><Skeleton className="h-24" /></CardContent>
               </Card>
             ))}
           </div>

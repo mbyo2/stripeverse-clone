@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Header from '@/components/Header';
+import { Skeleton } from "@/components/ui/skeleton";
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -156,7 +157,13 @@ const MultiCurrencyWallet = () => {
           <TabsList><TabsTrigger value="wallets">Wallets</TabsTrigger><TabsTrigger value="history">Conversion History</TabsTrigger></TabsList>
           <TabsContent value="wallets" className="mt-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {isLoading ? <p className="text-muted-foreground">Loading...</p> : wallets?.map(w => {
+              {isLoading ? (
+                <>
+                  {[0, 1, 2].map((i) => (
+                    <Skeleton key={i} className="h-40 rounded-xl" />
+                  ))}
+                </>
+              ) : wallets?.map(w => {
                 const info = getCurrencyInfo(w.currency);
                 return (
                   <Card key={w.id} className="relative overflow-hidden">

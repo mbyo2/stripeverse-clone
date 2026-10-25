@@ -2,6 +2,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles, Feature, Role } from "@/contexts/RoleContext";
+import { DashboardSkeleton, SkeletonHeaderBar } from "@/components/ui/skeletons";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -19,16 +20,22 @@ const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedR
   // a brief flash of "Your role: user" before the real role loads.
   const rolesNotReady = !!user && roles.length === 0;
   if (authLoading || rolesLoading || rolesNotReady) {
+    // While access resolves, show the shape of what's coming — most
+    // users land on the dashboard, so the bootstrap is a dashboard
+    // skeleton behind the shell header bar, not a spinner on a blank
+    // screen. The verifying copy stays for screen readers only.
     return (
       <div
-        className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background"
+        className="min-h-screen flex flex-col bg-muted"
         role="status"
         aria-live="polite"
         aria-busy="true"
       >
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-        <p className="text-sm text-muted-foreground">Verifying your access…</p>
-        <span className="sr-only">Loading authentication and permissions</span>
+        <SkeletonHeaderBar />
+        <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 pt-6 pb-16">
+          <DashboardSkeleton />
+        </main>
+        <span className="sr-only">Verifying your access — loading authentication and permissions</span>
       </div>
     );
   }
