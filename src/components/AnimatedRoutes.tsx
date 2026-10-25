@@ -1,129 +1,142 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import type { Role } from '@/contexts/RoleContext';
 import BusinessRouteGuard from '@/components/business/BusinessRouteGuard';
 import PageTransition from '@/components/PageTransition';
 
-// Import all pages
+// Pages are route-level code-split with React.lazy (only the landing
+// page, Index, stays eager so `/` paints without an extra round-trip).
 import Index from '@/pages/Index';
-import Login from '@/pages/Login';
-import Register from '@/pages/Register';
-import Dashboard from '@/pages/Dashboard';
-import UserDashboard from '@/pages/UserDashboard';
-import AdminDashboard from '@/pages/AdminDashboard';
-import BetaTesterDashboard from '@/pages/BetaTesterDashboard';
-import BusinessDashboard from '@/pages/BusinessDashboard';
-import RoleManagement from '@/pages/RoleManagement';
-import TierManagement from '@/pages/TierManagement';
-import Settings from '@/pages/Settings';
-import Wallet from '@/pages/Wallet';
-import Transactions from '@/pages/Transactions';
-import TransactionList from '@/pages/TransactionList';
-import VirtualCardNew from '@/pages/VirtualCardNew';
-import VirtualCardDetails from '@/pages/VirtualCardDetails';
-import VirtualCardFund from '@/pages/VirtualCardFund';
-import Transfer from '@/pages/Transfer';
-import SendMoney from '@/pages/SendMoney';
-import Business from '@/pages/Business';
-import Compliance from '@/pages/Compliance';
-import FeedbackDashboard from '@/pages/FeedbackDashboard';
-import Feedback from '@/pages/Feedback';
-import Help from '@/pages/Help';
-import ResetPassword from '@/pages/ResetPassword';
-import UpdatePassword from '@/pages/UpdatePassword';
-import Pricing from '@/pages/Pricing';
+const Login = lazy(() => import('@/pages/Login'));
+const Register = lazy(() => import('@/pages/Register'));
+const Dashboard = lazy(() => import('@/pages/Dashboard'));
+const UserDashboard = lazy(() => import('@/pages/UserDashboard'));
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
+const BetaTesterDashboard = lazy(() => import('@/pages/BetaTesterDashboard'));
+const BusinessDashboard = lazy(() => import('@/pages/BusinessDashboard'));
+const RoleManagement = lazy(() => import('@/pages/RoleManagement'));
+const TierManagement = lazy(() => import('@/pages/TierManagement'));
+const Settings = lazy(() => import('@/pages/Settings'));
+const Wallet = lazy(() => import('@/pages/Wallet'));
+const Transactions = lazy(() => import('@/pages/Transactions'));
+const TransactionList = lazy(() => import('@/pages/TransactionList'));
+const VirtualCardNew = lazy(() => import('@/pages/VirtualCardNew'));
+const VirtualCardDetails = lazy(() => import('@/pages/VirtualCardDetails'));
+const VirtualCardFund = lazy(() => import('@/pages/VirtualCardFund'));
+const Transfer = lazy(() => import('@/pages/Transfer'));
+const SendMoney = lazy(() => import('@/pages/SendMoney'));
+const Business = lazy(() => import('@/pages/Business'));
+const Compliance = lazy(() => import('@/pages/Compliance'));
+const FeedbackDashboard = lazy(() => import('@/pages/FeedbackDashboard'));
+const Feedback = lazy(() => import('@/pages/Feedback'));
+const Help = lazy(() => import('@/pages/Help'));
+const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
+const UpdatePassword = lazy(() => import('@/pages/UpdatePassword'));
+const Pricing = lazy(() => import('@/pages/Pricing'));
 import { Navigate } from 'react-router-dom';
-import Checkout from '@/pages/Checkout';
-import SubscriptionTiers from '@/pages/SubscriptionTiers';
-import Billing from '@/pages/Billing';
-import Analytics from '@/pages/Analytics';
-import API from '@/pages/API';
-import Support from '@/pages/Support';
-import Rewards from '@/pages/Rewards';
-import BitcoinWallet from '@/pages/BitcoinWallet';
-import SelfCustodyWallet from '@/pages/SelfCustodyWallet';
-import PaymentProcessor from '@/pages/PaymentProcessor';
-import PaymentServices from '@/pages/PaymentServices';
-import PaymentSuccess from '@/pages/PaymentSuccess';
-import PaymentFailed from '@/pages/PaymentFailed';
-import Disputes from '@/pages/Disputes';
-import Notifications from '@/pages/Notifications';
-import SecuritySettings from '@/pages/SecuritySettings';
-import TwoFactorAuth from '@/pages/TwoFactorAuth';
-import KycPage from '@/pages/KycPage';
-import VerifyIdentity from '@/pages/VerifyIdentity';
-import UssdAccess from '@/pages/UssdAccess';
-import WalletReconciliationPage from '@/pages/WalletReconciliationPage';
-import About from '@/pages/About';
-import Contact from '@/pages/Contact';
-import Blog from '@/pages/Blog';
-import Faq from '@/pages/Faq';
-import PrivacyPolicy from '@/pages/PrivacyPolicy';
-import TermsOfService from '@/pages/TermsOfService';
-import NotFound from '@/pages/NotFound';
-import AdminUsers from '@/pages/AdminUsers';
-import AdminMastercardMove from '@/pages/AdminMastercardMove';
-import AdminPayoneer from '@/pages/AdminPayoneer';
-import AdminStripe from '@/pages/AdminStripe';
-import AdminMoonpay from '@/pages/AdminMoonpay';
-import AdminPaypal from '@/pages/AdminPaypal';
-import AdminTransactions from '@/pages/AdminTransactions';
-import Developers from '@/pages/Developers';
-import RequestMoney from '@/pages/RequestMoney';
-import Contacts from '@/pages/Contacts';
-import SpendingInsights from '@/pages/SpendingInsights';
-import InvoicesPage from '@/pages/Invoices';
-import BuyNowPayLater from '@/pages/BuyNowPayLater';
-import ScheduledPayments from '@/pages/ScheduledPayments';
-import BankTransfers from '@/pages/BankTransfers';
-import CollectPayments from '@/pages/CollectPayments';
-import PaymentLinks from '@/pages/PaymentLinks';
-import BitcoinPos from '@/pages/BitcoinPos';
-import SubAccounts from '@/pages/SubAccounts';
-import SplitPayments from '@/pages/SplitPayments';
-import MultiCurrencyWallet from '@/pages/MultiCurrencyWallet';
-import BulkPayments from '@/pages/BulkPayments';
-import Refunds from '@/pages/Refunds';
-import PublicCheckout from '@/pages/PublicCheckout';
-import InvoiceCheckout from '@/pages/InvoiceCheckout';
-import RequestCheckout from '@/pages/RequestCheckout';
-import Settlements from '@/pages/Settlements';
-import SdkDocs from '@/pages/SdkDocs';
-import WebhookLogs from '@/pages/WebhookLogs';
-import CardVault from '@/pages/CardVault';
-import CryptoWallet from '@/pages/CryptoWallet';
+const Checkout = lazy(() => import('@/pages/Checkout'));
+const SubscriptionTiers = lazy(() => import('@/pages/SubscriptionTiers'));
+const Billing = lazy(() => import('@/pages/Billing'));
+const Analytics = lazy(() => import('@/pages/Analytics'));
+const API = lazy(() => import('@/pages/API'));
+const Support = lazy(() => import('@/pages/Support'));
+const Rewards = lazy(() => import('@/pages/Rewards'));
+const BitcoinWallet = lazy(() => import('@/pages/BitcoinWallet'));
+const SelfCustodyWallet = lazy(() => import('@/pages/SelfCustodyWallet'));
+const PaymentProcessor = lazy(() => import('@/pages/PaymentProcessor'));
+const PaymentServices = lazy(() => import('@/pages/PaymentServices'));
+const PaymentSuccess = lazy(() => import('@/pages/PaymentSuccess'));
+const PaymentFailed = lazy(() => import('@/pages/PaymentFailed'));
+const Disputes = lazy(() => import('@/pages/Disputes'));
+const Notifications = lazy(() => import('@/pages/Notifications'));
+const SecuritySettings = lazy(() => import('@/pages/SecuritySettings'));
+const TwoFactorAuth = lazy(() => import('@/pages/TwoFactorAuth'));
+const KycPage = lazy(() => import('@/pages/KycPage'));
+const VerifyIdentity = lazy(() => import('@/pages/VerifyIdentity'));
+const UssdAccess = lazy(() => import('@/pages/UssdAccess'));
+const WalletReconciliationPage = lazy(() => import('@/pages/WalletReconciliationPage'));
+const About = lazy(() => import('@/pages/About'));
+const Contact = lazy(() => import('@/pages/Contact'));
+const Blog = lazy(() => import('@/pages/Blog'));
+const Faq = lazy(() => import('@/pages/Faq'));
+const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
+const NotFound = lazy(() => import('@/pages/NotFound'));
+const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
+const AdminMastercardMove = lazy(() => import('@/pages/AdminMastercardMove'));
+const AdminPayoneer = lazy(() => import('@/pages/AdminPayoneer'));
+const AdminStripe = lazy(() => import('@/pages/AdminStripe'));
+const AdminMoonpay = lazy(() => import('@/pages/AdminMoonpay'));
+const AdminPaypal = lazy(() => import('@/pages/AdminPaypal'));
+const AdminTransactions = lazy(() => import('@/pages/AdminTransactions'));
+const Developers = lazy(() => import('@/pages/Developers'));
+const RequestMoney = lazy(() => import('@/pages/RequestMoney'));
+const Contacts = lazy(() => import('@/pages/Contacts'));
+const SpendingInsights = lazy(() => import('@/pages/SpendingInsights'));
+const InvoicesPage = lazy(() => import('@/pages/Invoices'));
+const BuyNowPayLater = lazy(() => import('@/pages/BuyNowPayLater'));
+const ScheduledPayments = lazy(() => import('@/pages/ScheduledPayments'));
+const BankTransfers = lazy(() => import('@/pages/BankTransfers'));
+const CollectPayments = lazy(() => import('@/pages/CollectPayments'));
+const PaymentLinks = lazy(() => import('@/pages/PaymentLinks'));
+const BitcoinPos = lazy(() => import('@/pages/BitcoinPos'));
+const SubAccounts = lazy(() => import('@/pages/SubAccounts'));
+const SplitPayments = lazy(() => import('@/pages/SplitPayments'));
+const MultiCurrencyWallet = lazy(() => import('@/pages/MultiCurrencyWallet'));
+const BulkPayments = lazy(() => import('@/pages/BulkPayments'));
+const Refunds = lazy(() => import('@/pages/Refunds'));
+const PublicCheckout = lazy(() => import('@/pages/PublicCheckout'));
+const InvoiceCheckout = lazy(() => import('@/pages/InvoiceCheckout'));
+const RequestCheckout = lazy(() => import('@/pages/RequestCheckout'));
+const Settlements = lazy(() => import('@/pages/Settlements'));
+const SdkDocs = lazy(() => import('@/pages/SdkDocs'));
+const WebhookLogs = lazy(() => import('@/pages/WebhookLogs'));
+const CardVault = lazy(() => import('@/pages/CardVault'));
+const CryptoWallet = lazy(() => import('@/pages/CryptoWallet'));
 
 // New feature pages
-import PaymentPlans from '@/pages/PaymentPlans';
-import Escrow from '@/pages/Escrow';
-import Savings from '@/pages/Savings';
-import BillPayments from '@/pages/BillPayments';
-import AgentNetwork from '@/pages/AgentNetwork';
-import FraudRules from '@/pages/FraudRules';
-import Statements from '@/pages/Statements';
-import TransactionSearch from '@/pages/TransactionSearch';
-import IpWhitelist from '@/pages/IpWhitelist';
-import QrPayments from '@/pages/QrPayments';
-import CheckoutWidget from '@/pages/CheckoutWidget';
-import AmlScreening from '@/pages/AmlScreening';
-import AuditLogs from '@/pages/AuditLogs';
-import BackupExport from '@/pages/BackupExport';
-import ApiRateLimits from '@/pages/ApiRateLimits';
+const PaymentPlans = lazy(() => import('@/pages/PaymentPlans'));
+const Escrow = lazy(() => import('@/pages/Escrow'));
+const Savings = lazy(() => import('@/pages/Savings'));
+const BillPayments = lazy(() => import('@/pages/BillPayments'));
+const AgentNetwork = lazy(() => import('@/pages/AgentNetwork'));
+const FraudRules = lazy(() => import('@/pages/FraudRules'));
+const Statements = lazy(() => import('@/pages/Statements'));
+const TransactionSearch = lazy(() => import('@/pages/TransactionSearch'));
+const IpWhitelist = lazy(() => import('@/pages/IpWhitelist'));
+const QrPayments = lazy(() => import('@/pages/QrPayments'));
+const CheckoutWidget = lazy(() => import('@/pages/CheckoutWidget'));
+const AmlScreening = lazy(() => import('@/pages/AmlScreening'));
+const AuditLogs = lazy(() => import('@/pages/AuditLogs'));
+const BackupExport = lazy(() => import('@/pages/BackupExport'));
+const ApiRateLimits = lazy(() => import('@/pages/ApiRateLimits'));
 
 // P2P marketplace (Phase 1c)
-import P2PMarketplace from '@/pages/P2PMarketplace';
-import P2PNewAd from '@/pages/P2PNewAd';
-import P2PMyAds from '@/pages/P2PMyAds';
-import P2POrders from '@/pages/P2POrders';
-import P2PTradeRoom from '@/pages/P2PTradeRoom';
-import P2PProfile from '@/pages/P2PProfile';
-import P2PDispute from '@/pages/P2PDispute';
-import AdminP2P from '@/pages/AdminP2P';
-import AdminIdentity from '@/pages/AdminIdentity';
-import AdminUserDetail from '@/pages/AdminUserDetail';
-import AdminRoleRequests from '@/pages/AdminRoleRequests';
-import AdminRefunds from '@/pages/AdminRefunds';
+const P2PMarketplace = lazy(() => import('@/pages/P2PMarketplace'));
+const P2PNewAd = lazy(() => import('@/pages/P2PNewAd'));
+const P2PMyAds = lazy(() => import('@/pages/P2PMyAds'));
+const P2POrders = lazy(() => import('@/pages/P2POrders'));
+const P2PTradeRoom = lazy(() => import('@/pages/P2PTradeRoom'));
+const P2PProfile = lazy(() => import('@/pages/P2PProfile'));
+const P2PDispute = lazy(() => import('@/pages/P2PDispute'));
+const AdminP2P = lazy(() => import('@/pages/AdminP2P'));
+const AdminIdentity = lazy(() => import('@/pages/AdminIdentity'));
+const AdminUserDetail = lazy(() => import('@/pages/AdminUserDetail'));
+const AdminRoleRequests = lazy(() => import('@/pages/AdminRoleRequests'));
+const AdminRefunds = lazy(() => import('@/pages/AdminRefunds'));
+
+// Minimal route-loading fallback: a single centred spinner in the app's
+// primary colour. Deliberately NOT PageSkeleton — that imports Header/Footer
+// and would drag the heavy shell into the entry chunk / duplicate chrome.
+const RouteFallback = () => (
+  <div className="flex min-h-[50vh] items-center justify-center" role="status" aria-label="Loading">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <span className="sr-only">Loading…</span>
+  </div>
+);
 
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
@@ -144,6 +157,7 @@ const AnimatedRoutes = () => {
 
   return (
     <AnimatePresence mode="wait">
+      <Suspense fallback={<RouteFallback />}>
       <Routes location={location} key={location.pathname}>
         {/* Public routes */}
         <Route path="/" element={<PageTransition><Index /></PageTransition>} />
@@ -301,6 +315,7 @@ const AnimatedRoutes = () => {
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
+      </Suspense>
     </AnimatePresence>
   );
 };
