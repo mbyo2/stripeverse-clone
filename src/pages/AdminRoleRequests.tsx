@@ -162,7 +162,7 @@ const AdminRoleRequests = () => {
   }
 
   const renderTable = (rows: RoleRequest[], showActions: boolean) => (
-    <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
+    <Table className="[&_td]:px-2 [&_th]:px-2 md:[&_td]:px-4 md:[&_th]:px-4">
       <TableHeader>
         <TableRow>
           <TableHead>Requester</TableHead>
@@ -175,10 +175,10 @@ const AdminRoleRequests = () => {
       <TableBody>
         {rows.map((req) => (
           <TableRow key={req.id}>
-            <TableCell className="font-medium">
+            <TableCell className="max-w-[150px] font-medium md:max-w-none">
               {requesterName(req.user_id)}
               {directoryById.get(req.user_id)?.email && (
-                <span className="block max-w-[130px] truncate text-xs font-normal text-muted-foreground md:max-w-none">
+                <span className="block max-w-[104px] truncate text-xs font-normal text-muted-foreground md:max-w-none">
                   {directoryById.get(req.user_id)?.email}
                 </span>
               )}

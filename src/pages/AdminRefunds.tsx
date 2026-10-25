@@ -189,14 +189,62 @@ const AdminRefunds = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Table className="[&_td]:px-2.5 [&_th]:px-2.5 md:[&_td]:px-4 md:[&_th]:px-4">
+              {/* Phone: stacked rows (the 7-column table is wider than a
+                  phone screen). Tablet and up keep the full table. */}
+              <div className="divide-y md:hidden">
+                {filtered.map((r) => (
+                  <div key={r.id} className="py-3">
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium">{userName(r.user_id)}</div>
+                        {directoryById.get(r.user_id)?.email && (
+                          <div className="truncate text-xs text-muted-foreground">
+                            {directoryById.get(r.user_id)?.email}
+                          </div>
+                        )}
+                      </div>
+                      <div className="shrink-0 font-medium">
+                        {fmtMoney(r.currency, r.amount)}
+                      </div>
+                    </div>
+                    <p className="mt-1 break-words text-sm text-muted-foreground">
+                      {r.reason}
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Badge variant={statusVariant(r.status)}>{r.status}</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {r.refund_type} ·{" "}
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="ml-auto shrink-0"
+                        onClick={() => {
+                          setSelected(r);
+                          setConfirmReject(false);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {filtered.length === 0 && (
+                  <p className="py-8 text-center text-muted-foreground">
+                    No refund requests found
+                  </p>
+                )}
+              </div>
+              <div className="hidden md:block">
+              <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="hidden md:table-cell">Requested</TableHead>
+                    <TableHead>Requested</TableHead>
                     <TableHead>Requester</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Reason</TableHead>
-                    <TableHead className="hidden md:table-cell">Type</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -204,18 +252,18 @@ const AdminRefunds = () => {
                 <TableBody>
                   {filtered.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell className="hidden md:table-cell">{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
                       <TableCell className="font-medium">
                         {userName(r.user_id)}
                         {directoryById.get(r.user_id)?.email && (
-                          <span className="block max-w-[140px] truncate text-xs font-normal text-muted-foreground md:max-w-none">
+                          <span className="block text-xs font-normal text-muted-foreground">
                             {directoryById.get(r.user_id)?.email}
                           </span>
                         )}
                       </TableCell>
                       <TableCell>{fmtMoney(r.currency, r.amount)}</TableCell>
-                      <TableCell className="max-w-[110px] truncate md:max-w-[220px]">{r.reason}</TableCell>
-                      <TableCell className="hidden md:table-cell">{r.refund_type}</TableCell>
+                      <TableCell className="max-w-[220px] truncate">{r.reason}</TableCell>
+                      <TableCell>{r.refund_type}</TableCell>
                       <TableCell>
                         <Badge variant={statusVariant(r.status)}>{r.status}</Badge>
                       </TableCell>
@@ -242,6 +290,7 @@ const AdminRefunds = () => {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         )}

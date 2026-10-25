@@ -198,13 +198,48 @@ const TierFeatureMatrix = () => {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/* Phone: per-tier stacked lists (the 5-column matrix is wider
+              than a phone screen). Tablet and up keep the matrix table. */}
+          <div className="space-y-6 md:hidden">
+            {tierIds.map((tierId) => (
+              <div key={tierId}>
+                <h4 className="mb-2 font-semibold">
+                  {tiers.find((t) => t.id === tierId)?.name || tierId}
+                </h4>
+                {categories.map((category) => (
+                  <div key={category} className="mb-3">
+                    <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {category} Features
+                    </div>
+                    <ul className="divide-y">
+                      {features
+                        .filter((feature) => feature.category === category)
+                        .map((feature) => (
+                          <li
+                            key={feature.feature_id}
+                            className="flex items-center justify-between gap-3 py-1.5"
+                          >
+                            <span className="min-w-0 text-sm">{feature.name}</span>
+                            {matrix[tierId][feature.feature_id] ? (
+                              <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
+                            ) : (
+                              <XCircle className="h-4 w-4 shrink-0 text-red-400" />
+                            )}
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full">
               <thead>
                 <tr>
-                  <th className="px-2 py-2.5 text-left font-medium md:px-4 md:py-3">Feature</th>
+                  <th className="text-left py-3 px-4 font-medium">Feature</th>
                   {tiers.map((tier) => (
-                    <th key={tier.id} className="px-2 py-2.5 text-center font-medium md:px-4 md:py-3">
+                    <th key={tier.id} className="text-center py-3 px-4 font-medium">
                       {tier.name}
                     </th>
                   ))}
@@ -214,7 +249,7 @@ const TierFeatureMatrix = () => {
                 {categories.map((category) => (
                   <React.Fragment key={category}>
                     <tr>
-                      <td colSpan={5} className="bg-muted px-2 py-2 font-medium text-sm md:px-4">
+                      <td colSpan={5} className="py-2 px-4 bg-muted font-medium text-sm">
                         {category} Features
                       </td>
                     </tr>
@@ -222,18 +257,18 @@ const TierFeatureMatrix = () => {
                       .filter(feature => feature.category === category)
                       .map((feature) => (
                         <tr key={feature.feature_id} className="border-b">
-                          <td className="px-2 py-2.5 md:px-4 md:py-3">
+                          <td className="py-3 px-4">
                             <div>
                               <div className="font-medium">{feature.name}</div>
-                              <div className="hidden text-sm text-muted-foreground md:block">{feature.description}</div>
+                              <div className="text-sm text-muted-foreground">{feature.description}</div>
                             </div>
                           </td>
                           {tierIds.map((tierId) => (
-                            <td key={tierId} className="px-2 py-2.5 text-center md:px-4 md:py-3">
+                            <td key={tierId} className="text-center py-3 px-4">
                               {matrix[tierId][feature.feature_id] ? (
-                                <CheckCircle2 className="mx-auto h-4 w-4 text-green-500 md:h-5 md:w-5" />
+                                <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto" />
                               ) : (
-                                <XCircle className="mx-auto h-4 w-4 text-red-400 md:h-5 md:w-5" />
+                                <XCircle className="h-5 w-5 text-red-400 mx-auto" />
                               )}
                             </td>
                           ))}

@@ -852,7 +852,7 @@ const AdminUserDetail = () => {
                     <TableBody>
                       {btcDeposits.map((d) => (
                         <TableRow key={d.id}>
-                          <TableCell className="font-mono text-xs">
+                          <TableCell className="max-w-[84px] truncate font-mono text-xs md:max-w-none">
                             {truncateMiddle(d.address)}
                           </TableCell>
                           <TableCell>{fmtSats(d.amount_sats)}</TableCell>
@@ -862,7 +862,7 @@ const AdminUserDetail = () => {
                               {d.status}
                             </Badge>
                           </TableCell>
-                          <TableCell className="font-mono text-xs">
+                          <TableCell className="max-w-[84px] truncate font-mono text-xs md:max-w-none">
                             {truncateMiddle(d.txid)}
                           </TableCell>
                           <TableCell className="hidden md:table-cell">{fmtDate(d.created_at)}</TableCell>

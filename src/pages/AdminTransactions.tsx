@@ -173,7 +173,7 @@ const AdminTransactions = () => {
                   <TableHead>Amount</TableHead>
                   <TableHead>Method</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead className="hidden lg:table-cell">Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -186,7 +186,7 @@ const AdminTransactions = () => {
                         <ArrowUpRight className="h-4 w-4 text-destructive" />
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="max-w-[180px] truncate font-medium lg:max-w-none" title={t.recipient_name || undefined}>
                       {t.recipient_name || "—"}
                     </TableCell>
                     <TableCell className={t.direction === "outgoing" ? "text-destructive" : "text-primary"}>
@@ -199,7 +199,7 @@ const AdminTransactions = () => {
                     <TableCell>
                       <Badge variant={statusColor(t.status) as any}>{t.status}</Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="hidden text-muted-foreground text-sm lg:table-cell">
                       {t.created_at ? new Date(t.created_at).toLocaleString() : "—"}
                     </TableCell>
                   </TableRow>
