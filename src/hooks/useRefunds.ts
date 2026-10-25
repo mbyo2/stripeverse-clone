@@ -1,4 +1,5 @@
 import { toUserFacingError } from "@/utils/userFacingError";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -92,7 +93,8 @@ export const useApproveRefund = () => {
           description: `Refund: ${refund.reason} (tx ${refund.transaction_id})`,
         },
       });
-      if (error || data?.error) throw new Error(data?.error || error?.message || 'Refund transfer failed');
+      if (error) throw new Error(await resolveEdgeFunctionError(error, 'Refund transfer failed'));
+      if (data?.error) throw new Error(data.error);
 
       const { error: updateErr } = await supabase
         .from('refunds')

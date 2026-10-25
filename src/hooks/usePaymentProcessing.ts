@@ -2,6 +2,7 @@ import { toUserFacingError } from "@/utils/userFacingError";
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveEdgeFunctionError } from '@/utils/edgeFunctionError';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -172,7 +173,7 @@ export const usePaymentProcessing = () => {
 
       if (error) {
         console.error('Payment processing error:', error);
-        throw new Error(error.message || 'Payment processing failed');
+        throw new Error(await resolveEdgeFunctionError(error, 'Payment processing failed'));
       }
 
       if (data?.success) {

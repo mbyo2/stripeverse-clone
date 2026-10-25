@@ -1,4 +1,5 @@
 import { toUserFacingError } from "@/utils/userFacingError";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -73,7 +74,9 @@ export const useEscrow = () => {
       if (transferErr || transferData?.error) {
         // Roll back the escrow row — buyer was not debited
         await supabase.from('escrow_transactions').delete().eq('id', row.id);
-        throw new Error(transferData?.error || transferErr?.message || 'Failed to fund escrow');
+        throw new Error(transferErr
+          ? await resolveEdgeFunctionError(transferErr, 'Failed to fund escrow')
+          : transferData.error);
       }
 
       // 3. Mark as funded with the hold transaction reference
@@ -102,7 +105,8 @@ export const useEscrow = () => {
       const { data, error } = await supabase.functions.invoke('escrow-settle', {
         body: { escrow_id: id, action: 'release' },
       });
-      if (error || data?.error) throw new Error(data?.error || error?.message || 'Release failed');
+      if (error) throw new Error(await resolveEdgeFunctionError(error, 'Release failed'));
+      if (data?.error) throw new Error(data.error);
       return data;
     },
     onSuccess: () => {
@@ -118,7 +122,8 @@ export const useEscrow = () => {
       const { data, error } = await supabase.functions.invoke('escrow-settle', {
         body: { escrow_id: id, action: 'refund' },
       });
-      if (error || data?.error) throw new Error(data?.error || error?.message || 'Refund failed');
+      if (error) throw new Error(await resolveEdgeFunctionError(error, 'Refund failed'));
+      if (data?.error) throw new Error(data.error);
       return data;
     },
     onSuccess: () => {

@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CreditCard, Check, Shield } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 
 interface CardPaymentProps {
   amount: number;
@@ -113,7 +114,7 @@ const CardPayment = ({ amount, onSuccess, onCancel }: CardPaymentProps) => {
         }
       });
 
-      if (error) throw new Error(error.message || 'Payment failed');
+      if (error) throw new Error(await resolveEdgeFunctionError(error, 'Payment failed'));
       if (!data?.success) throw new Error(data?.error || 'Payment failed');
 
       toast({

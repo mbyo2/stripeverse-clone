@@ -28,6 +28,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, TransactionFilter } from "@/types/transaction";
 import { formatDate } from "@/lib/utils";
+import { transactionTitle, transactionCounterpartyLabel } from "@/utils/transactionLabels";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { CreateDisputeDialog } from "@/components/disputes/CreateDisputeDialog";
 import { format, subDays, isValid } from "date-fns";
@@ -165,7 +166,7 @@ const TransactionManager = ({
         new Date(tx.created_at).toLocaleDateString(),
         tx.direction === "incoming" ? "Received" : "Sent",
         `${tx.currency} ${tx.amount.toFixed(2)}`,
-        tx.recipient_name || "Unknown",
+        transactionCounterpartyLabel(tx),
         tx.status,
         tx.reference || "",
         tx.payment_method
@@ -353,8 +354,7 @@ const TransactionManager = ({
                     </div>
                     <div className="ml-4 min-w-0">
                       <div className="font-medium truncate">
-                        {transaction.direction === 'outgoing' ? "Sent to" : "Received from"} {" "}
-                        {transaction.recipient_name || "Unknown"}
+                        {transactionTitle(transaction)}
                       </div>
                       <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
                         {new Date(transaction.created_at).toLocaleDateString()} 

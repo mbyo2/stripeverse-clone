@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 
 interface UssdPaymentProps {
   amount: number;
@@ -94,7 +95,7 @@ const UssdPayment = ({ amount, onSuccess, onCancel }: UssdPaymentProps) => {
         }
       });
 
-      if (error) throw new Error(error.message || 'Failed to register payment');
+      if (error) throw new Error(await resolveEdgeFunctionError(error, 'Failed to register payment'));
       if (!data?.success) throw new Error(data?.error || 'Payment failed');
 
       toast({

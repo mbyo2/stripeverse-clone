@@ -38,6 +38,34 @@ const PERMISSION_MESSAGE =
 const DUPLICATE_MESSAGE =
   "That already exists — it may have been saved already. Check first, and try again if needed.";
 
+/**
+ * Crafted message for a send/transfer refused because the SOURCE
+ * sub-account is frozen (Workstream C, 2026-10-26). Before this, the
+ * internal-transfer RPC's raw "Source account is frozen and cannot
+ * send" — or, on the paths that discarded the function's response
+ * body, a generic fallback — was all the user got, with no remedy.
+ * A frozen sub-account can still RECEIVE; the remedy is the user's
+ * own: unfreeze it, or send from a different account.
+ */
+export const FROZEN_SUB_ACCOUNT_MESSAGE =
+  "This account is frozen, so money can't be sent from it right now. " +
+  "It can still receive money. To send again, unfreeze it from Sub-accounts — or send from a different account.";
+
+/** Crafted message for a send/transfer involving a closed account. */
+export const CLOSED_ACCOUNT_MESSAGE =
+  "This account is closed, so it can't be used for this. Closed accounts can't be reopened — please use a different account.";
+
+/**
+ * The profile-freeze message the edge functions already craft
+ * server-side (supabase/functions/_shared/account-freeze.ts). It
+ * carries its own remedy (contact support), so it passes through
+ * unchanged — pinned here so the two wordings can't drift apart
+ * silently.
+ */
+export const FROZEN_PROFILE_MESSAGE =
+  "Your account is currently frozen, so this can't be completed right now. " +
+  "Please contact support and we'll help you get it sorted out.";
+
 function extractMessage(error: unknown): string | null {
   if (typeof error === "string") return error;
   if (error instanceof Error) return error.message;
@@ -64,6 +92,21 @@ function extractMessage(error: unknown): string | null {
  */
 function mapTechnicalMessage(text: string, fallback: string): string | null {
   const t = text.trim();
+
+  // Frozen / closed account refusals (Workstream C, 2026-10-26).
+  // These arrive in several raw shapes — the internal-transfer RPC's
+  // "Source account is frozen and cannot send", the new RPC wording,
+  // a wallet-status refusal — and must ALWAYS land as the crafted
+  // message that says what happened and what to do next, never as a
+  // bare refusal or a generic fallback. The server's own profile-
+  // freeze wording already says both, so it passes through as-is.
+  if (/currently frozen/i.test(t)) return t;
+  if (/frozen/i.test(t) && /(account|wallet)/i.test(t)) {
+    return FROZEN_SUB_ACCOUNT_MESSAGE;
+  }
+  if (/(source|destination) account is closed/i.test(t) || /^this account is closed/i.test(t)) {
+    return CLOSED_ACCOUNT_MESSAGE;
+  }
 
   // Dumps and machine shapes — never fit for a user.
   if (/^[[{]/.test(t)) return fallback; // JSON / array dump

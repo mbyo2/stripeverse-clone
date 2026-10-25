@@ -1,4 +1,5 @@
 import { toUserFacingError } from "@/utils/userFacingError";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -250,7 +251,7 @@ const QrPayments = () => {
           payment_method: 'qr_code',
         },
       });
-      if (error) throw new Error(error.message || 'Payment failed');
+      if (error) throw new Error(await resolveEdgeFunctionError(error, 'Payment failed'));
       if (data?.error) throw new Error(data.error);
       // The payment moved money: refresh shared balance/activity
       // state and this page's own QR history list.

@@ -9,6 +9,7 @@ import { AlertCircle, Smartphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 
 interface MobileMoneyPaymentProps {
   amount: number;
@@ -104,7 +105,7 @@ const MobileMoneyPayment = ({ amount, onSuccess, onCancel }: MobileMoneyPaymentP
       });
       
       if (error) {
-        throw new Error(error.message || 'Failed to process mobile money payment');
+        throw new Error(await resolveEdgeFunctionError(error, 'Failed to process mobile money payment'));
       }
       
       if (!data?.success) {

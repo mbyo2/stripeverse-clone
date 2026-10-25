@@ -1,4 +1,3 @@
-import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
   CreditCard, 
@@ -31,9 +30,10 @@ const QuickActions = () => {
       icon: QrCode,
       label: "QR Pay",
       description: "Scan & pay",
-      onClick: () => {
-        toast("QR payment feature coming soon");
-      },
+      // QR payments are LIVE (/qr-payments: generate, scan and pay
+      // via atomic-transfer). This button previously toasted
+      // "coming soon" for a shipped feature (Workstream C hunt).
+      onClick: () => navigate("/qr-payments"),
     },
     {
       icon: History,
@@ -45,13 +45,17 @@ const QuickActions = () => {
       icon: Smartphone,
       label: "Mobile",
       description: "Top up airtime",
-      onClick: () => navigate("/wallet"),
+      // Airtime is a bill-payments category; /bill-payments states
+      // plainly that billers aren't live yet. This button previously
+      // navigated to /wallet — the page it already sits on — so it
+      // appeared to do nothing (Workstream C hunt).
+      onClick: () => navigate("/bill-payments"),
     },
     {
       icon: Receipt,
       label: "Bills",
       description: "Pay utilities",
-      onClick: () => navigate("/wallet"),
+      onClick: () => navigate("/bill-payments"),
     },
     {
       icon: Bitcoin,

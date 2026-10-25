@@ -1,4 +1,5 @@
 import { toUserFacingError } from "@/utils/userFacingError";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeZambianPhone } from '@/utils/phoneNumber';
@@ -169,7 +170,8 @@ export const useProcessBulkPayment = () => {
               payment_method: item.payment_method || 'bank_transfer',
             },
           });
-          if (error || data?.error) throw new Error(data?.error || error?.message || 'Transfer failed');
+          if (error) throw new Error(await resolveEdgeFunctionError(error, 'Transfer failed'));
+          if (data?.error) throw new Error(data.error);
 
           await supabase.from('bulk_payment_items').update({
             status: 'completed',

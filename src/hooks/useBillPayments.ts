@@ -1,4 +1,5 @@
 import { toUserFacingError } from "@/utils/userFacingError";
+import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -61,7 +62,7 @@ export const useBillPayments = () => {
         },
       });
 
-      if (transferError) throw new Error(transferError.message || "Payment failed");
+      if (transferError) throw new Error(await resolveEdgeFunctionError(transferError, "Payment failed"));
       if (transferData?.error) throw new Error(transferData.error);
 
       // 2. Record the bill payment (funds already debited)

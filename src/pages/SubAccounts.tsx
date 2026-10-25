@@ -33,6 +33,8 @@ import {
   type AccountRow, type AccountWalletGroup,
 } from '@/utils/accountGrouping';
 import { formatCurrency } from '@/utils/walletUtils';
+import { toast } from 'sonner';
+import { FROZEN_SUB_ACCOUNT_MESSAGE } from '@/utils/userFacingError';
 
 const kindIcon = (kind: string) => {
   switch (kind) {
@@ -125,6 +127,17 @@ const SubAccounts = () => {
   };
 
   const handleTransfer = () => {
+    // Frozen-source guard (Workstream C, 2026-10-26): a frozen
+    // sub-account can receive but never send. The source list below
+    // already excludes frozen accounts, but an account can be frozen
+    // in another tab after this dialog opened — refuse HERE, with the
+    // crafted message, instead of letting the attempt fail silently
+    // or surface a raw server refusal.
+    const sourceGroup = groupOfWallet(transferForm.fromWalletId);
+    if (sourceGroup?.account?.status === 'frozen') {
+      toast.error(FROZEN_SUB_ACCOUNT_MESSAGE);
+      return;
+    }
     internalTransfer.mutate(
       {
         fromWalletId: transferForm.fromWalletId,
@@ -191,7 +204,16 @@ const SubAccounts = () => {
               variant="outline"
               className="h-8 rounded-full"
               disabled={status === 'closed' || !zmwWallet}
-              onClick={() => zmwWallet && openTransfer(zmwWallet.id)}
+              onClick={() => {
+                // Frozen accounts keep an ACTIVE Transfer button so
+                // the refusal is a crafted in-app message, not a
+                // silently dead control (Workstream C, 2026-10-26).
+                if (status === 'frozen') {
+                  toast.error(FROZEN_SUB_ACCOUNT_MESSAGE);
+                  return;
+                }
+                if (zmwWallet) openTransfer(zmwWallet.id);
+              }}
             >
               <ArrowLeftRight className="h-3.5 w-3.5 mr-1.5" /> Transfer
             </Button>
