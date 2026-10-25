@@ -48,7 +48,7 @@ import type {
 export class SparkNotEnabledError extends Error {
   constructor() {
     super(
-      "Lightning & Spark payments are not enabled on this deployment yet: the app is missing its Breez API key (VITE_BREEZ_API_KEY). On-chain self-custody is unaffected.",
+      "Lightning & Spark payments are not enabled on this deployment yet. On-chain self-custody is unaffected.",
     );
     this.name = "SparkNotEnabledError";
   }

@@ -976,8 +976,7 @@ function SelfCustodyWallet() {
                   Lightning &amp; Spark <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY</Badge>
                 </CardTitle>
                 <CardDescription>
-                  Lightning, on-chain deposits and Spark transfers in one balance, powered by the
-                  Breez SDK – Spark (the same SDK as Breez&apos;s Glow wallet) running entirely in
+                  Lightning, on-chain deposits and Spark transfers in one balance, running entirely in
                   your browser under the same seed phrase as this wallet — no BMaGlass server is
                   involved.
                 </CardDescription>
@@ -985,10 +984,9 @@ function SelfCustodyWallet() {
               <CardContent className="space-y-4">
                 {!sparkEnabled() ? (
                   <p className="text-sm text-muted-foreground">
-                    This part of the self-custody wallet is not enabled on this deployment yet: it
-                    needs the app&apos;s Breez API key (VITE_BREEZ_API_KEY), the per-app developer
-                    key Breez issues for this app. On-chain self-custody above is fully functional
-                    in the meantime, and your custodial account works as before.
+                    This part of the self-custody wallet is not enabled on this deployment yet.
+                    On-chain self-custody above is fully functional in the meantime, and your
+                    custodial account works as before.
                   </p>
                 ) : (
                   <>
@@ -1017,7 +1015,7 @@ function SelfCustodyWallet() {
                       <Label htmlFor="buy-amt">Buy amount (sats, optional — MoonPay sets the final fiat amount)</Label>
                       <Input id="buy-amt" type="number" min="1" placeholder="Leave blank to choose on MoonPay" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} />
                       <p className="text-xs text-muted-foreground">
-                        Buying opens MoonPay in a new tab (via Breez). MoonPay handles payment and
+                        Buying opens MoonPay in a new tab. MoonPay handles payment and
                         identity checks; purchases are paid in USD/EUR/GBP (ZMW is not supported by
                         MoonPay), with a minimum of about $20. Bought Bitcoin lands on this
                         wallet&apos;s Bitcoin deposit address and is added to the balance
