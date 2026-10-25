@@ -22,12 +22,17 @@ const ResetPassword = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+
     try {
-      await resetPassword(email);
-      setShowRequestForm(false);
-    } catch (error) {
-      console.error("Reset password error:", error);
+      // Advance to the "check your email" state ONLY when the reset
+      // email was actually sent. resetPassword reports the outcome
+      // (it toasts the failure itself); previously this page
+      // advanced unconditionally, showing the sent state next to a
+      // failure toast.
+      const sent = await resetPassword(email);
+      if (sent) {
+        setShowRequestForm(false);
+      }
     } finally {
       setLoading(false);
     }

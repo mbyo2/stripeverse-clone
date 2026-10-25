@@ -1,6 +1,6 @@
 
 import { useRef, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { createSubmitGuard } from "@/lib/submitGuard";
-import { UserPlus, Mail, Lock, Phone, User, CheckCircle2, XCircle } from "lucide-react";
+import { UserPlus, Mail, Lock, Phone, User, CheckCircle2, XCircle, MailCheck, CircleAlert } from "lucide-react";
 
 const Register = () => {
   const [firstName, setFirstName] = useState("");
@@ -21,6 +21,14 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const { signUp, isLoading, user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  // Set when sign-up reports the email is already registered: the
+  // page swaps the form for a dedicated "you already have an
+  // account" state (no check-email claim — no email was sent).
+  const [takenEmail, setTakenEmail] = useState<string | null>(null);
+  // Crafted failure copy shown on the form itself, so a failed
+  // sign-up never reads as "nothing happened".
+  const [formError, setFormError] = useState<string | null>(null);
   // Double-submit guard: the ref-held guard refuses a second attempt
   // instantly (before React re-renders the disabled button), and the
   // state mirror keeps the button disabled for the whole flight.
@@ -51,11 +59,35 @@ const Register = () => {
         return;
       }
 
-      await signUp(email, password, {
+      setFormError(null);
+      const result = await signUp(email, password, {
         first_name: firstName,
         last_name: lastName,
         phone: phone,
       });
+
+      // Every outcome lands somewhere deliberate — the pre-fix flow
+      // awaited a void and stayed on the form for all of them.
+      if (result.ok) {
+        if (result.confirmationPending) {
+          navigate("/check-email", { state: { email }, replace: true });
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
+        return;
+      }
+
+      if (result.reason === "email_taken") {
+        setTakenEmail(email);
+        return;
+      }
+
+      setFormError(
+        result.reason === "rate_limited"
+          ? "You've tried to sign up several times in a short space of time. Please wait a little while, then try again."
+          : (result.message ??
+            "We couldn't create your account just now. Check your connection and try again."),
+      );
     } finally {
       submitGuardRef.current.end();
       setIsSubmitting(false);
@@ -64,6 +96,66 @@ const Register = () => {
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Duplicate-email state: the address already has an account, so
+  // no account was created and NO confirmation email was sent —
+  // the copy must never claim otherwise. The way forward is log in
+  // (with the address carried over and prefilled) or reset the
+  // password; "use a different email" returns to the form.
+  if (takenEmail) {
+    return (
+      <div className="min-h-screen flex flex-col bg-muted">
+        <Header />
+        <main className="flex-1 flex items-center justify-center p-4 pt-6 pb-16">
+          <div className="w-full max-w-[480px]">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4">
+                <MailCheck className="h-7 w-7 text-primary-foreground" />
+              </div>
+              <h1 className="text-2xl font-display font-bold tracking-tight text-foreground">You already have an account</h1>
+              <p className="text-muted-foreground mt-1 text-sm">No new account was created</p>
+            </div>
+
+            <Card className="shadow-medium">
+              <CardContent className="pt-8 pb-6 px-8">
+                <p className="text-sm text-foreground">
+                  There's already a BMaGlass Pay account with{" "}
+                  <strong>{takenEmail}</strong>, so we didn't create a new
+                  one — and no confirmation email was sent. If this is your
+                  account, log in below. If you've forgotten your password,
+                  you can reset it instead.
+                </p>
+              </CardContent>
+              <CardFooter className="flex flex-col space-y-3 px-8 pb-8 pt-0">
+                <Button
+                  className="w-full h-12 text-base font-semibold"
+                  onClick={() =>
+                    navigate("/login", { state: { prefillEmail: takenEmail } })
+                  }
+                >
+                  Log in
+                </Button>
+                <Link
+                  to="/reset-password"
+                  className="text-sm text-primary hover:underline font-medium"
+                >
+                  Forgot your password?
+                </Link>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setTakenEmail(null)}
+                >
+                  Use a different email
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   return (
@@ -198,6 +290,16 @@ const Register = () => {
                     </p>
                   )}
                 </div>
+
+                {formError && (
+                  <div
+                    role="alert"
+                    className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5"
+                  >
+                    <CircleAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                    <p className="text-sm text-destructive">{formError}</p>
+                  </div>
+                )}
 
                 <Button
                   type="submit"

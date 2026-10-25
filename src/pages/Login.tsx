@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useLocation, type Location } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import Footer from "@/components/Footer";
 import { Hash, Lock, Mail, MailCheck, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
+  authLinkErrorMessage,
+  parseAuthLinkError,
   resendConfirmationMessage,
   type ResendConfirmationOutcome,
 } from "@/lib/authRecovery";
@@ -21,9 +23,27 @@ import {
 type ResendState = "idle" | "sending" | ResendConfirmationOutcome;
 
 const Login = () => {
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  // Router state this page honours: `from` (the protected page the
+  // route guard bounced the user away from — sign-in returns them
+  // there instead of always dropping them on the dashboard) and
+  // `prefillEmail` (carried from sign-up's "you already have an
+  // account" state and from the check-email page, so nobody retypes
+  // an address the app already knows).
+  const navState = (location.state ?? {}) as {
+    from?: Location;
+    prefillEmail?: string;
+  };
+  const [email, setEmail] = useState(() => navState.prefillEmail ?? "");
   const [password, setPassword] = useState("");
-  const [showResend, setShowResend] = useState(false);
+  // A confirmation/resend link that expired in transit lands here
+  // with error parameters in the URL (the auth flows redirect email
+  // links to /login for exactly this reason): explain it in plain
+  // language and open the resend panel — never a bare form.
+  const [linkError] = useState(() =>
+    parseAuthLinkError(location.search, location.hash),
+  );
+  const [showResend, setShowResend] = useState(() => linkError !== null);
   const [resendState, setResendState] = useState<ResendState>("idle");
   // Set by AuthContext when a stored session turned out to be dead
   // (e.g. after a cache/site-data clear) and was ended cleanly: the
@@ -57,7 +77,15 @@ const Login = () => {
       : null;
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    // Return to the page the guard stored, when there is one —
+    // anything else (including this page itself, which would loop)
+    // falls back to the dashboard.
+    const from = navState.from;
+    const destination =
+      from && from.pathname && from.pathname !== "/login"
+        ? `${from.pathname}${from.search ?? ""}${from.hash ?? ""}`
+        : "/dashboard";
+    return <Navigate to={destination} replace />;
   }
 
   return (
@@ -79,6 +107,20 @@ const Login = () => {
               className="mb-6 rounded-lg border border-border bg-card px-4 py-3 text-center text-sm font-medium text-foreground"
             >
               {SESSION_ENDED_MESSAGE}
+            </div>
+          )}
+
+          {linkError && (
+            <div
+              role="status"
+              className="mb-6 rounded-lg border border-border bg-card px-4 py-3 text-center"
+            >
+              <p className="text-sm font-semibold text-foreground">
+                {authLinkErrorMessage(linkError).title}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {authLinkErrorMessage(linkError).description}
+              </p>
             </div>
           )}
 

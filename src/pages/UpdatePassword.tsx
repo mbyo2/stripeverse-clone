@@ -1,14 +1,12 @@
-import { toUserFacingError } from "@/utils/userFacingError";
-
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, KeyRound, ShieldCheck } from "lucide-react";
+import { parseAuthLinkError } from "@/lib/authRecovery";
+import { Eye, EyeOff, KeyRound, ShieldCheck, MailWarning } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { z } from "zod";
@@ -21,8 +19,15 @@ const UpdatePassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { updateUserPassword } = useAuth();
-  const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  // An expired or already-used reset link lands here with error
+  // parameters in the URL and NO session — the form could only fail
+  // ("session missing"), so show the expired state with the way
+  // forward instead of a form that cannot succeed.
+  const [linkError] = useState(() =>
+    parseAuthLinkError(location.search, location.hash),
+  );
 
   // Form validation schema
   const passwordSchema = z.object({
@@ -50,19 +55,19 @@ const UpdatePassword = () => {
   const handleSubmit = async (values: z.infer<typeof passwordSchema>) => {
     try {
       setLoading(true);
-      await updateUserPassword(values.password);
+      // Show the success state (and redirect to /login) ONLY when
+      // the password was actually changed. updateUserPassword
+      // reports the outcome and toasts failures itself; previously
+      // this page showed "Password Updated!" and redirected even on
+      // failure, because the context method never threw.
+      const updated = await updateUserPassword(values.password);
+      if (!updated) return;
       setIsSuccess(true);
-      
+
       // Redirect to login after a delay
       setTimeout(() => {
         navigate('/login');
       }, 3000);
-    } catch (error: any) {
-      toast({
-        title: "Password update failed",
-        description: toUserFacingError(error),
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }
@@ -75,24 +80,49 @@ const UpdatePassword = () => {
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              {isSuccess ? (
+              {linkError ? (
+                <MailWarning className="text-amber-500 h-6 w-6" />
+              ) : isSuccess ? (
                 <ShieldCheck className="text-green-600 h-6 w-6" />
               ) : (
                 <KeyRound className="text-primary h-6 w-6" />
               )}
             </div>
             <CardTitle className="text-2xl font-bold text-center">
-              {isSuccess ? "Password Updated!" : "Create New Password"}
+              {linkError
+                ? "That reset link has expired"
+                : isSuccess
+                  ? "Password Updated!"
+                  : "Create New Password"}
             </CardTitle>
             <CardDescription className="text-center">
-              {isSuccess 
-                ? "Your password has been successfully updated." 
-                : "Set a strong, unique password for your account."}
+              {linkError
+                ? "Reset links only work once, and they don't stay valid for long."
+                : isSuccess
+                  ? "Your password has been successfully updated."
+                  : "Set a strong, unique password for your account."}
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent>
-            {isSuccess ? (
+            {linkError ? (
+              <div className="text-center space-y-4">
+                <p>
+                  Request a fresh reset link and use it as soon as it
+                  arrives — we'll email it to you right away.
+                </p>
+                <Button className="w-full" onClick={() => navigate('/reset-password')}>
+                  Request a new reset link
+                </Button>
+                <Button
+                  variant="link"
+                  onClick={() => navigate('/login')}
+                  className="text-sm"
+                >
+                  Return to login
+                </Button>
+              </div>
+            ) : isSuccess ? (
               <div className="text-center space-y-4">
                 <p>You can now log in with your new password.</p>
                 <p className="text-sm text-muted-foreground">Redirecting you to login page...</p>
@@ -152,7 +182,7 @@ const UpdatePassword = () => {
             )}
           </CardContent>
           
-          {!isSuccess && (
+          {!isSuccess && !linkError && (
             <CardFooter className="flex flex-col space-y-2">
               <Button 
                 variant="link" 

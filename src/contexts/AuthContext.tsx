@@ -4,6 +4,7 @@ import {
   isEmailNotConfirmedError,
   type ResendConfirmationOutcome,
 } from "@/lib/authRecovery";
+import { classifySignUpResponse } from "@/lib/signUpFlow";
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
@@ -29,6 +30,28 @@ export type SignInResult = {
   emailNotConfirmed: boolean;
 };
 
+// What a sign-up attempt came to. The Register page navigates on
+// this — it is NOT toasted away in the context, because each branch
+// has a different landing: confirmation pending → the check-email
+// page, an immediate session → the dashboard, an already-registered
+// email → a dedicated "you already have an account" state with the
+// address carried to /login. Until 2026-10-26 signUp returned void
+// and discarded the response, so the confirmation-pending branch
+// (this project's live config) never navigated anywhere.
+//
+// Flat shape, like SignInResult — NOT a discriminated union: this
+// project's tsconfig runs with strict:false, under which TS does
+// not narrow union members on the `ok` discriminant at use sites.
+export type SignUpResult = {
+  ok: boolean;
+  /** Set when ok: true when a confirmation email is on its way. */
+  confirmationPending?: boolean;
+  /** Set when !ok: which failure the page should present. */
+  reason?: "email_taken" | "rate_limited" | "failed";
+  /** Crafted (toUserFacingError) copy for the "failed" branch. */
+  message?: string;
+};
+
 type AuthContextType = {
   user: User | null;
   session: Session | null;
@@ -48,10 +71,10 @@ type AuthContextType = {
    */
   recoverSession: () => Promise<RecoveryOutcome>;
   signIn: (email: string, password: string, twoFactorCode?: string) => Promise<SignInResult>;
-  signUp: (email: string, password: string, userData: UserData) => Promise<void>;
+  signUp: (email: string, password: string, userData: UserData) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  updateUserPassword: (password: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<boolean>;
+  updateUserPassword: (password: string) => Promise<boolean>;
   resendEmailConfirmation: () => Promise<void>;
   resendConfirmationEmail: (email: string) => Promise<ResendConfirmationOutcome>;
   enable2FA: () => Promise<{ qrCode: string; secret: string }>;
@@ -387,14 +410,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signUp = async (email: string, password: string, userData: UserData) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    userData: UserData,
+  ): Promise<SignUpResult> => {
     try {
       setIsLoading(true);
-      
-      if (!(await checkRateLimit('signup'))) return;
 
-      const { error } = await supabase.auth.signUp({ 
-        email, 
+      // checkRateLimit toasts its own "Rate limit exceeded" message.
+      if (!(await checkRateLimit('signup'))) {
+        return { ok: false, reason: "rate_limited" };
+      }
+
+      // The response's `data` decides the landing (lib/signUpFlow):
+      // a session means the account is live now; a user without a
+      // session means a confirmation email is on its way; an
+      // obfuscated user with empty identities means the email is
+      // already registered. The confirmation link lands on /login:
+      // a live session there forwards straight to the dashboard, and
+      // an EXPIRED link's error parameters land where the crafted
+      // "link expired" notice + resend offer live.
+      const { data, error } = await supabase.auth.signUp({
+        email,
         password,
         options: {
           data: {
@@ -402,24 +440,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             last_name: userData.last_name,
             phone: userData.phone,
           },
-          emailRedirectTo: `${window.location.origin}/dashboard`
+          emailRedirectTo: `${window.location.origin}/login`
         }
       });
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Account created",
-        description: "Please check your email to confirm your account.",
-      });
-      
-      // Navigation will be handled by components that use this context
+
+      const outcome = classifySignUpResponse({ data, error });
+      switch (outcome) {
+        case "confirmation_pending":
+          return { ok: true, confirmationPending: true };
+        case "signed_in":
+          return { ok: true, confirmationPending: false };
+        case "email_taken":
+          return { ok: false, reason: "email_taken" };
+        case "rate_limited":
+          return { ok: false, reason: "rate_limited" };
+        case "failed":
+        default:
+          return {
+            ok: false,
+            reason: "failed",
+            message: toUserFacingError(error),
+          };
+      }
     } catch (error: any) {
-      toast({
-        title: "Registration failed",
-        description: toUserFacingError(error),
-        variant: "destructive",
-      });
+      return {
+        ok: false,
+        reason: "failed",
+        message: toUserFacingError(error),
+      };
     } finally {
       setIsLoading(false);
     }
@@ -462,50 +510,62 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const resetPassword = async (email: string) => {
+  // Returns whether the reset email was actually sent, so the page
+  // only advances to its "check your email" state on a real send —
+  // previously it advanced unconditionally (this method never threw),
+  // showing the sent state next to a failure toast.
+  const resetPassword = async (email: string): Promise<boolean> => {
     try {
       setIsLoading(true);
-      
-      if (!(await checkRateLimit('password_reset'))) return;
+
+      if (!(await checkRateLimit('password_reset'))) return false;
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/update-password`,
       });
-      
+
       if (error) throw error;
-      
+
       toast({
         title: "Password reset email sent",
         description: "Check your email for a password reset link.",
       });
+      return true;
     } catch (error: any) {
       toast({
         title: "Password reset failed",
         description: toUserFacingError(error),
         variant: "destructive",
       });
+      return false;
     } finally {
       setIsLoading(false);
     }
   };
   
-  const updateUserPassword = async (password: string) => {
+  // Returns whether the password was actually changed, so the page
+  // only shows its success state (and redirects to /login) on a real
+  // update — previously it showed "Password Updated!" and redirected
+  // even when this call had failed, because the method never threw.
+  const updateUserPassword = async (password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.updateUser({ password });
-      
+
       if (error) throw error;
-      
+
       toast({
         title: "Password updated",
         description: "Your password has been successfully changed.",
       });
+      return true;
     } catch (error: any) {
       toast({
         title: "Password update failed",
         description: toUserFacingError(error),
         variant: "destructive",
       });
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -552,7 +612,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         type: 'signup',
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          // Same landing rule as signUp: /login forwards a live
+          // session to the dashboard and presents an expired link's
+          // error with the crafted notice + resend offer.
+          emailRedirectTo: `${window.location.origin}/login`,
         },
       });
 

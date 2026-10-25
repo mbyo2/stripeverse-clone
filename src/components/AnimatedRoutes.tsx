@@ -13,6 +13,7 @@ import PageTransition from '@/components/PageTransition';
 import Index from '@/pages/Index';
 const Login = lazy(() => import('@/pages/Login'));
 const Register = lazy(() => import('@/pages/Register'));
+const CheckEmail = lazy(() => import('@/pages/CheckEmail'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const UserDashboard = lazy(() => import('@/pages/UserDashboard'));
 const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
@@ -167,6 +168,7 @@ const AnimatedRoutes = () => {
         <Route path="/" element={<PageTransition><Index /></PageTransition>} />
         <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
         <Route path="/register" element={<PageTransition><Register /></PageTransition>} />
+        <Route path="/check-email" element={<PageTransition><CheckEmail /></PageTransition>} />
         <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
         <Route path="/update-password" element={<PageTransition><UpdatePassword /></PageTransition>} />
         <Route path="/pricing" element={<PageTransition><Pricing /></PageTransition>} />

@@ -97,6 +97,66 @@ export function classifyResendConfirmation(
   return "failed";
 }
 
+export type AuthLinkError = "link_expired";
+
+/**
+ * Recognise a failed email-link landing from the URL parts Supabase
+ * appends when a confirmation or recovery link is expired, already
+ * used, or otherwise refused: the redirect target receives
+ * `#error=access_denied&error_code=otp_expired&error_description=…`
+ * (or the same keys as query params). Returns the one landing
+ * failure the auth pages can act on — an expired link — or null.
+ *
+ * Without this, an expired confirmation link landed the user on a
+ * bare login form with no explanation and no way forward; the login
+ * page now shows the crafted notice and opens the resend panel.
+ */
+export function parseAuthLinkError(
+  search: string,
+  hash: string,
+): AuthLinkError | null {
+  const combined = `${search} ${hash}`;
+  if (!combined.includes("error")) return null;
+
+  const params = new URLSearchParams();
+  for (const blob of [search, hash]) {
+    const cleaned = blob.replace(/^[?#]/, "");
+    if (!cleaned) continue;
+    for (const [key, value] of new URLSearchParams(cleaned)) {
+      params.set(key, value);
+    }
+  }
+
+  const code = params.get("error_code") ?? "";
+  const error = params.get("error") ?? "";
+  const description = params.get("error_description") ?? "";
+
+  if (code === "otp_expired") return "link_expired";
+  if (
+    error === "access_denied" &&
+    /expired|invalid|already (been )?used/i.test(description)
+  ) {
+    return "link_expired";
+  }
+  return null;
+}
+
+/** Crafted in-app feedback for a failed email-link landing. */
+export function authLinkErrorMessage(linkError: AuthLinkError): {
+  title: string;
+  description: string;
+} {
+  switch (linkError) {
+    case "link_expired":
+    default:
+      return {
+        title: "That email link has expired",
+        description:
+          "Email links only work once and don't stay valid for long. Sign in below — if your email still isn't confirmed, we can send you a fresh link.",
+      };
+  }
+}
+
 /** Crafted in-app feedback for each resend outcome. */
 export function resendConfirmationMessage(outcome: ResendConfirmationOutcome): {
   title: string;
