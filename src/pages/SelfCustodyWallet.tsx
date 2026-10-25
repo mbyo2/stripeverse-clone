@@ -35,9 +35,11 @@ import {
   createVault,
   unlockVault,
   vaultExists,
+  getVaultState,
   deleteVault,
   getVaultMeta,
   MIN_PASSWORD_LENGTH,
+  type VaultState,
 } from "@/lib/selfcustody/vault";
 import {
   generateWalletMnemonic,
@@ -100,7 +102,7 @@ import QRCode from "qrcode.react";
  * recover these funds — the UI says so plainly at every step.
  */
 
-type Stage = "choose" | "backup-show" | "backup-verify" | "set-password" | "import" | "locked" | "wallet";
+type Stage = "choose" | "backup-show" | "backup-verify" | "set-password" | "import" | "locked" | "wallet" | "recovery";
 
 function formatBtc(sats: number): string {
   return (sats / 100_000_000).toFixed(8).replace(/0+$/, "").replace(/\.$/, ".0");
@@ -123,11 +125,20 @@ function friendlyScanError(e: any): string {
 
 function SelfCustodyWallet() {
   const session = useSession();
+  const [vaultState, setVaultState] = useState<VaultState>(() => getVaultState());
   const [hasVault, setHasVault] = useState<boolean>(() => vaultExists());
-  const [stage, setStage] = useState<Stage>(() => (vaultExists() ? "locked" : "choose"));
+  const [stage, setStage] = useState<Stage>(() => {
+    // Tri-state: a present-but-unreadable vault goes to the recovery
+    // stage — NEVER to "choose", where creating a new wallet would
+    // overwrite it.
+    const s = getVaultState();
+    return s === "readable" ? "locked" : s === "unreadable" ? "recovery" : "choose";
+  });
 
   // Setup flow state (phrase lives here only until it is encrypted into the vault).
   const [pendingMnemonic, setPendingMnemonic] = useState<string | null>(null);
+  const [setupOrigin, setSetupOrigin] = useState<"create" | "import" | "recovery-import">("create");
+  const [confirmReplace, setConfirmReplace] = useState(false);
   const [backupConfirmed, setBackupConfirmed] = useState(false);
   const [verifyAnswers, setVerifyAnswers] = useState<Record<number, string>>({});
   const [importText, setImportText] = useState("");
@@ -236,7 +247,11 @@ function SelfCustodyWallet() {
       setParsedInput(null);
       setPreparedSend(null);
       setPreparedLnurl(null);
-      if (stage === "wallet") setStage(hasVault ? "locked" : "choose");
+      if (stage === "wallet") {
+        setStage(
+          vaultState === "readable" ? "locked" : vaultState === "unreadable" ? "recovery" : "choose",
+        );
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.mnemonic]);
@@ -284,6 +299,8 @@ function SelfCustodyWallet() {
   // ── Setup flows ──────────────────────────────────────────────────────────
 
   const startCreate = () => {
+    setSetupOrigin("create");
+    setConfirmReplace(false);
     setPendingMnemonic(generateWalletMnemonic());
     setBackupConfirmed(false);
     setVerifyAnswers({});
@@ -316,15 +333,26 @@ function SelfCustodyWallet() {
       toast.error("Passwords do not match");
       return;
     }
+    // Replacing an unreadable vault file is a destructive, deliberate
+    // act: it needs the explicit confirmation step rendered on the
+    // set-password card for the recovery-import flow. (createVault
+    // independently refuses to overwrite any blob without the flag.)
+    const allowReplace = setupOrigin === "recovery-import" && confirmReplace;
+    if (setupOrigin === "recovery-import" && !confirmReplace) {
+      toast.error("Confirm that you want to replace the unreadable wallet file first");
+      return;
+    }
     setBusy(true);
     try {
-      await createVault(pendingMnemonic, password);
+      await createVault(pendingMnemonic, password, allowReplace ? { replaceExisting: true } : undefined);
       unlockSession(pendingMnemonic);
       setPendingMnemonic(null);
       setPassword("");
       setPasswordConfirm("");
       setImportText("");
+      setConfirmReplace(false);
       setHasVault(true);
+      setVaultState("readable");
       toast.success("Self-custody wallet ready");
     } catch (e: any) {
       toast.error(toUserFacingError(e, "Could not create the wallet vault"));
@@ -339,6 +367,11 @@ function SelfCustodyWallet() {
       toast.error("That seed phrase is not a valid BIP39 phrase (check the words and order)");
       return;
     }
+    // Importing from the recovery stage replaces an unreadable blob —
+    // a different, destructive act from a first-time import, and the
+    // set-password step treats it that way.
+    setSetupOrigin(stage === "recovery" ? "recovery-import" : "import");
+    setConfirmReplace(false);
     setPendingMnemonic(phrase);
     setStage("set-password");
   };
@@ -361,6 +394,7 @@ function SelfCustodyWallet() {
     deleteVault();
     lockSession();
     setHasVault(false);
+    setVaultState("absent");
     setScan(null);
     setLastKnown(null);
     setConfirmDelete(false);
@@ -761,6 +795,60 @@ function SelfCustodyWallet() {
           </p>
         </div>
 
+        {stage === "recovery" && (
+          <Card className="border-red-500/60">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-500" /> A wallet file exists on this device, but it couldn't be read
+              </CardTitle>
+              <CardDescription>
+                The wallet file stored on this device appears to be damaged or incomplete, so it
+                cannot be opened or unlocked here.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-start gap-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm">
+                <ShieldAlert className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                <p>
+                  <strong>Do NOT create a new wallet</strong> — that would overwrite this file, and
+                  the wallet inside it could still be recoverable. Creating a wallet is blocked
+                  while this file is here. Restore from your seed phrase instead, or get help.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="recovery-import-phrase">Restore from your seed phrase</Label>
+                <Textarea
+                  id="recovery-import-phrase"
+                  placeholder="word1 word2 word3 … (12 or 24 words)"
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  rows={3}
+                  autoComplete="off"
+                />
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Eye className="h-3 w-3" /> The phrase is validated and encrypted on this device
+                  only. It is never sent to BMaGlass or any server.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Restoring asks you to set a wallet password, and then — only after you confirm
+                  it on the next step — replaces the unreadable file with the restored wallet.
+                </p>
+                <Button variant="outline" className="w-full" onClick={startImport} disabled={!importText.trim()}>
+                  Restore wallet from seed phrase
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Not sure what happened, or you don't have your seed phrase to hand?{" "}
+                <Link to="/support" className="underline underline-offset-2">
+                  Get help
+                </Link>{" "}
+                before doing anything else — and don't clear this browser's site data, which
+                would remove the file for good.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {stage === "choose" && (
           <Card>
             <CardHeader>
@@ -877,8 +965,39 @@ function SelfCustodyWallet() {
                 <Label htmlFor="pw2">Confirm password</Label>
                 <Input id="pw2" type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} autoComplete="new-password" />
               </div>
-              <Button className="w-full" onClick={finishSetup} disabled={busy}>
-                {busy ? "Encrypting…" : "Create encrypted wallet"}
+              {setupOrigin === "recovery-import" && (
+                <div className="space-y-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm">
+                  <p className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>This replaces the unreadable wallet file on this device.</strong>{" "}
+                      Finishing permanently replaces that file with the wallet from the seed
+                      phrase you entered. The unreadable file cannot be opened — only continue
+                      if that phrase is the wallet you want on this device.
+                    </span>
+                  </p>
+                  <label className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={confirmReplace}
+                      onChange={(e) => setConfirmReplace(e.target.checked)}
+                    />
+                    I understand this replaces the unreadable wallet file on this device, and
+                    that the seed phrase I entered becomes the wallet stored here.
+                  </label>
+                </div>
+              )}
+              <Button
+                className="w-full"
+                onClick={finishSetup}
+                disabled={busy || (setupOrigin === "recovery-import" && !confirmReplace)}
+              >
+                {busy
+                  ? "Encrypting…"
+                  : setupOrigin === "recovery-import"
+                    ? "Replace unreadable file & create wallet"
+                    : "Create encrypted wallet"}
               </Button>
             </CardContent>
           </Card>

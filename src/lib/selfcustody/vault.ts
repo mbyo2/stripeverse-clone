@@ -16,7 +16,11 @@
  *    (import flow), which is the correct self-custody property.
  *
  * Storage: localStorage (small blob, synchronous). The blob reveals nothing
- * but the fact a vault exists and its creation date.
+ * but the fact a vault exists and its creation date. After a vault is
+ * created or successfully unlocked we also ask the browser to treat this
+ * origin's storage as persistent (navigator.storage.persist), so the blob
+ * is not evicted under storage pressure — a request only, never a promise,
+ * and it changes nothing about the encryption.
  */
 
 const VAULT_STORAGE_KEY = "bmaglass.sc.vault.v1";
@@ -75,12 +79,40 @@ async function deriveKey(
   );
 }
 
+/** Raw blob exactly as stored, or null when the key is absent/unreadable. */
+function readRawBlob(): string | null {
+  try {
+    return localStorage.getItem(VAULT_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function isValidBase64(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) return false;
+  try {
+    base64ToBytes(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function readRecord(): VaultRecord | null {
   try {
-    const raw = localStorage.getItem(VAULT_STORAGE_KEY);
+    const raw = readRawBlob();
     if (!raw) return null;
     const parsed = JSON.parse(raw) as VaultRecord;
     if (parsed.v !== 1 || parsed.kdf !== "PBKDF2-SHA256") return null;
+    // Shape-check the fields every genuine v1 vault carries (createVault
+    // has written exactly this shape since 2026-10-20). A blob that fails
+    // here is PRESENT BUT UNREADABLE — see getVaultState — never silently
+    // treated as "no wallet".
+    if (typeof parsed.iterations !== "number" || !(parsed.iterations > 0)) return null;
+    if (!isValidBase64(parsed.salt) || !isValidBase64(parsed.iv) || !isValidBase64(parsed.data)) {
+      return null;
+    }
+    if (typeof parsed.createdAt !== "string" || parsed.createdAt.length === 0) return null;
     return parsed;
   } catch {
     return null;
@@ -91,15 +123,75 @@ export function vaultExists(): boolean {
   return readRecord() !== null;
 }
 
+/** True when ANY blob sits under the vault key — readable or not. */
+export function vaultBlobPresent(): boolean {
+  const raw = readRawBlob();
+  return raw !== null && raw.length > 0;
+}
+
+/**
+ * Tri-state vault detection:
+ *  - "absent":    no blob under the vault key — safe to offer create/import.
+ *  - "readable":  a well-formed v1 vault — offer unlock.
+ *  - "unreadable": a blob exists but fails to parse/validate. This must
+ *    NEVER be treated as "no wallet": the create/import screen would lead
+ *    the user to overwrite a possibly recoverable vault. The UI shows a
+ *    recovery state instead and creation stays blocked (createVault also
+ *    refuses — see below).
+ */
+export type VaultState = "absent" | "readable" | "unreadable";
+
+export function getVaultState(): VaultState {
+  if (!vaultBlobPresent()) return "absent";
+  return readRecord() !== null ? "readable" : "unreadable";
+}
+
+/**
+ * Ask the browser to keep this origin's storage (Android Chrome can evict
+ * non-persisted site data under storage pressure, which would take the
+ * vault blob with it). Guarded and fire-and-forget: unsupported browsers
+ * and denials are silent no-ops — persistence is best-effort armour, the
+ * seed phrase remains the real recovery path.
+ */
+export function requestStoragePersistence(): void {
+  try {
+    const storage = (globalThis as any).navigator?.storage;
+    if (storage && typeof storage.persist === "function") {
+      void Promise.resolve(storage.persist()).catch(() => undefined);
+    }
+  } catch {
+    // Never let a persistence request disturb vault operations.
+  }
+}
+
 export function getVaultMeta(): VaultMeta | null {
   const record = readRecord();
   return record ? { createdAt: record.createdAt } : null;
 }
 
-/** Encrypt and store the mnemonic under a new wallet password. Overwrites any existing vault. */
-export async function createVault(mnemonic: string, password: string): Promise<VaultMeta> {
+export interface CreateVaultOptions {
+  /**
+   * Explicit, separately-confirmed instruction to replace the blob
+   * currently under the vault key. Without it createVault REFUSES to
+   * overwrite anything — readable or not — so a present-but-unreadable
+   * vault can never be silently destroyed by the create/import flow.
+   */
+  replaceExisting?: boolean;
+}
+
+/** Encrypt and store the mnemonic under a new wallet password. */
+export async function createVault(
+  mnemonic: string,
+  password: string,
+  options?: CreateVaultOptions,
+): Promise<VaultMeta> {
   if (!password || password.length < MIN_PASSWORD_LENGTH) {
     throw new Error(`Wallet password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+  }
+  if (vaultBlobPresent() && !options?.replaceExisting) {
+    throw new Error(
+      "A wallet file already exists on this device. Refusing to overwrite it — unlock it, or explicitly choose to replace it.",
+    );
   }
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -120,6 +212,7 @@ export async function createVault(mnemonic: string, password: string): Promise<V
     createdAt: new Date().toISOString(),
   };
   localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(record));
+  requestStoragePersistence();
   return { createdAt: record.createdAt };
 }
 
@@ -144,6 +237,7 @@ export async function unlockVault(password: string): Promise<string> {
   }
   const parsed = JSON.parse(new TextDecoder().decode(plainBuffer)) as VaultPlaintext;
   if (!parsed.mnemonic) throw new Error("Vault contents are invalid");
+  requestStoragePersistence();
   return parsed.mnemonic;
 }
 
