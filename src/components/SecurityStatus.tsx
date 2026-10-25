@@ -10,7 +10,7 @@ const SecurityStatus = () => {
   // dashboard and can only be actioned by BMaGlass Pay administrators —
   // end users never see that card or its dashboard link.
   const { hasRole } = useRoles();
-  const isAdmin = hasRole('admin');
+  const isAdmin = hasRole('admin') || hasRole('super_admin');
   const fixedItems = [
     "Critical data exposure in subscribers table - Fixed",
     "Enhanced authentication rate limiting - Fixed", 

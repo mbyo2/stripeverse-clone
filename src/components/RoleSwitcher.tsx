@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useRoles } from "@/contexts/RoleContext";
+import { useRoles, Role } from "@/contexts/RoleContext";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +38,14 @@ export const RoleSwitcher = () => {
     }
   };
 
-  const availableRoles = roles.filter(role => roleConfig[role]);
+  // super_admin is additive over admin: a holder who carries
+  // super_admin without a separate admin row still gets the Admin
+  // Dashboard entry — their visibility is never less than an admin's.
+  const effectiveRoles =
+    roles.includes("super_admin") && !roles.includes("admin")
+      ? [...roles, "admin" as Role]
+      : roles;
+  const availableRoles = effectiveRoles.filter(role => roleConfig[role]);
 
   if (availableRoles.length <= 1) {
     return null; // Don't show switcher if user has only one role

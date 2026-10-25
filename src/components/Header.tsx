@@ -4,6 +4,8 @@ import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import GlobalSearch from "@/components/GlobalSearch";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRoles } from "@/contexts/RoleContext";
+import { canViewAdminConsole } from "@/lib/adminConsole";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { RoleBadge } from "@/components/FeatureAccess";
 import { CurrencySelector } from "@/components/CurrencySelector";
@@ -76,6 +78,15 @@ import Logo from "@/components/Logo";
 
 const Header = () => {
   const { user, signOut } = useAuth();
+  const { roles, hasRole } = useRoles();
+  // Role visibility (CEO directive 2026-10-25): menu entries that
+  // belong to a role the user doesn't hold are not rendered at all —
+  // an admin-console destination never appears in a plain user's
+  // menus, and a business surface never appears for non-business
+  // users. Presentation only; the routes and the database enforce
+  // the real rules underneath.
+  const showAdminLinks = canViewAdminConsole(roles);
+  const showFraudRules = showAdminLinks || hasRole("business");
   const location = useLocation();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -377,11 +388,13 @@ const Header = () => {
                       <Globe className="h-4 w-4" /> Agent Network
                     </Link>
                   </DropdownMenuItem>
+                  {showFraudRules && (
                   <DropdownMenuItem asChild>
                     <Link to="/fraud-rules" className="flex items-center gap-2">
                       <Shield className="h-4 w-4" /> Fraud Rules
                     </Link>
                   </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link to="/ip-whitelist" className="flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4" /> IP Whitelist
@@ -484,16 +497,20 @@ const Header = () => {
                       <Star className="h-4 w-4" /> Rewards
                     </Link>
                   </DropdownMenuItem>
+                  {showAdminLinks && (
                   <DropdownMenuItem asChild>
                     <Link to="/tier-management" className="flex items-center gap-2">
                       <Layers className="h-4 w-4" /> Subscription
                     </Link>
                   </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link to="/role-management" className="flex items-center gap-2">
                       <Users className="h-4 w-4" /> Role Management
                     </Link>
                   </DropdownMenuItem>
+                  {showAdminLinks && (
+                  <>
                   <DropdownMenuItem asChild>
                     <Link to="/audit-logs" className="flex items-center gap-2">
                       <FileText className="h-4 w-4" /> Audit Logs
@@ -504,6 +521,8 @@ const Header = () => {
                       <Package className="h-4 w-4" /> Backup & Export
                     </Link>
                   </DropdownMenuItem>
+                  </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/support" className="flex items-center gap-2">
@@ -624,7 +643,7 @@ const Header = () => {
                     <MobileNavLink to="/escrow" icon={Lock}>Escrow</MobileNavLink>
                     <MobileNavLink to="/bill-payments" icon={Zap}>Bill Payments</MobileNavLink>
                     <MobileNavLink to="/agent-network" icon={MapPin}>Agent Network</MobileNavLink>
-                    <MobileNavLink to="/fraud-rules" icon={Shield}>Fraud Rules</MobileNavLink>
+                    {showFraudRules && <MobileNavLink to="/fraud-rules" icon={Shield}>Fraud Rules</MobileNavLink>}
                     <MobileNavLink to="/ip-whitelist" icon={ShieldCheck}>IP Whitelist</MobileNavLink>
                     <MobileNavLink to="/checkout-widget" icon={Code2}>Checkout Widget</MobileNavLink>
                     <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
@@ -632,12 +651,12 @@ const Header = () => {
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
                     <MobileNavLink to="/rewards" icon={Star}>Rewards</MobileNavLink>
-                    <MobileNavLink to="/tier-management" icon={Layers}>Subscription</MobileNavLink>
+                    {showAdminLinks && <MobileNavLink to="/tier-management" icon={Layers}>Subscription</MobileNavLink>}
                     <MobileNavLink to="/role-management" icon={Users}>Role Management</MobileNavLink>
                     <MobileNavLink to="/settings" icon={Settings}>Settings</MobileNavLink>
                     <MobileNavLink to="/security-settings" icon={Shield}>Security</MobileNavLink>
-                    <MobileNavLink to="/audit-logs" icon={FileText}>Audit Logs</MobileNavLink>
-                    <MobileNavLink to="/backup-export" icon={Package}>Backup & Export</MobileNavLink>
+                    {showAdminLinks && <MobileNavLink to="/audit-logs" icon={FileText}>Audit Logs</MobileNavLink>}
+                    {showAdminLinks && <MobileNavLink to="/backup-export" icon={Package}>Backup & Export</MobileNavLink>}
                     
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Preferences</p>

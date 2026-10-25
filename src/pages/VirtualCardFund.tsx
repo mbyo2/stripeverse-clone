@@ -130,7 +130,8 @@ const VirtualCardFund = () => {
       </div>
     );
   }
-  if (!hasRole("admin")) {
+  // super_admin is additive over admin — see VirtualCardNew.
+  if (!hasRole("admin") && !hasRole("super_admin")) {
     return (
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />

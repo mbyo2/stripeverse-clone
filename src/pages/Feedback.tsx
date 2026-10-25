@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, BugIcon, Lightbulb, MessageCircle, Loader2, ListFilter } from "lucide-react";
 import { getDeviceInfo, submitFeedback } from "@/utils/feedbackService";
+import { useRoles } from "@/contexts/RoleContext";
+import { canViewAdminConsole } from "@/lib/adminConsole";
 
 type FeedbackType = "bug" | "feature" | "general";
 type FeedbackSeverity = "low" | "medium" | "high" | "critical";
@@ -19,6 +21,10 @@ type FeedbackSeverity = "low" | "medium" | "high" | "critical";
 const Feedback = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { roles } = useRoles();
+  // The all-feedback console belongs to the admin tier — the link
+  // simply doesn't exist for anyone else (CEO directive 2026-10-25).
+  const showFeedbackConsoleLink = canViewAdminConsole(roles);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -178,13 +184,16 @@ const Feedback = () => {
             <h1 className="text-3xl font-bold">Beta Feedback</h1>
           </div>
           
-          {/* Admin Dashboard Link */}
+          {/* Admin console link — admin tier only, not rendered for
+              anyone else (role visibility, CEO directive 2026-10-25). */}
+          {showFeedbackConsoleLink && (
           <Link to="/feedback-dashboard">
             <Button variant="outline" size="sm" className="flex items-center gap-1">
               <ListFilter className="h-4 w-4" />
               View All Feedback
             </Button>
           </Link>
+          )}
         </div>
         
         {!isSubmitted ? (

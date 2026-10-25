@@ -21,7 +21,7 @@ export const EnhancedSecuritySettings: React.FC = () => {
   // is operated by BMaGlass Pay administrators — end users cannot action it,
   // so the "Recommended Actions" card is only shown to admins.
   const { hasRole } = useRoles();
-  const isAdmin = hasRole('admin');
+  const isAdmin = hasRole('admin') || hasRole('super_admin');
   const securityFeatures = [
     {
       title: "Enhanced Card Encryption",

@@ -1,5 +1,6 @@
 
 import { useRoles, Feature } from "@/contexts/RoleContext";
+import { canViewAdminConsole } from "@/lib/adminConsole";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, XCircle, LockIcon, UnlockIcon } from "lucide-react";
@@ -126,7 +127,8 @@ export const RoleBadge = () => {
 };
 
 export const FeatureList = () => {
-  const features: { id: Feature; name: string; description: string; link?: string }[] = [
+  const { roles } = useRoles();
+  const allFeatures: { id: Feature; name: string; description: string; link?: string }[] = [
     { 
       id: "virtual_cards", 
       name: "Virtual Cards", 
@@ -151,13 +153,22 @@ export const FeatureList = () => {
       description: "Transaction analytics and reports", 
       link: "/transactions" 
     },
-    { 
-      id: "feedback_dashboard", 
-      name: "Feedback Management", 
-      description: "Manage customer feedback", 
-      link: "/feedback-dashboard" 
+    {
+      id: "feedback_dashboard",
+      name: "Feedback Management",
+      description: "Manage customer feedback",
+      link: "/feedback-dashboard"
     }
   ];
+
+  // The feedback console belongs to the admin role, not to any
+  // subscription tier — for everyone else the card is not rendered
+  // at all (role visibility, CEO directive 2026-10-25) instead of
+  // dangling an "Upgrade" that could never unlock it.
+  const features = allFeatures.filter(
+    (feature) =>
+      feature.id !== "feedback_dashboard" || canViewAdminConsole(roles)
+  );
 
   return (
     <div className="space-y-2">

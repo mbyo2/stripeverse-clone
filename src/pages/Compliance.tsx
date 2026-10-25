@@ -10,12 +10,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import KycVerificationStatus, { KycLevel, KycStatus } from '@/components/wallet/KycVerificationStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRoles } from '@/contexts/RoleContext';
+import { canViewAdminConsole } from '@/lib/adminConsole';
 import BusinessCompliance from '@/components/business/BusinessCompliance';
 
 const Compliance = () => {
   const contentRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { roles } = useRoles();
+  // The AML screening console is an admin-tier surface; its tab is
+  // not rendered for anyone else (role visibility, CEO directive
+  // 2026-10-25) — business users keep the rest of this page.
+  const showAmlTab = canViewAdminConsole(roles);
   const { toast } = useToast();
   const [kycLevel, setKycLevel] = useState<KycLevel>(KycLevel.NONE);
   const [kycStatus, setKycStatus] = useState<KycStatus>(KycStatus.NOT_STARTED);
@@ -164,10 +171,10 @@ const Compliance = () => {
             {user ? (
               <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
                 <Tabs defaultValue="status">
-                  <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+                  <TabsList className={`grid w-full grid-cols-2 ${showAmlTab ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
                     <TabsTrigger value="status">Compliance Status</TabsTrigger>
                     <TabsTrigger value="documents">Required Documents</TabsTrigger>
-                    <TabsTrigger value="aml">AML Screening</TabsTrigger>
+                    {showAmlTab && <TabsTrigger value="aml">AML Screening</TabsTrigger>}
                     <TabsTrigger value="info">Compliance Info</TabsTrigger>
                   </TabsList>
                   
@@ -258,6 +265,7 @@ const Compliance = () => {
                     </div>
                   </TabsContent>
 
+                  {showAmlTab && (
                   <TabsContent value="aml" className="mt-6">
                     <div className="space-y-4">
                       <p className="text-muted-foreground text-sm mb-4">
@@ -268,6 +276,7 @@ const Compliance = () => {
                       </Button>
                     </div>
                   </TabsContent>
+                  )}
                   
                   <TabsContent value="info" className="mt-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

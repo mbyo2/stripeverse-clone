@@ -179,7 +179,9 @@ const VirtualCardNew = () => {
       </div>
     );
   }
-  if (!hasRole("admin")) {
+  // super_admin is additive over admin (console-gate semantics): a
+  // super_admin-only holder reaches the same tool an admin does.
+  if (!hasRole("admin") && !hasRole("super_admin")) {
     return (
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
