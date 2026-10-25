@@ -8,15 +8,21 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const SessionTimeoutWarning = () => {
   const [countdown, setCountdown] = useState(300); // 5 minutes
-  const { sessionTimeoutWarning, extendSession, signOut } = useAuth();
+  const { sessionTimeoutWarning, extendSession, signOut, verifySession } = useAuth();
 
   useEffect(() => {
     if (!sessionTimeoutWarning) return;
 
+    // When the countdown ends we do NOT sign out on the countdown's
+    // say-so: the countdown is decoupled from the live session (the
+    // token may already have been refreshed underneath it). The end
+    // of the countdown is a verify point — GoTrue is asked to
+    // refresh, and only a genuine refresh failure ends the session
+    // (see lib/sessionLifecycle.ts).
     const timer = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
-          signOut();
+          void verifySession();
           return 0;
         }
         return prev - 1;
@@ -24,7 +30,7 @@ const SessionTimeoutWarning = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [sessionTimeoutWarning, signOut]);
+  }, [sessionTimeoutWarning, verifySession]);
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);

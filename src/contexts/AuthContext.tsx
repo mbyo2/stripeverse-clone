@@ -9,6 +9,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { expirySchedule, shouldSignOutAfterVerify } from "@/lib/sessionLifecycle";
 
 // What a sign-in attempt came to. `emailNotConfirmed` is the one
 // failure the login page can act on itself (offer a resend), so it
@@ -35,6 +36,7 @@ type AuthContextType = {
   checkRateLimit: (action: string) => Promise<boolean>;
   sessionTimeoutWarning: boolean;
   extendSession: () => Promise<void>;
+  verifySession: () => Promise<void>;
 };
 
 type UserData = {
@@ -64,33 +66,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   const { toast } = useToast();
 
-  // Session timeout management
+  // Session expiry management. Reaching the access token's expiry
+  // is NOT a sign-out (see lib/sessionLifecycle.ts for the forensic
+  // background): supabase-js auto-refreshes the token, and this
+  // effect merely schedules a warning beforehand and a VERIFY point
+  // at expiry. The verify asks GoTrue to refresh; only a genuine
+  // refresh failure ends the session. In the healthy path the
+  // refresh lands first, the session state changes, and this effect
+  // re-arms with the new expiry — the verify never fires.
   useEffect(() => {
-    let timeoutWarning: NodeJS.Timeout;
-    let sessionTimeout: NodeJS.Timeout;
+    if (!session) return;
 
-    if (session) {
-      const now = Math.floor(Date.now() / 1000);
-      const expiresAt = session.expires_at || 0;
-      const timeUntilExpiry = (expiresAt - now) * 1000;
-      
-      // Show warning 5 minutes before expiry
-      if (timeUntilExpiry > 300000) {
-        timeoutWarning = setTimeout(() => {
-          setSessionTimeoutWarning(true);
-        }, timeUntilExpiry - 300000);
-      }
-      
-      // Auto logout at expiry
-      sessionTimeout = setTimeout(() => {
-        signOut();
-      }, timeUntilExpiry);
-    }
+    const { warnDelayMs, verifyDelayMs } = expirySchedule(session.expires_at, Date.now());
+
+    const timeoutWarning =
+      warnDelayMs !== null
+        ? setTimeout(() => setSessionTimeoutWarning(true), warnDelayMs)
+        : undefined;
+    const verifyTimer =
+      verifyDelayMs !== null
+        ? setTimeout(() => {
+            void verifySession();
+          }, verifyDelayMs)
+        : undefined;
 
     return () => {
       if (timeoutWarning) clearTimeout(timeoutWarning);
-      if (sessionTimeout) clearTimeout(sessionTimeout);
+      if (verifyTimer) clearTimeout(verifyTimer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   // Setup auth state listener
@@ -299,8 +303,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .eq('session_token', session.access_token);
       }
       
-      const { error } = await supabase.auth.signOut();
-      
+      // Scope "local": signing out ends THIS device's session only.
+      // supabase-js defaults to "global", which revokes every session
+      // on every device — so an automatic or stray sign-out anywhere
+      // used to sign the user out everywhere (2026-10-25 incident).
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+
       if (error) throw error;
       
       toast({
@@ -483,6 +491,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  /**
+   * The ONLY automatic path that can end a session: ask GoTrue to
+   * refresh, and sign out solely when the refresh genuinely fails
+   * (see shouldSignOutAfterVerify). Wallet, SDK, chain and
+   * edge-function errors never reach this function and can never
+   * clear the session.
+   */
+  const verifySession = async () => {
+    let refreshFailed = false;
+    try {
+      const { error } = await supabase.auth.refreshSession();
+      refreshFailed = !!error;
+    } catch {
+      refreshFailed = true;
+    }
+    if (!refreshFailed) {
+      setSessionTimeoutWarning(false);
+      return;
+    }
+    // The refresh raced a successful background refresh? Re-read the
+    // stored session before deciding — if it is valid again, the
+    // failure was transient and the session survives.
+    let expiresAtAfter: number | undefined;
+    try {
+      const { data } = await supabase.auth.getSession();
+      expiresAtAfter = data.session?.expires_at;
+    } catch {
+      expiresAtAfter = undefined;
+    }
+    if (
+      shouldSignOutAfterVerify({
+        refreshFailed,
+        expiresAtSecondsAfter: expiresAtAfter,
+        nowMs: Date.now(),
+      })
+    ) {
+      await signOut();
+    }
+  };
+
   const extendSession = async () => {
     try {
       const { error } = await supabase.auth.refreshSession();
@@ -519,7 +567,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       disable2FA,
       checkRateLimit,
       sessionTimeoutWarning,
-      extendSession
+      extendSession,
+      verifySession
     }}>
       {children}
     </AuthContext.Provider>
