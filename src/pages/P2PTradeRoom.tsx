@@ -12,6 +12,7 @@ import Countdown from "@/components/p2p/Countdown";
 import TradeChat from "@/components/p2p/TradeChat";
 import P2pReceiptButton from "@/components/p2p/P2pReceiptButton";
 import PageErrorState from "@/components/PageErrorState";
+import { useRecoveringRetry } from "@/hooks/useRecoveringRetry";
 import {
   CancelOrderButton,
   CounterpartyActions,
@@ -52,6 +53,7 @@ export default function P2PTradeRoom() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const orderQuery = useP2pOrder(id, true);
+  const retryWithRecovery = useRecoveringRetry();
   const order = orderQuery.data;
   // The claim can only appear/change while the trade is live — stop
   // polling it once the order settles (scalability fix #5).
@@ -84,7 +86,7 @@ export default function P2PTradeRoom() {
         <PageErrorState
           title="Trade not found"
           message="This trade doesn't exist, or you are not part of it."
-          onRetry={() => void orderQuery.refetch()}
+          onRetry={() => void retryWithRecovery(() => orderQuery.refetch())}
         />
       </P2pShell>
     );

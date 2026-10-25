@@ -55,7 +55,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { dashboardStats, monthlyData, spendingData, recentTransactions, rewards, isLoading, isError, refetch: refetchDashboard } = useDashboardData();
+  const { dashboardStats, monthlyData, spendingData, recentTransactions, rewards, isLoading, isError, isAuthRecovering, retryWithRecovery } = useDashboardData();
   const { formatAmount } = useCurrency();
   const { showOnboarding, kycLevel, walletBalance, hasProfile, dismiss } = useOnboarding();
   const { accounts } = useAccount();
@@ -69,7 +69,12 @@ const Dashboard = () => {
   const { data: profile } = useProfile();
   const firstName = resolveFirstName(profile, user);
 
-  if (isLoading) {
+  // While an auth failure is being recovered (session refresh in
+  // flight), the dashboard stays on its skeleton: an auth refusal is
+  // not a connection failure and must never present as this page's
+  // error wall. Recovery either refetches with a live token or ends
+  // the session, and ProtectedRoute routes to /login.
+  if (isLoading || isAuthRecovering) {
     return (
       <div className="min-h-screen flex flex-col bg-muted">
         <Header />
@@ -91,7 +96,7 @@ const Dashboard = () => {
           <PageErrorState
             title="We couldn't load your dashboard"
             message="Your balance and recent activity didn't load. Check your connection and try again."
-            onRetry={refetchDashboard}
+            onRetry={retryWithRecovery}
           />
         </main>
         <Footer />

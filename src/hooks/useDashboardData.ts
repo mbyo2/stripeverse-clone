@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { isAuthFailure } from '@/lib/authFailure';
 
 interface DashboardStats {
   totalBalance: number;
@@ -42,7 +43,7 @@ interface UserRewards {
 }
 
 export const useDashboardData = () => {
-  const { user } = useAuth();
+  const { user, recoverSession } = useAuth();
   const queryClient = useQueryClient();
   const [realtimeConnected, setRealtimeConnected] = useState(false);
 
@@ -196,6 +197,7 @@ export const useDashboardData = () => {
   // either fails, the dashboard shows a designed error state with a
   // retry instead of silently rendering zeros and empty lists.
   const isError = !!statsError || !!transactionsError;
+  const firstError = statsError ?? transactionsError;
 
   const refetch = useCallback(() => {
     refetchStats();
@@ -204,6 +206,46 @@ export const useDashboardData = () => {
     refetchTransactions();
     refetchRewards();
   }, [refetchStats, refetchMonthly, refetchSpending, refetchTransactions, refetchRewards]);
+
+  // Auth failures are NOT connection failures (lib/authFailure.ts):
+  // when a dashboard query is refused for auth reasons — the state
+  // the CEO hit after clearing his cache, session shell alive but
+  // tokens dead — recover the SESSION instead of blaming the
+  // connection. A successful refresh refetches with the live token;
+  // a genuine sign-out routes to /login via ProtectedRoute. Guarded
+  // to one automatic attempt per failure episode so a session that
+  // stays refused cannot loop; the page's Try Again remains as the
+  // manual path.
+  const isAuthError = isError && isAuthFailure(firstError);
+  const [authRecoverySettled, setAuthRecoverySettled] = useState(false);
+  const recoveryAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isError) {
+      recoveryAttemptedRef.current = false;
+      setAuthRecoverySettled(false);
+      return;
+    }
+    if (!isAuthError || recoveryAttemptedRef.current) return;
+    recoveryAttemptedRef.current = true;
+    void (async () => {
+      const outcome = await recoverSession();
+      if (outcome === "refreshed" || outcome === "valid") {
+        refetch();
+      }
+      setAuthRecoverySettled(true);
+    })();
+  }, [isError, isAuthError, recoverSession, refetch]);
+
+  // Try Again with recovery first (see hooks/useRecoveringRetry):
+  // re-verify/refresh the session, THEN refetch — one tap recovers,
+  // no manual sign-out/sign-in dance.
+  const retryWithRecovery = useCallback(async () => {
+    const outcome = await recoverSession();
+    if (outcome !== "signed-out") {
+      refetch();
+    }
+  }, [recoverSession, refetch]);
 
   return {
     dashboardStats,
@@ -214,6 +256,10 @@ export const useDashboardData = () => {
     realtimeConnected,
     isLoading: statsLoading || monthlyLoading || spendingLoading || transactionsLoading || rewardsLoading,
     isError,
+    /** The failure is an auth refusal and recovery hasn't finished:
+     *  the page shows its skeleton, never the error wall. */
+    isAuthRecovering: isAuthError && !authRecoverySettled,
     refetch,
+    retryWithRecovery,
   };
 };

@@ -14,6 +14,7 @@ import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTransactions } from '@/hooks/useTransactions';
+import { useRecoveringRetry } from "@/hooks/useRecoveringRetry";
 import { transactionTitle } from "@/utils/transactionLabels";
 import TransactionReceipt from '@/components/TransactionReceipt';
 import { SkeletonListRow } from "@/components/ui/skeletons";
@@ -55,6 +56,7 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
     : undefined;
 
   const { transactions, isLoading, error, refetch } = useTransactions(limit, walletIds);
+  const retryWithRecovery = useRecoveringRetry();
 
   const filteredTransactions = transactions
     .filter(transaction => {
@@ -174,7 +176,7 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
               <p className="text-muted-foreground mb-4">
                 Your history didn't load. Check your connection and try again.
               </p>
-              <Button variant="outline" onClick={() => refetch()}>
+              <Button variant="outline" onClick={() => void retryWithRecovery(refetch)}>
                 Try Again
               </Button>
             </div>

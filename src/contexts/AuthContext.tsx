@@ -5,11 +5,21 @@ import {
   type ResendConfirmationOutcome,
 } from "@/lib/authRecovery";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { expirySchedule, shouldSignOutAfterVerify } from "@/lib/sessionLifecycle";
+import {
+  recoverAuthSession,
+  markSessionEndedNotice,
+  clearSessionEndedNotice,
+  type RecoveryOutcome,
+} from "@/lib/authFailure";
+import { setAuthFailureHandler } from "@/lib/authFailureHandler";
+
+export type { RecoveryOutcome };
 
 // What a sign-in attempt came to. `emailNotConfirmed` is the one
 // failure the login page can act on itself (offer a resend), so it
@@ -23,6 +33,20 @@ type AuthContextType = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  /**
+   * True once the stored session (if any) has been VERIFIED at load:
+   * validated with GoTrue, refreshed if its access token was refused,
+   * or cleared if GoTrue refused the refresh token too. Protected
+   * routes render nothing but skeletons until this is true, so the
+   * signed-in shell can never appear on an unchecked session.
+   */
+  isAuthReady: boolean;
+  /**
+   * Run session recovery now (validate → refresh → sign out only on
+   * a genuine refusal). Used by data-layer retries and the app-wide
+   * auth-failure net; concurrent calls share one in-flight run.
+   */
+  recoverSession: () => Promise<RecoveryOutcome>;
   signIn: (email: string, password: string, twoFactorCode?: string) => Promise<SignInResult>;
   signUp: (email: string, password: string, userData: UserData) => Promise<void>;
   signOut: () => Promise<void>;
@@ -62,9 +86,88 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [sessionTimeoutWarning, setSessionTimeoutWarning] = useState(false);
-  
+
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const recoveryRef = useRef<Promise<RecoveryOutcome> | null>(null);
+
+  /**
+   * Guaranteed LOCAL end of the session, used when GoTrue has
+   * already refused the session itself (recovery / verify paths —
+   * not the user-facing Sign Out button, which keeps its own flow
+   * and toast). The sign-out call is best-effort: if it fails, the
+   * local state is still cleared, so the shell, the data layer and
+   * the router can never disagree about whether a user is signed in
+   * (the 2026-10-25 split-state incident).
+   */
+  const endSessionLocally = useCallback(
+    async (opts?: { notice?: boolean }) => {
+      if (opts?.notice) markSessionEndedNotice();
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch {
+        // Clearing local state below is the guarantee, not this call.
+      }
+      setSession(null);
+      setUser(null);
+      setSessionTimeoutWarning(false);
+    },
+    [],
+  );
+
+  /**
+   * Session recovery (lib/authFailure.ts): validate the access
+   * token with GoTrue; if it is refused, refresh; only a genuine
+   * refresh refusal ends the session (with the signed-out notice
+   * for /login). Network failures change nothing. Concurrent calls
+   * — a dashboard's worth of queries failing at once — share one
+   * in-flight run.
+   */
+  const recoverSession = useCallback((): Promise<RecoveryOutcome> => {
+    if (recoveryRef.current) return recoveryRef.current;
+    const run = recoverAuthSession({
+      getSession: async () => {
+        const { data } = await supabase.auth.getSession();
+        return data.session ? { expires_at: data.session.expires_at } : null;
+      },
+      getUser: async () => {
+        const { data, error } = await supabase.auth.getUser();
+        return { user: data.user ?? null, error };
+      },
+      refreshSession: async () => {
+        const { error } = await supabase.auth.refreshSession();
+        return { error };
+      },
+      endSession: async () => {
+        await endSessionLocally({ notice: true });
+      },
+    });
+    recoveryRef.current = run;
+    void run.finally(() => {
+      if (recoveryRef.current === run) recoveryRef.current = null;
+    });
+    return run;
+  }, [endSessionLocally]);
+
+  // App-wide auth-failure net: the QueryCache in App.tsx forwards
+  // every react-query error here; only auth failures reach this
+  // handler (lib/authFailureHandler filters). A refresh that issues
+  // a new token invalidates all queries so every page refetches with
+  // the live token; a genuine sign-out is left to ProtectedRoute,
+  // which routes to /login where the notice explains what happened.
+  useEffect(() => {
+    setAuthFailureHandler(() => {
+      void (async () => {
+        const outcome = await recoverSession();
+        if (outcome === "refreshed") {
+          void queryClient.invalidateQueries();
+        }
+      })();
+    });
+    return () => setAuthFailureHandler(null);
+  }, [recoverSession, queryClient]);
 
   // Session expiry management. Reaching the access token's expiry
   // is NOT a sign-out (see lib/sessionLifecycle.ts for the forensic
@@ -128,13 +231,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
+    // Bootstrap: read the stored session, then VERIFY it before the
+    // app treats the user as signed in. getSession() alone returns
+    // the stored object unchecked — a session whose tokens are no
+    // longer accepted (the CEO's post-cache-clear state, 2026-10-25)
+    // used to render the signed-in shell, Sign Out menu included,
+    // while every dashboard query failed behind it. Recovery either
+    // refreshes the session silently or ends it cleanly;
+    // ProtectedRoute waits for isAuthReady, so neither the shell nor
+    // any protected query runs on an unchecked session.
+    void (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session) {
+          // A hung network must not hold the app on skeletons forever:
+          // past the timeout the session counts as unverifiable (kept,
+          // not punished) and the data layer's recovery net keeps
+          // watch; the in-flight recovery still completes.
+          await Promise.race([
+            recoverSession(),
+            new Promise((resolve) => setTimeout(resolve, 8000)),
+          ]);
+        }
+      } catch {
+        // Even a storage/GoTrue read failure must not strand the app
+        // on the bootstrap skeleton: mark ready with whatever state
+        // the auth listener has, and let ProtectedRoute + the data
+        // layer's recovery net arbitrate from there.
+      } finally {
+        setIsAuthReady(true);
+        setIsLoading(false);
+      }
+    })();
 
     return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkRateLimit = async (action: string): Promise<boolean> => {
@@ -229,6 +362,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
       
+      clearSessionEndedNotice();
       toast({
         title: "Welcome back!",
         description: "You've successfully signed in.",
@@ -527,7 +661,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         nowMs: Date.now(),
       })
     ) {
-      await signOut();
+      // The session genuinely ended (GoTrue refused the refresh):
+      // clear it locally and let /login explain it with the
+      // signed-out notice, rather than the manual-flow toast.
+      await endSessionLocally({ notice: true });
     }
   };
 
@@ -551,10 +688,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      isLoading, 
+    <AuthContext.Provider value={{
+      user,
+      session,
+      isLoading,
+      isAuthReady,
+      recoverSession,
       signIn, 
       signUp, 
       signOut,

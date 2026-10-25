@@ -20,6 +20,7 @@ import P2pShell from "@/components/p2p/P2pShell";
 import Countdown from "@/components/p2p/Countdown";
 import P2pReceiptButton from "@/components/p2p/P2pReceiptButton";
 import PageErrorState from "@/components/PageErrorState";
+import { useRecoveringRetry } from "@/hooks/useRecoveringRetry";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -65,6 +66,7 @@ export default function P2PDispute() {
   const { toast } = useToast();
   const invalidate = useInvalidateP2p();
   const disputeQuery = useP2pDispute(id);
+  const retryWithRecovery = useRecoveringRetry();
   const dispute = disputeQuery.data;
   const orderQuery = useP2pOrder(dispute?.order_id);
   const order = orderQuery.data;
@@ -183,7 +185,7 @@ export default function P2PDispute() {
         <PageErrorState
           title="Dispute not found"
           message="This dispute doesn't exist, or you are not part of its trade."
-          onRetry={() => void disputeQuery.refetch()}
+          onRetry={() => void retryWithRecovery(() => disputeQuery.refetch())}
         />
       </P2pShell>
     );

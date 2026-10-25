@@ -10,6 +10,7 @@ import EmptyState from "@/components/ui/empty-state";
 import { Megaphone, Pause, Play, Plus, XCircle } from "lucide-react";
 import P2pShell from "@/components/p2p/P2pShell";
 import PageErrorState from "@/components/PageErrorState";
+import { useRecoveringRetry } from "@/hooks/useRecoveringRetry";
 import { useToast } from "@/hooks/use-toast";
 import { p2pAction, P2pActionError, type P2pAd } from "@/services/p2pService";
 import { useInvalidateP2p, useP2pMyAds, useP2pPrice } from "@/hooks/useP2p";
@@ -34,6 +35,7 @@ export default function P2PMyAds() {
   const { toast } = useToast();
   const invalidate = useInvalidateP2p();
   const adsQuery = useP2pMyAds();
+  const retryWithRecovery = useRecoveringRetry();
   const priceQuery = useP2pPrice();
   const indexZmw = priceQuery.data ? Number(priceQuery.data.index_zmw) : null;
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export default function P2PMyAds() {
               ? adsQuery.error.message
               : "We couldn't load your ads. Please try again."
           }
-          onRetry={() => void adsQuery.refetch()}
+          onRetry={() => void retryWithRecovery(() => adsQuery.refetch())}
         />
       ) : ads.length === 0 ? (
         <EmptyState

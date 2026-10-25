@@ -12,6 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBitcoinWallet } from "@/hooks/useBitcoinWallet";
+import { useRecoveringRetry } from "@/hooks/useRecoveringRetry";
+import PageErrorState from "@/components/PageErrorState";
+import { isAuthFailure } from "@/lib/authFailure";
 import { useInvalidateMoneyState } from "@/utils/moneyFreshness";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { interpretOnchainSendResponse } from "@/utils/btcSend";
@@ -640,7 +643,8 @@ function MoonpayBuyCard() {
 
 export default function BitcoinWallet() {
   const navigate = useNavigate();
-  const { wallet, isLoading, refetchWallet, transactions, isTxLoading, refetchTx } = useBitcoinWallet();
+  const { wallet, isLoading, walletError, isWalletError, refetchWallet, transactions, isTxLoading, refetchTx } = useBitcoinWallet();
+  const retryWithRecovery = useRecoveringRetry();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
@@ -660,6 +664,30 @@ export default function BitcoinWallet() {
   };
 
   const btcBalance = useMemo(() => formatBitcoinAmount(satsToBtc(wallet?.balance_sats || 0)), [wallet]);
+
+  // A genuine load failure gets the designed error state with a
+  // recovering retry — never a silent zero balance. An AUTH failure
+  // is not rendered as an error at all: the app-wide net recovers
+  // the session (silent refresh, or /login via ProtectedRoute), so
+  // the page holds its loading shape while that settles.
+  const authRecovering = isWalletError && isAuthFailure(walletError);
+  if (isWalletError && !authRecovering) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1">
+          <section className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-8 md:py-10">
+            <PageErrorState
+              title="We couldn't load your Bitcoin wallet"
+              message="Your balance and recent activity didn't load. Check your connection and try again."
+              onRetry={() => void retryWithRecovery(refetchWallet)}
+            />
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -682,7 +710,7 @@ export default function BitcoinWallet() {
             </CardHeader>
             <CardContent>
               <div>
-                {isLoading ? (
+                {isLoading || authRecovering ? (
                   <Skeleton className="h-10 w-44" aria-label="Loading balance" />
                 ) : (
                   <p className="text-[40px] md:text-[44px] leading-none font-display font-semibold">{btcBalance}</p>

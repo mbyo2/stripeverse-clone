@@ -55,7 +55,7 @@ interface RoleProviderProps {
 }
 
 export const RoleProvider = ({ children }: RoleProviderProps) => {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, isAuthReady } = useAuth();
   const [roles, setRoles] = useState<Role[]>([]);
   const [subscriptionTier, setSubscriptionTier] = useState<string>("free");
   const [isLoading, setIsLoading] = useState(true);
@@ -169,9 +169,13 @@ export const RoleProvider = ({ children }: RoleProviderProps) => {
     await getRoles();
   }, [getRoles]);
 
+  // Roles are an authenticated read: wait until the stored session
+  // has been verified (AuthContext bootstrap) so the fetch never
+  // goes out on an unchecked — possibly dead — token.
   useEffect(() => {
-    getRoles();
-  }, [getRoles]);
+    if (!isAuthReady) return;
+    void getRoles();
+  }, [getRoles, isAuthReady]);
 
   // Enhanced subscription tier checking
   useEffect(() => {

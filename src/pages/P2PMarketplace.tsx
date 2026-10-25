@@ -15,6 +15,7 @@ import P2pShell from "@/components/p2p/P2pShell";
 import AdCard from "@/components/p2p/AdCard";
 import { P2pAccountCard } from "@/components/p2p/P2pAccountCard";
 import PageErrorState from "@/components/PageErrorState";
+import { useRecoveringRetry } from "@/hooks/useRecoveringRetry";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useP2pAds,
@@ -39,6 +40,7 @@ export default function P2PMarketplace() {
   const [intent, setIntent] = useState<"buy" | "sell">("buy");
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const adsQuery = useP2pAds();
+  const retryWithRecovery = useRecoveringRetry();
   const priceQuery = useP2pPrice();
   const enabledQuery = useP2pEnabled();
   const limitsQuery = useP2pLimits();
@@ -169,7 +171,7 @@ export default function P2PMarketplace() {
               ? adsQuery.error.message
               : "We couldn't load the marketplace. Please try again."
           }
-          onRetry={() => void adsQuery.refetch()}
+          onRetry={() => void retryWithRecovery(() => adsQuery.refetch())}
         />
       ) : visibleAds.length === 0 ? (
         <EmptyState

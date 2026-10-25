@@ -2,9 +2,10 @@ import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { notifyAuthFailure } from "@/lib/authFailureHandler";
 import { prefetchWalletRoutes, scheduleIdle } from "@/lib/routePrefetch";
 import { AccountProvider } from "@/contexts/AccountContext";
 import { RoleProvider } from "@/contexts/RoleContext";
@@ -17,6 +18,16 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import SessionTimeoutWarning from "@/components/SessionTimeoutWarning";
 
 const queryClient = new QueryClient({
+  // App-wide auth-failure net: every query error is offered to the
+  // handler AuthProvider registers (lib/authFailureHandler). Only
+  // AUTH failures (401 / expired JWT / dead session) trigger session
+  // recovery there — a silent refresh, or a clean sign-out to
+  // /login — so no page can sit on a "check your connection" card
+  // for what is really a dead session. Genuine data failures keep
+  // their normal per-page error states untouched.
+  queryCache: new QueryCache({
+    onError: (error) => notifyAuthFailure(error),
+  }),
   defaultOptions: {
     queries: {
       retry: 2,

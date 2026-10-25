@@ -13,6 +13,10 @@ import {
   resendConfirmationMessage,
   type ResendConfirmationOutcome,
 } from "@/lib/authRecovery";
+import {
+  consumeSessionEndedNotice,
+  SESSION_ENDED_MESSAGE,
+} from "@/lib/authFailure";
 
 type ResendState = "idle" | "sending" | ResendConfirmationOutcome;
 
@@ -21,6 +25,11 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showResend, setShowResend] = useState(false);
   const [resendState, setResendState] = useState<ResendState>("idle");
+  // Set by AuthContext when a stored session turned out to be dead
+  // (e.g. after a cache/site-data clear) and was ended cleanly: the
+  // user lands here instead of on a dashboard error wall, and this
+  // notice — consumed once — explains why in plain language.
+  const [sessionEndedNotice] = useState(() => consumeSessionEndedNotice());
   const { signIn, resendConfirmationEmail, isLoading, user } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -63,6 +72,15 @@ const Login = () => {
             </div>
             <h1 className="text-2xl font-display font-bold tracking-tight text-foreground">Log in to your account</h1>
           </div>
+
+          {sessionEndedNotice && (
+            <div
+              role="status"
+              className="mb-6 rounded-lg border border-border bg-card px-4 py-3 text-center text-sm font-medium text-foreground"
+            >
+              {SESSION_ENDED_MESSAGE}
+            </div>
+          )}
 
           <Card className="shadow-medium">
             <CardContent className="pt-8 pb-6 px-8">

@@ -51,6 +51,8 @@ export const useBitcoinWallet = () => {
   return {
     wallet: walletQuery.data,
     isLoading: walletQuery.isLoading,
+    walletError: walletQuery.error ?? null,
+    isWalletError: walletQuery.isError,
     refetchWallet: walletQuery.refetch,
     transactions: txQuery.data ?? [],
     isTxLoading: txQuery.isLoading,

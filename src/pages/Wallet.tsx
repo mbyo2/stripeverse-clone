@@ -22,6 +22,7 @@ import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/hooks/useWallet";
+import { useRecoveringRetry } from "@/hooks/useRecoveringRetry";
 import PageErrorState from "@/components/PageErrorState";
 import { usePayPalDepositReturn } from "@/hooks/usePayPalDepositReturn";
 import { useStripeGatewayDeposit, useStripeGatewayReturn } from "@/hooks/useStripeGatewayDeposit";
@@ -40,6 +41,7 @@ const Wallet = () => {
   const navigate = useNavigate();
   const { selectedAccountId, selectedAccountName } = useAccount();
   const { wallet, isLoading, walletError, refetchWallet, deposit, isDepositing } = useWallet(selectedAccountId);
+  const retryWithRecovery = useRecoveringRetry();
   const { paymentMethods } = usePaymentMethods();
   const [amount, setAmount] = useState("");
   const isMobile = useIsMobile();
@@ -253,7 +255,7 @@ const Wallet = () => {
           <PageErrorState
             title="We couldn't load your wallet"
             message="Your balance and cards didn't load. Check your connection and try again."
-            onRetry={() => refetchWallet()}
+            onRetry={() => void retryWithRecovery(refetchWallet)}
           />
         </main>
         <Footer />

@@ -7,6 +7,7 @@ import EmptyState from "@/components/ui/empty-state";
 import { ArrowLeftRight } from "lucide-react";
 import P2pShell from "@/components/p2p/P2pShell";
 import PageErrorState from "@/components/PageErrorState";
+import { useRecoveringRetry } from "@/hooks/useRecoveringRetry";
 import Countdown from "@/components/p2p/Countdown";
 import { P2pAccountCard } from "@/components/p2p/P2pAccountCard";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +25,7 @@ import { format } from "date-fns";
 export default function P2POrders() {
   const { user } = useAuth();
   const ordersQuery = useP2pMyOrders();
+  const retryWithRecovery = useRecoveringRetry();
   const orders = useMemo(() => ordersQuery.data ?? [], [ordersQuery.data]);
   const counterpartyIds = useMemo(
     () =>
@@ -49,7 +51,7 @@ export default function P2POrders() {
               ? ordersQuery.error.message
               : "We couldn't load your orders. Please try again."
           }
-          onRetry={() => void ordersQuery.refetch()}
+          onRetry={() => void retryWithRecovery(() => ordersQuery.refetch())}
         />
       ) : orders.length === 0 ? (
         <EmptyState
