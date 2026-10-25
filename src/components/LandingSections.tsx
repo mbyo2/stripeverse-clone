@@ -58,7 +58,7 @@ export const PhotoBand = () => {
       />
       {/* Flat solid scrim — the photo's lower half is bright, so this is essential for legibility. No gradient. */}
       <div className="absolute inset-0 bg-[#001233]/45" />
-      <div className="relative max-w-[1200px] mx-auto px-4 sm:px-6 h-[540px] md:h-[620px] flex items-end pb-14 md:pb-20">
+      <div className="relative max-w-[1200px] mx-auto px-4 sm:px-6 h-[460px] md:h-[520px] flex items-end pb-14 md:pb-20">
         <FadeIn duration={0.6} distance={20}>
           <p className="font-display font-extrabold text-white tracking-[-0.025em] leading-[1.08] text-[36px] md:text-[56px] max-w-2xl">
             Buy and sell Bitcoin in Zambia — in kwacha, from your phone.
