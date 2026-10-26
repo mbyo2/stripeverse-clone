@@ -830,7 +830,9 @@ function PendingBtcWithdrawals({ refreshKey }: { refreshKey: number }) {
 
   const load = async () => {
     const { data } = await supabase
-      .from("btc_withdrawals")
+      // btc_withdrawals is not in the generated types yet (types
+      // regen is deferred) — same `as any` pattern as API.tsx.
+      .from("btc_withdrawals" as any)
       .select("id, to_address, amount_sats, fee_sats, status, txid, batch_deadline, created_at")
       .eq("mode", "batch")
       .in("status", ["queued", "batched"])
