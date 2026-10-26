@@ -72,7 +72,7 @@ const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedR
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <h1 className="text-3xl font-bold mb-4">Access Restricted</h1>
         <p className="text-muted-foreground mb-8 text-center max-w-md">
-          You need to upgrade your subscription to access this feature.
+          This feature isn't included on your account.
         </p>
         <div className="flex gap-4">
           <a href="/pricing" className="inline-flex items-center bg-primary text-primary-foreground font-semibold px-6 py-2.5 rounded-full hover:bg-[#DE830A] transition-colors">

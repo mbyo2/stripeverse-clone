@@ -124,7 +124,7 @@ export const useWallet = (accountId?: string | null) => {
       
       if (limitError) throw limitError;
       if (!canCreate) {
-        throw new Error('You have reached your monthly virtual card creation limit. Please upgrade your plan to create more cards.');
+        throw new Error('You have reached your monthly virtual card creation limit.');
       }
       
       const { data, error } = await supabase.functions.invoke('create-virtual-card', {

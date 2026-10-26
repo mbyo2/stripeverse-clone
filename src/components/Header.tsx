@@ -663,7 +663,7 @@ const Header = () => {
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
                     <MobileNavLink to="/rewards" icon={Star}>Rewards</MobileNavLink>
-                    {showAdminLinks && <MobileNavLink to="/tier-management" icon={Layers}>Subscription</MobileNavLink>}
+                    {showAdminLinks && <MobileNavLink to="/tier-management" icon={Layers}>Tier Limits</MobileNavLink>}
                     <MobileNavLink to="/role-management" icon={Users}>Role Management</MobileNavLink>
                     <MobileNavLink to="/settings" icon={Settings}>Settings</MobileNavLink>
                     <MobileNavLink to="/security-settings" icon={Shield}>Security</MobileNavLink>

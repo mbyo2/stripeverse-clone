@@ -1,7 +1,6 @@
 
-import React, { useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useSubscription } from '@/hooks/useSubscription';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, ArrowRight } from "lucide-react";
@@ -9,19 +8,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 const PaymentSuccess = () => {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { refreshSubscription } = useSubscription();
-  const sessionId = searchParams.get('session_id');
-
-  useEffect(() => {
-    if (sessionId) {
-      // Refresh subscription data after successful payment
-      setTimeout(() => {
-        refreshSubscription();
-      }, 2000);
-    }
-  }, [sessionId, refreshSubscription]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -37,7 +24,7 @@ const PaymentSuccess = () => {
             </CardHeader>
             <CardContent className="text-center space-y-4">
               <p className="text-muted-foreground">
-                Thank you for your subscription. Your account has been upgraded and you now have access to all the features of your new plan.
+                Your payment was completed successfully.
               </p>
               
               <div className="space-y-2">
@@ -45,7 +32,7 @@ const PaymentSuccess = () => {
                   onClick={() => navigate('/billing')}
                   className="w-full"
                 >
-                  View Billing Dashboard
+                  View Billing & Fees
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
                 

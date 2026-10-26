@@ -29,7 +29,7 @@ const Help = () => {
 
   const faqs = [
     { id: '1', question: 'How do I create a virtual card?', answer: 'Go to your Wallet page and click "Create Card" in the Virtual Cards section. Choose a name, set your initial balance, and your card is ready instantly for online purchases.' },
-    { id: '2', question: 'What are the transaction limits?', answer: 'Limits depend on your tier: Free – K5,000/day, Starter – K20,000/day, Professional – K100,000/day, Enterprise – Custom. Monthly limits are 10× daily. Upgrade in Pricing.' },
+    { id: '2', question: 'What are the transaction limits?', answer: 'Limits depend on your verification (KYC) status — completing verification raises your limits. BMaGlass Pay has no paid plans or upgrades: everyone uses the same account, and you only pay the percentage fee on each transaction.' },
     { id: '3', question: 'How do I add money to my wallet?', answer: 'Click "Add Money" on your Wallet page. Today you can deposit Bitcoin, or add US dollars with PayPal. Mobile Money (MTN, Airtel, Zamtel) is coming soon through direct connections to each provider.' },
     { id: '4', question: 'Are international transactions supported?', answer: 'Yes, through virtual cards and Bitcoin. International transfers may carry additional fees and require completed KYC verification.' },
     { id: '5', question: 'How secure are my transactions?', answer: 'We use AES-256 encryption, tokenised card storage, two-factor authentication, and fraud monitoring. Card numbers are never stored in raw form.' },

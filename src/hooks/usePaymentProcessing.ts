@@ -126,7 +126,7 @@ export const usePaymentProcessing = () => {
     if (limitError) {
       console.error('Error checking transaction limit:', limitError);
     } else if (!canTransact) {
-      const error = 'You have reached your monthly transaction limit. Please upgrade your plan to continue.';
+      const error = 'You have reached your monthly transaction limit.';
       toast({
         title: "Transaction Limit Reached",
         description: error,
@@ -145,7 +145,7 @@ export const usePaymentProcessing = () => {
     if (amountLimitError) {
       console.error('Error checking transaction amount limit:', amountLimitError);
     } else if (!canTransactAmount) {
-      const error = 'This transaction would exceed your monthly transaction amount limit. Please upgrade your plan.';
+      const error = 'This transaction would exceed your monthly transaction amount limit.';
       toast({
         title: "Transaction Amount Limit Reached",
         description: error,

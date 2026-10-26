@@ -27,7 +27,7 @@ export const useFeatureGate = () => {
       if (!hasCapacity) {
         toast({
           title: "Usage Limit Reached",
-          description: `You've reached your monthly limit for this feature. Upgrade to continue.`,
+          description: `You've reached your monthly limit for this feature.`,
           variant: "destructive",
         });
         return false;

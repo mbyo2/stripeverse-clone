@@ -20,7 +20,7 @@ const FeatureLimitChecker = ({
   amount = 1, 
   children 
 }: FeatureLimitCheckerProps) => {
-  const { hasFeatureAccess, checkUsageLimit, subscription } = useSubscription();
+  const { hasFeatureAccess, checkUsageLimit } = useSubscription();
   const [canProceed, setCanProceed] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
@@ -57,27 +57,20 @@ const FeatureLimitChecker = ({
           <div>
             {isFeatureRestriction ? (
               <span>
-                This feature requires a {feature === 'virtual_cards' ? 'Basic' : 'Premium'} plan or higher.
+                This feature isn't included on your account.
               </span>
             ) : (
               <span>
-                You've reached your monthly limit for this feature. Upgrade to continue.
+                You've reached your monthly limit for this feature.
               </span>
             )}
           </div>
           <div className="flex gap-2">
             <Link to="/pricing">
               <Button size="sm" variant="outline">
-                View Plans
+                See Fees
               </Button>
             </Link>
-            {subscription?.subscription_tier !== 'free' && (
-              <Link to="/billing">
-                <Button size="sm">
-                  Upgrade
-                </Button>
-              </Link>
-            )}
           </div>
         </AlertDescription>
       </Alert>

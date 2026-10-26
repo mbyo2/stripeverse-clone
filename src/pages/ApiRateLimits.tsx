@@ -163,7 +163,7 @@ const ApiRateLimits = () => {
         )}
 
         <p className="text-xs text-muted-foreground mt-6">
-          Limits shown are the enforced ones: sign-in and sign-up limits ({AUTH_RATE_LIMIT_ATTEMPTS.login} and {AUTH_RATE_LIMIT_ATTEMPTS.signup} attempts per {AUTH_RATE_LIMIT_WINDOW_MINUTES} minutes) come from the app's rate-limit checks, and the API-call limit is your plan's hourly limit from the tier settings. Actions without a configured limit show attempts only.
+          Limits shown are the enforced ones: sign-in and sign-up limits ({AUTH_RATE_LIMIT_ATTEMPTS.login} and {AUTH_RATE_LIMIT_ATTEMPTS.signup} attempts per {AUTH_RATE_LIMIT_WINDOW_MINUTES} minutes) come from the app's rate-limit checks, and the API-call limit is your account's hourly limit from the tier settings. Actions without a configured limit show attempts only.
         </p>
       </main>
       <Footer />

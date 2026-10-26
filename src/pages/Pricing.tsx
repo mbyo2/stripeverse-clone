@@ -1,307 +1,102 @@
-
-import React, { useState } from "react";
+import React from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, Star, Zap, Crown } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { useRoles } from "@/contexts/RoleContext";
-import { PayPalCheckout } from "@/components/PayPalCheckout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeftRight, Bitcoin, CreditCard, Link2, MessagesSquare, Send } from "lucide-react";
+
+// Pricing is a fee schedule, not a plan catalogue: subscriptions
+// were removed entirely (CEO decision 2026-10-26 18:31 — "just
+// leave the percentage payments we had"). Every figure below is the
+// fee the platform actually charges, read from the live code and
+// settings on 2026-10-26:
+//   - Send money 2.5%        platform_settings.send_money_fee_percent
+//   - Transfer 1.5%          platform_settings.transfer_fee_percent
+//   - P2P trades 0.5%        platform_settings.p2p_fee_percent
+//   - Instant buy/sell 1.5%  btc-trade fee (150 bps default)
+//   - Payment links 2.5%     platform_settings.split_platform_fee_percent
+//   - Card funding 1% min K2 fund-virtual-card fee code
+// If a fee changes in settings/code, this page must change with it —
+// the removal test pins these numbers to their sources.
+const FEES = [
+  {
+    icon: <Send className="h-5 w-5" />,
+    name: "Send Money",
+    fee: "2.5%",
+    detail: "Of the amount you send. The fee is shown before you confirm — no surprises afterwards.",
+  },
+  {
+    icon: <ArrowLeftRight className="h-5 w-5" />,
+    name: "Transfer Between Accounts",
+    fee: "1.5%",
+    detail: "Moving money to another BMaGlass Pay account costs 1.5% of the amount transferred.",
+  },
+  {
+    icon: <MessagesSquare className="h-5 w-5" />,
+    name: "P2P Trades",
+    fee: "0.5%",
+    detail: "Buying or selling with another person through P2P escrow costs 0.5% of the trade.",
+  },
+  {
+    icon: <Bitcoin className="h-5 w-5" />,
+    name: "Buy or Sell Bitcoin Instantly",
+    fee: "1.5%",
+    detail: "Instant Bitcoin buys and sells cost 1.5% of the amount, on top of the quoted exchange rate.",
+  },
+  {
+    icon: <Link2 className="h-5 w-5" />,
+    name: "Payment Links",
+    fee: "2.5%",
+    detail: "Charged when a payment link is paid. The seller chooses who pays it — themselves, or the buyer on top of the price.",
+  },
+  {
+    icon: <CreditCard className="h-5 w-5" />,
+    name: "Fund a Virtual Card",
+    fee: "1%",
+    detail: "Funding a virtual card costs 1% of the amount, with a minimum fee of K2.",
+  },
+];
 
 const Pricing = () => {
-  const [billingPeriod, setBillingPeriod] = useState("monthly");
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { subscriptionTier } = useRoles();
-
-  const handleSubscribe = (planId: string) => {
-    if (!user) {
-      navigate('/login', { state: { from: window.location.pathname } });
-      return;
-    }
-    
-    if (planId === 'free') {
-      // Handle free plan signup
-      navigate('/dashboard');
-      return;
-    }
-    
-    setSelectedPlan(planId);
-    setShowCheckout(true);
-  };
-
-  const handleCheckoutSuccess = () => {
-    setShowCheckout(false);
-    setSelectedPlan(null);
-    navigate('/dashboard');
-  };
-
-  const handleCheckoutCancel = () => {
-    setShowCheckout(false);
-    setSelectedPlan(null);
-  };
-
-  // Subscription prices are charged in USD via PayPal (CEO decision
-  // 2026-10-26): the kwacha prices converted at the platform's stored
-  // ZMW→USD rate (exchange_rates, 1 ZMW = $0.04933399 — $1 = K20.27,
-  // exchangerate-api, 2026-10-26). monthlyPrice/yearlyPrice are the
-  // USD charge amounts; the *Zmw fields are the original kwacha
-  // prices, shown only as an approximate reference next to the price.
-  const plans = [
-    {
-      id: "free",
-      name: "Free Plan",
-      description: "Perfect for personal use and getting started",
-      monthlyPrice: 0,
-      yearlyPrice: 0,
-      monthlyPriceZmw: 0,
-      yearlyPriceZmw: 0,
-      icon: <Star className="h-5 w-5" />,
-      features: [
-        "Dashboard Access",
-        "Feedback Submission", 
-        "Money Transfers",
-        "Free Airtime Purchase",
-        "2.9% + K2.50 per transaction",
-        "K 1,000 max per transaction",
-        "1 virtual card",
-        "Local transfers only",
-        "Community support"
-      ],
-      pricing: {
-        fixedFee: 2.50,
-        percentage: 2.9
-      }
-    },
-    {
-      id: "basic",
-      name: "Basic Plan",
-      description: "For individuals who need more features",
-      monthlyPrice: 0.49,
-      yearlyPrice: 4.93,
-      monthlyPriceZmw: 9.99,
-      yearlyPriceZmw: 99.99,
-      icon: <Zap className="h-5 w-5" />,
-      popular: true,
-      features: [
-        "All Free features",
-        "Virtual Cards",
-        "Free Airtime Purchase",
-        "2.4% + K2.00 per transaction",
-        "K 10,000 max per transaction",
-        "3 virtual cards",
-        "Local & some international transfers",
-        "Email support"
-      ],
-      pricing: {
-        fixedFee: 2.00,
-        percentage: 2.4
-      }
-    },
-    {
-      id: "premium",
-      name: "Premium Plan",
-      description: "For power users and small businesses",
-      monthlyPrice: 0.99,
-      yearlyPrice: 9.87,
-      monthlyPriceZmw: 19.99,
-      yearlyPriceZmw: 199.99,
-      icon: <Crown className="h-5 w-5" />,
-      features: [
-        "All Basic features",
-        "Advanced Analytics",
-        "Free Airtime Purchase",
-        "1.9% + K1.50 per transaction",
-        "K 50,000 max per transaction",
-        "10 virtual cards",
-        "All transfer types + faster processing",
-        "Priority Support"
-      ],
-      pricing: {
-        fixedFee: 1.50,
-        percentage: 1.9
-      }
-    },
-    {
-      id: "enterprise",
-      name: "Enterprise Plan",
-      description: "For businesses that need everything",
-      monthlyPrice: 2.47,
-      yearlyPrice: 24.67,
-      monthlyPriceZmw: 49.99,
-      yearlyPriceZmw: 499.99,
-      icon: <Crown className="h-5 w-5" />,
-      features: [
-        "All Premium features",
-        "Business Tools",
-        "Free Airtime Purchase",
-        "1.4% + K1.00 per transaction",
-        "Unlimited transaction amount",
-        "Unlimited virtual cards",
-        "API access + instant processing",
-        "24/7 phone & dedicated manager"
-      ],
-      pricing: {
-        fixedFee: 1.00,
-        percentage: 1.4
-      }
-    }
-  ];
-
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 max-w-6xl mx-auto w-full">
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold mb-2">Payment Solutions for Every Business</h1>
+          <h1 className="text-3xl font-bold mb-2">Pay Only When You Move Money</h1>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            BMaGlass Pay offers flexible and affordable payment processing plans designed specifically for the Zambian market, from small shops to large enterprises.
+            BMaGlass Pay has no subscription plans and no monthly fees. Every charge is a
+            percentage of a transaction you actually make — if you don't transact, you pay nothing.
           </p>
-          
-          <div className="mt-6">
-            <Tabs defaultValue="monthly" className="w-full max-w-[400px] mx-auto" value={billingPeriod} onValueChange={setBillingPeriod}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="monthly">Monthly</TabsTrigger>
-                <TabsTrigger value="yearly">Yearly (Save 10%)</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {plans.map((plan) => (
-            <Card key={plan.id} className={`
-              flex flex-col overflow-hidden transition-all duration-300 hover:shadow-lg
-              ${plan.popular ? 'border-primary/50 shadow-md relative' : ''}
-              ${plan.id === subscriptionTier ? 'ring-2 ring-primary shadow-lg' : ''}
-            `}>
-              {plan.popular && (
-                <div className="bg-primary text-primary-foreground text-center py-1 text-sm font-medium">
-                  Most Popular
-                </div>
-              )}
-              {plan.id === subscriptionTier && (
-                <div className="bg-primary text-primary-foreground text-center py-1 text-sm font-medium">
-                  Current Plan
-                </div>
-              )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {FEES.map((item) => (
+            <Card key={item.name} className="flex flex-col overflow-hidden transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <div className="flex items-center space-x-2 mb-2">
                   <div className="p-2 bg-primary/10 rounded-lg">
-                    {plan.icon}
+                    {item.icon}
                   </div>
-                  <CardTitle>{plan.name}</CardTitle>
+                  <CardTitle className="text-lg">{item.name}</CardTitle>
                 </div>
-                <CardDescription>{plan.description}</CardDescription>
               </CardHeader>
               <CardContent className="flex-grow">
-                <div className="mb-6">
-                  <span className="text-3xl font-bold">
-                    {plan.monthlyPrice === 0 ? 'Free' : `$${(billingPeriod === "monthly" ? plan.monthlyPrice : plan.yearlyPrice).toFixed(2)}`}
-                  </span>
-                  {plan.monthlyPrice > 0 && <span className="text-muted-foreground">/{billingPeriod === "monthly" ? "month" : "year"}</span>}
-                  {plan.monthlyPrice > 0 && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Billed in US dollars via PayPal · ≈ K{(billingPeriod === "monthly" ? plan.monthlyPriceZmw : plan.yearlyPriceZmw).toFixed(2)}
-                    </div>
-                  )}
+                <div className="mb-4">
+                  <span className="text-3xl font-bold">{item.fee}</span>
                 </div>
-
-                {/* Transaction Pricing */}
-                <div className="mb-6 p-3 bg-muted rounded-lg">
-                  <h4 className="font-medium text-sm mb-2">Transaction Pricing</h4>
-                  <div className="text-xs text-muted-foreground">
-                    <div>{plan.pricing.percentage}% + K{plan.pricing.fixedFee} per transaction</div>
-                  </div>
-                </div>
-                
-                <ul className="space-y-3">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                      <span className="text-sm">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+                <p className="text-sm text-muted-foreground">{item.detail}</p>
               </CardContent>
-              <CardFooter>
-                <Button 
-                  onClick={() => handleSubscribe(plan.id)} 
-                  className={`w-full ${plan.popular ? 'bg-primary' : ''}`}
-                  disabled={plan.id === subscriptionTier}
-                  variant={plan.id === subscriptionTier ? 'outline' : 'default'}
-                >
-                  {plan.id === subscriptionTier ? 'Current Plan' : plan.monthlyPrice === 0 ? 'Get Started Free' : 'Subscribe Now'}
-                </Button>
-              </CardFooter>
             </Card>
           ))}
         </div>
-        
-        {/* Transaction Fees Section */}
-        <div className="mt-16 bg-secondary/10 rounded-lg p-8">
-          <h2 className="text-2xl font-bold mb-4 text-center">Transaction Fees by Payment Method</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div>
-              <h3 className="text-lg font-medium mb-3">Mobile Money</h3>
-              <ul className="space-y-2">
-                <li className="flex justify-between">
-                  <span>Deposits</span>
-                  <span>1.5%</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Withdrawals</span>
-                  <span>2.0%</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Person-to-Person</span>
-                  <span>1.0%</span>
-                </li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-medium mb-3">Card Payments</h3>
-              <ul className="space-y-2">
-                <li className="flex justify-between">
-                  <span>Domestic Cards</span>
-                  <span>2.5% + K2</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>International Cards</span>
-                  <span>3.5% + K5</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Refunds</span>
-                  <span>Free</span>
-                </li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-medium mb-3">USSD Payments</h3>
-              <ul className="space-y-2">
-                <li className="flex justify-between">
-                  <span>Basic Transaction</span>
-                  <span>1.0%</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Bill Payments</span>
-                  <span>1.2%</span>
-                </li>
-                <li className="flex justify-between">
-                  <span>Airtime Purchase</span>
-                  <span className="text-primary font-medium">Free</span>
-                </li>
-              </ul>
-            </div>
-          </div>
+
+        <div className="mt-12 bg-secondary/10 rounded-lg p-8 text-center">
+          <h2 className="text-xl font-bold mb-2">One account for everyone</h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            There are no tiers to unlock and nothing to upgrade. Every BMaGlass Pay account gets
+            the full product, and the fees above are the only charges — each one shown to you
+            before you confirm a transaction.
+          </p>
         </div>
 
         {/* Why Choose BMaGlass Pay */}
@@ -328,34 +123,6 @@ const Pricing = () => {
         </div>
       </main>
       <Footer />
-      
-      {/* PayPal Checkout Dialog */}
-      <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Complete Your Subscription</DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Subscriptions are billed in US dollars (USD) via PayPal.
-            </p>
-          </DialogHeader>
-          {selectedPlan && (
-            <PayPalCheckout
-              type="subscription"
-              planId={selectedPlan}
-              planName={plans.find(p => p.id === selectedPlan)?.name || ''}
-              amount={billingPeriod === 'monthly' 
-                ? plans.find(p => p.id === selectedPlan)?.monthlyPrice || 0
-                : plans.find(p => p.id === selectedPlan)?.yearlyPrice || 0
-              }
-              currency="USD"
-              billingPeriod={billingPeriod === 'yearly' ? 'yearly' : 'monthly'}
-              features={plans.find(p => p.id === selectedPlan)?.features || []}
-              onSuccess={handleCheckoutSuccess}
-              onCancel={handleCheckoutCancel}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

@@ -314,7 +314,6 @@ describe("wiring pins (D1/D2/D4/D5/D7/D8)", () => {
   const walletDeposit = read("../../supabase/functions/wallet-deposit/index.ts");
   const payoutServer = read("../../supabase/functions/_shared/paypal-payout-server.ts");
   const payoutPure = read("../../supabase/functions/_shared/paypal-payout.ts");
-  const usePayPalPayments = read("../../src/hooks/usePayPalPayments.ts");
   const useMarketplace = read("../../src/hooks/useMarketplace.ts");
 
   it("webhook handles the reversal family and the real subscription sale event", () => {
@@ -337,11 +336,15 @@ describe("wiring pins (D1/D2/D4/D5/D7/D8)", () => {
     expect(webhook).not.toContain("30 * 24 * 60 * 60 * 1000");
   });
 
-  it("legacy paypal-checkout refuses one-time payments and builds subscriptions on a real product + reused plan", () => {
+  it("legacy paypal-checkout refuses one-time payments and, since subscriptions were removed, subscription checkouts too", () => {
     expect(checkout).toContain("ONE_TIME_DEPRECATED_MESSAGE");
-    expect(checkout).toContain("paypal_billing_plans");
-    expect(checkout).toContain("paypal_subscription_product_id");
-    expect(checkout).toContain("paypal_plan_id: billingPlanId");
+    expect(checkout).toContain("SUBSCRIPTIONS_REMOVED_MESSAGE");
+    // No subscription can be built any more: no plan catalogue, no
+    // product lookup, no PayPal billing calls from this endpoint.
+    expect(checkout).not.toContain("paypal_billing_plans");
+    expect(checkout).not.toContain("paypal_subscription_product_id");
+    expect(checkout).not.toContain("/v1/billing/subscriptions");
+    expect(checkout).not.toContain("paypal_plan_id: billingPlanId");
     expect(checkout).not.toContain("product_id: planId");
     expect(checkout).not.toContain("/functions/v1/paypal-webhook");
   });
@@ -370,7 +373,10 @@ describe("wiring pins (D1/D2/D4/D5/D7/D8)", () => {
 
   it("client hooks no longer reach the deprecated functions for payments", () => {
     expect(useMarketplace).not.toContain("functions.invoke('paypal-marketplace'");
-    expect(usePayPalPayments).toContain("type: 'subscription'");
-    expect(usePayPalPayments).not.toContain("'ZMW', 'USD'");
+    // The PayPal subscription checkout hook is deleted outright
+    // (subscriptions removed, CEO decision 2026-10-26 18:31): no
+    // client code can invoke paypal-checkout's subscription path.
+    expect(fs.existsSync(path.resolve(here, "../../src/hooks/usePayPalPayments.ts"))).toBe(false);
+    expect(fs.existsSync(path.resolve(here, "../../src/components/PayPalCheckout.tsx"))).toBe(false);
   });
 });

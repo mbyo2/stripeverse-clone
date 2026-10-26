@@ -26,7 +26,7 @@ const PAGES: SearchResult[] = [
   { type: "page", id: "analytics", title: "Analytics", subtitle: "Business analytics", path: "/analytics" },
   { type: "page", id: "security", title: "Security Settings", subtitle: "2FA, sessions", path: "/security-settings" },
   { type: "page", id: "cards", title: "Virtual Cards", subtitle: "Create & manage", path: "/card/new" },
-  { type: "page", id: "billing", title: "Billing", subtitle: "Subscription & plans", path: "/billing" },
+  { type: "page", id: "billing", title: "Billing", subtitle: "Fees & billing", path: "/billing" },
   { type: "page", id: "qr", title: "QR Payments", subtitle: "Scan & pay", path: "/qr-payments" },
   { type: "page", id: "statements", title: "Statements", subtitle: "Export CSV/PDF", path: "/statements" },
   { type: "page", id: "savings", title: "Savings", subtitle: "Savings goals", path: "/savings" },

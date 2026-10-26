@@ -42,7 +42,7 @@ export const FeatureStatus = ({ feature, name, description, link }: FeatureStatu
               )}
               {!isAccessible && (
                 <Link to="/pricing">
-                  <Button variant="outline" size="sm" className="text-amber-600">Upgrade</Button>
+                  <Button variant="outline" size="sm" className="text-amber-600">See Fees</Button>
                 </Link>
               )}
             </CardContent>
@@ -50,9 +50,9 @@ export const FeatureStatus = ({ feature, name, description, link }: FeatureStatu
         </TooltipTrigger>
         <TooltipContent>
           {isAccessible ? (
-            <p>Feature available with your current plan</p>
+            <p>Feature available on your account</p>
           ) : (
-            <p>Upgrade your plan to access this feature</p>
+            <p>This feature isn't included on your account</p>
           )}
         </TooltipContent>
       </Tooltip>

@@ -31,5 +31,8 @@ code reads them, and dropping database objects was out of scope
 for this removal.
 
 Note: the platform's separate, pre-existing subscription billing
-via Stripe (`create-checkout` / `customer-portal`) is a different
-surface and was NOT part of this removal.
+via Stripe (`create-checkout` / `customer-portal`) was a different
+surface and was NOT part of this removal. It was migrated to PayPal
+later on 2026-10-26 and then removed entirely the same day, when
+the CEO dropped subscription plans altogether — BMaGlass Pay now
+charges only its percentage transaction fees.
