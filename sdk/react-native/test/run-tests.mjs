@@ -5,7 +5,7 @@
  * deterministic pseudo-random inputs, and pinned by the shared
  * cross-SDK known-answer webhook vector.
  *
- * Run: node sdk/react-native/test/sdk.test.mjs
+ * Run: node sdk/react-native/test/run-tests.mjs
  */
 import { createHmac, randomBytes } from 'node:crypto';
 import { BMaGlass, BMaGlassError, verifyWebhookSignature, parseWebhookEvent, paymentLinkUrl } from '../src/index.ts';

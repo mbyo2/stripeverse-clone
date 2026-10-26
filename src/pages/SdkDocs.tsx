@@ -50,6 +50,43 @@ ok = verify_webhook_signature(request.data,
                               request.headers["X-BMaGlass-Signature"],
                               webhook_secret)`;
 
+const PHP_EXAMPLE = `use BMaGlass\\Sdk\\Client;
+use BMaGlass\\Sdk\\ApiException;
+
+$client = new Client(getenv("BMAGLASS_API_KEY")); // test keys are read-only
+
+$wallets = $client->wallets();
+$btc = $client->bitcoinBalance();
+$quote = $client->bitcoinQuote("buy", 100);
+
+// Live keys only — a test key throws ApiException with code "test_mode_read_only":
+try {
+    $link = $client->createPaymentLink("Order #7", 250.00, "ZMW");
+    $url = Client::paymentLinkUrl($link["link_code"]); // hosted page for the buyer
+    $client->createTransfer($toUserId, 100, "ZMW", null, null, "my-idempotency-key");
+} catch (ApiException $e) {
+    echo $e->userMessage(); // plain language, safe to show
+}
+
+// Webhook verification (exact raw body + X-BMaGlass-Signature header):
+$ok = Client::verifyWebhookSignature($rawBody, $signatureHeader, $webhookSecret);`;
+
+const RN_EXAMPLE = `import { BMaGlass, BMaGlassError, paymentLinkUrl, verifyWebhookSignature } from "@bmaglass/sdk-react-native";
+
+const client = new BMaGlass({ apiKey: "bmp_test_…" }); // test keys are read-only
+
+const wallets = await client.wallets.list();
+const btc = await client.bitcoin.balance();
+
+// Live keys only — a test key throws BMaGlassError with code "test_mode_read_only".
+// Webhook verification uses a bundled pure-TS HMAC-SHA256 (no WebCrypto needed):
+try {
+  const link = await client.paymentLinks.create({ title: "Order #7", amount: 250, currency: "ZMW" });
+  const url = paymentLinkUrl(link.link_code); // open for the buyer
+} catch (e) {
+  if (e instanceof BMaGlassError) showMessage(e.userMessage());
+}`;
+
 export default function SdkDocs() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -58,10 +95,11 @@ export default function SdkDocs() {
         <div>
           <h1 className="text-3xl font-bold mb-2 flex items-center gap-2"><Code2 className="h-7 w-7" /> SDK Documentation</h1>
           <p className="text-muted-foreground">
-            Two SDKs ship in this project's repository under <code>sdk/</code>. They are not yet published
-            to npm or PyPI — install them from the repository. Both cover every endpoint of the shipped
-            developer-api, use API-key auth, raise typed errors, and include a webhook signature
-            verification helper. Contract tests for both live in <code>sdk/tests/</code>.
+            Four SDKs ship in this project's repository under <code>sdk/</code>: TypeScript, Python, PHP
+            and React Native. They are not yet published to npm, PyPI or Packagist — install them from the
+            repository. Each covers every endpoint of the shipped developer-api, uses API-key auth, raises
+            typed errors, and includes a webhook signature verification helper. Contract tests for each
+            live beside it (the shared HMAC known-answer vector is identical across all of them).
           </p>
         </div>
 
@@ -69,6 +107,8 @@ export default function SdkDocs() {
           <TabsList>
             <TabsTrigger value="ts">TypeScript / JavaScript</TabsTrigger>
             <TabsTrigger value="py">Python</TabsTrigger>
+            <TabsTrigger value="php">PHP</TabsTrigger>
+            <TabsTrigger value="rn">React Native</TabsTrigger>
           </TabsList>
           <TabsContent value="ts">
             <Card>
@@ -93,14 +133,43 @@ export default function SdkDocs() {
               </CardContent>
             </Card>
           </TabsContent>
+          <TabsContent value="php">
+            <Card>
+              <CardHeader>
+                <CardTitle>bmaglass/bmaglass-sdk <Badge variant="outline">v1.0.0 · sdk/php</Badge></CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`# Framework-free (PHP 7.4+, cURL). Add the repo as a Composer path/vcs repository,
+# or copy src/ and register the BMaGlass\\Sdk\\ PSR-4 prefix.
+php sdk/php/tests/run-tests.php   # the test suite`}</pre>
+                <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{PHP_EXAMPLE}</pre>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="rn">
+            <Card>
+              <CardHeader>
+                <CardTitle>@bmaglass/sdk-react-native <Badge variant="outline">v1.0.0 · sdk/react-native</Badge></CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`# React Native / Expo. Add from the repo, e.g.
+# "dependencies": { "@bmaglass/sdk-react-native": "file:../sdk/react-native" }`}</pre>
+                <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{RN_EXAMPLE}</pre>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         <Card>
           <CardHeader><CardTitle>Honest limits</CardTitle></CardHeader>
           <CardContent className="text-sm space-y-2">
-            <p>There is no PHP SDK. There are no charges, invoices, customers, subscriptions or card-issuing
-              methods — those APIs do not exist. Test keys are read-only in both SDKs, exactly as on the API:
+            <p>There are no charges, invoices, customers, subscriptions or card-issuing
+              methods — those APIs do not exist. Test keys are read-only in every SDK, exactly as on the API:
               write calls with a test key surface the API's <code>403 test_mode_read_only</code> error.</p>
+            <p>Shop integrations (WooCommerce, Odoo, Magento, PrestaShop, OpenCart), a universal pay-button
+              embed and Zapier/Make recipes live under <code>integrations/</code> in the repository — see the
+              Developers page. Shopify checkout is gated by Shopify's payments partner programme, so no
+              checkout plugin exists; payment links work there today.</p>
           </CardContent>
         </Card>
       </main>

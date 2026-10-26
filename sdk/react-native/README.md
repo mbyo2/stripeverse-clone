@@ -48,7 +48,7 @@ try {
 ## Test
 
 ```bash
-node sdk/react-native/test/sdk.test.mjs
+node sdk/react-native/test/run-tests.mjs
 ```
 
 (Node ≥ 22 runs the TypeScript sources via type stripping; 18 checks:

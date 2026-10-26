@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Code2, Key, Shield, Webhook, AlertTriangle } from "lucide-react";
+import { Code2, Key, Shield, Webhook, AlertTriangle, Store } from "lucide-react";
 import { Link } from "react-router-dom";
 import ApiPlayground from "@/components/developers/ApiPlayground";
 
@@ -83,8 +83,12 @@ export default function Developers() {
             <div className="flex flex-wrap gap-2">{EVENTS.map((ev) => <Badge key={ev} variant="secondary" className="font-mono">{ev}</Badge>)}</div>
             <p>Every delivery is signed with HMAC-SHA256 over the exact request body. Verify the
               <code> X-BMaGlass-Signature</code> header (<code>sha256=&lt;hex&gt;</code>) with your endpoint's
-              secret — both SDKs ship a verification helper. Every attempt is written to the delivery log,
+              secret — the SDKs ship a verification helper. Every attempt is written to the delivery log,
               visible on the API page and via <code>GET /webhook-deliveries</code>.</p>
+            <p>One boundary, stated plainly: when a buyer pays a <em>payment link</em>, no separate webhook
+              fires for that payment today. Confirm link settlement by polling <code>GET /payment-links</code>
+              (each link reports <code>payment_count</code> and <code>total_collected</code>) — that is the
+              reconciliation pattern the shop connectors below use.</p>
           </CardContent>
         </Card>
 
@@ -92,7 +96,8 @@ export default function Developers() {
           <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" /> SDKs</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
             <p>Typed clients live in this project's repository under <code>sdk/</code> (they are not yet
-              published to npm or PyPI — install from the repo):</p>
+              published to npm, PyPI, Packagist or pub.dev — install from the repo): TypeScript/JavaScript,
+              Python, PHP and React Native:</p>
             <pre className="bg-muted p-4 rounded-lg overflow-x-auto">{`# TypeScript / JavaScript — sdk/typescript (@bmaglass/sdk)
 import { BMaGlass } from "@bmaglass/sdk";
 const client = new BMaGlass({ apiKey: "bmp_test_…" });
@@ -101,8 +106,35 @@ const wallets = await client.wallets.list();
 # Python — sdk/python (bmaglass-sdk)
 from bmaglass_sdk import BMaGlass
 client = BMaGlass("bmp_test_…")
-wallets = client.wallets.list()`}</pre>
+wallets = client.wallets.list()
+
+# PHP — sdk/php (BMaGlass\\Sdk)
+use BMaGlass\\Sdk\\Client;
+$client = new Client(getenv("BMAGLASS_API_KEY"));
+$wallets = $client->wallets();
+
+# React Native / Expo — sdk/react-native (@bmaglass/sdk-react-native)
+import { BMaGlass } from "@bmaglass/sdk-react-native";`}</pre>
             <Button asChild variant="outline"><Link to="/sdk-docs">SDK documentation</Link></Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><Store className="h-5 w-5" /> Connectors &amp; integrations</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p>Ready-made integrations live in the repository under <code>integrations/</code>. Each one
+              talks to <strong>your own</strong> BMaGlass account and wallets through your API key; checkout
+              creates a payment link and sends the buyer to the hosted payment page (buyers pay from their
+              BMaGlass wallet — there is no guest checkout). All of them require a live key for checkout and
+              a ZMW or USD store currency.</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li><strong>WooCommerce</strong> — <code>integrations/wordpress</code>: a payment gateway plugin with connection test, hosted-link checkout and automatic order completion.</li>
+              <li><strong>Odoo 17</strong> — <code>integrations/odoo/payment_bmaglass</code>: a payment provider module on the same pattern.</li>
+              <li><strong>Magento 2, PrestaShop, OpenCart 4</strong> — <code>integrations/magento</code>, <code>integrations/prestashop</code>, <code>integrations/opencart</code>: gateway modules built on the PHP SDK.</li>
+              <li><strong>Any website (Wix, Squarespace, Webflow, static)</strong> — <code>integrations/embed</code>: a small script that renders a Pay with BMaGlass Pay button bound to a payment link you create here. Only the public link goes in the page — never an API key.</li>
+              <li><strong>Zapier / Make</strong> — <code>integrations/automation</code>: recipes using their native webhook/HTTP modules (no app-store listing exists or is claimed).</li>
+              <li><strong>Shopify</strong> — checkout payments are gated by Shopify's payments partner programme, so there is no BMaGlass checkout plugin. Payment links and the embed button work in Shopify pages and emails today; see <code>integrations/shopify/ASSESSMENT.md</code>.</li>
+            </ul>
           </CardContent>
         </Card>
 
