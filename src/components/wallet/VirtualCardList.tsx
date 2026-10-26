@@ -24,14 +24,17 @@ const VirtualCardList = ({ virtualCards, onCreateCard }: VirtualCardListProps) =
   const { formatAmount } = useCurrency();
 
   const handleFundCard = (cardId: number) => {
-    navigate("/virtual-card/fund", { state: { cardId } });
+    // VirtualCardFund reads the card id from the route param
+    // (/card/:id/fund via useParams) — it never read location.state,
+    // so the id must travel in the path itself.
+    navigate(`/card/${cardId}/fund`);
   };
 
   const handleFreezeCard = (cardId: number) => {
     // Freezing runs through the checked manage-virtual-card path on
     // the details page — this list never claims an action it didn't
     // take, so it routes there instead of faking a freeze.
-    navigate(`/virtual-card/${cardId}`);
+    navigate(`/card/${cardId}`);
   };
 
   if (virtualCards.length === 0) {
@@ -88,7 +91,7 @@ const VirtualCardList = ({ virtualCards, onCreateCard }: VirtualCardListProps) =
               <Button variant="outline" size="sm" onClick={() => handleFreezeCard(card.id)}>
                 {card.status === 'active' ? 'Freeze' : 'Unfreeze'}
               </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate(`/virtual-card/${card.id}`)}>Details</Button>
+              <Button variant="outline" size="sm" onClick={() => navigate(`/card/${card.id}`)}>Details</Button>
             </div>
           </CardContent>
         </Card>

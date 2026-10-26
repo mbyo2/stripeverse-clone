@@ -206,7 +206,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                         size="sm"
                         variant="ghost"
                         className="text-white hover:bg-white/20"
-                        onClick={() => navigate(`/virtual-card/${card.id}`)}
+                        onClick={() => navigate(`/card/${card.id}`)}
                       >
                         Details
                       </Button>
