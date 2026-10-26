@@ -563,8 +563,18 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
             </span>
             <span className="block text-xs text-muted-foreground mt-1">
               Sends in the next low-fee batch — usually within the hour, always within{" "}
-              {maxWaitHours} hours. Your fee is never more than the estimate above,
-              and is usually less — you only pay your share of the batch's fee.
+              {maxWaitHours} hours.{" "}
+              {feeEstimate?.kind === "ok" ? (
+                <>
+                  Your fee is never more than the estimate above, and is usually
+                  less — you only pay your share of the batch's fee.
+                </>
+              ) : (
+                <>
+                  You only pay your share of the batch's actual fee, capped at
+                  the estimate taken when you queue.
+                </>
+              )}
             </span>
           </button>
           <button

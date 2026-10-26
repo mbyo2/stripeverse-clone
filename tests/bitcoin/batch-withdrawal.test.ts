@@ -395,4 +395,19 @@ describe("P4 source pins", () => {
     expect(wallet).toContain("cancel_batch_send");
     expect(wallet).toContain("queue_send");
   });
+
+  it("the batch copy only references the estimate above when one is shown", () => {
+    // The "estimate above" wording must sit behind the feeEstimate 'ok'
+    // branch — with no estimate rendered (insufficient / not yet loaded)
+    // the description falls back to the queue-time cap wording instead of
+    // pointing at an element that is not on screen.
+    expect(wallet).toContain("feeEstimate?.kind === \"ok\" ? (");
+    expect(wallet).toContain("Your fee is never more than the estimate above");
+    expect(wallet).toContain(
+      "You only pay your share of the batch's actual fee, capped at",
+    );
+    expect(wallet).toContain("the estimate taken when you queue.");
+    // Exactly one place may claim an estimate is "above": the ok branch.
+    expect(wallet.split("the estimate above").length - 1).toBe(1);
+  });
 });
