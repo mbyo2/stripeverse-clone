@@ -239,11 +239,15 @@ describe("batch transaction building", () => {
     expect(amounts).toContain(100_000);
     expect(amounts).toContain(150_000);
     expect(built.changeSats).toBeGreaterThan(0);
-    // fee = inputs − outputs, consistent with the reported figure
-    expect(built.feeSats).toBe(800_000 - amounts.reduce((s, x) => s + x, 0));
-    // vsize scales with outputs: a 2-payment batch is bigger than a
-    // solo send but far smaller than two solo sends.
-    const soloVsize = core.estimateVsize(2, [
+    // Largest-first selection covers the batch from the 500k UTXO
+    // alone: payments + change + fee must account for it exactly.
+    expect(built.inputCount).toBe(1);
+    expect(250_000 + built.changeSats + built.feeSats).toBe(500_000);
+    expect(amounts.reduce((s, x) => s + x, 0)).toBe(250_000 + built.changeSats);
+    // vsize scales with outputs: the batch (1 input, 3 outputs) is
+    // bigger than a same-input solo send (1 input, 2 outputs) by one
+    // payment output — and far smaller than two solo sends.
+    const soloVsize = core.estimateVsize(1, [
       core.deriveScript(pub, 0, 30),
       core.deriveScript(pub, 1, 7),
     ]);
