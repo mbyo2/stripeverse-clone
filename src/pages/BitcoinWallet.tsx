@@ -759,7 +759,7 @@ function TradePanel({ onDone }: { onDone: () => void }) {
  * Card (MoonPay) buy entry — sits beside the Buy & Sell panel in
  * the Bitcoin buy area.
  *
- * Truthful gate, mirroring the Stripe card gate in Wallet: while
+ * Truthful gate, mirroring the card gates in Wallet: while
  * platform_settings.moonpay_enabled is off, the entry is disabled
  * as "Coming soon" with plain copy and the purchase flow is
  * unreachable; while it is on, "Buy with card" starts a purchase

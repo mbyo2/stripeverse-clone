@@ -416,7 +416,7 @@ export function isTerminalMtnMomoStatus(status: string | null | undefined): bool
 /**
  * May `next` replace `current`? Callbacks and polls race; a terminal
  * state (SUCCESSFUL / FAILED) never regresses — the same doctrine as
- * the MoonPay and Payoneer rails.
+ * the MoonPay rail.
  */
 export function canApplyMtnMomoStatus(
   current: string | null | undefined,

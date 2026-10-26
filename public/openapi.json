@@ -55,7 +55,7 @@
     }
   },
   "info": {
-    "description": "The shipped public developer API. Base URL is the developer-api edge function. Auth is an API key (bmp_live_… / bmp_test_…) in the X-Api-Key header. Keys are created in the app (Business settings or the API page); only the SHA-256 hash is stored and the full key is shown once. TEST KEYS ARE READ-ONLY: this app has no test-mode ledger, so a test key can never move real money. Write attempts with a test key return 403 test_mode_read_only. Not available via the API (dark rails, documented honestly): MoonPay, Stripe, Payoneer partner API, and virtual-card issuing to third parties.",
+    "description": "The shipped public developer API. Base URL is the developer-api edge function. Auth is an API key (bmp_live_\u2026 / bmp_test_\u2026) in the X-Api-Key header. Keys are created in the app (Business settings or the API page); only the SHA-256 hash is stored and the full key is shown once. TEST KEYS ARE READ-ONLY: this app has no test-mode ledger, so a test key can never move real money. Write attempts with a test key return 403 test_mode_read_only. Not available via the API (documented honestly): MoonPay and virtual-card issuing to third parties.",
     "title": "BMaGlass Pay Developer API",
     "version": "1.0.0"
   },
@@ -90,7 +90,7 @@
     },
     "/bitcoin/quote": {
       "post": {
-        "description": "Scope: bitcoin:read. Creates a price-locked quote using the same live price sources and 1.5% (150 bps) fee as the app's btc-trade function. Quote only — execution happens in the app, not via the API. Test keys may create quotes (no money moves).",
+        "description": "Scope: bitcoin:read. Creates a price-locked quote using the same live price sources and 1.5% (150 bps) fee as the app's btc-trade function. Quote only \u2014 execution happens in the app, not via the API. Test keys may create quotes (no money moves).",
         "operationId": "bitcoinQuote",
         "requestBody": {
           "content": {
@@ -140,7 +140,7 @@
         "summary": "List payment links"
       },
       "post": {
-        "description": "Creates a payment link for the key's owner and fires payment_link.created. fee_payer is optional: omit it to inherit the merchant's account default (see GET /settings). The response carries the RESOLVED fee_payer plus the computed fee_amount, buyer_total and seller_receives for the link's price at the current platform rate — seller-pays at K100/2.5%: buyer_total 100.00, seller_receives 97.50; buyer-pays: buyer_total 102.50, seller_receives 100.00. The computed amounts are null on any-amount links (no fixed price). The hosted pay page for every link offers Pay with Bitcoin (QR, on-chain + Lightning) to any guest — no connector code change is needed for shop checkouts to offer it. Bitcoin settlements fire payment_link.paid with payment_method bitcoin_onchain or bitcoin_lightning.",
+        "description": "Creates a payment link for the key's owner and fires payment_link.created. fee_payer is optional: omit it to inherit the merchant's account default (see GET /settings). The response carries the RESOLVED fee_payer plus the computed fee_amount, buyer_total and seller_receives for the link's price at the current platform rate \u2014 seller-pays at K100/2.5%: buyer_total 100.00, seller_receives 97.50; buyer-pays: buyer_total 102.50, seller_receives 100.00. The computed amounts are null on any-amount links (no fixed price). The hosted pay page for every link offers Pay with Bitcoin (QR, on-chain + Lightning) to any guest \u2014 no connector code change is needed for shop checkouts to offer it. Bitcoin settlements fire payment_link.paid with payment_method bitcoin_onchain or bitcoin_lightning.",
         "operationId": "createPaymentLink",
         "requestBody": {
           "content": {
@@ -201,7 +201,7 @@
     "/settings": {
       "get": {
         "summary": "The merchant's account settings that connected clients inherit",
-        "description": "Returns the merchant's payment-link fee-bearer default (fee_payer_default: 'seller' — the platform fee comes out of what the seller receives; 'buyer' — the fee is added on top of the price and the seller receives the full price) and the platform's current payment-link fee rate (platform_fee_percent). The default is set by the merchant in the BMaGlass Pay dashboard (Settings > Payment) — plugins, extensions and SDKs have no fee-bearer setting of their own; they read it here and inherit it. Read-only; available to any valid API key (test keys included).",
+        "description": "Returns the merchant's payment-link fee-bearer default (fee_payer_default: 'seller' \u2014 the platform fee comes out of what the seller receives; 'buyer' \u2014 the fee is added on top of the price and the seller receives the full price) and the platform's current payment-link fee rate (platform_fee_percent). The default is set by the merchant in the BMaGlass Pay dashboard (Settings > Payment) \u2014 plugins, extensions and SDKs have no fee-bearer setting of their own; they read it here and inherit it. Read-only; available to any valid API key (test keys included).",
         "responses": {
           "200": {
             "description": "The merchant's effective fee-bearer default and the platform fee rate."
@@ -244,7 +244,7 @@
     },
     "/transfers": {
       "post": {
-        "description": "Scope: transfers:write. LIVE KEYS ONLY — test keys get 403 test_mode_read_only. Charges the standard 1.5% transfer fee on top via execute_transfer_with_fee, exactly like the app. Send an Idempotency-Key header to make retries safe. Emits transaction.completed to registered webhooks.",
+        "description": "Scope: transfers:write. LIVE KEYS ONLY \u2014 test keys get 403 test_mode_read_only. Charges the standard 1.5% transfer fee on top via execute_transfer_with_fee, exactly like the app. Send an Idempotency-Key header to make retries safe. Emits transaction.completed to registered webhooks.",
         "operationId": "createTransfer",
         "parameters": [
           {
@@ -383,7 +383,7 @@
         "summary": "List webhook endpoints (secrets are never returned)"
       },
       "post": {
-        "description": "HTTPS URLs only. The signing secret (whsec_…) is returned exactly once in this response. Events: transaction.completed, payment_link.created, payment_link.paid, webhook.test. Allowed with test keys (no money moves). The payment_link.paid payload's data carries the link id/code/title, the amount and currency, the fee truth (fee_payer, fee_amount and total_charged — what the buyer actually paid in total, so a shop can reconcile the paid total against its order total plus the fee where it added one), the settlement transaction ids and the link's current payment_count/total_collected.",
+        "description": "HTTPS URLs only. The signing secret (whsec_\u2026) is returned exactly once in this response. Events: transaction.completed, payment_link.created, payment_link.paid, webhook.test. Allowed with test keys (no money moves). The payment_link.paid payload's data carries the link id/code/title, the amount and currency, the fee truth (fee_payer, fee_amount and total_charged \u2014 what the buyer actually paid in total, so a shop can reconcile the paid total against its order total plus the fee where it added one), the settlement transaction ids and the link's current payment_count/total_collected.",
         "operationId": "createWebhook",
         "requestBody": {
           "content": {

@@ -36,7 +36,7 @@ export function ApiReference() {
           </div>
         ))}
         <p className="text-sm text-muted-foreground pt-2">
-          Not available via the API: MoonPay, Stripe, Payoneer and third-party card issuing.
+          Not available via the API: MoonPay and third-party card issuing.
         </p>
       </CardContent>
     </Card>

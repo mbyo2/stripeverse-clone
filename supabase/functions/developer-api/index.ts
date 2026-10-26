@@ -149,7 +149,7 @@ serve(async (req) => {
         version: "1",
         mode_note: "Test keys (bmp_test_) are read-only. Live keys (bmp_live_) move real money.",
         resources: ["wallets", "transactions", "transfers", "payment-links", "settings", "bitcoin", "webhooks", "webhook-deliveries"],
-        unavailable: ["moonpay", "stripe", "payoneer", "card-issuing"],
+        unavailable: ["moonpay", "card-issuing"],
       });
     }
 

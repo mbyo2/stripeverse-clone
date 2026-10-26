@@ -13,14 +13,11 @@
 //     explanation — and the function's truthful 'not_configured'
 //     answer — remain reachable;
 //   - PayPal is unselectable while its gate is off;
-//   - the Stripe card rail is unselectable for viewers who may not
-//     use it (it is admin-only while in sandbox);
 //   - the MoonPay card option (a Bitcoin purchase, not a top-up) is
 //     unselectable while platform_settings.moonpay_enabled is off.
 
 import { PAYPAL_COMING_SOON_LABEL } from "../config/paypal";
 import { NOT_AVAILABLE_YET_LABEL } from "../config/mobileMoney";
-import { STRIPE_GATEWAY_MODE_LABEL } from "../config/stripeGateway";
 import {
   MOONPAY_CARD_TITLE,
   MOONPAY_COMING_SOON_LABEL,
@@ -29,8 +26,6 @@ import {
 export interface DepositMethodAvailability {
   paypalAvailable: boolean;
   mobileMoneyAvailable: boolean;
-  /** Whether THIS viewer may use the Stripe card rail. */
-  stripeCardAvailable: boolean;
   /** Whether the MoonPay rail is switched on (moonpay_enabled). */
   moonpayAvailable: boolean;
 }
@@ -64,14 +59,6 @@ export function getDepositMethodOptions(
       label: availability.paypalAvailable
         ? "PayPal"
         : `PayPal — ${PAYPAL_COMING_SOON_LABEL}`,
-    },
-    {
-      value: "stripe_card",
-      available: availability.stripeCardAvailable,
-      disabled: !availability.stripeCardAvailable,
-      label: availability.stripeCardAvailable
-        ? `Card (Stripe)${STRIPE_GATEWAY_MODE_LABEL}`
-        : "Card (Stripe) — Coming soon",
     },
     {
       value: "moonpay_card",

@@ -29,8 +29,7 @@ import {
  * the session URL arrives; on any failure the tab is closed.
  * When MoonPay is not connected yet, the function answers with a
  * crafted not_configured / coming-soon body — its plain-language
- * message is toasted as-is, exactly how the Stripe gateway gate
- * surfaces its not_configured answer.
+ * message is toasted as-is.
  */
 export function useMoonpay() {
   const { toast } = useToast();

@@ -4,8 +4,8 @@
 // an unconfigured one while a live rail exists), every option states
 // its availability in its label, and each option's selectability
 // matches what the dialog has always done (mobile money selectable
-// so its explanation stays reachable; PayPal and the admin-only
-// Stripe rail unselectable for viewers who may not use them).
+// so its explanation stays reachable; PayPal unselectable while its
+// gate is off).
 
 import { describe, it, expect } from "vitest";
 import {
@@ -18,15 +18,13 @@ describe("getDepositMethodOptions — today's production state", () => {
   const options = getDepositMethodOptions({
     paypalAvailable: true,
     mobileMoneyAvailable: false,
-    stripeCardAvailable: false,
     moonpayAvailable: false,
   });
 
-  it("keeps all four methods, in the dialog's existing order", () => {
+  it("keeps all three methods, in the dialog's existing order", () => {
     expect(options.map((o) => o.value)).toEqual([
       "mobile_money",
       "paypal",
-      "stripe_card",
       "moonpay_card",
     ]);
   });
@@ -34,10 +32,9 @@ describe("getDepositMethodOptions — today's production state", () => {
   it("labels each option with its availability in plain language", () => {
     expect(options[0].label).toBe("Mobile Money — Not available yet");
     expect(options[1].label).toBe("PayPal");
-    expect(options[2].label).toBe("Card (Stripe) — Coming soon");
   });
 
-  it("keeps mobile money selectable and the unavailable Stripe rail disabled", () => {
+  it("keeps mobile money selectable and the unavailable MoonPay rail disabled", () => {
     expect(options[0].disabled).toBe(false);
     expect(options[1].disabled).toBe(false);
     expect(options[2].disabled).toBe(true);
@@ -48,30 +45,10 @@ describe("getDepositMethodOptions — today's production state", () => {
   });
 });
 
-describe("getDepositMethodOptions — admin viewer (Stripe rail usable)", () => {
-  const options = getDepositMethodOptions({
-    paypalAvailable: true,
-    mobileMoneyAvailable: false,
-    stripeCardAvailable: true,
-    moonpayAvailable: false,
-  });
-
-  it("shows the Stripe option enabled with its sandbox label", () => {
-    expect(options[2].label).toBe("Card (Stripe) — Sandbox");
-    expect(options[2].disabled).toBe(false);
-    expect(options[2].available).toBe(true);
-  });
-
-  it("still defaults to PayPal, the first available method in list order", () => {
-    expect(selectDefaultDepositMethod(options)).toBe("paypal");
-  });
-});
-
 describe("getDepositMethodOptions — PayPal gate off", () => {
   const options = getDepositMethodOptions({
     paypalAvailable: false,
     mobileMoneyAvailable: false,
-    stripeCardAvailable: false,
     moonpayAvailable: false,
   });
 
@@ -89,7 +66,6 @@ describe("getDepositMethodOptions — mobile money configured", () => {
   const options = getDepositMethodOptions({
     paypalAvailable: false,
     mobileMoneyAvailable: true,
-    stripeCardAvailable: false,
     moonpayAvailable: false,
   });
 
@@ -111,12 +87,11 @@ describe("getDepositMethodOptions — MoonPay gate", () => {
     const options = getDepositMethodOptions({
       paypalAvailable: true,
       mobileMoneyAvailable: false,
-      stripeCardAvailable: false,
-      moonpayAvailable: false,
+        moonpayAvailable: false,
     });
-    expect(options[3].label).toBe("Card (MoonPay) — Coming soon");
-    expect(options[3].disabled).toBe(true);
-    expect(options[3].available).toBe(false);
+    expect(options[2].label).toBe("Card (MoonPay) — Coming soon");
+    expect(options[2].disabled).toBe(true);
+    expect(options[2].available).toBe(false);
     // MoonPay never becomes the default while it is off.
     expect(selectDefaultDepositMethod(options)).toBe("paypal");
   });
@@ -125,11 +100,10 @@ describe("getDepositMethodOptions — MoonPay gate", () => {
     const options = getDepositMethodOptions({
       paypalAvailable: true,
       mobileMoneyAvailable: false,
-      stripeCardAvailable: false,
-      moonpayAvailable: true,
+        moonpayAvailable: true,
     });
-    expect(options[3].label).toBe("Card (MoonPay)");
-    expect(options[3].disabled).toBe(false);
-    expect(options[3].available).toBe(true);
+    expect(options[2].label).toBe("Card (MoonPay)");
+    expect(options[2].disabled).toBe(false);
+    expect(options[2].available).toBe(true);
   });
 });

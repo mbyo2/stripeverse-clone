@@ -8,7 +8,7 @@
 // the user's own deposit address and the existing deposit-detection
 // pipeline does the crediting when the deposit lands.
 //
-// Security shape, mirroring the payoneer-webhook discipline:
+// Security shape, mirroring the platform's webhook discipline:
 //   - If the webhook key is not configured the endpoint answers
 //     503 not_configured rather than processing anything — fail
 //     closed, always.

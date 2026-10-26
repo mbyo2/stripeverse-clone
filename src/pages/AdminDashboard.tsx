@@ -217,20 +217,6 @@ const AdminDashboard = () => {
       color: "bg-purple-500"
     },
     {
-      title: "Stripe Gateway",
-      description: "Card top-up rail status, deposits and refunds",
-      icon: <CreditCard className="h-6 w-6" />,
-      link: "/admin/stripe",
-      color: "bg-blue-600"
-    },
-    {
-      title: "Payoneer Payouts",
-      description: "Payoneer partner payouts",
-      icon: <Globe2 className="h-6 w-6" />,
-      link: "/admin/payoneer",
-      color: "bg-emerald-500"
-    },
-    {
       title: "MoonPay",
       description: "Card purchases of Bitcoin — status and purchases",
       icon: <CreditCard className="h-6 w-6" />,

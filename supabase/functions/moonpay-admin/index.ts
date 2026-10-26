@@ -1,5 +1,5 @@
 // moonpay-admin: admin operations for the MoonPay card on-ramp
-// (JWT on — see supabase/config.toml). Mirrors stripe-gateway-admin.
+// (JWT on — see supabase/config.toml).
 //
 // Gates, in order:
 //   1. Authentication (caller resolved from their JWT).

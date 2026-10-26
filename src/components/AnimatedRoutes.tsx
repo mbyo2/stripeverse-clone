@@ -69,8 +69,6 @@ const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
 const AdminMastercardMove = lazy(() => import('@/pages/AdminMastercardMove'));
-const AdminPayoneer = lazy(() => import('@/pages/AdminPayoneer'));
-const AdminStripe = lazy(() => import('@/pages/AdminStripe'));
 const AdminMoonpay = lazy(() => import('@/pages/AdminMoonpay'));
 const AdminPaypal = lazy(() => import('@/pages/AdminPaypal'));
 const AdminTransactions = lazy(() => import('@/pages/AdminTransactions'));
@@ -261,8 +259,6 @@ const AnimatedRoutes = () => {
             even by calling them directly. */}
         <Route path="/admin/treasury" element={<RoleGuardedPage roles={['super_admin']}><AdminTreasury /></RoleGuardedPage>} />
         <Route path="/admin/mastercard-move" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminMastercardMove /></RoleGuardedPage>} />
-        <Route path="/admin/payoneer" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminPayoneer /></RoleGuardedPage>} />
-        <Route path="/admin/stripe" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminStripe /></RoleGuardedPage>} />
         <Route path="/admin/moonpay" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminMoonpay /></RoleGuardedPage>} />
         <Route path="/admin/paypal" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminPaypal /></RoleGuardedPage>} />
         <Route path="/admin/p2p" element={<RoleGuardedPage roles={P2P_ADMIN_ROLES}><AdminP2P /></RoleGuardedPage>} />

@@ -271,8 +271,7 @@ type RolesReader = any;
 /**
  * Admin gate for moonpay-admin / moonpay-session console actions:
  * the caller must hold an admin or super_admin row in user_roles
- * (mirrors canUseStripeGateway's role set, resolved server-side via
- * the service-role client).
+ * (resolved server-side via the service-role client).
  */
 export async function canUseMoonpayAdmin(
   client: RolesReader,

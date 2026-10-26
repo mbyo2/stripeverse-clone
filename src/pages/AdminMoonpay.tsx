@@ -92,8 +92,8 @@ const keyPresence = (present: boolean) => (
  * secret values never reach the browser), the kill-switch state,
  * the webhook URL MoonPay must be given, purchase counts, and the
  * recent purchases list from the function's list action. A small
- * USD purchase card, driven by useMoonpay, mirrors AdminStripe's
- * test-deposit card.
+ * USD purchase card, driven by useMoonpay, mirrors the other
+ * admin consoles' test-purchase cards.
  */
 const AdminMoonpay = () => {
   const { toast } = useToast();

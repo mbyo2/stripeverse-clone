@@ -178,7 +178,7 @@ import { BMaGlass } from "@bmaglass/sdk-react-native";`}</pre>
         <Card className="border-amber-500/40">
           <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5" /> Not available via the API</CardTitle></CardHeader>
           <CardContent className="text-sm">
-            MoonPay, Stripe, the Payoneer partner API and virtual-card issuing to third parties are not
+            MoonPay and virtual-card issuing to third parties are not
             live for API use. They are documented here as unavailable rather than stubbed as working —
             there are no endpoints for them and calls to invented routes return 404.
           </CardContent>

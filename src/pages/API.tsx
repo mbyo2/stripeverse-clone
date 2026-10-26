@@ -394,7 +394,7 @@ const API = () => {
                     <h3 className="font-medium mb-2">Shipped endpoints (developer-api)</h3>
                     <p className="text-sm text-muted-foreground">
                       Full contract: <a className="underline" href="/openapi.json" target="_blank" rel="noreferrer">/openapi.json</a>.
-                      Not available via the API: MoonPay, Stripe, Payoneer and third-party card issuing — those rails are not live for API use and are not stubbed.
+                      Not available via the API: MoonPay and third-party card issuing — those rails are not live for API use and are not stubbed.
                     </p>
                     <div className="space-y-2">
                       {[
