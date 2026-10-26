@@ -64,6 +64,7 @@ import {
   type Outpoint,
   type Utxo,
 } from "../_shared/btc-core.ts";
+import { dispatchPaymentLinkPaid } from "../_shared/developer-webhooks.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -337,12 +338,160 @@ async function checkDeposits(supabase: any) {
     }
   }
 
+  // ── Payment-link attempts (additive; isolated so a failure here
+  //    can never break the proven user-deposit scan above) ──
+  let linkAttempts = { checked: 0, credited: 0, settled: 0 };
+  try {
+    linkAttempts = await scanLinkAttempts(supabase, tipHeight, mediumSats, largeSats);
+  } catch (e) {
+    console.error("check_deposits: link-attempt scan failed (user scan unaffected):", e);
+    errors.push({
+      address: "(payment-link attempts)",
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   return json(200, {
     checked_addresses: assignments?.length ?? 0,
     deposits_seen: seen,
     credited,
     errors,
+    link_attempts: linkAttempts,
   });
+}
+
+/** "Pay with Bitcoin" attempts: scan each OPEN attempt's dedicated
+ *  address with the same confirmation tiers and large-deposit
+ *  cross-check as user deposits, accumulate via
+ *  btc_record_link_attempt_deposit (escrow — the merchant's
+ *  spendable balance is untouched until settlement), then settle
+ *  covered attempts through the same exactly-once settlement +
+ *  payment_link.paid dispatch the checkout function uses, and close
+ *  out expired part-paid attempts. */
+async function scanLinkAttempts(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  tipHeight: number,
+  mediumSats: number,
+  largeSats: number,
+): Promise<{ checked: number; credited: number; settled: number }> {
+  const { data: attempts, error } = await supabase
+    .from("payment_link_btc_attempts")
+    .select("*")
+    .in("status", ["waiting", "partial", "expired"])
+    .not("onchain_address", "is", null)
+    .order("created_at", { ascending: true })
+    .limit(500);
+  if (error) throw error;
+
+  let credited = 0;
+  let settled = 0;
+  for (const attempt of attempts ?? []) {
+    const address = attempt.onchain_address as string;
+    let txs;
+    try {
+      txs = await fetchAddressTxs(address);
+    } catch {
+      continue; // explorer hiccup on this address — next scan retries
+    }
+    for (const tx of txs) {
+      const vouts = tx.vout ?? [];
+      for (let voutIndex = 0; voutIndex < vouts.length; voutIndex++) {
+        const vout = vouts[voutIndex];
+        if (vout.scriptpubkey_address !== address) continue;
+        if (!vout.value || vout.value <= 0) continue;
+
+        const confirmations = tx.status?.confirmed && tx.status.block_height
+          ? tipHeight - tx.status.block_height + 1
+          : 0;
+        const requiredConfs = requiredConfirmationsFor(vout.value, mediumSats, largeSats);
+
+        if (
+          depositNeedsCrossCheck(vout.value, largeSats) &&
+          confirmations >= requiredConfs
+        ) {
+          const verdict = await crossCheckLargeDeposit(tx, voutIndex, address, vout.value);
+          if (!verdict.ok) continue; // held this round, like user deposits
+        }
+
+        const { data: result, error: rpcErr } = await supabase.rpc(
+          "btc_record_link_attempt_deposit",
+          {
+            p_attempt_id: attempt.id,
+            p_address: address,
+            p_txid: tx.txid,
+            p_vout: voutIndex,
+            p_amount_sats: vout.value,
+            p_confirmations: confirmations,
+            p_required_confs: requiredConfs,
+          },
+        );
+        if (rpcErr) {
+          console.error("link attempt deposit record failed:", rpcErr.message);
+          continue;
+        }
+        if (result === "credited") credited++;
+      }
+    }
+
+    // Reload the attempt (deposits may have moved it), then run the
+    // same lifecycle transitions the payer's status poll drives.
+    const { data: fresh } = await supabase
+      .from("payment_link_btc_attempts")
+      .select("*")
+      .eq("id", attempt.id)
+      .maybeSingle();
+    if (!fresh) continue;
+
+    if (Number(fresh.received_sats) >= Number(fresh.required_sats)) {
+      const { data: settleRows, error: settleErr } = await supabase.rpc(
+        "execute_payment_link_btc_settlement",
+        { p_attempt_id: fresh.id, p_payment_method: "bitcoin_onchain" },
+      );
+      if (settleErr) {
+        console.error("link attempt settlement failed:", settleErr.message);
+        continue;
+      }
+      const row = Array.isArray(settleRows) ? settleRows[0] : settleRows;
+      settled++;
+      if (row?.owner_transaction_id) {
+        try {
+          const { data: settledLink } = await supabase
+            .from("payment_links")
+            .select("id, link_code, title, user_id, payment_count, total_collected, metadata")
+            .eq("id", fresh.link_id)
+            .maybeSingle();
+          if (settledLink) {
+            await dispatchPaymentLinkPaid(supabase, settledLink, {
+              ownerTransactionId: row.owner_transaction_id,
+              payerTransactionId: null,
+              amount: Number(fresh.fiat_amount),
+              currency: fresh.fiat_currency,
+              paymentMethod: "bitcoin_onchain",
+              // The attempt's locked fee truth, as on the checkout
+              // function's dispatch.
+              feePayer: fresh.fee_payer,
+              feeAmount: Number(fresh.fee_fiat),
+              totalCharged: fresh.fee_payer === "buyer"
+                ? Number(fresh.fiat_amount) + Number(fresh.fee_fiat)
+                : Number(fresh.fiat_amount),
+              settledAt: new Date().toISOString(),
+            });
+          }
+        } catch (whErr) {
+          console.error("payment_link.paid dispatch failed (BTC settlement unaffected):", whErr);
+        }
+      }
+    } else if (new Date(fresh.expires_at).getTime() <= Date.now()) {
+      // Window closed: plain expiry when nothing arrived, full
+      // no-fee credit for a partial.
+      const { error: finErr } = await supabase.rpc("finalize_payment_link_btc_partial", {
+        p_attempt_id: fresh.id,
+      });
+      if (finErr) console.error("link attempt close-out failed:", finErr.message);
+    }
+  }
+  return { checked: (attempts ?? []).length, credited, settled };
 }
 
 /**

@@ -58,15 +58,18 @@ describe("developer-api contract", () => {
     expect(JSON.stringify(spec)).toContain("payment_link.paid");
   });
 
-  it("public/openapi.json is the complete served contract (12 path templates)", () => {
+  it("public/openapi.json is the complete served contract (13 path templates)", () => {
     // This replaces the old sdk-copy byte-identity pin: the second copy
     // moved to the bmaglasspay-connectors repo, so the guard now pins
     // the served copy itself — complete and self-contained.
+    // /payment-links/{id}/attempts joined with Pay-with-Bitcoin
+    // (2026-10-26): a link's Bitcoin payment attempts, read-only.
     expect(Object.keys(spec.paths).sort()).toEqual([
       "/bitcoin/balance",
       "/bitcoin/deposit-address",
       "/bitcoin/quote",
       "/payment-links",
+      "/payment-links/{id}/attempts",
       "/settings",
       "/transactions",
       "/transfers",

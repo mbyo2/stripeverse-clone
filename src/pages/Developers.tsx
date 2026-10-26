@@ -105,7 +105,22 @@ export default function Developers() {
               <code> fee_payer</code>, <code>fee_amount</code> and <code>total_charged</code> (what the buyer
               actually paid), so your shop can reconcile the paid total against the order total without
               reimplementing the fee math. Settlement always follows the link's stored value — it cannot
-              be changed at pay time.</p>
+              be changed at pay time. Bitcoin payments honour the same stored choice in sats: with
+              <code> buyer</code>, the quoted sats cover price + fee; with <code>seller</code>, the fee
+              leaves the received sats.</p>
+            <p><strong>Bitcoin QR checkout is built into the hosted pay page.</strong> Every payment
+              link's page offers <em>Pay with Bitcoin</em> — a QR code and copyable address
+              (on-chain, plus Lightning when available) that any guest can pay from their own
+              Bitcoin wallet, with no BMaGlass account. Because every shop connector (WooCommerce,
+              Odoo, PrestaShop, Magento, OpenCart), the embed button and the SDK checkouts redirect
+              the buyer to that same hosted page, <strong>they all inherit Bitcoin QR checkout with
+              zero connector code changes</strong>. Bitcoin settlements fire{' '}
+              <code>payment_link.paid</code> with <code>payment_method</code>{' '}
+              <code>bitcoin_onchain</code> or <code>bitcoin_lightning</code>, and a link's Bitcoin
+              attempts (quote, sats received, status) are readable at{' '}
+              <code>GET /payment-links/&#123;id&#125;/attempts</code>. To send buyers back to your
+              store afterwards, set <code>redirect_url</code> when creating the link — the pay page
+              then shows a <em>Return to store</em> action after a completed payment.</p>
           </CardContent>
         </Card>
 

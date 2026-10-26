@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Smartphone, Building2, Lock, CheckCircle, AlertCircle, Loader2, Receipt, Wallet } from 'lucide-react';
+import { CreditCard, Smartphone, Building2, Lock, CheckCircle, AlertCircle, Loader2, Receipt, Wallet, Bitcoin, Store } from 'lucide-react';
+import BitcoinLinkPayment from '@/components/payments/BitcoinLinkPayment';
 import { useToast } from '@/hooks/use-toast';
 import { useInvalidateMoneyState } from '@/utils/moneyFreshness';
 import {
@@ -36,6 +37,8 @@ interface PaymentLinkData {
   fee_amount?: number | null;
   buyer_total?: number | null;
   seller_receives?: number | null;
+  /** Return context for shop checkouts ("Return to store"). */
+  redirect_url: string | null;
 }
 
 const PublicCheckout = () => {
@@ -44,6 +47,8 @@ const PublicCheckout = () => {
   const invalidateMoney = useInvalidateMoneyState();
 
   const [linkData, setLinkData] = useState<PaymentLinkData | null>(null);
+  const [bitcoinAvailable, setBitcoinAvailable] = useState(false);
+  const [bitcoinSelected, setBitcoinSelected] = useState(false);
   const [settlementAccountName, setSettlementAccountName] = useState<string | null>(null);
   const [payerId, setPayerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,6 +125,7 @@ const PublicCheckout = () => {
         setError(failure);
       } else {
         setLinkData(described.link as PaymentLinkData);
+        setBitcoinAvailable(described.bitcoin_available === true);
         if (described.settlement_account_name) {
           setSettlementAccountName(described.settlement_account_name as string);
         }
@@ -270,6 +276,13 @@ const PublicCheckout = () => {
             </div>
           )}
           <p className="text-sm text-muted-foreground">A receipt has been sent to {email}</p>
+          {linkData?.redirect_url && (
+            <Button asChild className="w-full">
+              <a href={linkData.redirect_url}>
+                <Store className="mr-2 h-4 w-4" /> Return to store
+              </a>
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -284,6 +297,9 @@ const PublicCheckout = () => {
     { id: 'card' as const, icon: CreditCard, label: 'Card' },
     { id: 'mobile_money' as const, icon: Smartphone, label: 'Mobile Money' },
     { id: 'bank' as const, icon: Building2, label: 'Bank' },
+    // "Pay with Bitcoin" — guests included, no BMaGlass account
+    // needed; offered only when the platform can actually receive.
+    ...(bitcoinAvailable ? [{ id: 'bitcoin' as const, icon: Bitcoin, label: 'Bitcoin' }] : []),
   ];
 
   return (
@@ -359,28 +375,42 @@ const PublicCheckout = () => {
               </div>
             )}
 
-            <div>
-              <Label>Email Address</Label>
-              <Input type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
-            </div>
+            {!bitcoinSelected && (
+              <div>
+                <Label>Email Address</Label>
+                <Input type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+              </div>
+            )}
 
             <Separator />
 
             <div className="space-y-3">
               <Label>Payment Method</Label>
-              <div className={`grid gap-2 ${methods.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                {methods.map(m => (
-                  <button
-                    key={m.id}
-                    onClick={() => setPaymentMethod(m.id)}
-                    className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border transition-colors ${
-                      paymentMethod === m.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'
-                    }`}
-                  >
-                    <m.icon className={`h-5 w-5 ${paymentMethod === m.id ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <span className="text-xs font-medium">{m.label}</span>
-                  </button>
-                ))}
+              <div className={`grid gap-2 ${methods.length >= 5 ? 'grid-cols-5' : methods.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                {methods.map(m => {
+                  const selected = m.id === 'bitcoin'
+                    ? bitcoinSelected
+                    : !bitcoinSelected && paymentMethod === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        if (m.id === 'bitcoin') {
+                          setBitcoinSelected(true);
+                        } else {
+                          setBitcoinSelected(false);
+                          setPaymentMethod(m.id);
+                        }
+                      }}
+                      className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border transition-colors ${
+                        selected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'
+                      }`}
+                    >
+                      <m.icon className={`h-5 w-5 ${selected ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <span className="text-xs font-medium">{m.label}</span>
+                    </button>
+                  );
+                })}
               </div>
               {!payerId && (
                 <p className="text-xs text-muted-foreground">
@@ -391,7 +421,7 @@ const PublicCheckout = () => {
               )}
             </div>
 
-            {paymentMethod === 'wallet' && (
+            {!bitcoinSelected && paymentMethod === 'wallet' && (
               <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
                 {bd
                   ? <>{linkData?.currency} {bd.total.toFixed(2)} will be taken from your BMaGlass wallet balance — {linkData?.currency} {bd.price.toFixed(2)} to the seller plus the {linkData?.currency} {bd.fee.toFixed(2)} platform fee.</>
@@ -399,28 +429,45 @@ const PublicCheckout = () => {
               </div>
             )}
 
-            {paymentMethod === 'card' && (
+            {!bitcoinSelected && paymentMethod === 'card' && (
               <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
                 Pay by debit or credit card. Availability is confirmed when you click Pay — nothing is charged unless the payment completes. We never see or store your card number on this page.
               </div>
             )}
 
-            {paymentMethod === 'mobile_money' && (
+            {!bitcoinSelected && paymentMethod === 'mobile_money' && (
               <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
                 Pay by mobile money. Availability is confirmed when you click Pay — nothing is charged unless the payment completes.
               </div>
             )}
 
-            {paymentMethod === 'bank' && (
+            {!bitcoinSelected && paymentMethod === 'bank' && (
               <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
                 Pay by bank transfer. Availability is confirmed when you click Pay — nothing is charged unless the payment completes.
               </div>
             )}
 
-            <Button onClick={handlePay} disabled={processing} className="w-full h-12 text-base">
-              {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
-              {processing ? 'Processing...' : `Pay ${linkData?.currency} ${payTotal.toFixed(2)}`}
-            </Button>
+            {!bitcoinSelected && (
+              <Button onClick={handlePay} disabled={processing} className="w-full h-12 text-base">
+                {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
+                {processing ? 'Processing...' : `Pay ${linkData?.currency} ${payTotal.toFixed(2)}`}
+              </Button>
+            )}
+
+            {bitcoinSelected && (
+              linkData.amount == null && !(Number(customAmount) > 0) ? (
+                <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                  Enter the amount above first — your Bitcoin quote is locked to it for 60 minutes.
+                </div>
+              ) : (
+                <BitcoinLinkPayment
+                  linkCode={code!}
+                  amount={linkData.amount == null ? Number(customAmount) : null}
+                  currency={linkData.currency}
+                  redirectUrl={linkData.redirect_url}
+                />
+              )
+            )}
 
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
               <Lock className="h-3 w-3" />

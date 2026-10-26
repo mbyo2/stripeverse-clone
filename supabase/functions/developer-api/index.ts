@@ -257,11 +257,30 @@ serve(async (req) => {
       return json(201, { data: row, mode: "live" });
     }
 
+    // ── Payment link Bitcoin attempts (read) ──
+    // "Pay with Bitcoin" attempts created on the hosted pay page:
+    // merchants and shop connectors poll these to see a guest's
+    // Bitcoin payment progress (waiting → detected → settled /
+    // underpaid / expired). Settlements themselves are announced by
+    // the payment_link.paid webhook (payment_method
+    // bitcoin_onchain / bitcoin_lightning).
+    if (resource === "payment-links" && sub && parts[2] === "attempts" && method === "GET") {
+      const denied = requireScope(key, "payment_links:read"); if (denied) return denied;
+      const { data: linkRow } = await db.from("payment_links")
+        .select("id").eq("id", sub).eq("user_id", userId).maybeSingle();
+      if (!linkRow) return err(404, "not_found", "Payment link not found.");
+      const { data, error } = await db.from("payment_link_btc_attempts")
+        .select("id, fiat_amount, fiat_currency, fee_payer, fee_percent, fee_sats, amount_sats, required_sats, seen_sats, received_sats, status, onchain_address, lightning_invoice, expires_at, settled_at, created_at")
+        .eq("link_id", sub).order("created_at", { ascending: false }).limit(100);
+      if (error) throw error;
+      return json(200, { data, mode: modeOf(key) });
+    }
+
     // ── Payment links ──
     if (resource === "payment-links" && method === "GET") {
       const denied = requireScope(key, "payment_links:read"); if (denied) return denied;
       const { data, error } = await db.from("payment_links")
-        .select("id, title, description, amount, currency, link_code, status, fee_payer, payment_count, total_collected, expires_at, created_at")
+        .select("id, title, description, amount, currency, link_code, status, fee_payer, payment_count, total_collected, expires_at, redirect_url, created_at")
         .eq("user_id", userId).order("created_at", { ascending: false }).limit(100);
       if (error) throw error;
       const { rate } = await feeContext();
@@ -273,7 +292,7 @@ serve(async (req) => {
     if (resource === "payment-links" && method === "POST") {
       const denied = requireScope(key, "payment_links:write"); if (denied) return denied;
       const ro = requireLive(key); if (ro) return ro;
-      const { title, description, amount, currency, expires_at, fee_payer } = body;
+      const { title, description, amount, currency, expires_at, fee_payer, redirect_url } = body;
       if (!title || typeof title !== "string") return err(400, "invalid_request", "title is required.");
       if (fee_payer !== undefined && fee_payer !== "seller" && fee_payer !== "buyer") {
         return err(400, "invalid_request", "fee_payer must be 'seller' or 'buyer'.");
@@ -282,13 +301,31 @@ serve(async (req) => {
       // account default (their BMaGlass dashboard setting) > 'seller'.
       const { feePayerDefault, rate } = await feeContext();
       const resolvedFeePayer: FeePayer = fee_payer ?? feePayerDefault;
+      // Optional buyer return context: after a completed payment the
+      // hosted pay page offers "Return to store" pointing here.
+      // Connectors may pass their order-received URL; omitted = the
+      // buyer simply stays on the completion screen.
+      let redirectUrl: string | null = null;
+      if (redirect_url != null) {
+        if (typeof redirect_url !== "string" || redirect_url.length > 2048) {
+          return err(400, "invalid_request", "redirect_url must be a URL string of at most 2048 characters.");
+        }
+        try {
+          const parsed = new URL(redirect_url);
+          if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error("protocol");
+          redirectUrl = parsed.toString();
+        } catch {
+          return err(400, "invalid_request", "redirect_url must be a valid http(s) URL.");
+        }
+      }
       const { data, error } = await db.from("payment_links").insert({
         user_id: userId, title: title.slice(0, 200), description: description ?? null,
         amount: amount != null ? Number(amount) : null,
         currency: typeof currency === "string" ? currency : "ZMW",
         expires_at: expires_at ?? null,
         fee_payer: resolvedFeePayer,
-      }).select("id, title, amount, currency, link_code, status, fee_payer, created_at").single();
+        redirect_url: redirectUrl,
+      }).select("id, title, amount, currency, link_code, status, fee_payer, redirect_url, created_at").single();
       if (error) throw error;
       const out = withAmounts(data as Record<string, unknown>, rate);
       await dispatchEvent(db, userId, "payment_link.created", out).catch(() => []);

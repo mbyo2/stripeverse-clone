@@ -1,1 +1,506 @@
-{"components":{"schemas":{"Error":{"properties":{"error":{"example":"test_mode_read_only","type":"string"},"message":{"type":"string"}},"required":["error","message"],"type":"object"},"Wallet":{"properties":{"balance":{"type":"number"},"created_at":{"format":"date-time","type":"string"},"currency":{"example":"ZMW","type":"string"},"id":{"format":"uuid","type":"string"},"status":{"example":"active","type":"string"},"updated_at":{"format":"date-time","type":"string"}},"type":"object"}},"securitySchemes":{"ApiKeyAuth":{"in":"header","name":"X-Api-Key","type":"apiKey"}}},"info":{"description":"The shipped public developer API. Base URL is the developer-api edge function. Auth is an API key (bmp_live_\u2026 / bmp_test_\u2026) in the X-Api-Key header. Keys are created in the app (Business settings or the API page); only the SHA-256 hash is stored and the full key is shown once. TEST KEYS ARE READ-ONLY: this app has no test-mode ledger, so a test key can never move real money. Write attempts with a test key return 403 test_mode_read_only. Not available via the API (dark rails, documented honestly): MoonPay, Stripe, Payoneer partner API, and virtual-card issuing to third parties.","title":"BMaGlass Pay Developer API","version":"1.0.0"},"openapi":"3.0.3","paths":{"/bitcoin/balance":{"get":{"description":"Scope: bitcoin:read. Returns crypto_wallets rows (balance_sats / available_sats).","operationId":"bitcoinBalance","responses":{"200":{"description":"Bitcoin balances"}},"summary":"Custodial Bitcoin balance"}},"/bitcoin/deposit-address":{"get":{"description":"Scope: bitcoin:read. Returns the address already issued to the account in the app. The API does not derive addresses: if none exists this returns 404 no_deposit_address.","operationId":"bitcoinDepositAddress","responses":{"200":{"description":"Deposit address"},"404":{"description":"No address issued yet"}},"summary":"Custodial Bitcoin deposit address"}},"/bitcoin/quote":{"post":{"description":"Scope: bitcoin:read. Creates a price-locked quote using the same live price sources and 1.5% (150 bps) fee as the app's btc-trade function. Quote only \u2014 execution happens in the app, not via the API. Test keys may create quotes (no money moves).","operationId":"bitcoinQuote","requestBody":{"content":{"application/json":{"schema":{"properties":{"amount_sats":{"type":"number"},"amount_zmw":{"type":"number"},"side":{"enum":["buy","sell"],"type":"string"}},"type":"object"}}},"required":true},"responses":{"201":{"description":"Quote with expires_at (60s)"},"502":{"description":"Price source unavailable or diverging"}},"summary":"Bitcoin trade quote (60 seconds)"}},"/payment-links":{"get":{"description":"Lists the key owner's payment links (newest first, max 100). Each link carries its stored fee_payer plus the computed fee_amount, buyer_total and seller_receives for its price at the current platform rate (null on any-amount links).","operationId":"listPaymentLinks","responses":{"200":{"description":"Payment links"}},"summary":"List payment links"},"post":{"description":"Creates a payment link for the key's owner and fires payment_link.created. fee_payer is optional: omit it to inherit the merchant's account default (see GET /settings). The response carries the RESOLVED fee_payer plus the computed fee_amount, buyer_total and seller_receives for the link's price at the current platform rate \u2014 seller-pays at K100/2.5%: buyer_total 100.00, seller_receives 97.50; buyer-pays: buyer_total 102.50, seller_receives 100.00. The computed amounts are null on any-amount links (no fixed price).","operationId":"createPaymentLink","requestBody":{"content":{"application/json":{"schema":{"properties":{"amount":{"type":"number"},"currency":{"default":"ZMW","type":"string"},"description":{"type":"string"},"expires_at":{"format":"date-time","type":"string"},"title":{"type":"string"},"fee_payer":{"type":"string","enum":["seller","buyer"],"description":"Optional per-link override of who funds the platform fee. When omitted, the link resolves the merchant's account default (GET /settings -> fee_payer_default), which the merchant sets in their BMaGlass Pay dashboard. The resolved value is stored on the link and enforced at settlement; it cannot be changed at pay time."}},"required":["title"],"type":"object"}}},"required":true},"responses":{"201":{"description":"Payment link created (includes link_code)"},"403":{"description":"Missing scope or test key"}},"summary":"Create a payment link (live keys only)"}},"/settings":{"get":{"summary":"The merchant's account settings that connected clients inherit","description":"Returns the merchant's payment-link fee-bearer default (fee_payer_default: 'seller' \u2014 the platform fee comes out of what the seller receives; 'buyer' \u2014 the fee is added on top of the price and the seller receives the full price) and the platform's current payment-link fee rate (platform_fee_percent). The default is set by the merchant in the BMaGlass Pay dashboard (Settings > Payment) \u2014 plugins, extensions and SDKs have no fee-bearer setting of their own; they read it here and inherit it. Read-only; available to any valid API key (test keys included).","responses":{"200":{"description":"The merchant's effective fee-bearer default and the platform fee rate."}},"security":[{"ApiKeyAuth":[]}]}},"/transactions":{"get":{"description":"Scope: transactions:read. Query: limit (1-100, default 25).","operationId":"listTransactions","parameters":[{"in":"query","name":"limit","schema":{"default":25,"type":"integer"}}],"responses":{"200":{"description":"Transactions, newest first"},"401":{"description":"Invalid key"},"403":{"description":"Missing scope"}},"summary":"List recent transactions"}},"/transfers":{"post":{"description":"Scope: transfers:write. LIVE KEYS ONLY \u2014 test keys get 403 test_mode_read_only. Charges the standard 1.5% transfer fee on top via execute_transfer_with_fee, exactly like the app. Send an Idempotency-Key header to make retries safe. Emits transaction.completed to registered webhooks.","operationId":"createTransfer","parameters":[{"in":"header","name":"Idempotency-Key","schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"properties":{"amount":{"example":100,"type":"number"},"currency":{"default":"ZMW","type":"string"},"description":{"type":"string"},"recipient_name":{"type":"string"},"to_user_id":{"format":"uuid","type":"string"}},"required":["to_user_id","amount"],"type":"object"}}},"required":true},"responses":{"201":{"description":"Transfer settled"},"400":{"description":"Invalid request"},"403":{"description":"Missing scope or test key"},"422":{"description":"Transfer refused (e.g. insufficient funds)"}},"summary":"Send a wallet-to-wallet transfer (live keys only)"}},"/wallets":{"get":{"description":"Scope: wallets:read.","operationId":"listWallets","responses":{"200":{"content":{"application/json":{"schema":{"properties":{"data":{"items":{"$ref":"#/components/schemas/Wallet"},"type":"array"},"mode":{"enum":["test","live"],"type":"string"}},"type":"object"}}},"description":"Wallets with balances"},"401":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}},"description":"Invalid, revoked or expired key"},"403":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}},"description":"Missing scope"}},"summary":"List the key owner's wallets"}},"/webhook-deliveries":{"get":{"description":"Every delivery attempt: event, URL, status, HTTP response status and error.","operationId":"listWebhookDeliveries","responses":{"200":{"description":"Delivery log rows, newest first"}},"summary":"Webhook delivery log"}},"/webhooks":{"get":{"operationId":"listWebhooks","responses":{"200":{"description":"Webhook endpoints"}},"summary":"List webhook endpoints (secrets are never returned)"},"post":{"description":"HTTPS URLs only. The signing secret (whsec_\u2026) is returned exactly once in this response. Events: transaction.completed, payment_link.created, payment_link.paid, webhook.test. Allowed with test keys (no money moves). The payment_link.paid payload's data carries the link id/code/title, the amount and currency, the fee truth (fee_payer, fee_amount and total_charged \u2014 what the buyer actually paid in total, so a shop can reconcile the paid total against its order total plus the fee where it added one), the settlement transaction ids and the link's current payment_count/total_collected.","operationId":"createWebhook","requestBody":{"content":{"application/json":{"schema":{"properties":{"events":{"items":{"type":"string"},"type":"array"},"url":{"format":"uri","type":"string"}},"required":["url"],"type":"object"}}},"required":true},"responses":{"201":{"description":"Endpoint created; secret shown once"}},"summary":"Register a webhook endpoint"}},"/webhooks/{id}":{"delete":{"operationId":"deleteWebhook","parameters":[{"in":"path","name":"id","required":true,"schema":{"format":"uuid","type":"string"}}],"responses":{"200":{"description":"Deactivated"},"404":{"description":"Not found"}},"summary":"Deactivate a webhook endpoint"}},"/webhooks/{id}/test":{"post":{"operationId":"testWebhook","parameters":[{"in":"path","name":"id","required":true,"schema":{"format":"uuid","type":"string"}}],"responses":{"200":{"description":"Delivery attempt(s) with status; also written to the delivery log"}},"summary":"Send a signed webhook.test event to an endpoint"}}},"security":[{"ApiKeyAuth":[]}],"servers":[{"description":"Production","url":"https://hhxwwozpvgktuqutfkhc.supabase.co/functions/v1/developer-api"}]}
+{
+  "components": {
+    "schemas": {
+      "Error": {
+        "properties": {
+          "error": {
+            "example": "test_mode_read_only",
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "message"
+        ],
+        "type": "object"
+      },
+      "Wallet": {
+        "properties": {
+          "balance": {
+            "type": "number"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "example": "ZMW",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "example": "active",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "in": "header",
+        "name": "X-Api-Key",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "description": "The shipped public developer API. Base URL is the developer-api edge function. Auth is an API key (bmp_live_… / bmp_test_…) in the X-Api-Key header. Keys are created in the app (Business settings or the API page); only the SHA-256 hash is stored and the full key is shown once. TEST KEYS ARE READ-ONLY: this app has no test-mode ledger, so a test key can never move real money. Write attempts with a test key return 403 test_mode_read_only. Not available via the API (dark rails, documented honestly): MoonPay, Stripe, Payoneer partner API, and virtual-card issuing to third parties.",
+    "title": "BMaGlass Pay Developer API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/bitcoin/balance": {
+      "get": {
+        "description": "Scope: bitcoin:read. Returns crypto_wallets rows (balance_sats / available_sats).",
+        "operationId": "bitcoinBalance",
+        "responses": {
+          "200": {
+            "description": "Bitcoin balances"
+          }
+        },
+        "summary": "Custodial Bitcoin balance"
+      }
+    },
+    "/bitcoin/deposit-address": {
+      "get": {
+        "description": "Scope: bitcoin:read. Returns the address already issued to the account in the app. The API does not derive addresses: if none exists this returns 404 no_deposit_address.",
+        "operationId": "bitcoinDepositAddress",
+        "responses": {
+          "200": {
+            "description": "Deposit address"
+          },
+          "404": {
+            "description": "No address issued yet"
+          }
+        },
+        "summary": "Custodial Bitcoin deposit address"
+      }
+    },
+    "/bitcoin/quote": {
+      "post": {
+        "description": "Scope: bitcoin:read. Creates a price-locked quote using the same live price sources and 1.5% (150 bps) fee as the app's btc-trade function. Quote only — execution happens in the app, not via the API. Test keys may create quotes (no money moves).",
+        "operationId": "bitcoinQuote",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "amount_sats": {
+                    "type": "number"
+                  },
+                  "amount_zmw": {
+                    "type": "number"
+                  },
+                  "side": {
+                    "enum": [
+                      "buy",
+                      "sell"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Quote with expires_at (60s)"
+          },
+          "502": {
+            "description": "Price source unavailable or diverging"
+          }
+        },
+        "summary": "Bitcoin trade quote (60 seconds)"
+      }
+    },
+    "/payment-links": {
+      "get": {
+        "description": "Lists the key owner's payment links (newest first, max 100). Each link carries its stored fee_payer plus the computed fee_amount, buyer_total and seller_receives for its price at the current platform rate (null on any-amount links).",
+        "operationId": "listPaymentLinks",
+        "responses": {
+          "200": {
+            "description": "Payment links"
+          }
+        },
+        "summary": "List payment links"
+      },
+      "post": {
+        "description": "Creates a payment link for the key's owner and fires payment_link.created. fee_payer is optional: omit it to inherit the merchant's account default (see GET /settings). The response carries the RESOLVED fee_payer plus the computed fee_amount, buyer_total and seller_receives for the link's price at the current platform rate — seller-pays at K100/2.5%: buyer_total 100.00, seller_receives 97.50; buyer-pays: buyer_total 102.50, seller_receives 100.00. The computed amounts are null on any-amount links (no fixed price). The hosted pay page for every link offers Pay with Bitcoin (QR, on-chain + Lightning) to any guest — no connector code change is needed for shop checkouts to offer it. Bitcoin settlements fire payment_link.paid with payment_method bitcoin_onchain or bitcoin_lightning.",
+        "operationId": "createPaymentLink",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "amount": {
+                    "type": "number"
+                  },
+                  "currency": {
+                    "default": "ZMW",
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "expires_at": {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "fee_payer": {
+                    "type": "string",
+                    "enum": [
+                      "seller",
+                      "buyer"
+                    ],
+                    "description": "Optional per-link override of who funds the platform fee. When omitted, the link resolves the merchant's account default (GET /settings -> fee_payer_default), which the merchant sets in their BMaGlass Pay dashboard. The resolved value is stored on the link and enforced at settlement; it cannot be changed at pay time."
+                  },
+                  "redirect_url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Optional buyer return URL. After a completed payment the hosted pay page offers a Return to store action pointing here."
+                  }
+                },
+                "required": [
+                  "title"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Payment link created (includes link_code)"
+          },
+          "403": {
+            "description": "Missing scope or test key"
+          }
+        },
+        "summary": "Create a payment link (live keys only)"
+      }
+    },
+    "/settings": {
+      "get": {
+        "summary": "The merchant's account settings that connected clients inherit",
+        "description": "Returns the merchant's payment-link fee-bearer default (fee_payer_default: 'seller' — the platform fee comes out of what the seller receives; 'buyer' — the fee is added on top of the price and the seller receives the full price) and the platform's current payment-link fee rate (platform_fee_percent). The default is set by the merchant in the BMaGlass Pay dashboard (Settings > Payment) — plugins, extensions and SDKs have no fee-bearer setting of their own; they read it here and inherit it. Read-only; available to any valid API key (test keys included).",
+        "responses": {
+          "200": {
+            "description": "The merchant's effective fee-bearer default and the platform fee rate."
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/transactions": {
+      "get": {
+        "description": "Scope: transactions:read. Query: limit (1-100, default 25).",
+        "operationId": "listTransactions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transactions, newest first"
+          },
+          "401": {
+            "description": "Invalid key"
+          },
+          "403": {
+            "description": "Missing scope"
+          }
+        },
+        "summary": "List recent transactions"
+      }
+    },
+    "/transfers": {
+      "post": {
+        "description": "Scope: transfers:write. LIVE KEYS ONLY — test keys get 403 test_mode_read_only. Charges the standard 1.5% transfer fee on top via execute_transfer_with_fee, exactly like the app. Send an Idempotency-Key header to make retries safe. Emits transaction.completed to registered webhooks.",
+        "operationId": "createTransfer",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "amount": {
+                    "example": 100,
+                    "type": "number"
+                  },
+                  "currency": {
+                    "default": "ZMW",
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "recipient_name": {
+                    "type": "string"
+                  },
+                  "to_user_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "to_user_id",
+                  "amount"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Transfer settled"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "403": {
+            "description": "Missing scope or test key"
+          },
+          "422": {
+            "description": "Transfer refused (e.g. insufficient funds)"
+          }
+        },
+        "summary": "Send a wallet-to-wallet transfer (live keys only)"
+      }
+    },
+    "/wallets": {
+      "get": {
+        "description": "Scope: wallets:read.",
+        "operationId": "listWallets",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "$ref": "#/components/schemas/Wallet"
+                      },
+                      "type": "array"
+                    },
+                    "mode": {
+                      "enum": [
+                        "test",
+                        "live"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Wallets with balances"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid, revoked or expired key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing scope"
+          }
+        },
+        "summary": "List the key owner's wallets"
+      }
+    },
+    "/webhook-deliveries": {
+      "get": {
+        "description": "Every delivery attempt: event, URL, status, HTTP response status and error.",
+        "operationId": "listWebhookDeliveries",
+        "responses": {
+          "200": {
+            "description": "Delivery log rows, newest first"
+          }
+        },
+        "summary": "Webhook delivery log"
+      }
+    },
+    "/webhooks": {
+      "get": {
+        "operationId": "listWebhooks",
+        "responses": {
+          "200": {
+            "description": "Webhook endpoints"
+          }
+        },
+        "summary": "List webhook endpoints (secrets are never returned)"
+      },
+      "post": {
+        "description": "HTTPS URLs only. The signing secret (whsec_…) is returned exactly once in this response. Events: transaction.completed, payment_link.created, payment_link.paid, webhook.test. Allowed with test keys (no money moves). The payment_link.paid payload's data carries the link id/code/title, the amount and currency, the fee truth (fee_payer, fee_amount and total_charged — what the buyer actually paid in total, so a shop can reconcile the paid total against its order total plus the fee where it added one), the settlement transaction ids and the link's current payment_count/total_collected.",
+        "operationId": "createWebhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "events": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "url": {
+                    "format": "uri",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "url"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Endpoint created; secret shown once"
+          }
+        },
+        "summary": "Register a webhook endpoint"
+      }
+    },
+    "/webhooks/{id}": {
+      "delete": {
+        "operationId": "deleteWebhook",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deactivated"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "summary": "Deactivate a webhook endpoint"
+      }
+    },
+    "/webhooks/{id}/test": {
+      "post": {
+        "operationId": "testWebhook",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delivery attempt(s) with status; also written to the delivery log"
+          }
+        },
+        "summary": "Send a signed webhook.test event to an endpoint"
+      }
+    },
+    "/payment-links/{id}/attempts": {
+      "get": {
+        "summary": "List a payment link's Bitcoin payment attempts",
+        "operationId": "listPaymentLinkBtcAttempts",
+        "description": "Scope: payment_links:read. Pay-with-Bitcoin attempts created on the hosted pay page for this link: locked quote (amount_sats, fee_sats, required_sats), received/seen sats, status (waiting, partial, settled, expired, partial_credited, failed), the per-attempt on-chain address and Lightning invoice, and expiry. Settlements are announced by the payment_link.paid webhook.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bitcoin payment attempts for the link"
+          },
+          "404": {
+            "description": "Payment link not found"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production",
+      "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/functions/v1/developer-api"
+    }
+  ]
+}

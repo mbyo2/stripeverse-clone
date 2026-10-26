@@ -56,6 +56,18 @@
 // _shared/fee-math.ts, the same rule the RPC charges) so the pay
 // page can show a buyer the full breakdown BEFORE they pay:
 // price + fee = total when the buyer bears the fee.
+//   { action: "btc_create_attempt", link_code, amount? }
+//       → "Pay with Bitcoin" for guests: creates a payment attempt
+//         with a locked quote, a fresh per-attempt on-chain address
+//         and (when the Lightning provider is configured) a Lightning
+//         invoice for the required sats. No account needed — the
+//         payer pays from whatever Bitcoin wallet they already use.
+//         The attempt snapshots the link's stored fee_payer; the
+//         sat-level fee math lives in _shared/link-btc.ts.
+//   { action: "btc_status", link_code, attempt_id }
+//       → the payer-facing attempt state; polling it drives the lazy
+//         transitions (Lightning receipt check, settlement at full
+//         coverage + payment_link.paid dispatch, expiry close-out).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -67,6 +79,29 @@ import {
   isAccountFrozen,
 } from "../_shared/account-freeze.ts";
 import { validateFiatAmount } from "../_shared/fiat-amount.ts";
+import {
+  LINK_BTC_ATTEMPT_WINDOW_MINUTES,
+  linkBtcDisplayState,
+  quoteLinkBtc,
+  type LinkBtcDisplayState,
+} from "../_shared/link-btc.ts";
+import {
+  fetchBtcUsdPrices,
+  fetchSnapshotQuoteRates,
+  fetchUsdZmwFallback,
+  PRICE_DIVERGENCE_LIMIT,
+  type QuoteRates,
+} from "../_shared/price-index.ts";
+import {
+  decodeBolt11Msat,
+  deriveAddress,
+  receiveStatus,
+} from "../_shared/btc-core.ts";
+import {
+  lightningProviderConfigured,
+  providerCreateInvoice,
+  providerGetInvoice,
+} from "../_shared/lightning-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,7 +138,7 @@ serve(async (req) => {
 
     const { data: link, error: linkError } = await admin
       .from("payment_links")
-      .select("id, user_id, title, description, amount, currency, status, account_id, fee_payer, expires_at, max_payments, payment_count")
+      .select("id, user_id, title, description, amount, currency, status, account_id, fee_payer, expires_at, max_payments, payment_count, redirect_url")
       .eq("link_code", linkCode)
       .maybeSingle();
 
@@ -142,6 +177,11 @@ serve(async (req) => {
       return json({
         success: true,
         settlement_account_name: settlementAccountName,
+        // "Pay with Bitcoin" availability, so the page can offer the
+        // method honestly: on-chain needs only the account zpub
+        // (watch-only); Lightning additionally needs its provider.
+        bitcoin_available: receiveStatus(Deno.env.get("BTC_XPUB")).configured,
+        lightning_available: lightningProviderConfigured(),
         link: {
           id: link.id,
           title: link.title,
@@ -156,8 +196,20 @@ serve(async (req) => {
           fee_amount: fixed?.fee_amount ?? null,
           buyer_total: fixed?.buyer_total ?? null,
           seller_receives: fixed?.seller_receives ?? null,
+          // Return context for shop checkouts: when the link carries
+          // a return URL, the page offers "Return to store" after a
+          // completed payment (wallet and Bitcoin alike).
+          redirect_url: link.redirect_url ?? null,
         },
       });
+    }
+
+    // ── Pay with Bitcoin (guest, any external wallet) ──
+    if (body.action === "btc_create_attempt") {
+      return await btcCreateAttempt(admin, link, body);
+    }
+    if (body.action === "btc_status") {
+      return await btcStatus(admin, link, body);
     }
 
     // ── pay ──
@@ -273,3 +325,321 @@ serve(async (req) => {
     return json({ success: false, status: "error", error: message }, 400);
   }
 });
+
+// ── Pay with Bitcoin ──────────────────────────────────────────────────
+//
+// An attempt is created per payer visit: a locked quote (rate from the
+// platform price index — snapshot first, live cross-check fallback),
+// a FRESH on-chain address derived for this attempt alone, and a
+// Lightning invoice when the provider is configured. Incoming sats
+// are matched by the deposit-detection cron (on-chain, via
+// btc_record_link_attempt_deposit) and by status polls (Lightning,
+// via providerGetInvoice); settlement runs through
+// execute_payment_link_btc_settlement and dispatches
+// payment_link.paid through the same claim machinery as wallet
+// settlements.
+
+// deno-lint-ignore no-explicit-any
+type Admin = any;
+
+const BTC_NOT_CONFIGURED =
+  "Bitcoin payment is not available for this link right now. Please choose another payment method.";
+const BTC_PRICE_UNAVAILABLE =
+  "Bitcoin pricing is unavailable right now. Please try again in a few minutes.";
+const BTC_LINK_CURRENCY_UNSUPPORTED =
+  "Bitcoin payment is available for links priced in ZMW or USD.";
+
+/** The link's fee bearer, snapshotted onto the attempt at creation.
+ *  payment_links.fee_payer is the RESOLVED choice (per-link >
+ *  merchant account default in bmaglasspay.online > platform
+ *  'seller', resolved when the link was created by the fee-bearer
+ *  feature) — the attempt honours it exactly: buyer → the quote
+ *  carries the fee on top; seller → the fee leaves the proceeds. */
+
+/** Locked rates for a quote: the fresh on-platform snapshot first
+ *  (the same source the rest of the platform prices from), else a
+ *  live Coinbase/Kraken cross-check that refuses on divergence —
+ *  a rate is never invented. */
+async function resolveRates(admin: Admin): Promise<QuoteRates> {
+  const snapshot = await fetchSnapshotQuoteRates(admin);
+  if (snapshot) return snapshot;
+  const { coinbaseUsd, krakenUsd } = await fetchBtcUsdPrices();
+  if (Math.abs(coinbaseUsd - krakenUsd) / coinbaseUsd > PRICE_DIVERGENCE_LIMIT) {
+    throw new Error("Bitcoin price sources diverge — refusing to quote");
+  }
+  let usdZmw: number | null = null;
+  try {
+    const { data: rateRow } = await admin.from("exchange_rates").select("rate")
+      .eq("from_currency", "USD").eq("to_currency", "ZMW")
+      .gt("valid_until", new Date().toISOString())
+      .order("valid_from", { ascending: false }).limit(1).maybeSingle();
+    usdZmw = Number(rateRow?.rate) || null;
+  } catch { /* fall through to the public fallback */ }
+  if (!usdZmw) usdZmw = await fetchUsdZmwFallback();
+  return { btcUsd: coinbaseUsd, usdZmw };
+}
+
+async function btcCreateAttempt(admin: Admin, link: Admin, body: Admin) {
+  const receive = receiveStatus(Deno.env.get("BTC_XPUB"));
+  if (!receive.configured) {
+    return json({ success: false, status: "not_configured", error: BTC_NOT_CONFIGURED }, 503);
+  }
+  const currency = String(link.currency || "").toUpperCase();
+  if (currency !== "ZMW" && currency !== "USD") {
+    return json({ success: false, status: "invalid", error: BTC_LINK_CURRENCY_UNSUPPORTED }, 400);
+  }
+  if (link.expires_at && new Date(link.expires_at).getTime() <= Date.now()) {
+    return json({ success: false, status: "invalid", error: "This payment link has expired." }, 400);
+  }
+  if (link.max_payments != null && Number(link.payment_count ?? 0) >= Number(link.max_payments)) {
+    return json({ success: false, status: "invalid", error: "This payment link has already been paid." }, 400);
+  }
+
+  const amtCheck = validateFiatAmount(link.amount != null ? link.amount : body.amount);
+  if (!amtCheck.ok) {
+    return json({ success: false, status: "invalid", error: amtCheck.error }, 400);
+  }
+  const fiatAmount = amtCheck.amount;
+
+  // Platform fee percent (same setting the fiat settlement reads).
+  let feePercent = 2.5;
+  try {
+    const { data: settings } = await admin
+      .from("platform_settings").select("split_platform_fee_percent").limit(1).maybeSingle();
+    const configured = Number(settings?.split_platform_fee_percent);
+    if (Number.isFinite(configured) && configured >= 0) feePercent = configured;
+  } catch { /* default stands */ }
+
+  let rates: QuoteRates;
+  try {
+    rates = await resolveRates(admin);
+  } catch (e) {
+    console.error("btc_create_attempt: pricing unavailable:", e);
+    return json({ success: false, status: "unavailable", error: BTC_PRICE_UNAVAILABLE }, 503);
+  }
+  const rateFiatPerBtc = currency === "ZMW"
+    ? Math.round(rates.btcUsd * rates.usdZmw * 100) / 100
+    : Math.round(rates.btcUsd * 100) / 100;
+
+  const feePayer: "seller" | "buyer" = link.fee_payer === "buyer" ? "buyer" : "seller";
+  const quote = quoteLinkBtc({ fiatAmount, rateFiatPerBtc, feePercent, feePayer });
+  const expiresAt = new Date(Date.now() + LINK_BTC_ATTEMPT_WINDOW_MINUTES * 60_000);
+
+  const { data: attempt, error: insErr } = await admin
+    .from("payment_link_btc_attempts")
+    .insert({
+      link_id: link.id,
+      merchant_user_id: link.user_id,
+      fiat_amount: fiatAmount,
+      fiat_currency: currency,
+      fee_payer: feePayer,
+      fee_percent: feePercent,
+      fee_fiat: quote.feeFiat,
+      rate_fiat_per_btc: rateFiatPerBtc,
+      amount_sats: quote.amountSats,
+      fee_sats: quote.feeSats,
+      required_sats: quote.requiredSats,
+      expires_at: expiresAt.toISOString(),
+    })
+    .select("*")
+    .single();
+  if (insErr) throw insErr;
+
+  // Fresh on-chain address for THIS attempt (same sequence as user
+  // deposit addresses — indices can never collide across the two).
+  let address: string | null = null;
+  for (let i = 0; i < 8 && !address; i++) {
+    const { data: idx, error: seqErr } = await admin.rpc("btc_next_derivation_index");
+    if (seqErr) throw seqErr;
+    const index = Number(idx);
+    const derived = deriveAddress(receive.accountPub, 0, index);
+    const { error: addrErr } = await admin
+      .from("btc_link_attempt_addresses")
+      .insert({ attempt_id: attempt.id, derivation_index: index, address: derived });
+    if (!addrErr) {
+      address = derived;
+      await admin.from("payment_link_btc_attempts")
+        .update({ onchain_address: derived, derivation_index: index })
+        .eq("id", attempt.id);
+    } else if (addrErr.code !== "23505") {
+      throw addrErr;
+    }
+  }
+  if (!address) throw new Error("Could not allocate a Bitcoin address for this payment");
+
+  // Lightning leg: best-effort. An unconfigured or unreachable
+  // provider never blocks the on-chain leg — the page shows the
+  // honest unavailable note for Lightning instead.
+  let bolt11: string | null = null;
+  if (lightningProviderConfigured()) {
+    try {
+      const invoice = await providerCreateInvoice(
+        quote.requiredSats,
+        `Payment link: ${link.title}`,
+      );
+      const msat = decodeBolt11Msat(invoice.bolt11);
+      if (msat !== null && msat === BigInt(quote.requiredSats) * 1000n) {
+        bolt11 = invoice.bolt11;
+        await admin.from("payment_link_btc_attempts")
+          .update({
+            lightning_invoice: invoice.bolt11,
+            lightning_provider_id: invoice.providerId,
+            lightning_payment_hash: invoice.paymentHash,
+          })
+          .eq("id", attempt.id);
+      } else {
+        console.error("btc_create_attempt: provider invoice amount mismatch — Lightning leg skipped");
+      }
+    } catch (e) {
+      console.error("btc_create_attempt: Lightning invoice failed — on-chain only:", e);
+    }
+  }
+
+  return json({
+    success: true,
+    attempt: attemptView({ ...attempt, onchain_address: address, lightning_invoice: bolt11 }),
+  });
+}
+
+/** The payer-facing attempt payload (status endpoint + creation). */
+function attemptView(attempt: Admin) {
+  const expiresAt = attempt.expires_at as string;
+  const state: LinkBtcDisplayState = linkBtcDisplayState({
+    status: attempt.status,
+    seenSats: Number(attempt.seen_sats ?? 0),
+    receivedSats: Number(attempt.received_sats ?? 0),
+    requiredSats: Number(attempt.required_sats ?? 0),
+    expiresAt,
+  });
+  return {
+    id: attempt.id,
+    state,
+    status: attempt.status,
+    fiat_amount: Number(attempt.fiat_amount),
+    fiat_currency: attempt.fiat_currency,
+    fee_payer: attempt.fee_payer,
+    amount_sats: Number(attempt.amount_sats),
+    fee_sats: Number(attempt.fee_sats),
+    required_sats: Number(attempt.required_sats),
+    seen_sats: Number(attempt.seen_sats ?? 0),
+    received_sats: Number(attempt.received_sats ?? 0),
+    remaining_sats: Math.max(0, Number(attempt.required_sats) - Number(attempt.received_sats ?? 0)),
+    rate_fiat_per_btc: Number(attempt.rate_fiat_per_btc),
+    onchain_address: attempt.onchain_address ?? null,
+    lightning_invoice: attempt.lightning_invoice ?? null,
+    expires_at: expiresAt,
+    settled_at: attempt.settled_at ?? null,
+    failure_reason: attempt.failure_reason ?? null,
+  };
+}
+
+async function loadAttempt(admin: Admin, attemptId: string) {
+  const { data } = await admin
+    .from("payment_link_btc_attempts")
+    .select("*")
+    .eq("id", attemptId)
+    .maybeSingle();
+  return data;
+}
+
+/** Settle a fully-covered attempt + dispatch payment_link.paid.
+ *  Shared by the status endpoint and returns the fresh attempt row.
+ *  The settlement RPC and the dispatch claim are both idempotent —
+ *  racing callers (page poll vs detection cron) cannot double-pay
+ *  or double-dispatch. */
+async function settleAttemptIfCovered(admin: Admin, attempt: Admin) {
+  if (attempt.status === "settled" || attempt.status === "partial_credited" || attempt.status === "failed") {
+    return attempt;
+  }
+  if (Number(attempt.received_sats) < Number(attempt.required_sats)) return attempt;
+
+  const chainCredited = Number(attempt.received_sats) - Number(attempt.lightning_received_sats ?? 0);
+  const method = Number(attempt.lightning_received_sats ?? 0) > 0 && chainCredited < Number(attempt.required_sats)
+    ? "bitcoin_lightning"
+    : "bitcoin_onchain";
+
+  const { data, error } = await admin.rpc("execute_payment_link_btc_settlement", {
+    p_attempt_id: attempt.id,
+    p_payment_method: method,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+
+  if (row?.owner_transaction_id) {
+    try {
+      const { data: settledLink } = await admin
+        .from("payment_links")
+        .select("id, link_code, title, user_id, payment_count, total_collected, metadata")
+        .eq("id", attempt.link_id)
+        .maybeSingle();
+      if (settledLink) {
+        await dispatchPaymentLinkPaid(admin, settledLink, {
+          ownerTransactionId: row.owner_transaction_id,
+          payerTransactionId: null,
+          amount: Number(attempt.fiat_amount),
+          currency: attempt.fiat_currency,
+          paymentMethod: method,
+          // The attempt's locked fee truth (snapshotted at creation
+          // from the link's stored fee_payer): the fiat fee, and what
+          // the buyer actually paid in fiat terms at the locked
+          // quote — price alone (seller bore the fee) or price + fee
+          // (buyer bore it, in sats).
+          feePayer: attempt.fee_payer,
+          feeAmount: Number(attempt.fee_fiat),
+          totalCharged: attempt.fee_payer === "buyer"
+            ? Number(attempt.fiat_amount) + Number(attempt.fee_fiat)
+            : Number(attempt.fiat_amount),
+          settledAt: new Date().toISOString(),
+        });
+      }
+    } catch (whErr) {
+      console.error("payment_link.paid dispatch failed (BTC settlement unaffected):", whErr);
+    }
+  }
+  return (await loadAttempt(admin, attempt.id)) ?? attempt;
+}
+
+async function btcStatus(admin: Admin, link: Admin, body: Admin) {
+  const attemptId = typeof body.attempt_id === "string" ? body.attempt_id : "";
+  if (!attemptId) {
+    return json({ success: false, status: "invalid", error: "attempt_id is required" }, 400);
+  }
+  let attempt = await loadAttempt(admin, attemptId);
+  if (!attempt || attempt.link_id !== link.id) {
+    return json({ success: false, status: "not_found", error: "Payment attempt not found" }, 404);
+  }
+
+  const open = attempt.status !== "settled" && attempt.status !== "partial_credited" && attempt.status !== "failed";
+
+  // Lightning receipt check (only while the leg is unpaid).
+  if (open && attempt.lightning_provider_id && Number(attempt.lightning_received_sats ?? 0) === 0) {
+    try {
+      const { state } = await providerGetInvoice(attempt.lightning_provider_id);
+      if (state === "paid") {
+        await admin.rpc("btc_record_link_attempt_lightning", { p_attempt_id: attempt.id });
+        attempt = (await loadAttempt(admin, attempt.id)) ?? attempt;
+      }
+    } catch (e) {
+      console.error("btc_status: Lightning status check failed:", e);
+    }
+  }
+
+  // Settlement at full coverage (either leg).
+  attempt = await settleAttemptIfCovered(admin, attempt);
+
+  // Expiry close-out (plain expiry / partial credit) once the
+  // window has closed and settlement did not apply.
+  if (
+    attempt.status !== "settled" && attempt.status !== "partial_credited" && attempt.status !== "failed" &&
+    new Date(attempt.expires_at).getTime() <= Date.now()
+  ) {
+    try {
+      await admin.rpc("finalize_payment_link_btc_partial", { p_attempt_id: attempt.id });
+      attempt = (await loadAttempt(admin, attempt.id)) ?? attempt;
+    } catch (e) {
+      console.error("btc_status: close-out failed:", e);
+    }
+  }
+
+  return json({ success: true, attempt: attemptView(attempt) });
+}
