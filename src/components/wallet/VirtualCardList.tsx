@@ -43,7 +43,7 @@ const VirtualCardList = ({ virtualCards, onCreateCard }: VirtualCardListProps) =
           </div>
           <h3 className="text-xl font-medium mb-2">No Virtual Cards</h3>
           <p className="text-muted-foreground mb-4">
-            Create a virtual card to make online payments or subscriptions safely.
+            Create a virtual card to set money aside in a separate balance inside your wallet.
           </p>
           <Button onClick={onCreateCard}>
             <PlusCircle className="mr-2 h-4 w-4" /> Create Your First Card
@@ -79,8 +79,8 @@ const VirtualCardList = ({ virtualCards, onCreateCard }: VirtualCardListProps) =
                 </span>
               </div>
               <div>
-                <span className="text-muted-foreground">Provider: </span>
-                <span className="font-medium">{card.provider}</span>
+                <span className="text-muted-foreground">Card: </span>
+                <span className="font-medium">BMaGlass Virtual Card</span>
               </div>
             </div>
             <div className="flex space-x-2">

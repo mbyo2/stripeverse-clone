@@ -18,6 +18,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { useRoles } from "@/contexts/RoleContext";
 import VirtualCardsComingSoon from "@/components/VirtualCardsComingSoon";
 import { supabase } from "@/integrations/supabase/client";
+import { cardFundingFee, cardFundingTotal } from "@/utils/cardFunding";
 
 const VirtualCardNew = () => {
   const navigate = useNavigate();
@@ -29,7 +30,12 @@ const VirtualCardNew = () => {
   const [formData, setFormData] = useState({
     cardName: "",
     initialFunding: 100,
-    cardProvider: "visa",
+    // Internal wallet cards are issued by BMaGlass itself — the
+    // provider value must say so. It used to default to a card
+    // network's brand, which the card page then rendered as the
+    // product name, mislabelling an internal wallet card as a
+    // network card.
+    cardProvider: "bmaglass",
     cardType: "debit",
   });
   // Creation reveal: the full card number, CVV and expiry arrive
@@ -205,7 +211,7 @@ const VirtualCardNew = () => {
           <h1 className="text-3xl font-bold">Create Virtual Card</h1>
           <p className="text-muted-foreground mt-2">
             A BMaGlass virtual card holds a separate balance inside your wallet so you can set money aside for a purpose.
-            It is not issued by Visa, Mastercard, or any card network, and it can't be used for online purchases or subscriptions outside BMaGlass Pay.
+            It is not issued by any card network or bank, and it can't be used for online purchases or subscriptions outside BMaGlass Pay.
           </p>
         </div>
         
@@ -346,7 +352,27 @@ const VirtualCardNew = () => {
                   <p className="text-sm text-muted-foreground">
                     This amount will be deducted from your wallet balance
                     {wallet ? ` (${formatCurrency(wallet.balance)} available)` : ""}.
+                    Leave it at 0 to create the card now and fund it later — no fee is charged when funding is 0.
                   </p>
+                  {/* Fee breakdown BEFORE creating — shown whenever
+                      an initial funding amount is entered, in the
+                      same style as the Fund page and Send Money. */}
+                  {formData.initialFunding > 0 && (
+                    <div className="p-4 bg-secondary/10 rounded-md">
+                      <div className="flex justify-between mb-2">
+                        <span className="text-muted-foreground">Funding amount</span>
+                        <span>{formatCurrency(formData.initialFunding)}</span>
+                      </div>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-muted-foreground">Fee (1%, minimum K2)</span>
+                        <span>{formatCurrency(cardFundingFee(formData.initialFunding))}</span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t font-medium">
+                        <span>Total from wallet</span>
+                        <span>{formatCurrency(cardFundingTotal(formData.initialFunding))}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -354,7 +380,7 @@ const VirtualCardNew = () => {
                     <Label>Card</Label>
                     <div className="p-3 bg-muted rounded-lg">
                       <p className="font-medium text-sm">BMaGlass Virtual Card</p>
-                      <p className="text-xs text-muted-foreground mt-1">Internal wallet card — not a Visa, Mastercard, or bank card</p>
+                      <p className="text-xs text-muted-foreground mt-1">Internal wallet card — not a card-network or bank card</p>
                     </div>
                   </div>
                   
@@ -376,7 +402,7 @@ const VirtualCardNew = () => {
                 </div>
                 
                 <div className="mt-6 flex flex-col space-y-2">
-                  <Button type="submit" disabled={loading || !formData.cardName || formData.initialFunding <= 0}>
+                  <Button type="submit" disabled={loading || !formData.cardName}>
                     {loading ? "Creating..." : "Create Virtual Card"}
                   </Button>
                   <Button type="button" variant="outline" onClick={() => navigate("/wallet")}>
@@ -425,6 +451,10 @@ const VirtualCardNew = () => {
                   <li className="flex justify-between">
                     <span>Card Creation</span>
                     <span className="font-medium">Free</span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span>Funding a Card</span>
+                    <span className="font-medium">1% (minimum K2)</span>
                   </li>
                 </ul>
               </div>

@@ -37,6 +37,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRoles } from "@/contexts/RoleContext";
 import { formatCardExpiry } from "@/utils/cardDisplay";
+import { cardFundingFee, cardFundingTotal, cardHistoryLabel } from "@/utils/cardFunding";
+import { applyCardLimitsToCache } from "@/utils/cardCache";
 import VirtualCardsComingSoon from "@/components/VirtualCardsComingSoon";
 // In a real app, this would fetch from API
 const fetchVirtualCard = async (cardId: string) => {
@@ -100,7 +102,10 @@ const fetchVirtualCard = async (cardId: string) => {
       id: tx.id,
       type: tx.category === 'card_funding' ? 'funding' : 'payment',
       amount: Number(tx.amount ?? 0),
-      description: tx.reference || tx.description || tx.category,
+      // Funding rows are titled "Card funding" — the old mapping
+      // preferred tx.reference, so every funding row was titled
+      // with the raw ledger reference ("FUND-<uuid>-<ts>").
+      description: cardHistoryLabel(tx),
       date: tx.created_at,
       status: tx.status,
     })),
@@ -240,7 +245,12 @@ const VirtualCardDetails = () => {
       if (!data?.success) throw new Error(data?.error || 'Failed to update limits');
       return true;
     },
-    onSuccess: () => {
+    onSuccess: (_data, limits) => {
+      // Write the saved limits into the cache FIRST so the settings
+      // display renders them immediately; invalidation alone left
+      // the old values on screen until the background refetch (or a
+      // full reload) landed. Invalidation still runs to reconcile.
+      if (id) applyCardLimitsToCache(queryClient, id, limits);
       queryClient.invalidateQueries({ queryKey: ['virtualCard', id] });
       toast({
         title: "Card Limits Updated",
@@ -449,7 +459,7 @@ const VirtualCardDetails = () => {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
           <div>
             <h1 className="text-3xl font-bold">{card.name}</h1>
-            <p className="text-muted-foreground">{card.provider.charAt(0).toUpperCase() + card.provider.slice(1)} Virtual Card</p>
+            <p className="text-muted-foreground">BMaGlass Virtual Card</p>
           </div>
           <div className="flex space-x-2">
             <Button 
@@ -512,7 +522,7 @@ const VirtualCardDetails = () => {
           </CardContent>
         </Card>
         <p className="text-xs text-muted-foreground -mt-4 mb-2">
-          This is an internal BMaGlass wallet card. It isn't a Visa, Mastercard, or bank card and can't be used on card networks or for purchases outside BMaGlass Pay.
+          This is an internal BMaGlass wallet card. It isn't a card-network or bank card and can't be used on card networks or for purchases outside BMaGlass Pay.
         </p>
         {card.hasVaultedDetails ? (
           <div className="flex items-center gap-3 mb-6">
@@ -598,6 +608,29 @@ const VirtualCardDetails = () => {
                 )}
               </Button>
             </div>
+            {/* Fee breakdown BEFORE confirming — the funding fee
+                (1%, minimum K2) used to be charged without ever
+                being shown on this flow. Same breakdown style as
+                the Fund page and Send Money. */}
+            {(() => {
+              const amt = parseFloat(fundAmount) || 0;
+              return (
+                <div className="p-4 bg-secondary/10 rounded-md mt-4">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-muted-foreground">Amount</span>
+                    <span>{formatCurrency(amt)}</span>
+                  </div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-muted-foreground">Fee (1%, minimum K2)</span>
+                    <span>{formatCurrency(cardFundingFee(amt))}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t font-medium">
+                    <span>Total from wallet</span>
+                    <span>{formatCurrency(cardFundingTotal(amt))}</span>
+                  </div>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
         

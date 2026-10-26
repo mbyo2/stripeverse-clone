@@ -24,7 +24,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
   const [newCardData, setNewCardData] = useState({
     name: '',
     initialBalance: 100,
-    provider: 'visa',
+    provider: 'bmaglass',
     cardType: 'debit'
   });
   const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
@@ -39,7 +39,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
     setNewCardData({
       name: '',
       initialBalance: 100,
-      provider: 'mastercard', // Changed to mastercard only
+      provider: 'bmaglass',
       cardType: 'debit'
     });
   };
@@ -116,7 +116,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                           <span className="font-medium">BMaGlass Virtual Card</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Internal wallet card — not a Visa, Mastercard, or bank card
+                          Internal wallet card — not a card-network or bank card
                         </p>
                       </div>
                     </div>

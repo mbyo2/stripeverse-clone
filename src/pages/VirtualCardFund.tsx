@@ -16,6 +16,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { useRoles } from "@/contexts/RoleContext";
 import VirtualCardsComingSoon from "@/components/VirtualCardsComingSoon";
 import { supabase } from "@/integrations/supabase/client";
+import { cardFundingFee, cardFundingTotal } from "@/utils/cardFunding";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const VirtualCardFund = () => {
@@ -58,10 +59,12 @@ const VirtualCardFund = () => {
     }
   };
 
-  // Memoize calculated values
+  // Memoize calculated values — the shared funding maths, so the
+  // breakdown shown here can never drift from the fee the
+  // fund-virtual-card function actually charges.
   const parsedAmount = useMemo(() => parseFloat(amount) || 0, [amount]);
-  const fee = useMemo(() => Math.max(parsedAmount * 0.01, 2), [parsedAmount]);
-  const total = useMemo(() => parsedAmount + fee, [parsedAmount, fee]);
+  const fee = useMemo(() => cardFundingFee(parsedAmount), [parsedAmount]);
+  const total = useMemo(() => cardFundingTotal(parsedAmount), [parsedAmount]);
 
   const handleFundCard = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,7 +209,7 @@ const VirtualCardFund = () => {
                     <div>
                       <h3 className="font-medium">{card.name}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {card.provider} • {card.masked_number}
+                        BMaGlass Virtual Card • {card.masked_number}
                       </p>
                     </div>
                   </div>

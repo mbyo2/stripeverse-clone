@@ -444,7 +444,12 @@ serve(async (req) => {
       throw new Error("Invalid card name");
     }
     
-    if (!['visa', 'mastercard', 'amex'].includes(schema.provider)) {
+    // 'bmaglass' is the internal issuance provider: platform-generated
+    // wallet cards, not issuer/network-backed (the UI presents them
+    // as "BMaGlass Virtual Card"). The network values stay accepted
+    // for the provider-issuance path above (Mastercard Processing,
+    // gated on MASTERCARD_ENV) and for legacy clients.
+    if (!['bmaglass', 'visa', 'mastercard', 'amex'].includes(schema.provider)) {
       throw new Error("Invalid provider");
     }
     

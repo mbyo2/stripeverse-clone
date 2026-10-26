@@ -35,8 +35,8 @@ const Faq = () => {
       title: "Payments & Cards",
       faqs: [
         { question: "Which payment methods are supported?", answer: "Visa, Mastercard, Mobile Money (MTN, Airtel, Zamtel), USSD, bank transfers, and Bitcoin." },
-        { question: "Are international payments supported?", answer: "Yes, through virtual cards and Bitcoin. Some international transfers ask for identity verification — if one does, we'll ask at the time and explain why." },
-        { question: "How do virtual cards work?", answer: "Create a virtual card from your Wallet, load funds, and use it for online purchases anywhere Visa/Mastercard is accepted. Cards can be frozen or cancelled instantly." },
+        { question: "Are international payments supported?", answer: "Yes, through Bitcoin. Some international transfers ask for identity verification — if one does, we'll ask at the time and explain why." },
+        { question: "How do virtual cards work?", answer: "Create a BMaGlass virtual card from your Wallet and load funds to keep a separate balance inside BMaGlass Pay, like a named pocket for a purpose. Virtual cards aren't card-network cards, so they can't be used for purchases outside BMaGlass Pay. Cards can be frozen or cancelled instantly." },
         { question: "What happens if a payment fails?", answer: "You'll receive an instant notification with the failure reason. Retry or choose a different payment method. Failed transactions are never charged." },
       ]
     },
