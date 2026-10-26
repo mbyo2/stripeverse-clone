@@ -38,8 +38,9 @@ export function TestingGuide() {
           transaction list afterwards. Live writes move real money.
         </p>
         <p>
-          <strong>Run the SDK contract tests</strong> before integrating: <code>sdk/tests/</code> covers
-          both SDKs (request shapes, typed errors, and a known-answer webhook signature vector).
+          <strong>Run the SDK contract tests</strong> before integrating: <code>sdk/tests/</code> in the
+          public connectors repository (<code>github.com/mbyo2/bmaglasspay-connectors</code>) covers
+          the SDKs (request shapes, typed errors, and a known-answer webhook signature vector).
         </p>
       </CardContent>
     </Card>

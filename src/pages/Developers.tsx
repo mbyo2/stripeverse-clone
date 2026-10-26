@@ -98,8 +98,9 @@ export default function Developers() {
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" /> SDKs</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <p>Typed clients live in this project's repository under <code>sdk/</code> (they are not yet
-              published to npm, PyPI, Packagist or pub.dev — install from the repo): TypeScript/JavaScript,
+            <p>Typed clients live in the public BMaGlass Pay connectors repository —
+              <code>github.com/mbyo2/bmaglasspay-connectors</code> — under <code>sdk/</code> (they are not yet
+              published to npm, PyPI, Packagist or pub.dev — install from that repo): TypeScript/JavaScript,
               Python, PHP and React Native:</p>
             <pre className="bg-muted p-4 rounded-lg overflow-x-auto">{`# TypeScript / JavaScript — sdk/typescript (@bmaglass/sdk)
 import { BMaGlass } from "@bmaglass/sdk";
@@ -125,7 +126,8 @@ import { BMaGlass } from "@bmaglass/sdk-react-native";`}</pre>
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><Store className="h-5 w-5" /> Connectors &amp; integrations</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <p>Ready-made integrations live in the repository under <code>integrations/</code>. Each one
+            <p>Ready-made integrations live in the same connectors repository
+              (<code>github.com/mbyo2/bmaglasspay-connectors</code>) under <code>integrations/</code>. Each one
               talks to <strong>your own</strong> BMaGlass account and wallets through your API key; checkout
               creates a payment link and sends the buyer to the hosted payment page (buyers pay from their
               BMaGlass wallet — there is no guest checkout). All of them require a live key for checkout and

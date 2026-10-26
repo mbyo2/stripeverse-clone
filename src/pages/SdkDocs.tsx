@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Code2 } from "lucide-react";
 
 // Truth pass (2026-10-26): documents only the SDKs that actually
-// ship in this repository under sdk/.
+// ship — in the public bmaglasspay-connectors repository, under sdk/.
 const TS_EXAMPLE = `import { BMaGlass, BMaGlassError, verifyWebhookSignature } from "@bmaglass/sdk";
 
 const client = new BMaGlass({ apiKey: "bmp_test_…" }); // test keys are read-only
@@ -95,8 +95,9 @@ export default function SdkDocs() {
         <div>
           <h1 className="text-3xl font-bold mb-2 flex items-center gap-2"><Code2 className="h-7 w-7" /> SDK Documentation</h1>
           <p className="text-muted-foreground">
-            Four SDKs ship in this project's repository under <code>sdk/</code>: TypeScript, Python, PHP
-            and React Native. They are not yet published to npm, PyPI or Packagist — install them from the
+            Four SDKs ship in the public BMaGlass Pay connectors repository
+            (<code>github.com/mbyo2/bmaglasspay-connectors</code>) under <code>sdk/</code>: TypeScript, Python, PHP
+            and React Native. They are not yet published to npm, PyPI or Packagist — install them from that
             repository. Each covers every endpoint of the shipped developer-api, uses API-key auth, raises
             typed errors, and includes a webhook signature verification helper. Contract tests for each
             live beside it (the shared HMAC known-answer vector is identical across all of them).
@@ -139,7 +140,7 @@ export default function SdkDocs() {
                 <CardTitle>bmaglass/bmaglass-sdk <Badge variant="outline">v1.0.0 · sdk/php</Badge></CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`# Framework-free (PHP 7.4+, cURL). Add the repo as a Composer path/vcs repository,
+                <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`# Framework-free (PHP 7.4+, cURL). Add the connectors repo (github.com/mbyo2/bmaglasspay-connectors) as a Composer path/vcs repository,
 # or copy src/ and register the BMaGlass\\Sdk\\ PSR-4 prefix.
 php sdk/php/tests/run-tests.php   # the test suite`}</pre>
                 <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{PHP_EXAMPLE}</pre>
@@ -167,7 +168,8 @@ php sdk/php/tests/run-tests.php   # the test suite`}</pre>
               methods — those APIs do not exist. Test keys are read-only in every SDK, exactly as on the API:
               write calls with a test key surface the API's <code>403 test_mode_read_only</code> error.</p>
             <p>Shop integrations (WooCommerce, Odoo, Magento, PrestaShop, OpenCart), a universal pay-button
-              embed and Zapier/Make recipes live under <code>integrations/</code> in the repository — see the
+              embed and Zapier/Make recipes live under <code>integrations/</code> in the connectors repository
+              (<code>github.com/mbyo2/bmaglasspay-connectors</code>) — see the
               Developers page. Shopify checkout is gated by Shopify's payments partner programme, so no
               checkout plugin exists; payment links work there today.</p>
             <p>Webhooks: when a payment link is paid, the <code>payment_link.paid</code> event fires at

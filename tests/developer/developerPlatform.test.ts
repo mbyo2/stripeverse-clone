@@ -8,7 +8,10 @@ import { resolve } from "node:path";
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf8");
 
-const spec = JSON.parse(read("sdk/openapi.json"));
+// The spec's canonical in-repo copy is the one the site serves
+// (public/openapi.json). The SDKs/connectors — and their own copy of the
+// spec — live in the public bmaglasspay-connectors repository.
+const spec = JSON.parse(read("public/openapi.json"));
 const router = read("supabase/functions/developer-api/index.ts");
 
 describe("developer-api contract", () => {
@@ -55,8 +58,23 @@ describe("developer-api contract", () => {
     expect(JSON.stringify(spec)).toContain("payment_link.paid");
   });
 
-  it("public/openapi.json is identical to sdk/openapi.json", () => {
-    expect(read("public/openapi.json")).toBe(read("sdk/openapi.json"));
+  it("public/openapi.json is the complete served contract (11 path templates)", () => {
+    // This replaces the old sdk-copy byte-identity pin: the second copy
+    // moved to the bmaglasspay-connectors repo, so the guard now pins
+    // the served copy itself — complete and self-contained.
+    expect(Object.keys(spec.paths).sort()).toEqual([
+      "/bitcoin/balance",
+      "/bitcoin/deposit-address",
+      "/bitcoin/quote",
+      "/payment-links",
+      "/transactions",
+      "/transfers",
+      "/wallets",
+      "/webhook-deliveries",
+      "/webhooks",
+      "/webhooks/{id}",
+      "/webhooks/{id}/test",
+    ]);
   });
 });
 

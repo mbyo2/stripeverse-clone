@@ -1,1 +1,0 @@
-{"description":"BMaGlass Pay client for React Native / Expo — wallets, transfers, payment links, Bitcoin and webhooks over the BMaGlass developer API.","license":"MIT","main":"src/index.ts","name":"@bmaglass/sdk-react-native","private":true,"scripts":{"test":"node test/run-tests.mjs"},"type":"module","types":"src/index.ts","version":"1.0.0"}
