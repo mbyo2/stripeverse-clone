@@ -23,7 +23,10 @@
 -- except ONE additive change: its in-RPC daily-cap sum now also
 -- counts 'queued'/'batched' rows, closing the cross-mode cap hole the
 -- batch queue would otherwise open (same advisory lock key serializes
--- both paths per user; body otherwise identical to 20261023_m1).
+-- both paths per user; the restated body is the live definition
+-- verbatim — fetched via pg_get_functiondef before applying — P2P
+-- T+1 hold included). The queue RPC carries the same P2P hold check:
+-- a queued withdrawal is still an on-chain exit.
 --
 -- Broadcast doctrine is unchanged (classifyBroadcastOutcome): a batch
 -- whose broadcast is not positively confirmed stays 'batched' with
@@ -131,6 +134,8 @@ DECLARE
   v_existing public.btc_withdrawals%ROWTYPE;
   v_total BIGINT := p_amount_sats + p_reserved_fee_sats;
   v_sent_today BIGINT;
+  v_held_sats BIGINT;
+  v_available_sats BIGINT;
   v_id UUID;
 BEGIN
   IF p_amount_sats IS NULL OR p_amount_sats <= 0 THEN
@@ -175,6 +180,21 @@ BEGIN
       AND w.created_at >= now() - interval '24 hours';
     IF v_sent_today + p_amount_sats > p_max_daily_sats THEN
       RAISE EXCEPTION 'Daily withdrawal limit exceeded';
+    END IF;
+  END IF;
+
+  -- T+1 P2P withdrawal hold, identical to the instant path's: a
+  -- queued withdrawal is still an on-chain exit, so sats inside
+  -- their safety hold may not leave via the batch either. Read under
+  -- the advisory lock above. The queue_send action surfaces this
+  -- message to the user verbatim.
+  v_held_sats := public.p2p_unmatured_withdrawal_hold_sats(p_user_id);
+  IF v_held_sats > 0 THEN
+    SELECT w.available_sats INTO v_available_sats
+    FROM public.crypto_wallets w
+    WHERE w.user_id = p_user_id AND w.asset = 'BTC';
+    IF v_total > COALESCE(v_available_sats, 0) - v_held_sats THEN
+      RAISE EXCEPTION 'Part of your Bitcoin is still inside its 24-hour safety hold from a recent P2P trade - that part is not available to withdraw yet';
     END IF;
   END IF;
 
@@ -551,27 +571,22 @@ END;
 $$;
 
 -- ── 11. Instant path: cap sum learns the batch statuses ─────────────────
--- CREATE OR REPLACE of the M1 body with ONLY the cap status list
--- extended ('queued', 'batched' added). The reservation's own
--- semantics — debit, insert, replay scoping — are byte-identical;
+-- CREATE OR REPLACE restating the LIVE body (fetched via
+-- pg_get_functiondef 2026-10-26, P2P-hold amendment included) with
+-- ONLY the cap status list extended ('queued', 'batched' added).
 -- REPLACE preserves the existing ACL ({postgres, service_role}).
-CREATE OR REPLACE FUNCTION public.btc_reserve_withdrawal(
-  p_user_id UUID,
-  p_to_address TEXT,
-  p_amount_sats BIGINT,
-  p_fee_sats BIGINT,
-  p_idempotency_key TEXT,
-  p_max_daily_sats BIGINT DEFAULT NULL
-)
-RETURNS TABLE(withdrawal_id UUID, status TEXT, amount_sats BIGINT, fee_sats BIGINT)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
+CREATE OR REPLACE FUNCTION public.btc_reserve_withdrawal(p_user_id uuid, p_to_address text, p_amount_sats bigint, p_fee_sats bigint, p_idempotency_key text, p_max_daily_sats bigint DEFAULT NULL::bigint)
+ RETURNS TABLE(withdrawal_id uuid, status text, amount_sats bigint, fee_sats bigint)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 DECLARE
   v_existing public.btc_withdrawals%ROWTYPE;
   v_total BIGINT := p_amount_sats + p_fee_sats;
   v_sent_today BIGINT;
+  v_held_sats BIGINT;
+  v_available_sats BIGINT;
   v_id UUID;
 BEGIN
   IF p_amount_sats IS NULL OR p_amount_sats <= 0 THEN
@@ -586,6 +601,7 @@ BEGIN
     FROM public.btc_withdrawals w
     WHERE w.idempotency_key = p_idempotency_key;
     IF v_existing.id IS NOT NULL THEN
+      -- L2: a stored key is only ever replayed to its owner.
       IF v_existing.user_id <> p_user_id THEN
         RAISE EXCEPTION 'Idempotency key already used';
       END IF;
@@ -596,10 +612,20 @@ BEGIN
     END IF;
   END IF;
 
+  -- M1: serialize this user's reservations so the cap sum below and
+  -- the INSERT are atomic against concurrent sends by the same user.
+  -- Transaction-scoped: released automatically at COMMIT/ROLLBACK.
   PERFORM pg_advisory_xact_lock(hashtext('btc_reserve:' || p_user_id::text));
 
-  -- P4 delta: 'queued' and 'batched' commit funds exactly like
-  -- 'reserved' does, so the cap counts them too.
+  -- M1: the daily cap, enforced in the reserving transaction with the
+  -- app layer's exact semantics (amount_sats only; 'reserved',
+  -- 'broadcast' and 'confirmed' rows; rolling 24 hours). A NULL cap
+  -- leaves enforcement to the app layer, as before this migration.
+  -- P4 (20261225): 'queued' and 'batched' rows commit funds exactly
+  -- like 'reserved' rows, so the cap sum counts them too — the ONLY
+  -- behavioural delta in this restatement. The body below is the live
+  -- definition verbatim (including the T+1 P2P withdrawal hold),
+  -- verified against pg_get_functiondef before applying.
   IF p_max_daily_sats IS NOT NULL THEN
     SELECT COALESCE(sum(w.amount_sats), 0) INTO v_sent_today
     FROM public.btc_withdrawals w
@@ -611,6 +637,26 @@ BEGIN
     END IF;
   END IF;
 
+  -- T+1 P2P withdrawal hold (scope §3.8 amendment; Phase 1a finding
+  -- 5): sats credited by a P2P release may not leave on-chain until
+  -- their hold matures (default 24h). Reservable is what remains of
+  -- available after unmatured holds; in-flight reservations are
+  -- already out of available (debited at their reserve time), so
+  -- they are not subtracted again. Read under the advisory lock
+  -- above, so the figure cannot race another reservation by this
+  -- user. The btc-onchain edge function returns this message to the
+  -- user verbatim, before any broadcast.
+  v_held_sats := public.p2p_unmatured_withdrawal_hold_sats(p_user_id);
+  IF v_held_sats > 0 THEN
+    SELECT w.available_sats INTO v_available_sats
+    FROM public.crypto_wallets w
+    WHERE w.user_id = p_user_id AND w.asset = 'BTC';
+    IF v_total > COALESCE(v_available_sats, 0) - v_held_sats THEN
+      RAISE EXCEPTION 'Part of your Bitcoin is still inside its 24-hour safety hold from a recent P2P trade - that part is not available to withdraw yet';
+    END IF;
+  END IF;
+
+  -- Debit balance + available atomically; raises if insufficient.
   PERFORM public.btc_adjust_crypto_wallet(p_user_id, -v_total, -v_total);
 
   INSERT INTO public.btc_withdrawals
@@ -623,7 +669,7 @@ BEGIN
   amount_sats := p_amount_sats; fee_sats := p_fee_sats;
   RETURN NEXT;
 END;
-$$;
+$function$;
 
 -- ── 12. Batcher cron (mirrors btc-consolidate-utxos / btc-check-deposits) ─
 DO $$
