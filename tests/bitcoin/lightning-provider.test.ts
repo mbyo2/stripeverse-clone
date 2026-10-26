@@ -14,6 +14,7 @@ import {
   LightningUpstreamError,
   lightningProviderConfigured,
   parseCoinosInvoice,
+  parseCoinosInvoiceAmounts,
   parseCoinosInvoiceState,
   parseCoinosPaymentHash,
   providerCreateInvoice,
@@ -276,5 +277,34 @@ describe("amount-mismatch refusal (the breez-lightning create guard)", () => {
   it("trips the guard when the provider returns a different amount", () => {
     expect(core.decodeBolt11Msat(BOLT11_200)).not.toBe(BigInt(100) * 1000n);
     expect(core.decodeBolt11Msat("not-an-invoice")).toBeNull();
+  });
+});
+
+describe("Coinos invoice amounts (protection P1 — settle on actual received)", () => {
+  it("reads amount + received from a flat invoice payload", () => {
+    expect(parseCoinosInvoiceAmounts({ amount: 6304, received: 6241 }))
+      .toEqual({ amountSats: 6304, receivedSats: 6241 });
+  });
+  it("reads them from a nested invoice payload", () => {
+    expect(parseCoinosInvoiceAmounts({ invoice: { amount: 307, received: 307 } }))
+      .toEqual({ amountSats: 307, receivedSats: 307 });
+  });
+  it("a deducted receive reports LESS than the amount — the figure P1 settles on", () => {
+    const a = parseCoinosInvoiceAmounts({ amount: 100, received: 99 });
+    expect(a.receivedSats).toBe(99);
+    expect(a.amountSats).toBe(100);
+  });
+  it("missing or non-numeric figures come back null, never invented", () => {
+    expect(parseCoinosInvoiceAmounts({})).toEqual({ amountSats: null, receivedSats: null });
+    expect(parseCoinosInvoiceAmounts({ amount: "6304", received: "6241" }))
+      .toEqual({ amountSats: null, receivedSats: null });
+    expect(parseCoinosInvoiceAmounts(null)).toEqual({ amountSats: null, receivedSats: null });
+    expect(parseCoinosInvoiceAmounts("junk")).toEqual({ amountSats: null, receivedSats: null });
+  });
+  it("providerGetInvoice returns the amounts alongside the state (stubbed fetch)", async () => {
+    stubFetch(200, { id: "inv-uuid-9", text: BOLT11_100, amount: 100, received: 99, settled: false });
+    const res = await providerGetInvoice("inv-uuid-9", CFG);
+    expect(res.amountSats).toBe(100);
+    expect(res.receivedSats).toBe(99);
   });
 });

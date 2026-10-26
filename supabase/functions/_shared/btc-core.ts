@@ -360,6 +360,150 @@ export function selectCoins(
   return null;
 }
 
+// ── UTXO consolidation (protection P2b, 2026-10-26) ─────────────────────
+//
+// Every link attempt and deposit leaves UTXOs in the pooled custodial
+// wallet. Small ones cost more to spend later (≈68 vB each at
+// whatever the future fee rate is) than they contributed in fee
+// income, quietly inflating future withdrawal fees (gas audit
+// row 4). The consolidation duty sweeps small UTXOs into one output
+// when the network is cheap. The DECISIONS live here, pure, like
+// every other money policy in this module; the edge function only
+// gathers observations and executes a plan this code produced.
+
+export interface ConsolidationPolicy {
+  /** UTXOs worth at most this many sats count as "small". */
+  smallMaxSats: number;
+  /** Fewer eligible inputs than this → not worth a transaction. */
+  minInputs: number;
+  /** Hard cap on inputs per consolidation transaction. */
+  maxInputs: number;
+  /** Never broadcast above this fee rate (sat/vB) — the fee-window
+   *  gate from the shared policy (platform_settings). */
+  maxFeeRateSatVb: number;
+}
+
+export type ConsolidationSkipReason =
+  | "fee_window_closed"
+  | "too_few_inputs"
+  | "output_below_dust";
+
+export interface ConsolidationPlan {
+  /** The inputs to spend, smallest first. */
+  inputs: Utxo[];
+  totalInSats: number;
+  feeSats: number;
+  outputSats: number;
+  feeRateSatVb: number;
+}
+
+/**
+ * Plan a consolidation from the pool's UTXOs at `feeRateSatVb`:
+ * eligible inputs are confirmed UTXOs worth ≤ smallMaxSats,
+ * smallest first (the dust goes first), capped at maxInputs. The
+ * plan is null — with the reason — when the fee window is closed,
+ * too few inputs are eligible, or the single output would fall
+ * below the dust limit after fees. The fee is estimated with the
+ * same estimateVsize the withdrawal path uses (one P2WPKH output).
+ */
+export function planConsolidation(
+  utxos: Utxo[],
+  policy: ConsolidationPolicy,
+  feeRateSatVb: number,
+  outputScript: Uint8Array,
+): ConsolidationPlan | { skip: ConsolidationSkipReason } {
+  const rate = Math.max(1, Math.ceil(feeRateSatVb));
+  if (rate > Math.max(1, Math.floor(policy.maxFeeRateSatVb))) {
+    return { skip: "fee_window_closed" };
+  }
+  const eligible = utxos
+    .filter((u) => u.value > 0 && u.value <= policy.smallMaxSats)
+    .sort((a, b) => a.value - b.value)
+    .slice(0, Math.max(0, policy.maxInputs));
+  if (eligible.length < policy.minInputs) {
+    return { skip: "too_few_inputs" };
+  }
+  const totalInSats = eligible.reduce((s, u) => s + u.value, 0);
+  const feeSats = estimateVsize(eligible.length, [outputScript]) * rate;
+  const outputSats = totalInSats - feeSats;
+  if (outputSats < DUST_LIMIT_SATS) {
+    return { skip: "output_below_dust" };
+  }
+  return { inputs: eligible, totalInSats, feeSats, outputSats, feeRateSatVb: rate };
+}
+
+export interface BuiltConsolidation {
+  hex: string;
+  txid: string;
+  feeSats: number;
+  outputSats: number;
+  vsize: number;
+}
+
+/**
+ * Build and sign a consolidation transaction: spend EVERY given
+ * input into one output at (outputChain, outputIndex) of the same
+ * account. The fee is re-derived from the built transaction and
+ * checked against the plan (the caller passes its planned fee); a
+ * mismatch throws rather than broadcasting a surprise. Throws on an
+ * output below dust.
+ */
+export function buildConsolidationTx(params: {
+  accountPriv: HDKey;
+  accountPub: HDKey;
+  inputs: Utxo[];
+  feeRateSatVb: number;
+  outputChain: 0 | 1;
+  outputIndex: number;
+  expectedFeeSats: number;
+}): BuiltConsolidation {
+  const { accountPriv, accountPub, inputs } = params;
+  if (inputs.length === 0) throw new Error("No inputs to consolidate");
+  const outputScript = deriveScript(
+    accountPub,
+    params.outputChain,
+    params.outputIndex,
+  );
+  const rate = Math.max(1, Math.ceil(params.feeRateSatVb));
+  const totalIn = inputs.reduce((s, u) => s + u.value, 0);
+  const feeSats = estimateVsize(inputs.length, [outputScript]) * rate;
+  const outputSats = totalIn - feeSats;
+  if (outputSats < DUST_LIMIT_SATS) {
+    throw new Error("Consolidation output would be dust");
+  }
+  if (feeSats !== params.expectedFeeSats) {
+    throw new Error("Fee mismatch between consolidation plan and built transaction");
+  }
+
+  const tx = new Transaction();
+  for (const utxo of inputs) {
+    const script = deriveScript(accountPub, utxo.chain, utxo.index);
+    tx.addInput({
+      txid: utxo.txid,
+      index: utxo.vout,
+      witnessUtxo: { script, amount: BigInt(utxo.value) },
+    });
+  }
+  tx.addOutputAddress(
+    deriveAddress(accountPub, params.outputChain, params.outputIndex),
+    BigInt(outputSats),
+  );
+  for (const utxo of inputs) {
+    const key = deriveChildKey(accountPriv, utxo.chain, utxo.index);
+    if (!key.privateKey) throw new Error("Missing private key for input");
+    tx.sign(key.privateKey);
+  }
+  tx.finalize();
+
+  return {
+    hex: tx.hex,
+    txid: tx.id,
+    feeSats: Number(tx.fee),
+    outputSats,
+    vsize: tx.vsize,
+  };
+}
+
 // ── Spent-outpoint tracking (send concurrency, audit M1) ─────────────────
 
 /** A reference to one transaction output. */

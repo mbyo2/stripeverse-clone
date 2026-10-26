@@ -285,6 +285,52 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
     | { kind: "verifying"; txid: string | null; message: string }
     | null
   >(null);
+  // Protection P3: a live, read-only fee estimate for the entered
+  // amount (btc-onchain estimate_send — the same rate + coin
+  // selection the send reserves at). Shown before confirming; the
+  // EXACT fee is only fixed when the withdrawal broadcasts.
+  const [feeEstimate, setFeeEstimate] = useState<
+    | { kind: "ok"; feeSats: number; rateSatVb: number }
+    | { kind: "insufficient" }
+    | null
+  >(null);
+
+  useEffect(() => {
+    const addr = address.trim();
+    const amt = Number(sats);
+    if (!addr || !Number.isInteger(amt) || amt <= 0) {
+      setFeeEstimate(null);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("btc-onchain", {
+          body: { action: "estimate_send", to_address: addr, amount_sats: amt },
+        });
+        if (cancelled) return;
+        if (error || !data?.estimate_available) {
+          setFeeEstimate(null);
+          return;
+        }
+        if (data.sufficient) {
+          setFeeEstimate({
+            kind: "ok",
+            feeSats: Number(data.estimated_fee_sats),
+            rateSatVb: Number(data.fee_rate_sat_vb),
+          });
+        } else {
+          setFeeEstimate({ kind: "insufficient" });
+        }
+      } catch {
+        if (!cancelled) setFeeEstimate(null);
+      }
+    }, 600);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [address, sats]);
 
   /**
    * Scan-to-send: a scanned code only FILLS the address (plus the
@@ -413,6 +459,19 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
         A network fee is added on top, calculated from live network rates when you send.
         Minimum withdrawal 10,000 sats.
       </p>
+      {feeEstimate?.kind === "ok" && (
+        <p className="text-xs text-muted-foreground">
+          Estimated network fee: ~{feeEstimate.feeSats.toLocaleString()} sats at the
+          current network rate ({feeEstimate.rateSatVb} sat/vB). This is an estimate —
+          the exact fee is confirmed when your withdrawal broadcasts.
+        </p>
+      )}
+      {feeEstimate?.kind === "insufficient" && (
+        <p className="text-xs text-muted-foreground">
+          This amount can't be covered by confirmed funds yet, so no fee estimate is
+          available — the exact fee is confirmed when your withdrawal broadcasts.
+        </p>
+      )}
       <Button onClick={send} disabled={sending || !address || !sats} className="w-full">
         {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
         Send Bitcoin

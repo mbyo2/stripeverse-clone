@@ -119,6 +119,112 @@ export function splitLinkBtcSettlement(
   return { merchantCreditSats: receivedSats - fee, platformFeeSats: fee };
 }
 
+// ── Provider-deduction tolerance (protection P1, 2026-10-26) ─────────
+//
+// The Lightning leg's invoice is fixed-amount: the provider reports
+// what ACTUALLY arrived (`received`). Today that receive is free
+// (Coinos takes 0% on Lightning receives), but if the provider ever
+// starts deducting a fee on receives, an exact-equality settle rule
+// would strand a paid invoice one sat short forever. The tolerance
+// below settles such an attempt on the ACTUAL received sats:
+//
+//   shortfall = requiredSats − receivedSats
+//   BAND: shortfall ≤ floor(requiredSats × 1%) AND ≤ 100 sats.
+//
+// Within the band the shortfall is absorbed by the PLATFORM side,
+// out of its fee, first: platformFee = max(0, feeSats − shortfall),
+// merchant = received − platformFee. Because the locked fee is
+// 2.5% of the amount and the band is 1% of required, the shortfall
+// is smaller than the fee on every real quote, so the merchant nets
+// EXACTLY what an undeducted settlement would have paid them — in
+// buyer mode the full amount's sats, in seller mode amount − fee —
+// and only the platform's take shrinks. (If a pathological fee of 0
+// ever met a deduction, the residual beyond the fee would come off
+// the merchant: the formula degrades gracefully and never credits
+// more than actually arrived.)
+//
+// Below the band the receipt is a genuine underpayment: it is NOT
+// recorded against the attempt, the attempt stays open, and the
+// payer's existing top-up behaviour applies (any leg can complete
+// the quote; expiry close-out handles what was credited on-chain).
+//
+// The SQL settlement RPC mirrors splitLinkBtcSettlementOnReceived
+// exactly; the record RPC re-validates the band server-side.
+
+/** Widest provider deduction (percent of required sats) the platform
+ *  absorbs out of its fee on a Lightning receipt. */
+export const PROVIDER_DEDUCTION_BAND_PERCENT = 1;
+/** Absolute cap (sats) on an absorbable provider deduction. */
+export const PROVIDER_DEDUCTION_BAND_MAX_SATS = 100;
+
+/** The absorbable shortfall for a quote of `requiredSats`. */
+export function providerDeductionBandSats(requiredSats: number): number {
+  if (!Number.isInteger(requiredSats) || requiredSats <= 0) return 0;
+  return Math.min(
+    Math.floor((requiredSats * PROVIDER_DEDUCTION_BAND_PERCENT) / 100),
+    PROVIDER_DEDUCTION_BAND_MAX_SATS,
+  );
+}
+
+export type LightningReceiptClass =
+  | "none" // nothing arrived
+  | "full" // received ≥ required — settle on the true total
+  | "absorbed" // short by no more than the band — settle on actual
+  | "underpaid"; // short by more than the band — a real underpayment
+
+/** Classify what the provider reports for a fixed-amount invoice. */
+export function classifyLightningReceipt(
+  requiredSats: number,
+  receivedSats: number,
+): LightningReceiptClass {
+  if (!Number.isInteger(receivedSats) || receivedSats <= 0) return "none";
+  if (receivedSats >= requiredSats) return "full";
+  const shortfall = requiredSats - receivedSats;
+  return shortfall <= providerDeductionBandSats(requiredSats)
+    ? "absorbed"
+    : "underpaid";
+}
+
+/** The settlement split when a provider deduction (or any shortfall
+ *  `shortfallSats` = required − received, ≥ 0) was absorbed: the
+ *  platform's fee shrinks by the shortfall first; the merchant is
+ *  made whole whenever the shortfall fits inside the fee. Never
+ *  credits more than `receivedSats` in total. */
+export function splitLinkBtcSettlementOnReceived(
+  receivedSats: number,
+  feeSats: number,
+  shortfallSats: number,
+): { merchantCreditSats: number; platformFeeSats: number } {
+  const fee = Math.max(
+    0,
+    Math.min(feeSats, Math.max(0, receivedSats)) - Math.max(0, shortfallSats),
+  );
+  return {
+    merchantCreditSats: Math.max(0, receivedSats) - fee,
+    platformFeeSats: fee,
+  };
+}
+
+// ── Minimum Bitcoin link amount (protection P2a, 2026-10-26) ────────
+//
+// Every attempt mints a fresh address and its receipts become small
+// UTXOs in the pooled custodial wallet; below a floor the coin a
+// payment leaves behind costs more to spend later than the payment
+// is worth (gas audit row 4). Attempts below the configured minimum
+// fiat amount (platform_settings.btc_link_min_amount, in the LINK's
+// currency; default 5.00) are refused server-side at creation with a
+// crafted message — wallet payment for small links is untouched.
+
+/** True when a link amount falls below the Bitcoin minimum. */
+export function btcLinkBelowMinimum(
+  fiatAmount: number,
+  minAmount: number,
+): boolean {
+  if (!Number.isFinite(fiatAmount) || !Number.isFinite(minAmount)) return false;
+  if (minAmount <= 0) return false; // a zero/negative setting disables the floor
+  return fiatAmount < minAmount;
+}
+
 // ── Payer-facing attempt state ───────────────────────────────────────
 
 export type LinkBtcDisplayState =

@@ -153,6 +153,32 @@ export function parseCoinosInvoice(payload: unknown): ProviderInvoice | null {
 
 export type ProviderInvoiceState = "paid" | "pending" | "expired";
 
+export interface CoinosInvoiceAmounts {
+  /** The invoice's fixed amount in sats, when the payload carries it. */
+  amountSats: number | null;
+  /** Sats the provider reports as actually received so far. This is
+   *  the figure the link-attempt Lightning tolerance (protection P1)
+   *  settles on: a provider that deducts on receives reports LESS
+   *  than the invoice amount here. */
+  receivedSats: number | null;
+}
+
+/** Extract the amount / actually-received sats from a Coinos invoice
+ *  payload (same nesting rules as parseCoinosInvoiceState: the
+ *  invoice object directly, or nested under `invoice`). */
+export function parseCoinosInvoiceAmounts(payload: unknown): CoinosInvoiceAmounts {
+  const outer = asRecord(payload);
+  if (!outer) return { amountSats: null, receivedSats: null };
+  const rec = asRecord(outer.invoice) ?? outer;
+  const amount = typeof rec.amount === "number" && Number.isFinite(rec.amount)
+    ? rec.amount
+    : null;
+  const received = typeof rec.received === "number" && Number.isFinite(rec.received)
+    ? rec.received
+    : null;
+  return { amountSats: amount, receivedSats: received };
+}
+
 /**
  * Map a Coinos invoice object to paid / pending / expired.
  * Paid (live-verified shape): `received` (sats) ≥ `amount` (> 0).
@@ -284,7 +310,12 @@ export async function providerCreateInvoice(
 export async function providerGetInvoice(
   providerId: string,
   config?: LightningProviderConfig,
-): Promise<{ state: ProviderInvoiceState; paymentHash?: string }> {
+): Promise<{
+  state: ProviderInvoiceState;
+  paymentHash?: string;
+  amountSats: number | null;
+  receivedSats: number | null;
+}> {
   const cfg = config ?? readLightningProviderConfig();
   const payload = await coinosFetch(
     cfg,
@@ -293,7 +324,13 @@ export async function providerGetInvoice(
   );
   const state = parseCoinosInvoiceState(payload);
   const parsed = parseCoinosInvoice(payload);
-  return { state, paymentHash: parsed?.paymentHash ?? providerId };
+  const amounts = parseCoinosInvoiceAmounts(payload);
+  return {
+    state,
+    paymentHash: parsed?.paymentHash ?? providerId,
+    amountSats: amounts.amountSats,
+    receivedSats: amounts.receivedSats,
+  };
 }
 
 /** Pay an outbound bolt11 invoice from the platform Coinos account. */

@@ -81,6 +81,8 @@ import {
 import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 import {
   LINK_BTC_ATTEMPT_WINDOW_MINUTES,
+  btcLinkBelowMinimum,
+  classifyLightningReceipt,
   linkBtcDisplayState,
   quoteLinkBtc,
   type LinkBtcDisplayState,
@@ -401,14 +403,29 @@ async function btcCreateAttempt(admin: Admin, link: Admin, body: Admin) {
   }
   const fiatAmount = amtCheck.amount;
 
-  // Platform fee percent (same setting the fiat settlement reads).
+  // Platform fee percent (same setting the fiat settlement reads),
+  // plus the minimum Bitcoin link amount (protection P2a): below it a
+  // Bitcoin attempt leaves a pooled UTXO worth less than its future
+  // spend cost, so attempts are refused server-side here — the
+  // wallet payment for small links is untouched.
   let feePercent = 2.5;
+  let btcMinAmount = 5;
   try {
     const { data: settings } = await admin
-      .from("platform_settings").select("split_platform_fee_percent").limit(1).maybeSingle();
+      .from("platform_settings").select("split_platform_fee_percent, btc_link_min_amount").limit(1).maybeSingle();
     const configured = Number(settings?.split_platform_fee_percent);
     if (Number.isFinite(configured) && configured >= 0) feePercent = configured;
-  } catch { /* default stands */ }
+    const configuredMin = Number(settings?.btc_link_min_amount);
+    if (Number.isFinite(configuredMin) && configuredMin >= 0) btcMinAmount = configuredMin;
+  } catch { /* defaults stand */ }
+
+  if (btcLinkBelowMinimum(fiatAmount, btcMinAmount)) {
+    return json({
+      success: false,
+      status: "below_minimum",
+      error: `Bitcoin payments start at ${currency} ${btcMinAmount.toFixed(2)} — for smaller amounts, pay with the BMaGlass wallet instead.`,
+    }, 400);
+  }
 
   let rates: QuoteRates;
   try {
@@ -523,6 +540,7 @@ function attemptView(attempt: Admin) {
     required_sats: Number(attempt.required_sats),
     seen_sats: Number(attempt.seen_sats ?? 0),
     received_sats: Number(attempt.received_sats ?? 0),
+    provider_deduction_sats: Number(attempt.provider_deduction_sats ?? 0),
     remaining_sats: Math.max(0, Number(attempt.required_sats) - Number(attempt.received_sats ?? 0)),
     rate_fiat_per_btc: Number(attempt.rate_fiat_per_btc),
     onchain_address: attempt.onchain_address ?? null,
@@ -551,7 +569,11 @@ async function settleAttemptIfCovered(admin: Admin, attempt: Admin) {
   if (attempt.status === "settled" || attempt.status === "partial_credited" || attempt.status === "failed") {
     return attempt;
   }
-  if (Number(attempt.received_sats) < Number(attempt.required_sats)) return attempt;
+  // Coverage: the full required sats, or the required sats minus a
+  // provider deduction the record RPC already validated against the
+  // band (protection P1) — the settlement RPC enforces the same rule.
+  const coverageFloor = Number(attempt.required_sats) - Number(attempt.provider_deduction_sats ?? 0);
+  if (Number(attempt.received_sats) < coverageFloor) return attempt;
 
   const chainCredited = Number(attempt.received_sats) - Number(attempt.lightning_received_sats ?? 0);
   const method = Number(attempt.lightning_received_sats ?? 0) > 0 && chainCredited < Number(attempt.required_sats)
@@ -611,12 +633,31 @@ async function btcStatus(admin: Admin, link: Admin, body: Admin) {
 
   const open = attempt.status !== "settled" && attempt.status !== "partial_credited" && attempt.status !== "failed";
 
-  // Lightning receipt check (only while the leg is unpaid).
+  // Lightning receipt check (only while the leg is unpaid). The
+  // provider reports what ACTUALLY arrived for the fixed-amount
+  // invoice; protection P1 classifies it: full or within the
+  // provider-deduction band → record the actual amount and settle on
+  // it; below the band → a genuine underpayment, NOT recorded (the
+  // attempt keeps its top-up behaviour, exactly as before).
   if (open && attempt.lightning_provider_id && Number(attempt.lightning_received_sats ?? 0) === 0) {
     try {
-      const { state } = await providerGetInvoice(attempt.lightning_provider_id);
-      if (state === "paid") {
-        await admin.rpc("btc_record_link_attempt_lightning", { p_attempt_id: attempt.id });
+      const { state, receivedSats } = await providerGetInvoice(attempt.lightning_provider_id);
+      const requiredSats = Number(attempt.required_sats);
+      let recordSats: number | null = null;
+      if (receivedSats !== null && Number.isInteger(receivedSats)) {
+        const cls = classifyLightningReceipt(requiredSats, receivedSats);
+        if (cls === "full" || cls === "absorbed") recordSats = receivedSats;
+      } else if (state === "paid") {
+        // Payload carried no received figure: fall back to the
+        // pre-P1 full-paid signal and record the invoice amount.
+        recordSats = requiredSats;
+      }
+      if (recordSats !== null) {
+        const { error: recErr } = await admin.rpc("btc_record_link_attempt_lightning", {
+          p_attempt_id: attempt.id,
+          p_received_sats: recordSats,
+        });
+        if (recErr) throw recErr;
         attempt = (await loadAttempt(admin, attempt.id)) ?? attempt;
       }
     } catch (e) {

@@ -45,6 +45,7 @@ import {
   isAccountFrozen,
 } from "../_shared/account-freeze.ts";
 import {
+  buildConsolidationTx,
   buildWithdrawalTx,
   classifyBroadcastOutcome,
   crossCheckDeposit,
@@ -52,13 +53,16 @@ import {
   depositNeedsCrossCheck,
   deriveAddress,
   deriveScript,
+  estimateVsize,
   filterUncommittedUtxos,
+  planConsolidation,
   receiveStatus,
   requiredConfirmationsFor,
   selectCoins,
   spentOutpointsFromTx,
   validateMainnetAddress,
   type BroadcastClassification,
+  type ConsolidationPlan,
   type DepositCrossCheck,
   type DepositTxView,
   type Outpoint,
@@ -181,6 +185,16 @@ serve(async (req) => {
       return await checkDeposits(admin);
     }
 
+    // ── consolidate: scheduler-only (protection P2b) ─────────────────────
+    if (action === "consolidate") {
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
+      if (!serviceKey || !timingSafeEqual(token, serviceKey)) {
+        return json(401, { error: "Service role required" });
+      }
+      return await consolidate(admin);
+    }
+
     // ── Everything else needs a real user ──────────────────────────────────
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -189,6 +203,7 @@ serve(async (req) => {
     }
 
     if (action === "receive") return await receive(admin, user.id);
+    if (action === "estimate_send") return await estimateSend(admin, user.id, body);
     if (action === "send") return await send(admin, user.id, body);
 
     return json(400, { error: `Unknown action: ${action}` });
@@ -544,6 +559,275 @@ async function fetchAddressTxs(address: string): Promise<any[]> {
     for (const tx of txs) byId.set(tx.txid, tx);
   }
   return [...byId.values()];
+}
+
+// ── estimate_send (protection P3) ────────────────────────────────────────
+
+/**
+ * Read-only fee estimate for the send form: the SAME esplora rate and
+ * the SAME first-pass coin selection the send path reserves at, for
+ * the entered amount — so the confirm step can show an honest
+ * estimate before the user commits. Moves nothing, reserves nothing.
+ * The exact fee is only known at broadcast (the send path recomputes
+ * it from the built transaction), which is why this is labelled an
+ * estimate end-to-end.
+ */
+async function estimateSend(supabase: any, userId: string, body: any) {
+  void userId; // identity already verified by the router; the estimate is pool-level
+  const c = custody();
+  if (!c.configured) {
+    console.error("btc-onchain estimate_send: custody not configured (" + c.reason + ")");
+    return json(503, { error: WITHDRAWALS_NOT_CONFIGURED });
+  }
+  const accountPub = c.accountPub;
+
+  const toAddress = typeof body?.to_address === "string" ? body.to_address.trim() : "";
+  const amountSats = Number(body?.amount_sats);
+  if (!toAddress) return json(400, { error: "to_address is required" });
+  if (!Number.isInteger(amountSats) || amountSats <= 0) {
+    return json(400, { error: "amount_sats must be a positive integer" });
+  }
+  let recipient;
+  try {
+    recipient = validateMainnetAddress(toAddress);
+  } catch {
+    return json(400, { error: "Invalid mainnet Bitcoin address" });
+  }
+
+  const feeRes = await esplora("/v1/fees/recommended");
+  if (!feeRes.ok) return json(502, { error: "Fee estimation unavailable" });
+  const fees = await feeRes.json();
+  const feeRate = Math.max(1, Math.ceil(Number(fees.halfHourFee) || 0));
+  if (!feeRate) return json(502, { error: "Fee estimation unavailable" });
+
+  const utxos = await gatherUtxos(supabase, accountPub);
+  const changeScript = deriveScript(accountPub, 1, 0);
+  const selection = selectCoins(utxos, amountSats, feeRate, recipient.script, changeScript);
+  if (!selection) {
+    return json(200, {
+      estimate_available: true,
+      sufficient: false,
+      fee_rate_sat_vb: feeRate,
+      estimated_fee_sats: null,
+      estimated_vsize: null,
+      input_count: null,
+    });
+  }
+  return json(200, {
+    estimate_available: true,
+    sufficient: true,
+    fee_rate_sat_vb: feeRate,
+    estimated_fee_sats: selection.feeSats,
+    estimated_vsize: estimateVsize(selection.selected.length, [recipient.script, changeScript]),
+    input_count: selection.selected.length,
+    total_debit_sats: amountSats + selection.feeSats,
+  });
+}
+
+// ── consolidate (protection P2b) ─────────────────────────────────────────
+
+/**
+ * The UTXO consolidation duty: sweep small pooled UTXOs into one
+ * output when the network is cheap, so they never inflate future
+ * withdrawal fees (gas audit row 4). Every invocation — executed or
+ * not — writes a btc_consolidation_runs audit row saying what was
+ * decided and why. The plan is the pure planConsolidation policy in
+ * btc-core; the fee is paid from the PLATFORM OPERATOR's BTC fee
+ * income via btc_record_consolidation, booked only after the
+ * broadcast is positively confirmed (an unconfirmed broadcast stays
+ * 'broadcast_unknown' for human reconciliation — the withdrawal
+ * doctrine, applied to housekeeping).
+ */
+async function consolidate(supabase: any) {
+  const recordRun = async (
+    status: string,
+    reason: string,
+    extra: Record<string, unknown> = {},
+  ) => {
+    const { data, error } = await supabase
+      .from("btc_consolidation_runs")
+      .insert({ status, reason, ...extra })
+      .select("id")
+      .single();
+    if (error) console.error("btc-onchain consolidate: audit row failed:", error);
+    return data?.id as string | undefined;
+  };
+  const skip = async (status: string, reason: string, extra: Record<string, unknown> = {}) => {
+    const runId = await recordRun(status, reason, extra);
+    return json(200, { consolidated: false, status, reason, run_id: runId ?? null });
+  };
+
+  // Policy from platform_settings (the shared fee-window policy, P4).
+  const { data: settings } = await supabase
+    .from("platform_settings")
+    .select(
+      "btc_consolidation_enabled, btc_fee_window_consolidation_max_sat_vb, " +
+      "btc_consolidation_min_inputs, btc_consolidation_small_max_sats",
+    )
+    .limit(1)
+    .maybeSingle();
+  const enabled = settings?.btc_consolidation_enabled !== false;
+  const policy = {
+    smallMaxSats: Number(settings?.btc_consolidation_small_max_sats ?? 10_000),
+    minInputs: Number(settings?.btc_consolidation_min_inputs ?? 10),
+    maxInputs: 200,
+    maxFeeRateSatVb: Number(settings?.btc_fee_window_consolidation_max_sat_vb ?? 2),
+  };
+  if (!enabled) return await skip("skipped_disabled", "Consolidation is switched off in platform settings");
+
+  // At most one executed consolidation per UTC day.
+  const dayStart = new Date();
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const { count: doneToday } = await supabase
+    .from("btc_consolidation_runs")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "broadcast")
+    .gte("created_at", dayStart.toISOString());
+  if ((doneToday ?? 0) >= 1) {
+    return await skip("skipped_daily_limit", "A consolidation already broadcast today");
+  }
+
+  // Fee window: the live network rate must be at/under the cap.
+  const feeRes = await esplora("/v1/fees/recommended");
+  if (!feeRes.ok) {
+    return await skip("failed", "Fee estimation unavailable — esplora did not answer");
+  }
+  const fees = await feeRes.json();
+  const feeRate = Math.max(1, Math.ceil(Number(fees.halfHourFee) || 0));
+  if (!feeRate) return await skip("failed", "Fee estimation unavailable — no halfHourFee");
+
+  const r = receiveStatus(Deno.env.get("BTC_XPUB"));
+  if (!r.configured) {
+    return await skip("skipped_no_custody", "Receiving not configured (" + r.reason + ")", {
+      fee_rate_sat_vb: feeRate,
+    });
+  }
+  const accountPub = r.accountPub;
+
+  // Spendable pool, minus outpoints committed to in-flight withdrawals.
+  const utxos = await gatherUtxos(supabase, accountPub);
+  const committed = await committedOutpoints(supabase, "00000000-0000-0000-0000-000000000000");
+  const spendable = filterUncommittedUtxos(utxos, committed);
+  const eligibleCount = spendable.filter((u) => u.value > 0 && u.value <= policy.smallMaxSats).length;
+
+  // Any P2WPKH script sizes the plan identically; index 0 is a valid
+  // stand-in for planning, as in the send path's change script.
+  const planOrSkip = planConsolidation(
+    spendable, policy, feeRate, deriveScript(accountPub, 0, 0),
+  );
+  if ("skip" in planOrSkip) {
+    const status = planOrSkip.skip === "fee_window_closed"
+      ? "skipped_fee_window"
+      : planOrSkip.skip === "output_below_dust"
+        ? "skipped_output_dust"
+        : "skipped_min_inputs";
+    return await skip(status, `planConsolidation: ${planOrSkip.skip}`, {
+      fee_rate_sat_vb: feeRate,
+      input_count: eligibleCount,
+    });
+  }
+  const plan: ConsolidationPlan = planOrSkip;
+
+  // The fee comes out of the platform operator's BTC fee income
+  // (earliest admin — the settlement rule). Insufficient fee income
+  // skips the run; a user never pays for housekeeping.
+  const { data: opRows } = await supabase
+    .from("user_roles")
+    .select("user_id, created_at")
+    .eq("role", "admin")
+    .order("created_at", { ascending: true })
+    .order("user_id", { ascending: true })
+    .limit(1);
+  const operatorId = opRows?.[0]?.user_id as string | undefined;
+  if (!operatorId) return await skip("skipped_fee_unfunded", "No platform operator exists");
+  const { data: opWallet } = await supabase
+    .from("crypto_wallets")
+    .select("balance_sats")
+    .eq("user_id", operatorId)
+    .eq("asset", "BTC")
+    .maybeSingle();
+  if (Number(opWallet?.balance_sats ?? 0) < plan.feeSats) {
+    return await skip("skipped_fee_unfunded",
+      `Operator BTC fee income ${Number(opWallet?.balance_sats ?? 0)} sats < consolidation fee ${plan.feeSats} sats`,
+      { fee_rate_sat_vb: feeRate, input_count: plan.inputs.length, fee_sats: plan.feeSats });
+  }
+
+  // Signing needs the full custody interlock.
+  const c = custody();
+  if (!c.configured) {
+    return await skip("skipped_no_custody", "Custody not configured (" + c.reason + ")", {
+      fee_rate_sat_vb: feeRate, input_count: plan.inputs.length,
+    });
+  }
+
+  // Output: a fresh chain-0 address from the shared derivation
+  // sequence (never a user assignment, never an attempt address —
+  // the deposit scanner cannot credit it, and gatherUtxos' scan bound
+  // now covers consolidation outputs, so the coin stays spendable).
+  const { data: idxData, error: idxErr } = await supabase.rpc("btc_next_derivation_index");
+  if (idxErr) return await skip("failed", "Output index allocation failed");
+  const outputIndex = Number(idxData);
+  const outputAddress = deriveAddress(accountPub, 0, outputIndex);
+
+  const runId = await recordRun("broadcast_unknown", "in flight", {
+    fee_rate_sat_vb: feeRate,
+    input_count: plan.inputs.length,
+    inputs: plan.inputs,
+    total_in_sats: plan.totalInSats,
+    fee_sats: plan.feeSats,
+    output_sats: plan.outputSats,
+    output_address: outputAddress,
+    output_derivation_index: outputIndex,
+  });
+  if (!runId) return json(500, { error: "Could not open the consolidation audit row" });
+
+  let built;
+  try {
+    built = buildConsolidationTx({
+      accountPriv: c.accountPriv, accountPub,
+      inputs: plan.inputs, feeRateSatVb: feeRate,
+      outputChain: 0, outputIndex, expectedFeeSats: plan.feeSats,
+    });
+    if (built.feeSats !== plan.feeSats) {
+      throw new Error("Fee mismatch between consolidation plan and built transaction");
+    }
+  } catch (e) {
+    await supabase.from("btc_consolidation_runs")
+      .update({ status: "failed", reason: thrownMessage(e, "build failed"), updated_at: new Date().toISOString() })
+      .eq("id", runId);
+    return json(200, { consolidated: false, status: "failed", run_id: runId });
+  }
+
+  const broadcast = await broadcastTx(built.hex, built.txid);
+  // Record the txid whatever the outcome (reconciliation + input
+  // exclusion), mirroring recordWithdrawalTxid.
+  await supabase.from("btc_consolidation_runs")
+    .update({ txid: built.txid, updated_at: new Date().toISOString() })
+    .eq("id", runId);
+  if (broadcast.outcome === "unknown") {
+    console.error(
+      "CRITICAL: consolidation broadcast outcome unknown — run left 'broadcast_unknown' for reconciliation (fee NOT booked)",
+      runId, built.txid, broadcast.detail,
+    );
+    return json(202, { consolidated: false, status: "broadcast_unknown", run_id: runId, txid: built.txid });
+  }
+
+  const { error: bookErr } = await supabase.rpc("btc_record_consolidation", {
+    p_run_id: runId,
+    p_operator_user_id: operatorId,
+    p_txid: built.txid,
+    p_fee_sats: built.feeSats,
+  });
+  if (bookErr) {
+    console.error("CRITICAL: consolidation broadcast but fee booking failed", runId, built.txid, bookErr);
+    return json(500, {
+      consolidated: true, status: "broadcast_unbooked", run_id: runId, txid: built.txid,
+    });
+  }
+  return json(200, {
+    consolidated: true, status: "broadcast", run_id: runId,
+    txid: built.txid, fee_sats: built.feeSats, input_count: plan.inputs.length,
+  });
 }
 
 // ── send ───────────────────────────────────────────────────────────────────
@@ -953,7 +1237,28 @@ async function gatherUtxos(supabase: any, accountPub: any): Promise<Utxo[]> {
     .order("derivation_index", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const maxExternal = maxRow ? Number(maxRow.derivation_index) : -1;
+  let maxExternal = maxRow ? Number(maxRow.derivation_index) : -1;
+
+  // Chain-0 indices also come from the SAME sequence for payment-link
+  // attempt addresses and consolidation outputs (protection P2b) —
+  // their UTXOs are pooled funds too and must stay spendable, so the
+  // scan bound covers the highest index any of the three has used.
+  const { data: maxAttempt } = await supabase
+    .from("payment_link_btc_attempts")
+    .select("derivation_index")
+    .not("derivation_index", "is", null)
+    .order("derivation_index", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (maxAttempt) maxExternal = Math.max(maxExternal, Number(maxAttempt.derivation_index));
+  const { data: maxCons } = await supabase
+    .from("btc_consolidation_runs")
+    .select("output_derivation_index")
+    .not("output_derivation_index", "is", null)
+    .order("output_derivation_index", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (maxCons) maxExternal = Math.max(maxExternal, Number(maxCons.output_derivation_index));
 
   const { count: withdrawalCount } = await supabase
     .from("btc_withdrawals")

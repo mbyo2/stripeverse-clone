@@ -159,3 +159,89 @@ describe("URI + display formatting", () => {
     expect(mod.LINK_BTC_ATTEMPT_WINDOW_MINUTES).toBe(60);
   });
 });
+
+describe("provider-deduction band (protection P1)", () => {
+  it("band is floor(1% of required), capped at 100 sats", () => {
+    expect(mod.providerDeductionBandSats(6304)).toBe(63);
+    expect(mod.providerDeductionBandSats(307)).toBe(3);
+    expect(mod.providerDeductionBandSats(100)).toBe(1);
+    expect(mod.providerDeductionBandSats(99)).toBe(0);
+    expect(mod.providerDeductionBandSats(1_000_000)).toBe(100); // cap binds
+    expect(mod.providerDeductionBandSats(50_000)).toBe(100); // 500 → capped
+    expect(mod.providerDeductionBandSats(0)).toBe(0);
+    expect(mod.providerDeductionBandSats(-10)).toBe(0);
+  });
+
+  it("classifies receipts: none / full / absorbed / underpaid", () => {
+    // K100 buyer link: required 6304, band 63.
+    expect(mod.classifyLightningReceipt(6304, 0)).toBe("none");
+    expect(mod.classifyLightningReceipt(6304, -5)).toBe("none");
+    expect(mod.classifyLightningReceipt(6304, 6304)).toBe("full");
+    expect(mod.classifyLightningReceipt(6304, 7000)).toBe("full"); // overpay is full
+    expect(mod.classifyLightningReceipt(6304, 6241)).toBe("absorbed"); // shortfall = band exactly
+    expect(mod.classifyLightningReceipt(6304, 6240)).toBe("underpaid"); // 1 sat beyond the band
+    expect(mod.classifyLightningReceipt(6304, 3000)).toBe("underpaid");
+    // K5 seller link: required 307, band 3.
+    expect(mod.classifyLightningReceipt(307, 304)).toBe("absorbed");
+    expect(mod.classifyLightningReceipt(307, 303)).toBe("underpaid");
+    // Cap-sized quote: required 100_000, band capped at 100.
+    expect(mod.classifyLightningReceipt(100_000, 99_900)).toBe("absorbed");
+    expect(mod.classifyLightningReceipt(100_000, 99_899)).toBe("underpaid");
+  });
+
+  it("split on actual received: no shortfall matches the plain split", () => {
+    expect(mod.splitLinkBtcSettlementOnReceived(6304, 154, 0))
+      .toEqual(mod.splitLinkBtcSettlement(6304, 154));
+    expect(mod.splitLinkBtcSettlementOnReceived(6304, 154, 0))
+      .toEqual({ merchantCreditSats: 6150, platformFeeSats: 154 });
+  });
+
+  it("buyer mode: an in-band deduction comes out of the fee — merchant nets the full amount", () => {
+    // required = amount 6150 + fee 154; provider kept 63.
+    const s = mod.splitLinkBtcSettlementOnReceived(6241, 154, 63);
+    expect(s.merchantCreditSats).toBe(6150); // the full price's sats
+    expect(s.platformFeeSats).toBe(91); // 154 − 63 absorbed
+    expect(s.merchantCreditSats + s.platformFeeSats).toBe(6241); // never more than received
+  });
+
+  it("seller mode: an in-band deduction leaves the merchant's normal net untouched", () => {
+    // required = amount 3847, fee 97; provider kept 38.
+    const s = mod.splitLinkBtcSettlementOnReceived(3809, 97, 38);
+    expect(s.merchantCreditSats).toBe(3847 - 97); // exactly the undeducted seller net
+    expect(s.platformFeeSats).toBe(59);
+  });
+
+  it("a shortfall beyond the fee zeroes the fee and never over-credits", () => {
+    const s = mod.splitLinkBtcSettlementOnReceived(90, 8, 50);
+    expect(s.platformFeeSats).toBe(0);
+    expect(s.merchantCreditSats).toBe(90);
+  });
+
+  it("invariant sweep: merchant + fee always equals received, both non-negative", () => {
+    for (const received of [1, 90, 307, 6241, 6304, 100_000]) {
+      for (const fee of [0, 8, 97, 154]) {
+        for (const shortfall of [0, 1, 3, 63, 100]) {
+          const s = mod.splitLinkBtcSettlementOnReceived(received, fee, shortfall);
+          expect(s.merchantCreditSats + s.platformFeeSats).toBe(received);
+          expect(s.merchantCreditSats).toBeGreaterThanOrEqual(0);
+          expect(s.platformFeeSats).toBeGreaterThanOrEqual(0);
+        }
+      }
+    }
+  });
+});
+
+describe("minimum Bitcoin link amount (protection P2a)", () => {
+  it("refuses strictly below the floor, allows at and above it", () => {
+    expect(mod.btcLinkBelowMinimum(4.99, 5)).toBe(true);
+    expect(mod.btcLinkBelowMinimum(0.5, 5)).toBe(true);
+    expect(mod.btcLinkBelowMinimum(5, 5)).toBe(false);
+    expect(mod.btcLinkBelowMinimum(5.01, 5)).toBe(false);
+    expect(mod.btcLinkBelowMinimum(100, 5)).toBe(false);
+  });
+  it("a zero/negative configured floor disables it; bad input never refuses", () => {
+    expect(mod.btcLinkBelowMinimum(1, 0)).toBe(false);
+    expect(mod.btcLinkBelowMinimum(1, -5)).toBe(false);
+    expect(mod.btcLinkBelowMinimum(Number.NaN, 5)).toBe(false);
+  });
+});
