@@ -43,6 +43,16 @@
 //      (verifyPayoneerWebhookSignature). The payload is only ever a
 //      HINT either way: state changes come from re-querying the
 //      payment, never from payload fields.
+//      ⚠️ AUDIT 2026-10-26: Payoneer's PUBLIC docs do not specify
+//      ANY webhook signature scheme (the integration guide covers
+//      OAuth, response codes and status polling only — no signature
+//      header exists in public documentation). The scheme above is
+//      therefore a fail-closed PLACEHOLDER, not a documented
+//      contract: at partner onboarding, obtain the real scheme (if
+//      any) from the portal docs and re-verify this assumption
+//      FIRST — if Payoneer signs differently (or not at all), every
+//      webhook 401s until this is corrected, while polling via
+//      refresh_status keeps payouts correct in the meantime.
 
 // ── Configuration ────────────────────────────────────────────────────
 

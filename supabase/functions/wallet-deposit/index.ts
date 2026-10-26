@@ -41,7 +41,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { classifyProvider } from "../_shared/payment-providers.ts";
+import { classifyProvider, paypalDepositCurrencyRefusal } from "../_shared/payment-providers.ts";
 import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 import { paypalErrorTrace } from "../_shared/deposit-capture.ts";
 
@@ -169,6 +169,15 @@ serve(async (req) => {
       // Truthful refusal: nothing written, nothing credited.
       logStep("Provider not configured", { providerKey });
       return json({ success: false, status: "not_configured", error: route.error });
+    }
+
+    // PayPal settles USD wallets only (PayPal has no ZMW at all):
+    // refuse a non-USD target up front instead of letting PayPal
+    // reject the order after a round-trip (audit 2026-10-26).
+    const currencyRefusal = paypalDepositCurrencyRefusal(currency);
+    if (currencyRefusal) {
+      logStep("PayPal deposit refused on currency", { currency });
+      return json({ success: false, status: "unsupported_currency", error: currencyRefusal });
     }
 
     // ── PayPal: create a real order; completion waits for capture ──

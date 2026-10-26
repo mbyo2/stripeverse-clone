@@ -139,8 +139,11 @@ export interface MoonpayBuyUrlInput {
   baseCurrencyCode?: string | null;
   baseCurrencyAmount?: number | null;
   redirectUrl?: string | null;
-  /** Crypto to buy — locked to BTC for this rail. Default 'btc'. */
-  currencyCode?: string | null;
+  // NOTE: there is deliberately NO currencyCode input. The contract
+  // (moonpay-api-contract.md) locks this rail to buying BTC, and a
+  // caller-supplied currency once flowed straight through this
+  // builder (audit M1, 2026-10-26) — the widget URL now always
+  // carries currencyCode=btc, structurally.
 }
 
 /**
@@ -157,7 +160,7 @@ export function buildMoonpayBuyUrl(
   const host = moonpayBuyHost(config.environment);
   const params: Array<[string, string]> = [
     ["apiKey", config.publishableKey ?? ""],
-    ["currencyCode", (input.currencyCode ?? "btc").trim().toLowerCase()],
+    ["currencyCode", "btc"],
     ["walletAddress", input.walletAddress],
   ];
   if (input.email) params.push(["email", input.email]);

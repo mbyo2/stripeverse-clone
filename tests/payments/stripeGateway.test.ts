@@ -14,6 +14,7 @@
 //     genuine Stripe currency rejection may trigger the USD fallback.
 
 import { describe, it, expect } from "vitest";
+import { createHmac } from "node:crypto";
 import {
   buildCheckoutSessionParams,
   buildStripeRefundParams,
@@ -212,8 +213,17 @@ describe("parseStripeSignatureHeader", () => {
   it("parses timestamp and every v1 candidate (rotation)", () => {
     expect(parseStripeSignatureHeader(`t=${SIGNATURE_T},v1=aaaa,v1=${SIGNATURE_V1}`)).toEqual({
       timestamp: SIGNATURE_T,
+      timestampRaw: String(SIGNATURE_T),
       signatures: ["aaaa", SIGNATURE_V1],
     });
+  });
+
+  it("keeps the literal timestamp text for signature verification", () => {
+    // Stripe signs `${t}.${payload}` with t EXACTLY as sent; a padded
+    // rendering must survive parsing untouched (audit D1, 2026-10-26).
+    const parsed = parseStripeSignatureHeader(`t=0${SIGNATURE_T},v1=${SIGNATURE_V1}`);
+    expect(parsed?.timestamp).toBe(SIGNATURE_T);
+    expect(parsed?.timestampRaw).toBe(`0${SIGNATURE_T}`);
   });
 
   it("returns null for missing or malformed headers", () => {
@@ -266,6 +276,20 @@ describe("verifyStripeSignature (fails closed)", () => {
     await expect(verifyStripeSignature(SIGNED_PAYLOAD, null, WEBHOOK_SECRET, 300, SIGNATURE_T)).resolves.toBe(false);
     await expect(verifyStripeSignature(SIGNED_PAYLOAD, SIGNATURE_HEADER, null, 300, SIGNATURE_T)).resolves.toBe(false);
     await expect(verifyStripeSignature(SIGNED_PAYLOAD, SIGNATURE_HEADER, "", 300, SIGNATURE_T)).resolves.toBe(false);
+  });
+
+  it("verifies a signature computed over a zero-padded literal timestamp", async () => {
+    // The HMAC is over `0<t>.<payload>` — the literal header text —
+    // so verification must not re-render t through Number() first.
+    const paddedV1 = createHmac("sha256", WEBHOOK_SECRET)
+      .update(`0${SIGNATURE_T}.${SIGNED_PAYLOAD}`)
+      .digest("hex");
+    await expect(
+      verifyStripeSignature(
+        SIGNED_PAYLOAD, `t=0${SIGNATURE_T},v1=${paddedV1}`,
+        WEBHOOK_SECRET, 300, SIGNATURE_T,
+      ),
+    ).resolves.toBe(true);
   });
 });
 

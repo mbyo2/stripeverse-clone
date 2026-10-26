@@ -12,7 +12,20 @@ import { describe, it, expect } from "vitest";
 import {
   classifyProvider,
   classifyLinkMethod,
+  paypalDepositCurrencyRefusal,
 } from "../../supabase/functions/_shared/payment-providers";
+
+describe("paypalDepositCurrencyRefusal (PayPal deposits are USD-only)", () => {
+  it("lets USD through and refuses everything else with the reason", () => {
+    expect(paypalDepositCurrencyRefusal("USD")).toBeNull();
+    expect(paypalDepositCurrencyRefusal("usd")).toBeNull();
+    // ZMW is the live-found case: PayPal has no ZMW, so a ZMW-wallet
+    // deposit must be refused up front, not after a provider round-trip.
+    expect(paypalDepositCurrencyRefusal("ZMW")).toMatch(/US dollars only/);
+    expect(paypalDepositCurrencyRefusal("EUR")).toMatch(/US dollars only/);
+    expect(paypalDepositCurrencyRefusal("")).toMatch(/US dollars only/);
+  });
+});
 
 describe("classifyProvider", () => {
   it("routes PayPal to the gateway when credentials are configured", () => {

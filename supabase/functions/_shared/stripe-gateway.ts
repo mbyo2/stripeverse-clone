@@ -245,9 +245,10 @@ export function stripeErrorTrace(
  */
 export function parseStripeSignatureHeader(
   header: string | null | undefined,
-): { timestamp: number; signatures: string[] } | null {
+): { timestamp: number; timestampRaw: string; signatures: string[] } | null {
   if (!header) return null;
   let timestamp: number | null = null;
+  let timestampRaw: string | null = null;
   const signatures: string[] = [];
   for (const part of header.split(",")) {
     const eq = part.indexOf("=");
@@ -256,13 +257,20 @@ export function parseStripeSignatureHeader(
     const value = part.slice(eq + 1).trim();
     if (key === "t") {
       const n = Number(value);
-      if (Number.isFinite(n)) timestamp = n;
+      if (Number.isFinite(n)) {
+        timestamp = n;
+        // Keep the LITERAL header text: the signed payload is
+        // `${t}.${body}` with t exactly as sent (Stripe docs) — a
+        // zero-padded or signed rendering must verify as sent, not
+        // as re-rendered through Number().
+        timestampRaw = value;
+      }
     } else if (key === "v1" && value) {
       signatures.push(value);
     }
   }
-  if (timestamp === null || signatures.length === 0) return null;
-  return { timestamp, signatures };
+  if (timestamp === null || timestampRaw === null || signatures.length === 0) return null;
+  return { timestamp, timestampRaw, signatures };
 }
 
 /** Constant-time comparison of two hex strings. */
@@ -315,7 +323,7 @@ export async function verifyStripeSignature(
     const mac = await crypto.subtle.sign(
       "HMAC",
       key,
-      encoder.encode(`${parsed.timestamp}.${rawBody}`),
+      encoder.encode(`${parsed.timestampRaw}.${rawBody}`),
     );
     const expected = bytesToHex(new Uint8Array(mac));
     return parsed.signatures.some((sig) => timingSafeEqualHex(sig.toLowerCase(), expected));

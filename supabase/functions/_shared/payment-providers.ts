@@ -56,6 +56,23 @@ export function classifyProvider(provider: string, env: ProviderEnv): ProviderRo
   };
 }
 
+/**
+ * The PayPal deposit gate on currency. PayPal does not support ZMW
+ * at all, and this platform's PayPal rail settles USD wallets only
+ * (the PayPal precedent the Stripe rail mirrors). A deposit aimed at
+ * a non-USD wallet can therefore never succeed — refuse it up front
+ * with the reason, instead of round-tripping to PayPal and handing
+ * the user a generic late failure (found live 2026-10-26: a ZMW
+ * wallet deposit travelled to PayPal, was rejected there, and came
+ * back as "could not create this deposit"). Returns the refusal
+ * message, or null when the currency may proceed.
+ */
+export function paypalDepositCurrencyRefusal(currency: string): string | null {
+  const c = (currency || "").trim().toUpperCase();
+  if (c === "USD") return null;
+  return "PayPal deposits are in US dollars only — choose your USD wallet to deposit by PayPal.";
+}
+
 export type LinkPaymentMethod = "wallet" | "card" | "mobile_money" | "bank";
 
 export type LinkMethodRoute =
