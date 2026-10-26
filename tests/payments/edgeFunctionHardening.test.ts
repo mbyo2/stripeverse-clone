@@ -59,7 +59,10 @@ describe("M1 — btc-onchain send() concurrency hardening", () => {
   });
 
   it("committed-outpoint lookup skips own row and only reads txid-bearing in-flight rows", () => {
-    expect(onchain).toContain('.in("status", ["reserved", "broadcast"])');
+    // P4 (2026-10-26): 'batched' rows join the in-flight set — a
+    // claimed batch member carries the batch txid and its inputs are
+    // just as committed as a solo send's.
+    expect(onchain).toContain('.in("status", ["reserved", "broadcast", "batched"])');
     expect(onchain).toContain('.not("txid", "is", null)');
     expect(onchain).toContain('.neq("id", excludeWithdrawalId)');
   });
@@ -75,8 +78,10 @@ describe("M1 — btc-onchain send() concurrency hardening", () => {
     expect(recheckIdx).toBeGreaterThan(reserveIdx);
     expect(sendBody).toContain("daily withdrawal limit exceeded");
     // The cap sum counts 'reserved' rows, so a racer's fresh
-    // reservation is on the books for both re-checks.
-    expect(onchain).toContain('.in("status", ["reserved", "broadcast", "confirmed"])');
+    // reservation is on the books for both re-checks. P4 (2026-10-26)
+    // adds the batched reservation states 'queued'/'batched' — a
+    // queued withdrawal commits funds exactly like a reserved one.
+    expect(onchain).toContain('.in("status", ["reserved", "broadcast", "confirmed", "queued", "batched"])');
   });
 
   it("v45 invariant: every automatic refund (btc_fail_withdrawal) happens BEFORE broadcast", () => {
