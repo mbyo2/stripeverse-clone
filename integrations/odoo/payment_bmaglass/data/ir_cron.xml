@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Settlement reconciliation: the developer API has no
+         'payment link paid' webhook event yet, so paid links are
+         confirmed by polling — every 5 minutes, like the other
+         BMaGlass connectors. -->
+    <record id="ir_cron_bmaglass_reconcile" model="ir.cron">
+        <field name="name">BMaGlass Pay: reconcile pending payments</field>
+        <field name="model_id" ref="payment.model_payment_transaction"/>
+        <field name="state">code</field>
+        <field name="code">model._bmaglass_reconcile_pending()</field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>
