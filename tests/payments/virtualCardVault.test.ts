@@ -202,6 +202,10 @@ describe("VirtualCardDetails — no direct DB writes remain", () => {
   });
 
   it("keeps the honesty framing: not a network card", () => {
-    expect(detailsPage).toContain("isn't a Visa, Mastercard, or bank card");
+    // Wording updated by the F2 brand-mislabelling fix (parent
+    // pass, 2026-10-26): the honesty framing stays, but the card
+    // UI no longer carries any network brand name at all — see
+    // tests/accounts/parentPassBlemishes.test.ts.
+    expect(detailsPage).toContain("isn't a card-network or bank card");
   });
 });
