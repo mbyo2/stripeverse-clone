@@ -49,14 +49,20 @@ interface WebhookRow {
   created_at: string;
 }
 
+// Only events the developer-api actually emits today.
 const AVAILABLE_EVENTS = [
-  "payment.completed",
-  "payment.failed",
-  "payment.refunded",
-  "transfer.completed",
-  "transfer.failed",
-  "invoice.paid",
-  "dispute.created",
+  "transaction.completed",
+  "payment_link.created",
+  "webhook.test",
+];
+
+const AVAILABLE_SCOPES = [
+  "wallets:read",
+  "transactions:read",
+  "transfers:write",
+  "payment_links:read",
+  "payment_links:write",
+  "bitcoin:read",
 ];
 
 const API = () => {
@@ -70,6 +76,7 @@ const API = () => {
   const [genOpen, setGenOpen] = useState(false);
   const [genName, setGenName] = useState("");
   const [genType, setGenType] = useState<"live" | "test">("live");
+  const [genScopes, setGenScopes] = useState<string[]>(AVAILABLE_SCOPES);
   const [genLoading, setGenLoading] = useState(false);
   // Full key shown exactly once
   const [freshKey, setFreshKey] = useState<string | null>(null);
@@ -84,6 +91,8 @@ const API = () => {
   const [whEvents, setWhEvents] = useState<string[]>([]);
   const [editingWh, setEditingWh] = useState<WebhookRow | null>(null);
   const [savingWh, setSavingWh] = useState(false);
+  const [freshWhSecret, setFreshWhSecret] = useState<string | null>(null);
+  const [deliveries, setDeliveries] = useState<any[]>([]);
 
   const loadKeys = useCallback(async () => {
     if (!user) return;
@@ -104,7 +113,7 @@ const API = () => {
     if (!user) return;
     setLoadingWebhooks(true);
     const { data, error } = await supabase
-      .from("webhooks")
+      .from("developer_webhooks" as any)
       .select("id, url, events, is_active, created_at")
       .order("created_at", { ascending: false });
     if (error) {
@@ -112,6 +121,12 @@ const API = () => {
     } else {
       setWebhooks(data || []);
     }
+    const { data: del } = await supabase
+      .from("developer_webhook_deliveries" as any)
+      .select("id, event_type, webhook_url, status, response_status, error_message, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setDeliveries((del as any) || []);
     setLoadingWebhooks(false);
   }, [user, toast]);
 
@@ -128,7 +143,7 @@ const API = () => {
     setGenLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-api-key", {
-        body: { name: genName.trim(), type: genType },
+        body: { name: genName.trim(), type: genType, scopes: genScopes },
       });
       if (error) throw new Error(error.message);
       if (!data?.key) throw new Error("No key returned");
@@ -185,9 +200,9 @@ const API = () => {
     let parsed: URL;
     try {
       parsed = new URL(whUrl.trim());
-      if (!["https:", "http:"].includes(parsed.protocol)) throw new Error("bad protocol");
+      if (parsed.protocol !== "https:") throw new Error("bad protocol");
     } catch {
-      toast({ title: "Invalid URL", description: "Enter a valid http(s) URL.", variant: "destructive" });
+      toast({ title: "Invalid URL", description: "Enter a valid HTTPS URL — developer webhooks require HTTPS.", variant: "destructive" });
       return;
     }
     if (whEvents.length === 0) {
@@ -198,7 +213,7 @@ const API = () => {
     try {
       if (editingWh) {
         const { error } = await supabase
-          .from("webhooks")
+          .from("developer_webhooks" as any)
           .update({ url: parsed.toString(), events: whEvents, updated_at: new Date().toISOString() })
           .eq("id", editingWh.id);
         if (error) throw error;
@@ -207,15 +222,16 @@ const API = () => {
         // Generate a signing secret for this endpoint (shown in webhook detail; stored per-row)
         const secretBytes = new Uint8Array(24);
         crypto.getRandomValues(secretBytes);
-        const secret = Array.from(secretBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-        const { error } = await supabase.from("webhooks").insert({
+        const secret = "whsec_" + Array.from(secretBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+        const { error } = await supabase.from("developer_webhooks" as any).insert({
           user_id: user!.id,
           url: parsed.toString(),
           events: whEvents,
           secret,
         });
         if (error) throw error;
-        toast({ title: "Webhook added", description: "A signing secret was generated for this endpoint." });
+        setFreshWhSecret(secret);
+        toast({ title: "Webhook added", description: "Copy the signing secret now — it is shown only once." });
       }
       cancelEditWebhook();
       loadWebhooks();
@@ -227,7 +243,7 @@ const API = () => {
   };
 
   const deleteWebhook = async (id: string, url: string) => {
-    const { error } = await supabase.from("webhooks").delete().eq("id", id);
+    const { error } = await supabase.from("developer_webhooks" as any).delete().eq("id", id);
     if (error) {
       toast({ title: "Delete failed", description: toUserFacingError(error), variant: "destructive" });
     } else {
@@ -237,7 +253,7 @@ const API = () => {
   };
 
   const toggleWebhook = async (wh: WebhookRow) => {
-    const { error } = await supabase.from("webhooks").update({ is_active: !wh.is_active }).eq("id", wh.id);
+    const { error } = await supabase.from("developer_webhooks" as any).update({ is_active: !wh.is_active }).eq("id", wh.id);
     if (error) {
       toast({ title: "Update failed", description: toUserFacingError(error), variant: "destructive" });
     } else {
@@ -359,37 +375,42 @@ const API = () => {
                   <div>
                     <h3 className="font-medium mb-2">Quick Start</h3>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Authenticate with your API key in the Authorization header. Sign in and
-                      open the API Keys tab to create one — keys are shown only once.
+                      Authenticate with your API key in the X-Api-Key header against the
+                      developer-api base URL below. Sign in and open the API Keys tab to
+                      create one — keys are shown only once. Test keys (bmp_test_) are
+                      read-only: this app has no test-mode ledger, so a test key can
+                      never move real money. Live keys (bmp_live_) move real money.
                     </p>
                     <div className="bg-muted p-4 rounded-lg">
                       <pre className="text-sm overflow-x-auto">
-{`curl -X POST https://hhxwwozpvgktuqutfkhc.supabase.co/functions/v1/process-payment \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "amount": 1000,
-    "currency": "ZMW",
-    "paymentMethod": "mobile"
-  }'`}
+{`curl https://hhxwwozpvgktuqutfkhc.supabase.co/functions/v1/developer-api/wallets \\
+  -H "X-Api-Key: bmp_test_your_key_here"`}
                       </pre>
                     </div>
                   </div>
 
                   <div>
-                    <h3 className="font-medium mb-2">Available Edge Functions</h3>
+                    <h3 className="font-medium mb-2">Shipped endpoints (developer-api)</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Full contract: <a className="underline" href="/openapi.json" target="_blank" rel="noreferrer">/openapi.json</a>.
+                      Not available via the API: MoonPay, Stripe, Payoneer and third-party card issuing — those rails are not live for API use and are not stubbed.
+                    </p>
                     <div className="space-y-2">
                       {[
-                        { fn: "process-payment", desc: "Initiate a payment (mobile money, card)" },
-                        { fn: "atomic-transfer", desc: "Atomic wallet-to-wallet transfer" },
-                        { fn: "btc-onchain", desc: "Bitcoin on-chain receive / send" },
-                        { fn: "lightning-service", desc: "Lightning Network invoices and payments" },
-                        { fn: "generate-api-key", desc: "Create a new API key" },
-                        { fn: "revoke-api-key", desc: "Revoke an API key" },
+                        { fn: "GET /wallets", desc: "List your wallets and balances — scope wallets:read" },
+                        { fn: "GET /transactions", desc: "Recent transactions — scope transactions:read" },
+                        { fn: "POST /transfers", desc: "Wallet-to-wallet transfer, 1.5% fee — live keys only, scope transfers:write" },
+                        { fn: "GET /payment-links", desc: "List payment links — scope payment_links:read" },
+                        { fn: "POST /payment-links", desc: "Create a payment link — live keys only, scope payment_links:write" },
+                        { fn: "GET /bitcoin/balance", desc: "Custodial Bitcoin balance — scope bitcoin:read" },
+                        { fn: "GET /bitcoin/deposit-address", desc: "Your issued custodial deposit address — scope bitcoin:read" },
+                        { fn: "POST /bitcoin/quote", desc: "60-second BTC buy/sell quote (execution stays in the app) — scope bitcoin:read" },
+                        { fn: "POST /webhooks", desc: "Register a webhook endpoint — signing secret shown once" },
+                        { fn: "GET /webhook-deliveries", desc: "Webhook delivery log" },
                       ].map((e) => (
                         <div key={e.fn} className="flex items-center justify-between p-3 border rounded">
                           <div>
-                            <span className="font-mono text-sm">POST /functions/v1/{e.fn}</span>
+                            <span className="font-mono text-sm">{e.fn}</span>
                             <p className="text-sm text-muted-foreground">{e.desc}</p>
                           </div>
                           <Badge variant="outline">Live</Badge>
@@ -445,6 +466,13 @@ const API = () => {
                     </div>
                   </div>
 
+                  {freshWhSecret && (
+                    <div className="p-3 rounded bg-amber-500/10 border border-amber-500/30 space-y-2">
+                      <p className="text-sm">Copy this signing secret now — it will never be shown again:</p>
+                      <code className="block bg-muted px-3 py-2 rounded text-sm font-mono break-all">{freshWhSecret}</code>
+                      <Button variant="outline" size="sm" onClick={() => { copyToClipboard(freshWhSecret, "Webhook secret copied"); setFreshWhSecret(null); }}>Copied — dismiss</Button>
+                    </div>
+                  )}
                   {loadingWebhooks ? (
                     <p className="text-sm text-muted-foreground">Loading webhooks…</p>
                   ) : webhooks.length === 0 ? (
@@ -476,6 +504,18 @@ const API = () => {
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {deliveries.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Recent deliveries</h4>
+                      {deliveries.map((d: any) => (
+                        <div key={d.id} className="flex items-center justify-between p-3 border rounded text-sm">
+                          <span className="font-mono">{d.event_type}</span>
+                          <span className="text-muted-foreground truncate mx-2">{d.webhook_url}</span>
+                          <Badge variant={d.status === "delivered" ? "default" : "secondary"}>{d.status}{d.response_status ? ` · HTTP ${d.response_status}` : ""}</Badge>
                         </div>
                       ))}
                     </div>
@@ -519,6 +559,18 @@ const API = () => {
                     <SelectItem value="test">Test</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground mt-1">Test keys are always read-only in practice — writes with a test key are refused, whatever scopes are selected.</p>
+              </div>
+              <div>
+                <Label>Scopes</Label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {AVAILABLE_SCOPES.map((sc) => (
+                    <label key={sc} className="flex items-center gap-1.5 text-xs border rounded px-2 py-1 cursor-pointer">
+                      <Checkbox checked={genScopes.includes(sc)} onCheckedChange={() => setGenScopes((prev) => prev.includes(sc) ? prev.filter((x) => x !== sc) : [...prev, sc])} />
+                      <span className="font-mono">{sc}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (

@@ -1,232 +1,59 @@
-
 import React from "react";
-import { Shield, Webhook, AlertCircle } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { WebhookPayload } from "@/utils/webhookDelivery";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
+// Truth pass (2026-10-26): documents the developer-api webhooks only —
+// the events that really occur, the real signature scheme and the real
+// delivery log. (The legacy merchant dispatch-webhook flow is separate
+// and is not part of the public developer API.)
 export function WebhookDocs() {
   return (
-    <div className="space-y-4">
-      <div className="mb-6">
-        <h3 className="text-lg font-medium mb-2">Webhook Integration</h3>
-        <p className="text-sm text-muted-foreground">
-          Use webhooks to receive real-time notifications about events in your BMaGlass Pay account.
-          Our webhooks send HTTP POST requests to your endpoint whenever specific events occur.
-        </p>
-      </div>
-      
-      <Tabs defaultValue="overview">
-        <TabsList className="w-full">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="payload">Webhook Payload</TabsTrigger>
-          <TabsTrigger value="events">Event Types</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="overview" className="p-4 border rounded-md mt-4">
-          <div className="space-y-4">
-            <h4 className="font-medium">Getting Started with Webhooks</h4>
-            <p className="text-sm">
-              To start receiving webhook notifications, you'll need to:
-            </p>
-            <ol className="list-decimal pl-5 text-sm space-y-2">
-              <li>Create an endpoint on your server to receive webhook POST requests</li>
-              <li>Configure the webhook URL in your business dashboard</li>
-              <li>Select which events you want to subscribe to</li>
-              <li>Implement proper validation of incoming webhook requests</li>
-            </ol>
-            
-            <div className="bg-accent/50 p-4 rounded-md border border-accent">
-              <div className="flex">
-                <AlertCircle className="h-5 w-5 text-primary mr-2 flex-shrink-0" /> 
-                <div>
-                  <h5 className="font-medium mb-1">Testing Webhooks</h5>
-                  <p className="text-sm text-muted-foreground">
-                    During development, you can use services like webhook.site or ngrok to receive and inspect webhooks.
-                  </p>
-                </div>
-              </div>
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Developer Webhooks</CardTitle>
+        <CardDescription>Signed event notifications from the developer-api, with a delivery log.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        <div>
+          <p className="font-medium mb-2">Events that really occur</p>
+          <div className="flex flex-wrap gap-2">
+            {["transaction.completed", "payment_link.created", "webhook.test"].map((ev) => (
+              <Badge key={ev} variant="secondary" className="font-mono">{ev}</Badge>
+            ))}
           </div>
-        </TabsContent>
-        
-        <TabsContent value="payload" className="p-4 border rounded-md mt-4">
-          <div className="space-y-4">
-            <h4 className="font-medium">Webhook Payload Structure</h4>
-            <p className="text-sm">
-              All webhook events follow the same JSON structure:
-            </p>
-            
-            <pre className="bg-secondary/20 p-4 rounded-md overflow-x-auto text-xs">
-{`{
-  "event_type": "payment.success",
-  "event_id": "evt_123456789",
-  "timestamp": "2023-04-22T14:30:45Z",
-  "business_id": "bus_987654321",
-  "data": {
-    // Event specific data
-  }
-}`}
-            </pre>
-            
-            <h5 className="font-medium mt-6">Payload Fields</h5>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="font-medium">event_type</p>
-                <p className="text-muted-foreground">The type of event that occurred</p>
-              </div>
-              <div>
-                <p className="font-medium">event_id</p>
-                <p className="text-muted-foreground">Unique identifier for this event</p>
-              </div>
-              <div>
-                <p className="font-medium">timestamp</p>
-                <p className="text-muted-foreground">ISO timestamp when the event occurred</p>
-              </div>
-              <div>
-                <p className="font-medium">business_id</p>
-                <p className="text-muted-foreground">Your business account identifier</p>
-              </div>
-              <div className="col-span-1 md:col-span-2">
-                <p className="font-medium">data</p>
-                <p className="text-muted-foreground">Object containing the event-specific data</p>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="events" className="p-4 border rounded-md mt-4">
-          <div className="space-y-4">
-            <h4 className="font-medium">Available Event Types</h4>
-            <p className="text-sm">
-              You can subscribe to the following event types:
-            </p>
-            
-            <div className="space-y-4">
-              <div className="border-b pb-4">
-                <h5 className="font-medium">Payment Events</h5>
-                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="font-medium">payment.success</p>
-                    <p className="text-muted-foreground">A payment was successfully completed</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">payment.failed</p>
-                    <p className="text-muted-foreground">A payment attempt failed</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">payment.pending</p>
-                    <p className="text-muted-foreground">A payment is awaiting confirmation</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">payment.refunded</p>
-                    <p className="text-muted-foreground">A payment was refunded</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="border-b pb-4">
-                <h5 className="font-medium">Customer Events</h5>
-                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="font-medium">customer.created</p>
-                    <p className="text-muted-foreground">A new customer was created</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">customer.updated</p>
-                    <p className="text-muted-foreground">A customer's information was updated</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <h5 className="font-medium">Dispute Events</h5>
-                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="font-medium">dispute.created</p>
-                    <p className="text-muted-foreground">A dispute was filed</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">dispute.resolved</p>
-                    <p className="text-muted-foreground">A dispute was resolved</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="security" className="p-4 border rounded-md mt-4">
-          <div className="space-y-4">
-            <h4 className="font-medium">Securing Webhook Endpoints</h4>
-            <p className="text-sm">
-              To ensure webhook security, follow these best practices:
-            </p>
-            
-            <div className="space-y-3 text-sm pl-5">
-              <div className="relative">
-                <div className="absolute left-0 -ml-5 flex h-5 w-5 items-center justify-center">
-                  <Shield className="h-3 w-3 text-primary" />
-                </div>
-                <p>Use HTTPS for your webhook endpoint</p>
-              </div>
-              
-              <div className="relative">
-                <div className="absolute left-0 -ml-5 flex h-5 w-5 items-center justify-center">
-                  <Shield className="h-3 w-3 text-primary" />
-                </div>
-                <p>Verify webhook signatures using your webhook secret</p>
-              </div>
-              
-              <div className="relative">
-                <div className="absolute left-0 -ml-5 flex h-5 w-5 items-center justify-center">
-                  <Shield className="h-3 w-3 text-primary" />
-                </div>
-                <p>Set up IP address restrictions if possible</p>
-              </div>
-              
-              <div className="relative">
-                <div className="absolute left-0 -ml-5 flex h-5 w-5 items-center justify-center">
-                  <Shield className="h-3 w-3 text-primary" />
-                </div>
-                <p>Validate the content and structure of each webhook</p>
-              </div>
-              
-              <div className="relative">
-                <div className="absolute left-0 -ml-5 flex h-5 w-5 items-center justify-center">
-                  <Shield className="h-3 w-3 text-primary" />
-                </div>
-                <p>Implement proper error handling for webhook processing</p>
-              </div>
-            </div>
-            
-            <div className="mt-4">
-              <h5 className="font-medium">Implementation Example</h5>
-              <pre className="bg-secondary/20 p-4 rounded-md overflow-x-auto text-xs mt-2">
-{`// Example of verifying webhook signature
-const crypto = require('crypto');
-
-function verifyWebhook(payload, signature, webhookSecret) {
-  const hmac = crypto.createHmac('sha256', webhookSecret);
-  const digest = hmac.update(payload).digest('hex');
-  return crypto.timingSafeEqual(
-    Buffer.from(digest),
-    Buffer.from(signature)
-  );
-}`}
-              </pre>
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-      
-      <div className="mt-4 text-right">
-        <Button variant="outline" size="sm">
-          View Sample Code
-        </Button>
-      </div>
-    </div>
+          <p className="text-muted-foreground mt-2">
+            transaction.completed fires when a live API transfer settles; payment_link.created when a
+            live API payment link is created; webhook.test when you send a test delivery.
+          </p>
+        </div>
+        <div>
+          <p className="font-medium mb-2">Registering an endpoint</p>
+          <pre className="bg-muted p-4 rounded-lg overflow-x-auto">{`POST /webhooks  { "url": "https://your-site.com/hook", "events": ["transaction.completed"] }
+→ 201 { "id": "…", "url": "…", "secret": "whsec_…" }   // secret shown exactly once`}</pre>
+          <p className="text-muted-foreground">HTTPS URLs only. Endpoints can also be managed on the API page.</p>
+        </div>
+        <div>
+          <p className="font-medium mb-2">Verifying a delivery</p>
+          <p className="text-muted-foreground">
+            Each delivery carries <code>X-BMaGlass-Signature: sha256=&lt;hex&gt;</code> — HMAC-SHA256 of the
+            exact request body, keyed with your endpoint secret — plus <code>X-BMaGlass-Event</code> and
+            <code> X-BMaGlass-Delivery</code> headers. Verify before trusting the payload; both SDKs ship a
+            verification helper (<code>verifyWebhookSignature</code> / <code>verify_webhook_signature</code>).
+          </p>
+          <pre className="bg-muted p-4 rounded-lg overflow-x-auto">{`{ "id": "evt_…", "type": "transaction.completed",
+  "created": "2026-10-26T00:00:00.000Z",
+  "data": { "transaction_id": "…", "amount": 100, "currency": "ZMW" } }`}</pre>
+        </div>
+        <div>
+          <p className="font-medium mb-2">Delivery log</p>
+          <p className="text-muted-foreground">
+            Every attempt is recorded (status, HTTP response, error) and readable via
+            <code> GET /webhook-deliveries</code> or on the API page. Deliveries are attempted once per
+            event today — there is no automatic retry schedule for developer webhooks yet, so return a
+            2xx promptly and reconcile from the log.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

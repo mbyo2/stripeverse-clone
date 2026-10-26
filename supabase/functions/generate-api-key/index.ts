@@ -60,6 +60,7 @@ serve(async (req) => {
       name: typeof name === "string" && name.trim() ? name.trim().slice(0, 100) : "API Key",
       key_hash: keyHash,
       key_prefix: prefix,
+      mode: keyType,
       scopes: Array.isArray(scopes) ? scopes.filter((s) => typeof s === "string").slice(0, 20) : [],
       expires_at: expires_at || null,
     }).select("id, name, key_prefix, created_at").single();
