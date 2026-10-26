@@ -15,6 +15,9 @@
 //     path and sessions default to USD (asserted via the URL build).
 
 import { describe, it, expect } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createHmac } from "node:crypto";
 import {
   buildMoonpayBuyUrl,
@@ -26,13 +29,18 @@ import {
   mapMoonpayStatus,
   moonpayBuyHost,
   moonpayConfig,
+  moonpayDeclaredKeyEnvironment,
   moonpayEnvironmentFromKey,
   MOONPAY_BUY_HOST,
   parseMoonpaySignatureHeader,
   parseMoonpayWebhookEvent,
+  shouldApplyMoonpayEvent,
   signMoonpayUrl,
   verifyMoonpayWebhookSignature,
 } from "../../supabase/functions/_shared/moonpay";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const read = (rel: string) => fs.readFileSync(path.resolve(here, rel), "utf8");
 
 const SANDBOX = moonpayConfig({
   publishableKey: "pk_test_example123",
@@ -79,6 +87,46 @@ describe("moonpayConfig (the not_configured gate)", () => {
     expect(MOONPAY_BUY_HOST.production).toBe("https://buy.moonpay.com");
     expect(moonpayBuyHost("sandbox")).toBe("https://buy-sandbox.moonpay.com");
     expect(moonpayBuyHost("production")).toBe("https://buy.moonpay.com");
+  });
+
+  it("flags a pk/sk environment-prefix mismatch (audit M-4)", () => {
+    expect(
+      moonpayConfig({ publishableKey: "pk_live_x", secretKey: "sk_test_x" })
+        .keyEnvironmentMismatch,
+    ).toBe(true);
+    expect(
+      moonpayConfig({ publishableKey: "pk_test_x", secretKey: "sk_live_x" })
+        .keyEnvironmentMismatch,
+    ).toBe(true);
+    expect(SANDBOX.keyEnvironmentMismatch).toBe(false);
+    expect(PRODUCTION.keyEnvironmentMismatch).toBe(false);
+    // A single key, or a prefix that declares nothing, cannot mismatch.
+    expect(moonpayConfig({ publishableKey: "pk_live_x" }).keyEnvironmentMismatch).toBe(false);
+    expect(
+      moonpayConfig({ publishableKey: "garbage", secretKey: "sk_live_x" })
+        .keyEnvironmentMismatch,
+    ).toBe(false);
+    expect(moonpayDeclaredKeyEnvironment("pk_live_x")).toBe("production");
+    expect(moonpayDeclaredKeyEnvironment("sk_test_x")).toBe("sandbox");
+    expect(moonpayDeclaredKeyEnvironment("wk_live_x")).toBeNull();
+    expect(moonpayDeclaredKeyEnvironment(null)).toBeNull();
+  });
+});
+
+describe("shouldApplyMoonpayEvent (audit M-1 order guard)", () => {
+  const t = Date.parse("2026-10-26T10:00:00.000Z");
+
+  it("applies only events newer than the row's applied stamp", () => {
+    expect(shouldApplyMoonpayEvent(t, t + 1000)).toBe(true);
+    expect(shouldApplyMoonpayEvent(t, t)).toBe(false); // duplicate redelivery
+    expect(shouldApplyMoonpayEvent(t, t - 1000)).toBe(false); // stale
+  });
+
+  it("applies when either side carries no stamp (unorderable)", () => {
+    expect(shouldApplyMoonpayEvent(null, t)).toBe(true);
+    expect(shouldApplyMoonpayEvent(t, null)).toBe(true);
+    expect(shouldApplyMoonpayEvent(null, null)).toBe(true);
+    expect(shouldApplyMoonpayEvent(undefined, undefined)).toBe(true);
   });
 });
 
@@ -296,7 +344,10 @@ describe("parseMoonpayWebhookEvent", () => {
     expect(parsed).toEqual({
       type: "transaction_updated",
       externalReference: "our-ref-1",
+      externalCustomerId: "user-123",
       moonpayTransactionId: "mp_tx_42",
+      updatedAt: null,
+      updatedAtMs: null,
       rawStatus: "completed",
       status: "completed",
       fiatAmount: 100.5,
@@ -307,6 +358,32 @@ describe("parseMoonpayWebhookEvent", () => {
       cryptoTransactionId: "onchain-tx-1",
       failureReason: null,
     });
+  });
+
+  it("carries the top-level externalCustomerId and data.updatedAt (audit M-1/M-2)", () => {
+    const parsed = parseMoonpayWebhookEvent({
+      type: "transaction_updated",
+      externalCustomerId: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      data: {
+        id: "mp_tx_7",
+        externalTransactionId: "our-ref-7",
+        status: "pending",
+        updatedAt: "2026-10-26T10:15:30.000Z",
+      },
+    });
+    expect(parsed.externalCustomerId).toBe("9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d");
+    expect(parsed.updatedAt).toBe("2026-10-26T10:15:30.000Z");
+    expect(parsed.updatedAtMs).toBe(Date.parse("2026-10-26T10:15:30.000Z"));
+    // Missing / unparseable stamps stay null — the event is then
+    // unorderable and still applies (bounded by the status machine).
+    const noStamp = parseMoonpayWebhookEvent({ type: "transaction_updated", data: {} });
+    expect(noStamp.externalCustomerId).toBeNull();
+    expect(noStamp.updatedAtMs).toBeNull();
+    const badStamp = parseMoonpayWebhookEvent({
+      type: "transaction_updated",
+      data: { updatedAt: "not-a-date" },
+    });
+    expect(badStamp.updatedAtMs).toBeNull();
   });
 
   it("carries the failure reason on a failed event", () => {
@@ -334,5 +411,37 @@ describe("parseMoonpayWebhookEvent", () => {
     expect(isMoonpayBuyEvent("transaction_failed")).toBe(true);
     expect(isMoonpayBuyEvent("sell_transaction_updated")).toBe(false);
     expect(isMoonpayBuyEvent(null)).toBe(false);
+  });
+});
+
+// ── Source pins: the M-1/M-2/M-4 wiring in the functions ────────────
+
+describe("source pins (audit M-1/M-2/M-4 wiring)", () => {
+  const webhookFn = read("../../supabase/functions/moonpay-webhook/index.ts");
+  const sessionFn = read("../../supabase/functions/moonpay-session/index.ts");
+  const adminFn = read("../../supabase/functions/moonpay-admin/index.ts");
+  const migration = read("../../supabase/migrations/20261226_moonpay_event_order_guard.sql");
+
+  it("migration adds the applied-event stamp column", () => {
+    expect(migration).toContain(
+      "ADD COLUMN IF NOT EXISTS last_event_updated_at TIMESTAMPTZ",
+    );
+  });
+
+  it("webhook orders events by updatedAt and links unmatched rows by customer id", () => {
+    expect(webhookFn).toContain("shouldApplyMoonpayEvent");
+    expect(webhookFn).toContain("last_event_updated_at");
+    expect(webhookFn).toContain("parsed.externalCustomerId");
+    // The order guard runs BEFORE the row update is built.
+    expect(webhookFn.indexOf("shouldApplyMoonpayEvent("))
+      .toBeLessThan(webhookFn.indexOf(".update(update)"));
+    // Tracking only, still: the webhook never writes a money table.
+    expect(webhookFn).not.toContain("wallets");
+  });
+
+  it("session refuses a mismatched key pair; admin status reports it", () => {
+    expect(sessionFn).toContain("config.keyEnvironmentMismatch");
+    expect(sessionFn).toContain("MOONPAY_MISCONFIGURED_MESSAGE");
+    expect(adminFn).toContain("keyEnvironmentMismatch: config.keyEnvironmentMismatch");
   });
 });

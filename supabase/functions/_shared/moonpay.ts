@@ -68,6 +68,16 @@ export interface MoonpayConfig {
   configured: boolean;
   hasWebhookKey: boolean;
   environment: MoonpayEnvironment;
+  /**
+   * Audit M-4: the publishable and secret keys carry DIFFERENT
+   * environment prefixes (pk_live_ with sk_test_, or the reverse).
+   * Such a pair can never work — the widget would load on one
+   * host while URLs are signed for the other — so it is detected
+   * here, refused by moonpay-session and reported by
+   * moonpay-admin, instead of surfacing as MoonPay-side failures
+   * after the rail is switched on.
+   */
+  keyEnvironmentMismatch: boolean;
 }
 
 function present(value: string | null | undefined): string | null {
@@ -89,6 +99,22 @@ export function moonpayEnvironmentFromKey(
 }
 
 /**
+ * The environment a key's prefix DECLARES, or null when the prefix
+ * is not a recognisable MoonPay key prefix at all. Unlike
+ * moonpayEnvironmentFromKey this never guesses — the M-4 mismatch
+ * check must only fire on two keys that positively declare
+ * different environments.
+ */
+export function moonpayDeclaredKeyEnvironment(
+  key: string | null | undefined,
+): MoonpayEnvironment | null {
+  const k = typeof key === "string" ? key.trim() : "";
+  if (k.startsWith("pk_live_") || k.startsWith("sk_live_")) return "production";
+  if (k.startsWith("pk_test_") || k.startsWith("sk_test_")) return "sandbox";
+  return null;
+}
+
+/**
  * Resolve the rail's configuration from the MOONPAY_* values.
  * Environment comes from the secret key when present, else the
  * publishable key.
@@ -97,6 +123,8 @@ export function moonpayConfig(env: MoonpayEnvValues): MoonpayConfig {
   const publishableKey = present(env.publishableKey);
   const secretKey = present(env.secretKey);
   const webhookKey = present(env.webhookKey);
+  const publishableEnv = moonpayDeclaredKeyEnvironment(publishableKey);
+  const secretEnv = moonpayDeclaredKeyEnvironment(secretKey);
   return {
     publishableKey,
     secretKey,
@@ -104,6 +132,8 @@ export function moonpayConfig(env: MoonpayEnvValues): MoonpayConfig {
     configured: publishableKey !== null && secretKey !== null,
     hasWebhookKey: webhookKey !== null,
     environment: moonpayEnvironmentFromKey(secretKey ?? publishableKey),
+    keyEnvironmentMismatch:
+      publishableEnv !== null && secretEnv !== null && publishableEnv !== secretEnv,
   };
 }
 
@@ -111,6 +141,9 @@ export function moonpayConfig(env: MoonpayEnvValues): MoonpayConfig {
 
 export const MOONPAY_NOT_CONFIGURED_MESSAGE =
   "Card payments aren't switched on yet — MoonPay is still being connected. No money has moved.";
+
+export const MOONPAY_MISCONFIGURED_MESSAGE =
+  "Card payments are paused while we fix a configuration problem on our side. No money has moved — please try again later.";
 
 export const MOONPAY_COMING_SOON_MESSAGE =
   "Buying Bitcoin by card is coming soon — MoonPay is connected but not switched on yet. No money has moved.";
@@ -306,6 +339,15 @@ export function parseMoonpaySignatureHeader(
  * FAILS CLOSED on every irregularity — missing header, missing key,
  * malformed header, no match. The RAW body is required: any JSON
  * re-serialisation changes the bytes and breaks the signature.
+ *
+ * NO timestamp freshness window (audit M-3, decided 2026-10-26):
+ * MoonPay's docs prescribe no tolerance for `t`, and MoonPay
+ * REDELIVERS webhooks by re-sending the original signed request —
+ * the `t` on a legitimate retry can be hours old, so a window
+ * would reject exactly the retries the endpoint exists to accept.
+ * Replay safety comes from the signature itself plus the
+ * (type + transaction id + updatedAt) dedupe / order guard in the
+ * webhook (audit M-1), not from freshness.
  */
 export async function verifyMoonpayWebhookSignature(
   rawBody: string,
@@ -389,7 +431,23 @@ export interface ParsedMoonpayWebhookEvent {
   type: string | null;
   /** OUR reference (data.externalTransactionId). */
   externalReference: string | null;
+  /**
+   * OUR user id as MoonPay echoes it at the payload's TOP level
+   * (externalCustomerId sits beside `type`/`data`, not inside
+   * `data` — audit M-2). moonpay-session sets it to the caller's
+   * user id, so an otherwise-unmatched webhook row can still be
+   * linked back to its owner.
+   */
+  externalCustomerId: string | null;
   moonpayTransactionId: string | null;
+  /**
+   * data.updatedAt — when MoonPay last changed the transaction
+   * (ISO 8601), and its epoch-ms form. The dedupe / order-guard
+   * key (with type + transaction id) that keeps stale deliveries
+   * from overwriting newer tracking state (audit M-1).
+   */
+  updatedAt: string | null;
+  updatedAtMs: number | null;
   rawStatus: string | null;
   status: MoonpayStatus | null;
   fiatAmount: number | null;
@@ -433,10 +491,15 @@ export function parseMoonpayWebhookEvent(body: unknown): ParsedMoonpayWebhookEve
   const data = asRecord(root?.data) ?? {};
   const baseCurrency = asRecord(data.baseCurrency);
   const fiatCurrencyRaw = stringOrNull(baseCurrency?.code);
+  const updatedAt = stringOrNull(data.updatedAt);
+  const updatedAtMs = updatedAt !== null ? Date.parse(updatedAt) : NaN;
   return {
     type: stringOrNull(root?.type),
     externalReference: stringOrNull(data.externalTransactionId),
+    externalCustomerId: stringOrNull(root?.externalCustomerId),
     moonpayTransactionId: stringOrNull(data.id),
+    updatedAt,
+    updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : null,
     rawStatus: stringOrNull(data.status),
     status: mapMoonpayStatus(stringOrNull(data.status)),
     fiatAmount: numberOrNull(data.baseCurrencyAmount),
@@ -447,4 +510,25 @@ export function parseMoonpayWebhookEvent(body: unknown): ParsedMoonpayWebhookEve
     cryptoTransactionId: stringOrNull(data.cryptoTransactionId),
     failureReason: stringOrNull(data.failureReason),
   };
+}
+
+/**
+ * Order guard for webhook application (audit M-1): may an event
+ * whose transaction was last changed at `eventUpdatedAtMs` write
+ * to a row that already applied an event stamped
+ * `storedUpdatedAtMs`? Delivery is at-least-once and unordered, so
+ * an event is applied only when it is NEWER than what the row has
+ * already applied — an equal stamp is the same change redelivered
+ * (dedupe), an older stamp is stale and must not overwrite
+ * tracking fields, least of all on terminal rows. When either
+ * side carries no timestamp the event cannot be ordered and is
+ * applied (the pre-M-1 behaviour, still bounded by the
+ * terminal-sticky status machine).
+ */
+export function shouldApplyMoonpayEvent(
+  storedUpdatedAtMs: number | null | undefined,
+  eventUpdatedAtMs: number | null | undefined,
+): boolean {
+  if (storedUpdatedAtMs == null || eventUpdatedAtMs == null) return true;
+  return eventUpdatedAtMs > storedUpdatedAtMs;
 }

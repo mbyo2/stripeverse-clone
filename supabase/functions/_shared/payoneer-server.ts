@@ -40,13 +40,16 @@ import {
   buildTokenRequest,
   classifyPayoneerError,
   decideStatusTransition,
+  extractPayoneerBalances,
   extractProviderStatus,
   mapProviderStatus,
+  payoneerBalancesPath,
   payoneerConfig,
+  payoneerCreatePaymentPath,
   payoneerErrorTrace,
   payoneerPayeePath,
   payoneerPaymentPath,
-  PAYONEER_PAYMENTS_PATH,
+  type PayoneerBalance,
   type PayoneerDebitState,
   type PayoneerEnvValues,
   type PayoneerPayoutStatus,
@@ -196,18 +199,26 @@ async function payoneerRequest(
 }
 
 /**
- * POST /v4/payments — the primary create path (brief §2.1). The
- * program-scoped variant (payoneerProgramPayoutPath in the pure
- * module) is the CONFIRM-AT-ONBOARDING alternative; `body` must
- * already carry client_reference_id = the ledger row's uuid_id
- * (buildCreatePaymentBody).
+ * Create a payment — the path is SELECTED from the configuration
+ * (audit P-1): the program-scoped form whenever a program id is
+ * configured, the plain /v4/payments path otherwise
+ * (payoneerCreatePaymentPath in the pure module — header note 2
+ * there). `body` must already carry client_reference_id = the
+ * ledger row's uuid_id (buildCreatePaymentBody).
  */
 export function createPayoneerPayment(
   fetchImpl: FetchLike,
   values: PayoneerEnvValues,
   body: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  return payoneerRequest(fetchImpl, values, "POST", PAYONEER_PAYMENTS_PATH, body);
+  const config = payoneerConfig(values);
+  return payoneerRequest(
+    fetchImpl,
+    values,
+    "POST",
+    payoneerCreatePaymentPath(config.programId),
+    body,
+  );
 }
 
 /** GET /v4/payments/{id} — Payoneer's authoritative payment state. */
@@ -226,6 +237,27 @@ export function getPayoneerPayee(
   payeeId: string,
 ): Promise<Record<string, unknown>> {
   return payoneerRequest(fetchImpl, values, "GET", payoneerPayeePath(payeeId));
+}
+
+/**
+ * GET the platform float balances (audit P-3; assumption 6 in the
+ * pure module). Returns the parsed per-currency list, or NULL when
+ * the provider's answer does not match the assumed shape — null is
+ * "unknown", never zero. Throws the classified plain-language
+ * error on a non-2xx / unreachable answer, like every provider
+ * call here; callers that treat the read as advisory catch it.
+ */
+export async function getPayoneerBalances(
+  fetchImpl: FetchLike,
+  values: PayoneerEnvValues,
+): Promise<PayoneerBalance[] | null> {
+  const payload = await payoneerRequest(
+    fetchImpl,
+    values,
+    "GET",
+    payoneerBalancesPath(),
+  );
+  return extractPayoneerBalances(payload);
 }
 
 // ── Ledger rows ──────────────────────────────────────────────────────

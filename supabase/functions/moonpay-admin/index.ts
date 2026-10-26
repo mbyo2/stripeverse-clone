@@ -101,6 +101,7 @@ serve(async (req) => {
         success: true,
         configured: config.configured,
         environment: config.environment,
+        keyEnvironmentMismatch: config.keyEnvironmentMismatch,
         publishableKeyPresent: config.publishableKey !== null,
         secretKeyPresent: config.secretKey !== null,
         webhookKeyPresent: config.hasWebhookKey,

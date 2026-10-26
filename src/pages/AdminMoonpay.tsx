@@ -31,6 +31,7 @@ import { Check, Copy, CreditCard, Globe2, RefreshCw } from "lucide-react";
 interface MoonpayStatus {
   configured: boolean;
   environment: string | null;
+  keyEnvironmentMismatch: boolean;
   publishableKeyPresent: boolean;
   secretKeyPresent: boolean;
   webhookKeyPresent: boolean;
@@ -253,6 +254,19 @@ const AdminMoonpay = () => {
               MoonPay keys are added in Supabase. This page is fully ready for
               them — once the keys are added, purchases and status checks will
               work here with no further changes.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {status?.keyEnvironmentMismatch && (
+          <Alert className="mb-6 border-destructive/60 bg-destructive/10">
+            <Globe2 className="h-4 w-4" />
+            <AlertTitle>Key environment mismatch</AlertTitle>
+            <AlertDescription>
+              The publishable and secret keys belong to different MoonPay
+              environments (one is a live key, the other a test key). Card
+              purchases are refused until both keys are replaced with a
+              matching pair in Supabase.
             </AlertDescription>
           </Alert>
         )}

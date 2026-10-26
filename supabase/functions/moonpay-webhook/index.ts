@@ -19,9 +19,21 @@
 //   - Delivery is at-least-once and unordered: status application
 //     goes through canApplyMoonpayStatus, so a late event can never
 //     regress a terminal (completed / failed) row.
+//   - Dedupe / order guard (audit M-1): events are ordered by the
+//     transaction's own data.updatedAt. A row records the newest
+//     stamp it has applied (last_event_updated_at); an event
+//     stamped at or before it is acknowledged but NOT applied, so
+//     a stale redelivery can never overwrite tracking fields —
+//     least of all on terminal rows. (No signature-timestamp
+//     freshness window: MoonPay prescribes none, and its retries
+//     re-send the original signed request — see _shared/moonpay.ts,
+//     audit M-3.)
 //   - Buy events for a reference we never issued are recorded
-//     defensively (user_id NULL, source 'webhook_unmatched') so
-//     reconciliation can see them; non-buy events are ignored.
+//     defensively (source 'webhook_unmatched') so reconciliation
+//     can see them; when the payload's top-level externalCustomerId
+//     names one of our users (audit M-2 — moonpay-session sets it
+//     to the caller's user id) the row is linked to that user,
+//     otherwise user_id stays NULL. Non-buy events are ignored.
 //   - After a successful verify + record the answer is always
 //     200 { received: true } so MoonPay stops retrying.
 
@@ -32,6 +44,7 @@ import {
   isMoonpayBuyEvent,
   moonpayConfig,
   parseMoonpayWebhookEvent,
+  shouldApplyMoonpayEvent,
   verifyMoonpayWebhookSignature,
 } from "../_shared/moonpay.ts";
 
@@ -95,57 +108,102 @@ serve(async (req) => {
     const supabase = getServiceRoleClient();
     const now = new Date().toISOString();
 
-    // ── Known purchase: apply the status (terminal-sticky) ──
+    // ── Known purchase: apply the event (ordered, terminal-sticky) ──
+    // The row is found by our external reference first, then by
+    // MoonPay's transaction id (the dedupe key's id leg — audit
+    // M-1) so a redelivery that reaches us without the reference
+    // still lands on the same row instead of inserting a twin.
+    // deno-lint-ignore no-explicit-any
+    let row: any = null;
     if (parsed.externalReference) {
-      const { data: row, error: lookupError } = await supabase
+      const { data, error: lookupError } = await supabase
         .from("moonpay_transactions")
-        .select("id, status")
+        .select("id, status, last_event_updated_at")
         .eq("external_reference", parsed.externalReference)
         .maybeSingle();
       if (lookupError) throw new Error(`MoonPay transaction lookup failed: ${lookupError.message}`);
-
-      if (row) {
-        // deno-lint-ignore no-explicit-any
-        const update: Record<string, any> = {
-          raw_status: parsed.rawStatus,
-          last_webhook_event: parsed.type,
-          last_webhook_payload: event,
-          updated_at: now,
-        };
-        if (parsed.status && canApplyMoonpayStatus(row.status, parsed.status)) {
-          update.status = parsed.status;
-        }
-        if (parsed.moonpayTransactionId) update.moonpay_transaction_id = parsed.moonpayTransactionId;
-        if (parsed.fiatAmount !== null) update.fiat_amount = parsed.fiatAmount;
-        if (parsed.fiatCurrency) update.fiat_currency = parsed.fiatCurrency;
-        if (parsed.cryptoAmount !== null) update.crypto_amount = parsed.cryptoAmount;
-        if (parsed.feeAmount !== null) update.fee_amount = parsed.feeAmount;
-        if (parsed.cryptoTransactionId) update.crypto_transaction_id = parsed.cryptoTransactionId;
-        if (parsed.failureReason) update.failure_reason = parsed.failureReason;
-        const { error: updateError } = await supabase
-          .from("moonpay_transactions")
-          .update(update)
-          .eq("id", row.id);
-        if (updateError) throw new Error(`MoonPay transaction update failed: ${updateError.message}`);
-        logStep("Tracked purchase updated", {
-          externalReference: parsed.externalReference,
-          status: update.status ?? row.status,
-        });
-        return json({ received: true });
-      }
+      row = data;
+    }
+    if (!row && parsed.moonpayTransactionId) {
+      const { data, error: idLookupError } = await supabase
+        .from("moonpay_transactions")
+        .select("id, status, last_event_updated_at")
+        .eq("moonpay_transaction_id", parsed.moonpayTransactionId)
+        .maybeSingle();
+      if (idLookupError) throw new Error(`MoonPay transaction lookup failed: ${idLookupError.message}`);
+      row = data;
     }
 
-    // ── Unknown reference: record defensively, owned by nobody ──
+    if (row) {
+      // ── Order guard: a duplicate (same stamp) or stale (older
+      // stamp) event is acknowledged but changes nothing.
+      const storedMs = row.last_event_updated_at
+        ? Date.parse(row.last_event_updated_at as string)
+        : null;
+      if (!shouldApplyMoonpayEvent(storedMs, parsed.updatedAtMs)) {
+        logStep("Duplicate or stale event — acknowledged, not applied", {
+          externalReference: parsed.externalReference,
+          type: parsed.type,
+          updatedAt: parsed.updatedAt,
+        });
+        return json({ received: true, duplicate: true });
+      }
+      // deno-lint-ignore no-explicit-any
+      const update: Record<string, any> = {
+        raw_status: parsed.rawStatus,
+        last_webhook_event: parsed.type,
+        last_webhook_payload: event,
+        updated_at: now,
+      };
+      if (parsed.updatedAt) update.last_event_updated_at = parsed.updatedAt;
+      if (parsed.status && canApplyMoonpayStatus(row.status, parsed.status)) {
+        update.status = parsed.status;
+      }
+      if (parsed.moonpayTransactionId) update.moonpay_transaction_id = parsed.moonpayTransactionId;
+      if (parsed.fiatAmount !== null) update.fiat_amount = parsed.fiatAmount;
+      if (parsed.fiatCurrency) update.fiat_currency = parsed.fiatCurrency;
+      if (parsed.cryptoAmount !== null) update.crypto_amount = parsed.cryptoAmount;
+      if (parsed.feeAmount !== null) update.fee_amount = parsed.feeAmount;
+      if (parsed.cryptoTransactionId) update.crypto_transaction_id = parsed.cryptoTransactionId;
+      if (parsed.failureReason) update.failure_reason = parsed.failureReason;
+      const { error: updateError } = await supabase
+        .from("moonpay_transactions")
+        .update(update)
+        .eq("id", row.id);
+      if (updateError) throw new Error(`MoonPay transaction update failed: ${updateError.message}`);
+      logStep("Tracked purchase updated", {
+        externalReference: parsed.externalReference,
+        status: update.status ?? row.status,
+      });
+      return json({ received: true });
+    }
+
+    // ── Unknown reference: record defensively ──
+    // Owned by the payload's externalCustomerId when it names one
+    // of our users (audit M-2); by nobody otherwise.
     const fallbackReference = parsed.externalReference ?? parsed.moonpayTransactionId;
     if (!fallbackReference) {
       // Nothing we can reconcile against — acknowledge and move on.
       logStep("Buy event carried no reference — ignored");
       return json({ received: true, ignored: true });
     }
+    let ownerId: string | null = null;
+    if (
+      parsed.externalCustomerId &&
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+        .test(parsed.externalCustomerId)
+    ) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", parsed.externalCustomerId)
+        .maybeSingle();
+      if (profile) ownerId = parsed.externalCustomerId;
+    }
     const { error: insertError } = await supabase
       .from("moonpay_transactions")
       .insert({
-        user_id: null,
+        user_id: ownerId,
         external_reference: fallbackReference,
         moonpay_transaction_id: parsed.moonpayTransactionId,
         deposit_address: parsed.walletAddress ?? "",
@@ -162,6 +220,7 @@ serve(async (req) => {
         source: "webhook_unmatched",
         last_webhook_event: parsed.type,
         last_webhook_payload: event,
+        last_event_updated_at: parsed.updatedAt,
       });
     if (insertError) throw new Error(`MoonPay defensive record failed: ${insertError.message}`);
     logStep("Unmatched buy event recorded defensively", { externalReference: fallbackReference });

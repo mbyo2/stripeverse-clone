@@ -16,10 +16,10 @@ const Faq = () => {
     {
       title: "General",
       faqs: [
-        { question: "What is BMaGlass Pay?", answer: "BMaGlass Pay is a comprehensive payment solution enabling businesses and individuals to send, receive, and manage payments securely. We offer mobile money, card processing, USSD payments, virtual cards, and Bitcoin." },
+        { question: "What is BMaGlass Pay?", answer: "BMaGlass Pay is a comprehensive payment solution enabling businesses and individuals to send, receive, and manage payments securely. Bitcoin payments, wallet transfers and virtual cards are live today; mobile money is coming soon through direct connections to MTN, Airtel and Zamtel, alongside card processing and USSD payments." },
         { question: "How do I create an account?", answer: "Click 'Sign Up' on the homepage. Enter your name, email, and phone number, then verify your email — that's all you need to start using BMaGlass Pay, including your wallet and Bitcoin. A few specific features, like higher P2P trading tiers and bigger limits, ask for identity verification; if you use one of those, we'll ask at the time and explain why." },
         { question: "Is my money safe with BMaGlass Pay?", answer: "Yes. We use AES-256 encryption, tokenised card storage, two-factor authentication, and fraud monitoring." },
-        { question: "What are the transaction fees?", answer: "Mobile Money: 1-2%, Card payments: 2.5-3%, USSD: 1.5%, Bank transfers: K5 flat fee. Volume discounts available for Business accounts. See our Pricing page for details." },
+        { question: "What are the transaction fees?", answer: "Card payments: 2.5-3%, USSD: 1.5%, Bank transfers: K5 flat fee. Mobile Money is coming soon — its fees will be published when the direct MTN, Airtel and Zamtel connections launch. Volume discounts available for Business accounts. See our Pricing page for details." },
       ]
     },
     {
@@ -34,7 +34,7 @@ const Faq = () => {
     {
       title: "Payments & Cards",
       faqs: [
-        { question: "Which payment methods are supported?", answer: "Visa, Mastercard, Mobile Money (MTN, Airtel, Zamtel), USSD, bank transfers, and Bitcoin." },
+        { question: "Which payment methods are supported?", answer: "Bitcoin is live today. Mobile Money (MTN, Airtel, Zamtel) is coming soon, through direct connections to each provider. Visa, Mastercard, USSD, and bank transfers are also supported." },
         { question: "Are international payments supported?", answer: "Yes, through Bitcoin. Some international transfers ask for identity verification — if one does, we'll ask at the time and explain why." },
         { question: "How do virtual cards work?", answer: "Create a BMaGlass virtual card from your Wallet and load funds to keep a separate balance inside BMaGlass Pay, like a named pocket for a purpose. Virtual cards aren't card-network cards, so they can't be used for purchases outside BMaGlass Pay. Cards can be frozen or cancelled instantly." },
         { question: "What happens if a payment fails?", answer: "You'll receive an instant notification with the failure reason. Retry or choose a different payment method. Failed transactions are never charged." },

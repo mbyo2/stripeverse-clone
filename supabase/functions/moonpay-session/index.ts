@@ -15,6 +15,12 @@
 //      status the crafted 503, before anything is written.
 //   3. Configuration: MOONPAY_PUBLISHABLE_KEY + MOONPAY_SECRET_KEY
 //      must exist → truthful `not_configured`, NO row written.
+//   3b. Key-environment match (audit M-4): a publishable/secret
+//      pair whose prefixes declare different environments
+//      (pk_live_ with sk_test_) can never work — refused as
+//      `misconfigured`, NO row written, and reported by
+//      moonpay-admin so the bad pair is fixed in Supabase, not
+//      discovered from MoonPay-side failures.
 //   4. Kill switch: platform_settings.moonpay_enabled = false (the
 //      DEFAULT) → crafted "coming soon", NO row written.
 //
@@ -44,6 +50,7 @@ import {
   moonpayConfig,
   MOONPAY_COMING_SOON_MESSAGE,
   MOONPAY_INVALID_AMOUNT_MESSAGE,
+  MOONPAY_MISCONFIGURED_MESSAGE,
   MOONPAY_NOT_CONFIGURED_MESSAGE,
   MOONPAY_UNSUPPORTED_CURRENCY_MESSAGE,
   MOONPAY_ZMW_MESSAGE,
@@ -162,6 +169,14 @@ serve(async (req) => {
     if (!config.configured) {
       logStep("MoonPay not configured");
       return json({ success: false, status: "not_configured", error: MOONPAY_NOT_CONFIGURED_MESSAGE });
+    }
+
+    // ── 3b. Key-environment mismatch (audit M-4) ──
+    if (config.keyEnvironmentMismatch) {
+      console.error(
+        "moonpay-session: publishable/secret key environment mismatch — refusing session",
+      );
+      return json({ success: false, status: "misconfigured", error: MOONPAY_MISCONFIGURED_MESSAGE }, 503);
     }
 
     // ── 4. Kill switch ──

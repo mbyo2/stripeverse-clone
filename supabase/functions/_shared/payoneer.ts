@@ -23,8 +23,13 @@
 //      { payee_id, amount (JSON number, major units), currency,
 //      description, client_reference_id }. A program-scoped variant
 //      POST /v4/programs/{program_id}/payments/payout exists
-//      (payoneerProgramPayoutPath below) — the plain /v4/payments
-//      path is primary; confirm which form our program is issued.
+//      (payoneerProgramPayoutPath below). PATH SELECTION
+//      (payoneerCreatePaymentPath): the program-scoped form is used
+//      whenever a program id is configured — which the payouts
+//      function's own config gate requires — and the plain
+//      /v4/payments path is the fallback for a credentials-only
+//      configuration; CONFIRM AT ONBOARDING which form our issued
+//      program requires, the code supports both cleanly.
 //   3. Create / status responses carry the payment id under
 //      `payment_id` (fallbacks: `payout_id`, `id`) and the status
 //      under `status` (fallbacks: nested payment object) — see
@@ -232,11 +237,21 @@ export const PAYONEER_PAYMENTS_PATH = "/v4/payments";
 /**
  * The program-scoped payout variant (brief §2.1): ONE integrator
  * guide documents POST /v4/programs/{program_id}/payments/payout
- * with the same body fields. Kept here, unused by the server module,
- * so onboarding confirms ONE place which form our program is issued.
+ * with the same body fields.
  */
 export function payoneerProgramPayoutPath(programId: string): string {
   return `/v4/programs/${encodeURIComponent(programId)}/payments/payout`;
+}
+
+/**
+ * Which create path a create goes to: the program-scoped form when
+ * a program id is configured, the plain /v4/payments path
+ * otherwise (header note 2 — confirm at onboarding; both forms are
+ * supported so the issued program's requirement is a config fact,
+ * not a code change).
+ */
+export function payoneerCreatePaymentPath(programId: string | null): string {
+  return programId ? payoneerProgramPayoutPath(programId) : PAYONEER_PAYMENTS_PATH;
 }
 
 export function payoneerPaymentPath(paymentId: string): string {
@@ -311,6 +326,15 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+function numberOrNull(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 /** The payment object inside a provider response, wherever it nests. */
 function paymentRecord(payload: unknown): Record<string, unknown> | null {
   const root = asRecord(payload);
@@ -338,6 +362,126 @@ export function extractProviderStatus(payload: unknown): string | null {
   const record = paymentRecord(payload);
   if (!record) return null;
   return stringOrNull(record.status) ?? stringOrNull(record.payment_status);
+}
+
+// ── Balances read (CONFIRM-AT-ONBOARDING assumption 6) ──────────────
+//   6. Balances: GET /v4/balances answers the platform float per
+//      currency — the list at the top level or under `balances`,
+//      each entry carrying `currency` and an available figure
+//      (`available_balance`, fallbacks `available` / `balance`).
+//      The exact nesting is portal documentation; the extractor
+//      below is deliberately tolerant and returns NULL when the
+//      shape is not recognised, so an unrecognised answer reads as
+//      "unknown" — never as zero, and never as sufficient. The read
+//      exists so float sufficiency is KNOWN before a create (the
+//      create flow's pre-flight + the admin status surface), not
+//      discovered from a create's failure.
+
+/** Balances endpoint path (assumption 6). */
+export const PAYONEER_BALANCES_PATH = "/v4/balances";
+
+export function payoneerBalancesPath(): string {
+  return PAYONEER_BALANCES_PATH;
+}
+
+export interface PayoneerBalance {
+  currency: string;
+  /** Amount available to pay out, in major units. */
+  available: number;
+}
+
+/**
+ * Read the per-currency float out of a balances response.
+ * Returns NULL when nothing in the payload matches the assumed
+ * shape (assumption 6) — callers must treat null as "unknown",
+ * never as an empty account.
+ */
+export function extractPayoneerBalances(payload: unknown): PayoneerBalance[] | null {
+  const root = asRecord(payload);
+  const list: unknown[] | null = Array.isArray(payload)
+    ? payload
+    : root && Array.isArray(root.balances)
+      ? root.balances
+      : root && Array.isArray(root.data)
+        ? root.data
+        : null;
+  if (!list) return null;
+  const balances: PayoneerBalance[] = [];
+  for (const entry of list) {
+    const record = asRecord(entry);
+    if (!record) continue;
+    const currency = stringOrNull(record.currency) ??
+      stringOrNull(record.currency_code);
+    const available = numberOrNull(record.available_balance) ??
+      numberOrNull(record.available) ??
+      numberOrNull(record.balance) ??
+      numberOrNull(record.amount);
+    if (currency && available !== null) {
+      balances.push({ currency: currency.trim().toUpperCase(), available });
+    }
+  }
+  return balances.length > 0 ? balances : null;
+}
+
+/** The available float for one currency, or null when not listed. */
+export function payoneerBalanceFor(
+  balances: readonly PayoneerBalance[] | null,
+  currency: string,
+): number | null {
+  if (!balances) return null;
+  const wanted = currency.trim().toUpperCase();
+  const found = balances.find((b) => b.currency === wanted);
+  return found ? found.available : null;
+}
+
+// ── Wallet pre-flight (audit P-2) ────────────────────────────────────
+
+function formatPayoneerAmount(amount: number): string {
+  return Number(amount).toFixed(2);
+}
+
+export type WalletPreflight =
+  | { ok: true }
+  | { ok: false; message: string };
+
+/**
+ * Pre-flight the FUNDING WALLET before any provider payment exists
+ * (audit P-2): currency, active status and — the check that used
+ * to happen only inside the post-create debit — sufficient
+ * balance. Payoneer takes the money from the platform float at
+ * creation, so learning "the wallet cannot fund this" AFTER the
+ * create leaves a provider payment our ledger calls failed; this
+ * check runs first and refuses plainly. It is a pre-flight, not a
+ * replacement for the debit's own guarded checks (the balance can
+ * still move between the two reads — the debit stays the
+ * authority, with its optimistic-concurrency guard).
+ */
+export function checkWalletPreflight(
+  wallet: { currency: string; status: string; balance: number },
+  amount: number,
+  currency: string,
+): WalletPreflight {
+  if (wallet.currency !== currency) {
+    return {
+      ok: false,
+      message:
+        `That wallet holds ${wallet.currency}, but this payout is in ${currency}. ` +
+        "Use a wallet in the payout currency.",
+    };
+  }
+  if (wallet.status !== "active") {
+    return { ok: false, message: "That wallet can't send money right now." };
+  }
+  const balance = Number(wallet.balance);
+  if (!Number.isFinite(balance) || balance < amount) {
+    return {
+      ok: false,
+      message:
+        `Insufficient balance: the wallet holds ${formatPayoneerAmount(balance)} ${currency} ` +
+        `and this payout needs ${formatPayoneerAmount(amount)} ${currency}.`,
+    };
+  }
+  return { ok: true };
 }
 
 // ── Status machine ───────────────────────────────────────────────────
@@ -449,16 +593,29 @@ export function decideStatusTransition(
  * Trace-safe name/code of a provider error body for logs (the audit
  * L1 rule — mirroring stripeErrorTrace / paypalErrorTrace): never
  * the message, which can echo request values.
+ *
+ * The documented v4 error shape nests the machine-readable detail
+ * under `error_details` — { code, sub_code } (audit P-4): `code`
+ * falls back to it when the top level carries none, and `subCode`
+ * is read from it, so insufficient-funds classification (and log
+ * traces) see the codes the provider actually sends instead of
+ * only the top-level words.
  */
 export function payoneerErrorTrace(
   status: number,
   body: unknown,
-): { status: number; name: string | null; code: string | null } {
+): { status: number; name: string | null; code: string | null; subCode: string | null } {
   const record = asRecord(body);
+  const details = record ? asRecord(record.error_details) : null;
   return {
     status,
     name: record ? stringOrNull(record.name) ?? stringOrNull(record.error) : null,
-    code: record ? stringOrNull(record.code) ?? stringOrNull(record.error_code) : null,
+    code: record
+      ? stringOrNull(record.code) ??
+        stringOrNull(record.error_code) ??
+        (details ? stringOrNull(details.code) : null)
+      : null,
+    subCode: details ? stringOrNull(details.sub_code) : null,
   };
 }
 
@@ -469,7 +626,7 @@ export function payoneerErrorTrace(
  */
 export function classifyPayoneerError(status: number, body?: unknown): string {
   const trace = payoneerErrorTrace(status, body);
-  const nameOrCode = `${trace.name ?? ""} ${trace.code ?? ""}`;
+  const nameOrCode = `${trace.name ?? ""} ${trace.code ?? ""} ${trace.subCode ?? ""}`;
   if (/insufficient/i.test(nameOrCode)) {
     return "The platform's Payoneer payout account does not have enough funds for this payout. No money has moved from your wallet.";
   }

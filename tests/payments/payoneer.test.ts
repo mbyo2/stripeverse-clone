@@ -25,13 +25,18 @@ import {
   buildCreatePaymentBody,
   buildTokenRequest,
   canUsePayoneer,
+  checkWalletPreflight,
   classifyPayoneerError,
   decideStatusTransition,
+  extractPayoneerBalances,
   extractProviderPayoutId,
   extractProviderStatus,
   extractWebhookIdentifiers,
   mapProviderStatus,
+  payoneerBalanceFor,
   payoneerConfig,
+  payoneerCreatePaymentPath,
+  payoneerErrorTrace,
   payoneerProgramPayoutPath,
   validatePayoutInput,
   verifyPayoneerWebhookSignature,
@@ -44,6 +49,7 @@ import {
   debitWalletForPayout,
   findPayoutById,
   getPayoneerAccessToken,
+  getPayoneerBalances,
   getPayoneerPayee,
   getPayoneerPayment,
   resetPayoneerTokenCache,
@@ -297,6 +303,28 @@ describe("classifyPayoneerError (plain language, never raw bodies)", () => {
     expect(message).toContain("does not have enough funds");
   });
 
+  it("classifies insufficient funds from the documented error_details shape (audit P-4)", () => {
+    const body = {
+      error: "payment_failed",
+      error_details: { code: "2001", sub_code: "insufficient_funds" },
+    };
+    expect(classifyPayoneerError(400, body)).toContain("does not have enough funds");
+    expect(payoneerErrorTrace(400, body)).toEqual({
+      status: 400,
+      name: "payment_failed",
+      code: "2001",
+      subCode: "insufficient_funds",
+    });
+    // error_details.code is the fallback when the top level has none.
+    const nestedOnly = { error_details: { code: "INSUFFICIENT_BALANCE" } };
+    expect(payoneerErrorTrace(422, nestedOnly).code).toBe("INSUFFICIENT_BALANCE");
+    expect(classifyPayoneerError(422, nestedOnly)).toContain("does not have enough funds");
+    // A top-level code still wins over the nested one.
+    expect(
+      payoneerErrorTrace(400, { code: "TOP", error_details: { code: "NESTED" } }).code,
+    ).toBe("TOP");
+  });
+
   it("never echoes the raw provider body", () => {
     const message = classifyPayoneerError(400, {
       message: "raw detail mentioning csecret_test_fake",
@@ -304,6 +332,34 @@ describe("classifyPayoneerError (plain language, never raw bodies)", () => {
     });
     expect(message).not.toContain("csecret_test_fake");
     expect(message).not.toContain("raw detail");
+  });
+});
+
+describe("checkWalletPreflight (audit P-2: balance known BEFORE the create)", () => {
+  const wallet = { currency: "USD", status: "active", balance: 100 };
+
+  it("passes a funded, active, matching wallet", () => {
+    expect(checkWalletPreflight(wallet, 100, "USD")).toEqual({ ok: true });
+    expect(checkWalletPreflight(wallet, 99.99, "USD")).toEqual({ ok: true });
+  });
+
+  it("refuses an insufficient balance with the true figures", () => {
+    const result = checkWalletPreflight(wallet, 150, "USD");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toContain("Insufficient balance");
+      expect(result.message).toContain("100.00 USD");
+      expect(result.message).toContain("150.00 USD");
+    }
+  });
+
+  it("refuses currency mismatch and inactive wallets with the debit's own wording", () => {
+    const mismatch = checkWalletPreflight(wallet, 10, "EUR");
+    expect(mismatch.ok).toBe(false);
+    if (!mismatch.ok) expect(mismatch.message).toContain("holds USD");
+    const inactive = checkWalletPreflight({ ...wallet, status: "frozen" }, 10, "USD");
+    expect(inactive.ok).toBe(false);
+    if (!inactive.ok) expect(inactive.message).toContain("can't send money");
   });
 });
 
@@ -438,18 +494,72 @@ describe("provider calls (token + paths + classified errors)", () => {
     return { fetchImpl, seen };
   }
 
-  it("creates a payment at POST /v4/payments with the bearer token", async () => {
+  it("creates a payment at the PROGRAM-SCOPED path when a program id is configured (audit P-1)", async () => {
     const { fetchImpl, seen } = routedFetch({
-      "/v4/payments": { status: 201, body: { payment_id: "pay_1", status: "PENDING" } },
+      "/payments/payout": { status: 201, body: { payment_id: "pay_1", status: "PENDING" } },
     });
     const payload = await createPayoneerPayment(fetchImpl, VALUES, {
       payee_id: "payee-9", amount: 10, currency: "USD", client_reference_id: "uuid-1",
     });
     expect(payload).toEqual({ payment_id: "pay_1", status: "PENDING" });
     expect(seen).toHaveLength(1);
-    expect(seen[0].url).toBe("https://api.sandbox.payoneer.com/v4/payments");
+    expect(seen[0].url).toBe(
+      "https://api.sandbox.payoneer.com/v4/programs/prog_test_fake/payments/payout",
+    );
     expect(seen[0].method).toBe("POST");
     expect(seen[0].auth).toBe("Bearer tok-1");
+  });
+
+  it("falls back to the plain POST /v4/payments path without a program id", async () => {
+    const { fetchImpl, seen } = routedFetch({
+      "/v4/payments": { status: 201, body: { payment_id: "pay_2", status: "PENDING" } },
+    });
+    const payload = await createPayoneerPayment(
+      fetchImpl,
+      { ...VALUES, programId: null },
+      { payee_id: "payee-9", amount: 10, currency: "USD", client_reference_id: "uuid-2" },
+    );
+    expect(payload).toEqual({ payment_id: "pay_2", status: "PENDING" });
+    expect(seen[0].url).toBe("https://api.sandbox.payoneer.com/v4/payments");
+    expect(payoneerCreatePaymentPath("prog_x")).toBe(
+      "/v4/programs/prog_x/payments/payout",
+    );
+    expect(payoneerCreatePaymentPath(null)).toBe("/v4/payments");
+  });
+
+  it("reads the float balances and parses the documented shape (audit P-3)", async () => {
+    const { fetchImpl, seen } = routedFetch({
+      "/v4/balances": {
+        status: 200,
+        body: {
+          balances: [
+            { currency: "usd", available_balance: 1250.5 },
+            { currency: "EUR", balance: "40" },
+          ],
+        },
+      },
+    });
+    const balances = await getPayoneerBalances(fetchImpl, VALUES);
+    expect(balances).toEqual([
+      { currency: "USD", available: 1250.5 },
+      { currency: "EUR", available: 40 },
+    ]);
+    expect(seen[0].url).toBe("https://api.sandbox.payoneer.com/v4/balances");
+    expect(payoneerBalanceFor(balances, "usd")).toBe(1250.5);
+    expect(payoneerBalanceFor(balances, "ZMW")).toBeNull();
+    expect(payoneerBalanceFor(null, "USD")).toBeNull();
+  });
+
+  it("treats an unrecognised balances shape as unknown (null), never zero", async () => {
+    const { fetchImpl } = routedFetch({
+      "/v4/balances": { status: 200, body: { something_else: true } },
+    });
+    await expect(getPayoneerBalances(fetchImpl, VALUES)).resolves.toBeNull();
+    expect(extractPayoneerBalances(null)).toBeNull();
+    expect(extractPayoneerBalances({ balances: [] })).toBeNull();
+    expect(extractPayoneerBalances([{ currency: "GBP", available: 3 }])).toEqual([
+      { currency: "GBP", available: 3 },
+    ]);
   });
 
   it("reads payment and payee state from their GET paths", async () => {
@@ -469,7 +579,7 @@ describe("provider calls (token + paths + classified errors)", () => {
 
   it("throws classified plain-language errors, never raw bodies", async () => {
     const { fetchImpl } = routedFetch({
-      "/v4/payments": { status: 422, body: { message: "raw: bad payee csecret_test_fake" } },
+      "/payments/payout": { status: 422, body: { message: "raw: bad payee csecret_test_fake" } },
     });
     await expect(
       createPayoneerPayment(fetchImpl, VALUES, { payee_id: "x" }),
@@ -713,6 +823,19 @@ describe("source pins", () => {
     expect(configAt).toBeGreaterThan(killAt);
     expect(payoutsFn).toContain("createPayoutRow");
     expect(payoutsFn).toContain("debitWalletForPayout");
+  });
+
+  it("payouts function: pre-flights run before the provider create (audit P-2/P-3)", () => {
+    const walletPreflightAt = payoutsFn.indexOf("const preflight = checkWalletPreflight(");
+    const rowAt = payoutsFn.indexOf("const row = await createPayoutRow(");
+    const floatPreflightAt = payoutsFn.indexOf("const balances = await getPayoneerBalances(");
+    const createAt = payoutsFn.indexOf("payload = await createPayoneerPayment(");
+    expect(walletPreflightAt).toBeGreaterThan(-1);
+    expect(rowAt).toBeGreaterThan(walletPreflightAt);
+    expect(floatPreflightAt).toBeGreaterThan(rowAt);
+    expect(createAt).toBeGreaterThan(floatPreflightAt);
+    // The status action reports the float too.
+    expect(payoutsFn).toContain("balances,");
   });
 
   it("webhook: HMAC first, re-query before any state change, 503 when unconfigured", () => {

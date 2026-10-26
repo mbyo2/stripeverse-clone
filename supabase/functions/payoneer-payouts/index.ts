@@ -6,6 +6,12 @@
 // debit ordering (brief §2.1: funds leave the Payoneer float at
 // payment creation, so the internal wallet debit happens on API
 // success):
+//   0. PRE-FLIGHTS (audit P-2/P-3): before the row and before any
+//      provider payment exists, the funding wallet is checked for
+//      currency / active status / SUFFICIENT BALANCE, and the
+//      platform's Payoneer float is read (best-effort) and checked
+//      for the payout currency. A known insufficiency refuses
+//      here — it is never discovered from a created payment.
 //   1. The ledger row is persisted FIRST (status 'pending',
 //      client_reference_id = its uuid_id — the idempotency anchor
 //      Payoneer receives on the create).
@@ -60,10 +66,12 @@ import { getServiceRoleClient } from "../_shared/supabase-client.ts";
 import {
   buildCreatePaymentBody,
   canUsePayoneer,
+  checkWalletPreflight,
   classifyPayoneerError,
   extractProviderPayoutId,
   extractProviderStatus,
   mapProviderStatus,
+  payoneerBalanceFor,
   payoneerConfig,
   PAYONEER_WEBHOOK_URL,
   validatePayoutInput,
@@ -74,6 +82,7 @@ import {
   createPayoutRow,
   debitWalletForPayout,
   findPayout,
+  getPayoneerBalances,
   markFailed,
   markSubmitted,
   refreshPayoutFromProvider,
@@ -189,6 +198,22 @@ serve(async (req) => {
 
     // ── 3. 'status' exception: truthful state BEFORE the gates ──
     if (action === "status") {
+      // The platform float (audit P-3): read best-effort when the
+      // rail is configured, so an admin can see payout sufficiency
+      // BEFORE creating anything. A failed or unrecognised read
+      // answers balances: null ("unknown") — the status action
+      // itself must never fail because Payoneer is unreachable.
+      let balances: Array<{ currency: string; available: number }> | null = null;
+      if (config.configured) {
+        try {
+          balances = await getPayoneerBalances(fetchImpl, values);
+        } catch (e) {
+          logStep("Balances read failed — reporting unknown", {
+            message: e instanceof Error ? e.message : String(e),
+          });
+          balances = null;
+        }
+      }
       return json({
         success: true,
         configured: config.configured,
@@ -196,6 +221,7 @@ serve(async (req) => {
         enabled,
         webhook_url: PAYONEER_WEBHOOK_URL,
         registration_link_configured: config.registrationLinkConfigured,
+        balances,
       });
     }
 
@@ -256,22 +282,32 @@ async function handleCreatePayout(admin: any, callerId: string, values: Payoneer
   if (walletId) {
     const { data: wallet, error: walletError } = await admin
       .from("wallets")
-      .select("id, user_id, currency, status")
+      .select("id, user_id, currency, status, balance")
       .eq("id", walletId)
       .maybeSingle();
     if (walletError) throw new Error(`Wallet lookup failed: ${walletError.message}`);
     if (!wallet) {
       return json({ success: false, status: "not_found", error: "That wallet could not be found." }, 404);
     }
-    if (wallet.currency !== validation.currency) {
-      return json({
-        success: false,
-        status: "invalid",
-        error: `That wallet holds ${wallet.currency}, but this payout is in ${validation.currency}. Use a wallet in the payout currency.`,
-      }, 400);
-    }
-    if (wallet.status !== "active") {
-      return json({ success: false, status: "invalid", error: "That wallet can't send money right now." }, 400);
+    // ── 0a. Wallet PRE-FLIGHT (audit P-2) ──
+    // Currency, active status and sufficient balance are checked
+    // NOW — before the ledger row and before any provider payment
+    // can exist. The post-create debit used to be the first place
+    // the balance was checked; Payoneer creates (and funds) the
+    // payment first, so an insufficient wallet left a live
+    // provider payment behind a row that said failed. The debit
+    // later re-checks everything under its optimistic guard.
+    const preflight = checkWalletPreflight(
+      {
+        currency: wallet.currency as string,
+        status: wallet.status as string,
+        balance: Number(wallet.balance),
+      },
+      validation.amount,
+      validation.currency,
+    );
+    if (!preflight.ok) {
+      return json({ success: false, status: "invalid", error: preflight.message }, 400);
     }
     ownerId = wallet.user_id as string;
   }
@@ -288,6 +324,37 @@ async function handleCreatePayout(admin: any, callerId: string, values: Payoneer
     metadata: { gateway: "payoneer", env: payoneerConfig(values).env },
   });
   logStep("Payout row recorded", { payoutId: row.id, uuidId: row.uuid_id });
+
+  // ── 1b. Float PRE-FLIGHT (audit P-3) ──
+  // Read the platform's Payoneer float and refuse BEFORE the
+  // create when it is KNOWN to be short for this currency. The
+  // read is advisory: an unreachable provider or an unrecognised
+  // balances shape answers "unknown" (null) and the create goes
+  // ahead — its classified insufficient-funds error (P-4) remains
+  // the backstop. No provider payment exists yet at this point,
+  // so a refusal here strands nothing on either side.
+  try {
+    const balances = await getPayoneerBalances(fetchImpl, values);
+    if (balances !== null) {
+      const available = payoneerBalanceFor(balances, validation.currency);
+      if (available === null || available < validation.amount) {
+        const message =
+          "The platform's Payoneer payout account does not have enough funds for this payout. No money has moved from your wallet.";
+        const failed = await markFailed(admin, row, message);
+        logStep("Float pre-flight refused the create", {
+          payoutId: row.id,
+          currency: validation.currency,
+          available,
+        });
+        return json({ success: false, status: "failed", error: message, payout: payoutView(failed) }, 400);
+      }
+    }
+  } catch (e) {
+    logStep("Float pre-flight read failed — proceeding to create", {
+      payoutId: row.id,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
 
   // ── 2. Provider create ──
   let payload: Record<string, unknown>;

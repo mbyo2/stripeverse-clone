@@ -24,6 +24,14 @@
 //     NEVER changes from payload fields directly, so a forged or
 //     replayed event can at most trigger a truthful re-read — and
 //     the exactly-once reversal guard makes replays harmless.
+//   - NO timestamp / replay window (audit P-5, decided 2026-10-26):
+//     Payoneer documents no signed timestamp in its webhook scheme
+//     (the scheme itself is the placeholder above), so there is no
+//     trustworthy timestamp a freshness window could check —
+//     inventing one would mean trusting an UNSIGNED payload field.
+//     Replay safety comes from the hint-only + re-query +
+//     exactly-once design instead; if onboarding issues a scheme
+//     WITH a signed timestamp, add the window then.
 //   - Unknown payouts answer 200 (ignored) so Payoneer stops
 //     retrying events that can never settle here; a failed
 //     re-query answers 500 so Payoneer retries later.

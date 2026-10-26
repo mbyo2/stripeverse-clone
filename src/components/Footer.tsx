@@ -97,7 +97,7 @@ const Footer = () => {
             © {currentYear} BMaGlass Pay. All rights reserved. Founded by Mabvuto Banda.
           </p>
           <div className="flex items-center gap-4">
-            {['MTN Money', 'Airtel Money', 'Visa', 'Mastercard'].map((method) => (
+            {['Bitcoin', 'Visa', 'Mastercard', 'Mobile Money — coming soon'].map((method) => (
               <span key={method} className="px-2 py-1 bg-white/10 rounded text-xs text-white/60">
                 {method}
               </span>

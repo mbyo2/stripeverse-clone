@@ -48,6 +48,8 @@ interface PayoneerStatus {
   enabled: boolean;
   webhook_url: string;
   registration_link_configured: boolean;
+  /** Platform float per currency; null = not read / unknown. */
+  balances: Array<{ currency: string; available: number }> | null;
 }
 
 const CURRENCIES = ["USD", "EUR", "GBP", "ZMW", "ZAR", "KES", "NGN", "GHS"];
@@ -136,6 +138,9 @@ const AdminPayoneer = () => {
         registration_link_configured: Boolean(
           (data as { registration_link_configured?: unknown }).registration_link_configured,
         ),
+        balances: Array.isArray((data as { balances?: unknown }).balances)
+          ? ((data as { balances: Array<{ currency: string; available: number }> }).balances)
+          : null,
       });
     }
   }, [toast]);
@@ -449,6 +454,24 @@ const AdminPayoneer = () => {
                 <Badge variant="outline">
                   {status?.registration_link_configured ? "Configured" : "Not configured"}
                 </Badge>
+              </div>
+              <div className="space-y-2">
+                <p className="text-muted-foreground">Payout float at Payoneer</p>
+                {status?.balances && status.balances.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {status.balances.map((b) => (
+                      <Badge key={b.currency} variant="outline">
+                        {b.currency} {Number(b.available).toFixed(2)}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">
+                    {status?.configured
+                      ? "Could not be read just now — payout creation checks it again before sending."
+                      : "Available once Payoneer is connected."}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

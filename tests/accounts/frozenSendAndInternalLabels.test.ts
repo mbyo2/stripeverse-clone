@@ -112,7 +112,12 @@ describe("send-path wiring: no caller discards the function body", () => {
     "../../src/hooks/useEscrow.ts",
     "../../src/hooks/useRefunds.ts",
     "../../src/components/payments/CardPayment.tsx",
-    "../../src/components/payments/MobileMoneyPayment.tsx",
+    // MobileMoneyPayment.tsx is NOT in this list any more: the
+    // component was neutralised (provider-connections audit
+    // 2026-10-26) into an honest "not available yet" panel that
+    // makes NO edge-function call at all — there is no function
+    // body left for it to discard. Its surface is pinned in
+    // tests/payments/mobileMoneyCopyHonesty.test.ts.
     "../../src/components/payments/UssdPayment.tsx",
     "../../src/hooks/usePaymentProcessing.ts",
   ];
