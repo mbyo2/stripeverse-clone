@@ -133,9 +133,9 @@ import { BMaGlass } from "@bmaglass/sdk-react-native";`}</pre>
               BMaGlass wallet — there is no guest checkout). All of them require a live key for checkout and
               a ZMW or USD store currency.</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li><strong>WooCommerce</strong> — <code>integrations/wordpress</code>: a payment gateway plugin with connection test, hosted-link checkout and automatic order completion.</li>
-              <li><strong>Odoo 17</strong> — <code>integrations/odoo/payment_bmaglass</code>: a payment provider module on the same pattern.</li>
-              <li><strong>Magento 2, PrestaShop, OpenCart 4</strong> — <code>integrations/magento</code>, <code>integrations/prestashop</code>, <code>integrations/opencart</code>: gateway modules built on the PHP SDK.</li>
+              <li><strong>WooCommerce</strong> (WordPress 6.0+, WooCommerce 7.0 – 11.2) — <code>integrations/wordpress</code>: a payment gateway plugin covering HPOS and legacy order storage, and both the Checkout Blocks and classic checkout, with connection test, hosted-link checkout and automatic order completion.</li>
+              <li><strong>Odoo 16, 17, 18, 19 and 20</strong> — <code>integrations/odoo</code>: a payment provider module per Odoo major (version folders <code>16.0/</code> – <code>20.0/</code>), each adapted to that version's payment framework.</li>
+              <li><strong>Magento 2.4.6 – 2.4.9, PrestaShop 1.7 / 8 / 9, OpenCart 3 &amp; 4</strong> — <code>integrations/magento</code>, <code>integrations/prestashop</code>, <code>integrations/opencart</code>: gateway modules built on the PHP SDK, one build per platform version where the platform splits (see <code>VERSIONS.md</code> in the connectors repo for the full matrix).</li>
               <li><strong>Any website (Wix, Squarespace, Webflow, static)</strong> — <code>integrations/embed</code>: a small script that renders a Pay with BMaGlass Pay button bound to a payment link you create here. Only the public link goes in the page — never an API key.</li>
               <li><strong>Zapier / Make</strong> — <code>integrations/automation</code>: recipes using their native webhook/HTTP modules (no app-store listing exists or is claimed).</li>
               <li><strong>Shopify</strong> — checkout payments are gated by Shopify's payments partner programme, so there is no BMaGlass checkout plugin. Payment links and the embed button work in Shopify pages and emails today; see <code>integrations/shopify/ASSESSMENT.md</code>.</li>

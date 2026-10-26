@@ -167,7 +167,7 @@ php sdk/php/tests/run-tests.php   # the test suite`}</pre>
             <p>There are no charges, invoices, customers, subscriptions or card-issuing
               methods — those APIs do not exist. Test keys are read-only in every SDK, exactly as on the API:
               write calls with a test key surface the API's <code>403 test_mode_read_only</code> error.</p>
-            <p>Shop integrations (WooCommerce, Odoo, Magento, PrestaShop, OpenCart), a universal pay-button
+            <p>Shop integrations (WooCommerce 7.0 – 11.2, Odoo 16 – 20, Magento 2.4.6 – 2.4.9, PrestaShop 1.7 / 8 / 9, OpenCart 3 &amp; 4), a universal pay-button
               embed and Zapier/Make recipes live under <code>integrations/</code> in the connectors repository
               (<code>github.com/mbyo2/bmaglasspay-connectors</code>) — see the
               Developers page. Shopify checkout is gated by Shopify's payments partner programme, so no
