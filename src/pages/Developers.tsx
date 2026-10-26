@@ -29,7 +29,7 @@ const ENDPOINTS = [
   { method: "GET", path: "/webhook-deliveries", scope: "any valid key", desc: "Delivery log: status, HTTP response and error per attempt" },
 ];
 
-const EVENTS = ["transaction.completed", "payment_link.created", "webhook.test"];
+const EVENTS = ["transaction.completed", "payment_link.created", "payment_link.paid", "webhook.test"];
 
 export default function Developers() {
   return (
@@ -85,10 +85,13 @@ export default function Developers() {
               <code> X-BMaGlass-Signature</code> header (<code>sha256=&lt;hex&gt;</code>) with your endpoint's
               secret — the SDKs ship a verification helper. Every attempt is written to the delivery log,
               visible on the API page and via <code>GET /webhook-deliveries</code>.</p>
-            <p>One boundary, stated plainly: when a buyer pays a <em>payment link</em>, no separate webhook
-              fires for that payment today. Confirm link settlement by polling <code>GET /payment-links</code>
-              (each link reports <code>payment_count</code> and <code>total_collected</code>) — that is the
-              reconciliation pattern the shop connectors below use.</p>
+            <p>When a buyer pays a <em>payment link</em>, <code>payment_link.paid</code> fires at settlement —
+              exactly once per payment — carrying the link code, amount, currency, the settlement
+              transaction id and the link's merchant-supplied reference/metadata, so a shop connector can
+              complete the order immediately. Keep a polling fallback anyway: poll <code>GET /payment-links</code>
+              (each link reports <code>payment_count</code> and <code>total_collected</code>) to reconcile any
+              delivery your endpoint missed — that is the pattern the shop connectors below use
+              (webhook first, reconciliation as the safety net).</p>
           </CardContent>
         </Card>
 

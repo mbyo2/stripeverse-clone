@@ -17,13 +17,15 @@ export function WebhookDocs() {
         <div>
           <p className="font-medium mb-2">Events that really occur</p>
           <div className="flex flex-wrap gap-2">
-            {["transaction.completed", "payment_link.created", "webhook.test"].map((ev) => (
+            {["transaction.completed", "payment_link.created", "payment_link.paid", "webhook.test"].map((ev) => (
               <Badge key={ev} variant="secondary" className="font-mono">{ev}</Badge>
             ))}
           </div>
           <p className="text-muted-foreground mt-2">
             transaction.completed fires when a live API transfer settles; payment_link.created when a
-            live API payment link is created; webhook.test when you send a test delivery.
+            live API payment link is created; payment_link.paid when a payment link is paid (exactly
+            once per settlement, with the link code, amount, currency and settlement transaction id);
+            webhook.test when you send a test delivery.
           </p>
         </div>
         <div>

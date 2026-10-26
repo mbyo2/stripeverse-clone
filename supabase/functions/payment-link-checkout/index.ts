@@ -43,10 +43,14 @@
 //         pay action re-checks it server-side regardless.
 //   { link_code, payment_method, amount?, idempotency_key, email? }
 //       → wallet settlement or a truthful not_configured refusal.
+//         A successful settlement also dispatches the developer
+//         webhook event payment_link.paid (exactly once per
+//         settlement, via _shared/developer-webhooks.ts).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyLinkMethod } from "../_shared/payment-providers.ts";
+import { dispatchPaymentLinkPaid } from "../_shared/developer-webhooks.ts";
 import {
   ACCOUNT_FROZEN_MESSAGE,
   isAccountFrozen,
@@ -184,6 +188,38 @@ serve(async (req) => {
     if (error) throw new Error(error.message);
 
     const row = Array.isArray(data) ? data[0] : data;
+
+    // ── Developer webhook: payment_link.paid ──────────────────────
+    // The settlement above is the ONLY path that marks a payment link
+    // paid today (every other link method answers not_configured; the
+    // gateway credit-leg, when one is connected, must dispatch through
+    // this same helper). Dispatch is exactly-once per settlement —
+    // anchored to the owner-side transaction id, which an idempotent
+    // replay of this payment returns unchanged — and best-effort: the
+    // money has already moved, so a webhook failure must never fail
+    // the payer's response. The claim + dispatch live in
+    // _shared/developer-webhooks.ts, the same machinery (subscriptions,
+    // HMAC-SHA256 signing, delivery log) the developer API uses.
+    try {
+      const { data: settledLink } = await admin
+        .from("payment_links")
+        .select("id, link_code, title, user_id, payment_count, total_collected, metadata")
+        .eq("id", link.id)
+        .maybeSingle();
+      if (settledLink && row.owner_transaction_id) {
+        await dispatchPaymentLinkPaid(admin, settledLink, {
+          ownerTransactionId: row.owner_transaction_id,
+          payerTransactionId: row.transaction_id ?? null,
+          amount,
+          currency: link.currency,
+          paymentMethod: "wallet",
+          settledAt: new Date().toISOString(),
+        });
+      }
+    } catch (whErr) {
+      console.error("payment_link.paid dispatch failed (settlement unaffected):", whErr);
+    }
+
     return json({
       success: true,
       status: "completed",

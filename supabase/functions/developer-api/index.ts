@@ -23,13 +23,22 @@
 // secret is returned exactly once. Events that really occur today:
 //   transaction.completed — a live API transfer settled
 //   payment_link.created  — a live API payment link was created
+//   payment_link.paid     — a payment link was paid (dispatched by the
+//                           payment-link-checkout settlement path via
+//                           the shared dispatcher in _shared)
 //   webhook.test          — sent by POST /webhooks/{id}/test
 // Deliveries are HMAC-SHA256 signed (header X-BMaGlass-Signature:
 // sha256=<hex> over the exact request body) and every attempt is logged
-// in public.developer_webhook_deliveries.
+// in public.developer_webhook_deliveries. The dispatcher itself lives
+// in ../_shared/developer-webhooks.ts so every emitter signs, filters
+// subscriptions and logs identically.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  dispatchEvent,
+  KNOWN_DEVELOPER_EVENTS,
+} from "../_shared/developer-webhooks.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,7 +48,7 @@ const corsHeaders = {
 };
 
 const READ_SCOPES = ["wallets:read", "transactions:read", "payment_links:read", "bitcoin:read"];
-const KNOWN_EVENTS = ["transaction.completed", "payment_link.created", "webhook.test"];
+const KNOWN_EVENTS = KNOWN_DEVELOPER_EVENTS;
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -53,12 +62,6 @@ function err(status: number, code: string, message: string) {
 async function sha256Hex(input: string): Promise<string> {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-async function hmacHex(secret: string, body: string): Promise<string> {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(body));
-  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 function admin() {
   return createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", {
@@ -107,51 +110,6 @@ function requireLive(key: ApiKeyRow): Response | null {
       "Test keys are read-only: this app has no test-mode ledger, so a test key can never move real money. Use a live key for writes.");
   }
   return null;
-}
-
-// ── Webhook delivery (signed, logged) ────────────────────────────────
-async function dispatchEvent(db: any, userId: string, eventType: string, data: unknown) {
-  const { data: hooks } = await db.from("developer_webhooks")
-    .select("*").eq("user_id", userId).eq("is_active", true);
-  const results: unknown[] = [];
-  for (const hook of hooks ?? []) {
-    if (Array.isArray(hook.events) && hook.events.length > 0 && !hook.events.includes(eventType)) continue;
-    const event = {
-      id: `evt_${crypto.randomUUID()}`,
-      type: eventType,
-      created: new Date().toISOString(),
-      data,
-    };
-    const body = JSON.stringify(event);
-    const signature = "sha256=" + (await hmacHex(hook.secret, body));
-    let status = "failed"; let responseStatus: number | null = null; let errorMessage: string | null = null;
-    try {
-      const res = await fetch(hook.url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-BMaGlass-Signature": signature,
-          "X-BMaGlass-Event": eventType,
-          "X-BMaGlass-Delivery": event.id,
-        },
-        body,
-        signal: AbortSignal.timeout(10_000),
-      });
-      responseStatus = res.status;
-      await res.text().catch(() => "");
-      status = res.ok ? "delivered" : "failed";
-      if (!res.ok) errorMessage = `HTTP ${res.status}`;
-    } catch (e) {
-      errorMessage = e instanceof Error ? e.message : "network error";
-    }
-    const { data: logRow } = await db.from("developer_webhook_deliveries").insert({
-      webhook_id: hook.id, user_id: userId, event_id: event.id, event_type: eventType,
-      webhook_url: hook.url, payload: event, status, attempts: 1,
-      response_status: responseStatus, error_message: errorMessage,
-    }).select("id").single();
-    results.push({ webhook_id: hook.id, delivery_id: logRow?.id ?? null, status, response_status: responseStatus });
-  }
-  return results;
 }
 
 // ── Router ───────────────────────────────────────────────────────────

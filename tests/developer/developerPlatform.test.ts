@@ -35,6 +35,26 @@ describe("developer-api contract", () => {
     expect(router).toContain("execute_transfer_with_fee");
   });
 
+  it("payment_link.paid is a real, subscribable event dispatched from settlement", () => {
+    const shared = read("supabase/functions/_shared/developer-webhooks.ts");
+    const checkout = read("supabase/functions/payment-link-checkout/index.ts");
+    // One shared dispatcher + event list, used by both functions.
+    expect(shared).toContain('"payment_link.paid"');
+    expect(shared).toContain("payment_link_paid_dispatches");
+    expect(router).toContain("KNOWN_DEVELOPER_EVENTS");
+    expect(router).toContain("_shared/developer-webhooks");
+    // The settlement path emits it (exactly-once helper), it is not
+    // dispatched from the API router itself.
+    expect(checkout).toContain("dispatchPaymentLinkPaid");
+    expect(checkout).toContain("execute_payment_link_settlement");
+    expect(router).not.toContain("dispatchPaymentLinkPaid(");
+    // The merchant-facing surfaces offer the event.
+    expect(read("src/pages/API.tsx")).toContain('"payment_link.paid"');
+    expect(read("src/pages/Developers.tsx")).toContain('"payment_link.paid"');
+    // The OpenAPI contract names it among the webhook events.
+    expect(JSON.stringify(spec)).toContain("payment_link.paid");
+  });
+
   it("public/openapi.json is identical to sdk/openapi.json", () => {
     expect(read("public/openapi.json")).toBe(read("sdk/openapi.json"));
   });

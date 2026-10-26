@@ -49,10 +49,11 @@ interface WebhookRow {
   created_at: string;
 }
 
-// Only events the developer-api actually emits today.
+// Only events the developer platform actually emits today.
 const AVAILABLE_EVENTS = [
   "transaction.completed",
   "payment_link.created",
+  "payment_link.paid",
   "webhook.test",
 ];
 

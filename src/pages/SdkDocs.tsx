@@ -170,6 +170,10 @@ php sdk/php/tests/run-tests.php   # the test suite`}</pre>
               embed and Zapier/Make recipes live under <code>integrations/</code> in the repository — see the
               Developers page. Shopify checkout is gated by Shopify's payments partner programme, so no
               checkout plugin exists; payment links work there today.</p>
+            <p>Webhooks: when a payment link is paid, the <code>payment_link.paid</code> event fires at
+              settlement (exactly once per payment) — verify it with the same signature helper shown in
+              each SDK tab above, and keep polling <code>GET /payment-links</code> as a reconciliation
+              fallback for any delivery your endpoint missed.</p>
           </CardContent>
         </Card>
       </main>
