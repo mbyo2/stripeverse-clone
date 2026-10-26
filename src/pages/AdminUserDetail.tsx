@@ -882,29 +882,29 @@ const AdminUserDetail = () => {
                       <TableRow>
                         <TableHead>Address</TableHead>
                         <TableHead>Amount</TableHead>
-                        <TableHead className="hidden md:table-cell">Confirmations</TableHead>
+                        <TableHead className="hidden lg:table-cell">Confirmations</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Transaction</TableHead>
-                        <TableHead className="hidden md:table-cell">Detected</TableHead>
+                        <TableHead className="hidden lg:table-cell">Detected</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {btcDeposits.map((d) => (
                         <TableRow key={d.id}>
-                          <TableCell className="max-w-[84px] truncate font-mono text-xs md:max-w-none">
+                          <TableCell className="max-w-[84px] truncate font-mono text-xs lg:max-w-none">
                             {truncateMiddle(d.address)}
                           </TableCell>
                           <TableCell>{fmtSats(d.amount_sats)}</TableCell>
-                          <TableCell className="hidden md:table-cell">{d.confirmations}</TableCell>
+                          <TableCell className="hidden lg:table-cell">{d.confirmations}</TableCell>
                           <TableCell>
                             <Badge variant={d.status === "credited" ? "default" : "secondary"}>
                               {d.status}
                             </Badge>
                           </TableCell>
-                          <TableCell className="max-w-[84px] truncate font-mono text-xs md:max-w-none">
+                          <TableCell className="max-w-[84px] truncate font-mono text-xs lg:max-w-none">
                             {truncateMiddle(d.txid)}
                           </TableCell>
-                          <TableCell className="hidden md:table-cell">{fmtDate(d.created_at)}</TableCell>
+                          <TableCell className="hidden lg:table-cell">{fmtDate(d.created_at)}</TableCell>
                         </TableRow>
                       ))}
                       {btcDeposits.length === 0 && (
