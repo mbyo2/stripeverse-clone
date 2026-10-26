@@ -181,9 +181,11 @@ php sdk/php/tests/run-tests.php   # the test suite`}</pre>
               actually paid in total. Who pays the fee is the merchant's account setting in BMaGlass
               Pay (readable via <code>GET /settings</code>); SDKs and plugins inherit it and have no
               fee-bearer setting of their own.</p>
-            <p>Bitcoin QR checkout: the hosted pay page behind every payment link offers
-              <em> Pay with Bitcoin</em> (QR + copyable address, on-chain and Lightning) to any
-              guest paying from their own wallet. Shop integrations, the embed button and SDK
+            <p>Bitcoin QR checkout: the hosted pay page behind every payment link takes Bitcoin
+              only for now, as two first-class choices — <em>Bitcoin</em> (on-chain) and
+              <em> Lightning</em> — each with a QR code and copyable text (address, invoice) for
+              any guest paying from their own wallet. Card and mobile money appear as
+              <em> Not available yet</em> until those connections land. Shop integrations, the embed button and SDK
               checkouts all redirect buyers to that page, so they inherit it with no code
               changes. Bitcoin payments settle to the merchant's custodial BTC wallet and fire
               <code> payment_link.paid</code> with <code>payment_method</code>

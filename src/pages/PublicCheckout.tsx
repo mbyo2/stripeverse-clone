@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Smartphone, Building2, Lock, CheckCircle, AlertCircle, Loader2, Receipt, Wallet, Bitcoin, Store } from 'lucide-react';
+import { CreditCard, Smartphone, Building2, Lock, CheckCircle, AlertCircle, Loader2, Receipt, Wallet, Bitcoin, Store, Zap } from 'lucide-react';
 import BitcoinLinkPayment from '@/components/payments/BitcoinLinkPayment';
 import { useToast } from '@/hooks/use-toast';
 import { useInvalidateMoneyState } from '@/utils/moneyFreshness';
@@ -49,6 +49,10 @@ const PublicCheckout = () => {
   const [linkData, setLinkData] = useState<PaymentLinkData | null>(null);
   const [bitcoinAvailable, setBitcoinAvailable] = useState(false);
   const [bitcoinSelected, setBitcoinSelected] = useState(false);
+  /** Which Bitcoin rail the buyer picked at the method level —
+   *  on-chain ("Bitcoin") or Lightning. The attempt component's tabs
+   *  follow this choice. */
+  const [bitcoinRail, setBitcoinRail] = useState<'onchain' | 'lightning'>('onchain');
   const [settlementAccountName, setSettlementAccountName] = useState<string | null>(null);
   const [payerId, setPayerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,9 +125,10 @@ const PublicCheckout = () => {
     })();
   }, [code]);
 
-  // Wallet payment is offered when the visitor is signed in. Guests can
-  // still open the page and read it; the external methods answer
-  // truthfully from the server until a gateway is connected.
+  // Wallet payment is offered when the visitor is signed in. Guests
+  // pay with Bitcoin — the only external rail connected today; the
+  // unconnected methods (card / mobile money / bank) render disabled
+  // below, so they can never be clicked through to a failure.
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setPayerId(data.session?.user.id ?? null));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -133,8 +138,18 @@ const PublicCheckout = () => {
   }, []);
 
   useEffect(() => {
-    if (payerId) setPaymentMethod('wallet');
+    if (payerId) {
+      setPaymentMethod('wallet');
+      setBitcoinSelected(false);
+    }
   }, [payerId]);
+
+  // A guest's only live way to pay is Bitcoin, so it is the guest
+  // default the moment the link says the platform can receive it —
+  // never the dead "Card" tile.
+  useEffect(() => {
+    if (bitcoinAvailable && !payerId) setBitcoinSelected(true);
+  }, [bitcoinAvailable, payerId]);
 
   const handlePay = async () => {
     if (!linkData || !code) return;
@@ -279,14 +294,24 @@ const PublicCheckout = () => {
   const amount = linkData?.amount || Number(customAmount) || 0;
   const bd = feeBreakdownFor(amount);
   const payTotal = bd?.total ?? amount;
+  // Method tiles (CEO order 2026-10-26): for now this checkout takes
+  // Bitcoin only — the fiat connections (Lenco/Broadpay, PayPal) are
+  // not live yet. Bitcoin appears in BOTH its forms as first-class
+  // choices, so a Lightning payer sees Lightning immediately instead
+  // of opening a generic "Bitcoin" tile first. Card / mobile money /
+  // bank stay visible but DISABLED ("Not available yet"): they set
+  // the expectation honestly and can never be clicked through to the
+  // server's not_configured failure. The BMaGlass Wallet tile is the
+  // one internal rail and stays fully live for signed-in payers.
   const methods = [
-    ...(payerId ? [{ id: 'wallet' as const, icon: Wallet, label: 'BMaGlass Wallet' }] : []),
-    { id: 'card' as const, icon: CreditCard, label: 'Card' },
-    { id: 'mobile_money' as const, icon: Smartphone, label: 'Mobile Money' },
-    { id: 'bank' as const, icon: Building2, label: 'Bank' },
-    // "Pay with Bitcoin" — guests included, no BMaGlass account
-    // needed; offered only when the platform can actually receive.
-    ...(bitcoinAvailable ? [{ id: 'bitcoin' as const, icon: Bitcoin, label: 'Bitcoin' }] : []),
+    ...(payerId ? [{ id: 'wallet' as const, icon: Wallet, label: 'BMaGlass Wallet', available: true }] : []),
+    ...(bitcoinAvailable ? [
+      { id: 'bitcoin' as const, icon: Bitcoin, label: 'Bitcoin', available: true },
+      { id: 'lightning' as const, icon: Zap, label: 'Lightning', available: true },
+    ] : []),
+    { id: 'card' as const, icon: CreditCard, label: 'Card', available: false },
+    { id: 'mobile_money' as const, icon: Smartphone, label: 'Mobile Money', available: false },
+    { id: 'bank' as const, icon: Building2, label: 'Bank', available: false },
   ];
 
   return (
@@ -373,16 +398,32 @@ const PublicCheckout = () => {
 
             <div className="space-y-3">
               <Label>Payment Method</Label>
+              {!payerId && (
+                <div className="flex gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+                  <Bitcoin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <p>
+                    <span className="font-medium">For now, this checkout takes Bitcoin only</span>
+                    {' '}— pay on-chain or with Lightning, straight from your own wallet.
+                    Card and mobile money are coming later.
+                  </p>
+                </div>
+              )}
               <div className={`grid gap-2 ${methods.length >= 5 ? 'grid-cols-5' : methods.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
                 {methods.map(m => {
-                  const selected = m.id === 'bitcoin'
-                    ? bitcoinSelected
+                  const selected =
+                    m.id === 'bitcoin' ? bitcoinSelected && bitcoinRail === 'onchain'
+                    : m.id === 'lightning' ? bitcoinSelected && bitcoinRail === 'lightning'
                     : !bitcoinSelected && paymentMethod === m.id;
                   return (
                     <button
                       key={m.id}
+                      disabled={!m.available}
                       onClick={() => {
                         if (m.id === 'bitcoin') {
+                          setBitcoinRail('onchain');
+                          setBitcoinSelected(true);
+                        } else if (m.id === 'lightning') {
+                          setBitcoinRail('lightning');
                           setBitcoinSelected(true);
                         } else {
                           setBitcoinSelected(false);
@@ -390,11 +431,16 @@ const PublicCheckout = () => {
                         }
                       }}
                       className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border transition-colors ${
-                        selected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'
+                        !m.available
+                          ? 'border-border opacity-50 cursor-not-allowed'
+                          : selected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'
                       }`}
                     >
                       <m.icon className={`h-5 w-5 ${selected ? 'text-primary' : 'text-muted-foreground'}`} />
                       <span className="text-xs font-medium">{m.label}</span>
+                      {!m.available && (
+                        <span className="text-[10px] leading-tight text-muted-foreground">Not available yet</span>
+                      )}
                     </button>
                   );
                 })}
@@ -416,25 +462,12 @@ const PublicCheckout = () => {
               </div>
             )}
 
-            {!bitcoinSelected && paymentMethod === 'card' && (
-              <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
-                Pay by debit or credit card. Availability is confirmed when you click Pay — nothing is charged unless the payment completes. We never see or store your card number on this page.
-              </div>
-            )}
+            {/* Card / mobile money / bank carry no explainer any more:
+                their tiles are disabled above with a "Not available
+                yet" label, so there is no selection state to explain
+                and no Pay button that could reach a failure. */}
 
-            {!bitcoinSelected && paymentMethod === 'mobile_money' && (
-              <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
-                Pay by mobile money. Availability is confirmed when you click Pay — nothing is charged unless the payment completes.
-              </div>
-            )}
-
-            {!bitcoinSelected && paymentMethod === 'bank' && (
-              <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
-                Pay by bank transfer. Availability is confirmed when you click Pay — nothing is charged unless the payment completes.
-              </div>
-            )}
-
-            {!bitcoinSelected && (
+            {!bitcoinSelected && paymentMethod === 'wallet' && (
               <Button onClick={handlePay} disabled={processing} className="w-full h-12 text-base">
                 {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
                 {processing ? 'Processing...' : `Pay ${linkData?.currency} ${payTotal.toFixed(2)}`}
@@ -452,6 +485,7 @@ const PublicCheckout = () => {
                   amount={linkData.amount == null ? Number(customAmount) : null}
                   currency={linkData.currency}
                   redirectUrl={linkData.redirect_url}
+                  initialRail={bitcoinRail}
                 />
               )
             )}

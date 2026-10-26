@@ -68,6 +68,10 @@ interface Props {
   currency: string;
   /** The link's return URL, when it carries one (shop checkouts). */
   redirectUrl: string | null;
+  /** The rail the buyer picked at the method level on the pay page
+   *  ("Bitcoin" = on-chain, "Lightning"). The tabs follow it and stay
+   *  switchable here — one attempt carries both rails. */
+  initialRail?: 'onchain' | 'lightning';
 }
 
 /** Whole sats → BTC string, 8dp trimmed (display only). */
@@ -92,14 +96,22 @@ function mmss(ms: number): string {
 
 const TERMINAL: AttemptState[] = ['paid', 'expired', 'partial_credited', 'failed'];
 
-export default function BitcoinLinkPayment({ linkCode, amount, currency, redirectUrl }: Props) {
+export default function BitcoinLinkPayment({ linkCode, amount, currency, redirectUrl, initialRail }: Props) {
   const { toast } = useToast();
   const [attempt, setAttempt] = useState<BtcAttempt | null>(null);
+  const [rail, setRail] = useState<'onchain' | 'lightning'>(initialRail ?? 'onchain');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<'address' | 'invoice' | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const attemptIdRef = useRef<string | null>(null);
+
+  // Follow the buyer's method-level rail choice (switching tiles on
+  // the pay page must not mint a second attempt — the same attempt
+  // carries the address AND the invoice).
+  useEffect(() => {
+    if (initialRail) setRail(initialRail);
+  }, [initialRail]);
 
   const createAttempt = useCallback(async () => {
     setCreating(true);
@@ -324,7 +336,7 @@ export default function BitcoinLinkPayment({ linkCode, amount, currency, redirec
 
       {/* ── Payment instruments (open states only) ── */}
       {!isTerminal && (
-        <Tabs defaultValue="onchain">
+        <Tabs value={rail} onValueChange={(v) => setRail(v as 'onchain' | 'lightning')}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="onchain">
               <Bitcoin className="mr-1.5 h-4 w-4" /> On-chain
@@ -394,16 +406,27 @@ export default function BitcoinLinkPayment({ linkCode, amount, currency, redirec
                       includeMargin={true}
                     />
                   </div>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => void copy(attempt.lightning_invoice!, 'invoice')}
-                  >
-                    {copiedField === 'invoice' ? 'Copied!' : 'Copy invoice'}
-                    {copiedField === 'invoice'
-                      ? <CheckCircle className="ml-2 h-4 w-4" />
-                      : <Copy className="ml-2 h-4 w-4" />}
-                  </Button>
+                  <div className="w-full">
+                    <Label htmlFor="link-btc-invoice" className="sr-only">Lightning Invoice</Label>
+                    <div className="relative">
+                      <Input
+                        id="link-btc-invoice"
+                        value={attempt.lightning_invoice}
+                        readOnly
+                        className="pr-12 font-mono text-xs"
+                      />
+                      <Button
+                        variant="ghost"
+                        className="absolute right-0 top-0 h-full px-3"
+                        onClick={() => void copy(attempt.lightning_invoice!, 'invoice')}
+                        aria-label="Copy Lightning invoice"
+                      >
+                        {copiedField === 'invoice'
+                          ? <CheckCircle className="h-4 w-4" />
+                          : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
                   <Button
                     variant="link"
                     className="mt-2"

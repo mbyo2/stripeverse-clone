@@ -108,10 +108,13 @@ export default function Developers() {
               be changed at pay time. Bitcoin payments honour the same stored choice in sats: with
               <code> buyer</code>, the quoted sats cover price + fee; with <code>seller</code>, the fee
               leaves the received sats.</p>
-            <p><strong>Bitcoin QR checkout is built into the hosted pay page.</strong> Every payment
-              link's page offers <em>Pay with Bitcoin</em> — a QR code and copyable address
-              (on-chain, plus Lightning when available) that any guest can pay from their own
-              Bitcoin wallet, with no BMaGlass account. Because every shop connector (WooCommerce,
+            <p><strong>Bitcoin QR checkout is built into the hosted pay page — and for now, Bitcoin is
+              the only way to pay at checkout.</strong> Every payment link's page presents two
+              first-class choices, <em>Bitcoin</em> (on-chain) and <em>Lightning</em>, each with a QR
+              code and copyable text (the address, the invoice) that any guest can pay from their own
+              wallet, with no BMaGlass account. Card and mobile money are not connected yet — the page
+              shows them as <em>Not available yet</em> rather than letting a buyer click through to a
+              failure. Because every shop connector (WooCommerce,
               Odoo, PrestaShop, Magento, OpenCart), the embed button and the SDK checkouts redirect
               the buyer to that same hosted page, <strong>they all inherit Bitcoin QR checkout with
               zero connector code changes</strong>. Bitcoin settlements fire{' '}
