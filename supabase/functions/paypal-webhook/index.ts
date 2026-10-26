@@ -2,10 +2,23 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
   confirmPayPalDeposit,
+  fetchPayPalCapture,
+  fetchPayPalOrder,
+  fetchPayPalRefund,
   findDepositTransaction,
   getPayPalAccessToken,
   paypalBaseUrl,
 } from "../_shared/paypal-deposit.ts";
+import {
+  captureStateFromApi,
+  planCaptureReversal,
+  refundStateFromApi,
+  refundsFromOrderApi,
+  reversalCaptureIdFromResource,
+  reversalRefundIdFromResource,
+  approvalReversedOrderId,
+} from "../_shared/paypal-reversal.ts";
+import { extractCompletedCapture } from "../_shared/deposit-capture.ts";
 import {
   confirmPayPalCheckoutPayment,
   findCheckoutPaymentTransaction,
@@ -104,18 +117,40 @@ serve(async (req) => {
           || await handleCheckoutPaymentEvent(supabaseClient, eventType, resource);
         break;
 
+      case 'PAYMENT.CAPTURE.REFUNDED':
+      case 'PAYMENT.CAPTURE.REVERSED':
+      case 'PAYMENT.CAPTURE.DENIED':
+      case 'PAYMENT.CAPTURE.PENDING':
+        // Money PayPal took back (or never finally took) after a
+        // capture: reconcile the local credit from PayPal's own
+        // re-queried state — reverse_paypal_credit reverses exactly
+        // once per refund/reversal, and an uncredited capture
+        // changes nothing (audit D2).
+        await handleCaptureReversalEvent(supabaseClient, eventType, resource);
+        break;
+
+      case 'CHECKOUT.PAYMENT-APPROVAL.REVERSED':
+        // An approved-but-uncaptured order was reversed/voided:
+        // close out any still-pending local row for it, truthfully.
+        await handleApprovalReversedEvent(supabaseClient, resource);
+        break;
+
       case 'BILLING.SUBSCRIPTION.ACTIVATED':
         await handleSubscriptionActivated(supabaseClient, resource);
         break;
-      
+
       case 'BILLING.SUBSCRIPTION.CANCELLED':
         await handleSubscriptionCancelled(supabaseClient, resource);
         break;
-      
-      case 'BILLING.SUBSCRIPTION.PAYMENT.COMPLETED':
+
+      case 'PAYMENT.SALE.COMPLETED':
+        // The real subscription-payment event (audit D4): PayPal
+        // fires PAYMENT.SALE.COMPLETED for a billing-agreement sale;
+        // "BILLING.SUBSCRIPTION.PAYMENT.COMPLETED" does not exist,
+        // so the case that used to sit here never ran.
         await handleSubscriptionPaymentCompleted(supabaseClient, resource);
         break;
-      
+
       case 'BILLING.SUBSCRIPTION.PAYMENT.FAILED':
         await handleSubscriptionPaymentFailed(supabaseClient, resource);
         break;
@@ -125,6 +160,9 @@ serve(async (req) => {
       case 'PAYMENT.PAYOUTS-ITEM.RETURNED':
       case 'PAYMENT.PAYOUTS-ITEM.UNCLAIMED':
       case 'PAYMENT.PAYOUTS-ITEM.BLOCKED':
+      case 'PAYMENT.PAYOUTS-ITEM.DENIED':
+      case 'PAYMENT.PAYOUTS-ITEM.CANCELED':
+      case 'PAYMENT.PAYOUTS-ITEM.REFUNDED':
       case 'PAYMENT.PAYOUTSBATCH.DENIED':
       case 'PAYMENT.PAYOUTSBATCH.SUCCESS':
         // Withdrawal (payout) finalization backstop — the twin of
@@ -300,18 +338,54 @@ async function handlePayoutEvent(supabase: any, eventType: string, resource: any
 
 async function handlePaymentCompleted(supabase: any, resource: any) {
   logStep("Processing payment completion", { orderId: resource.supplementary_data?.related_ids?.order_id });
-  
+
   const orderId = resource.supplementary_data?.related_ids?.order_id;
   if (!orderId) return;
 
-  // Update invoice status
+  // Audit D5: this handler used to mark the invoice paid from the
+  // payload alone. The payload is only a trigger — re-query the
+  // order and require a COMPLETED capture whose amount and currency
+  // match the invoice before anything is marked paid.
+  const { data: invoice } = await supabase
+    .from('invoices')
+    .select('id, amount, currency, status')
+    .eq('paypal_order_id', orderId)
+    .maybeSingle();
+  if (!invoice) {
+    logStep("Capture event for unknown invoice order", { orderId });
+    return;
+  }
+  if (invoice.status === 'paid') return;
+
+  const accessToken = await getPayPalAccessToken();
+  if (!accessToken) throw new Error("PayPal not configured for invoice verification");
+  const order = await fetchPayPalOrder(accessToken, orderId);
+  if (!order) throw new Error("PayPal order re-query failed for invoice verification");
+  const capture = extractCompletedCapture(order);
+  if (!capture) {
+    logStep("Invoice order has no completed capture — not marking paid", { orderId });
+    return;
+  }
+  if (
+    Math.abs(Number(capture.amount) - Number(invoice.amount)) > 0.001 ||
+    String(capture.currency).toUpperCase() !== String(invoice.currency).toUpperCase()
+  ) {
+    logStep("Invoice capture mismatch — not marking paid", {
+      orderId,
+      captureAmount: capture.amount,
+      invoiceAmount: invoice.amount,
+    });
+    return;
+  }
+
   const { error } = await supabase
     .from('invoices')
     .update({
       status: 'paid',
       paid_at: new Date().toISOString()
     })
-    .eq('paypal_order_id', orderId);
+    .eq('id', invoice.id)
+    .neq('status', 'paid');
 
   if (error) {
     logStep("Error updating invoice", error);
@@ -320,20 +394,193 @@ async function handlePaymentCompleted(supabase: any, resource: any) {
   }
 }
 
+// ── Capture reversals (audit D2) ─────────────────────────────────
+
+/**
+ * Reconcile a refund / reversal / denial / pending event for a
+ * capture. The event payload only locates the refund or capture;
+ * every fact that moves money comes from PayPal's API: the refund
+ * (GET /v2/payments/refunds/{id}), the capture
+ * (GET /v2/payments/captures/{id}) and, for reversals, the order's
+ * refund list. planCaptureReversal (pure, _shared/paypal-reversal.ts)
+ * turns that state into a cumulative target, and the
+ * reverse_paypal_credit RPC applies it exactly once per reversal
+ * key. A retryable non-plan throws, so the webhook answers 500 and
+ * PayPal redelivers instead of the reversal being lost.
+ */
+async function handleCaptureReversalEvent(supabase: any, eventType: string, resource: any) {
+  const captureIdHint = reversalCaptureIdFromResource(eventType, resource);
+  const refundId = eventType === 'PAYMENT.CAPTURE.REFUNDED'
+    ? reversalRefundIdFromResource(resource)
+    : null;
+
+  const accessToken = await getPayPalAccessToken();
+  if (!accessToken) throw new Error("PayPal not configured for reversal reconciliation");
+
+  let refund = null;
+  if (refundId) {
+    const refundPayload = await fetchPayPalRefund(accessToken, refundId);
+    if (refundPayload) refund = refundStateFromApi(refundPayload);
+  }
+
+  let capture = null;
+  const captureId = refund?.captureId ?? captureIdHint;
+  if (captureId) {
+    const capturePayload = await fetchPayPalCapture(accessToken, captureId);
+    if (capturePayload) capture = captureStateFromApi(capturePayload);
+  }
+
+  let orderRefunds: ReturnType<typeof refundsFromOrderApi> = [];
+  if (capture?.orderId) {
+    const order = await fetchPayPalOrder(accessToken, capture.orderId);
+    if (order) orderRefunds = refundsFromOrderApi(order);
+  }
+
+  const plan = planCaptureReversal({ eventType, capture, refund, orderRefunds });
+  if (plan.action === "none") {
+    logStep("Capture reversal event needs no local reversal", {
+      eventType,
+      reason: plan.reason,
+    });
+    if (plan.retryable) {
+      throw new Error(`Capture reversal not yet reconcilable: ${plan.reason}`);
+    }
+    return;
+  }
+
+  const { data, error } = await supabase.rpc("reverse_paypal_credit", {
+    p_capture_id: plan.captureId,
+    p_reversal_key: plan.key,
+    p_target_amount: plan.targetTotal,
+    p_currency: plan.currency,
+    p_event_type: eventType,
+  });
+  if (error) throw new Error(`Capture reversal failed: ${error.message}`);
+
+  const result = Array.isArray(data) ? data[0] : data;
+  logStep("Capture reversal reconciled", {
+    eventType,
+    captureId: plan.captureId,
+    key: plan.key,
+    outcome: result?.outcome ?? null,
+    debited: result?.debited_amount ?? null,
+  });
+}
+
+/**
+ * CHECKOUT.PAYMENT-APPROVAL.REVERSED: the buyer approval on an
+ * uncaptured order was reversed (PayPal voids the order, e.g. when
+ * the capture window lapses). Nothing was credited — the order was
+ * never captured — so reconciliation is bookkeeping only: re-query
+ * the order, and when PayPal confirms it is VOIDED, close any
+ * still-pending local row for it as failed so it cannot sit in
+ * pending forever pretending the money might still arrive.
+ */
+async function handleApprovalReversedEvent(supabase: any, resource: any) {
+  const orderId = approvalReversedOrderId(resource);
+  if (!orderId) return;
+
+  const accessToken = await getPayPalAccessToken();
+  if (!accessToken) throw new Error("PayPal not configured for approval-reversal reconciliation");
+  const order = await fetchPayPalOrder(accessToken, orderId);
+  if (!order) throw new Error("PayPal order re-query failed for approval reversal");
+  if ((order as any).status !== "VOIDED") {
+    logStep("Approval-reversed order is not voided at PayPal — leaving local rows alone", {
+      orderId,
+      paypalStatus: (order as any).status ?? null,
+    });
+    return;
+  }
+
+  const rows = [
+    await findDepositTransaction(supabase, orderId),
+    await findCheckoutPaymentTransaction(supabase, orderId),
+  ];
+  for (const row of rows) {
+    if (!row || row.status !== "pending") continue;
+    const { error } = await supabase
+      .from("transactions")
+      .update({
+        status: "failed",
+        metadata: {
+          ...(row.metadata ?? {}),
+          approval_reversed_at: new Date().toISOString(),
+          failure_reason: "The PayPal approval was reversed before capture, so this payment never completed and no money was charged.",
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("uuid_id", row.uuid_id)
+      .eq("status", "pending");
+    if (error) {
+      logStep("Error closing approval-reversed row", error);
+    } else {
+      logStep("Pending row closed for reversed approval", { orderId, transactionId: row.uuid_id });
+    }
+  }
+}
+
+// ── Subscriptions (audit D4/D5) ──────────────────────────────────
+// Every handler below re-queries PayPal before mutating: the
+// subscription (GET /v1/billing/subscriptions/{id}) for lifecycle
+// events, the sale (GET /v1/payments/sale/{id}) for payments.
+// Period boundaries come from PayPal's payload — start_time and
+// billing_info.next_billing_time — never from a local now()+30d
+// guess (the previous ACTIVATED handler's invention).
+
+async function fetchPayPalSubscription(accessToken: string, subscriptionId: string) {
+  try {
+    const response = await fetch(`${paypalBaseUrl()}/v1/billing/subscriptions/${subscriptionId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (e) {
+    console.error("PayPal subscription fetch error:", e);
+    return null;
+  }
+}
+
+async function fetchPayPalSale(accessToken: string, saleId: string) {
+  try {
+    const response = await fetch(`${paypalBaseUrl()}/v1/payments/sale/${saleId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (e) {
+    console.error("PayPal sale fetch error:", e);
+    return null;
+  }
+}
+
 async function handleSubscriptionActivated(supabase: any, resource: any) {
   logStep("Processing subscription activation", { subscriptionId: resource.id });
-  
+
   const subscriptionId = resource.id;
-  const planId = resource.plan_id;
-  
-  // Update subscription status
+  if (!subscriptionId) return;
+
+  const accessToken = await getPayPalAccessToken();
+  if (!accessToken) throw new Error("PayPal not configured for subscription verification");
+  const sub = await fetchPayPalSubscription(accessToken, subscriptionId);
+  if (!sub) throw new Error("PayPal subscription re-query failed");
+  if (sub.status !== "ACTIVE") {
+    logStep("Subscription is not ACTIVE at PayPal — not activating locally", {
+      subscriptionId,
+      paypalStatus: sub.status ?? null,
+    });
+    return;
+  }
+
+  const activationUpdate: Record<string, unknown> = {
+    status: 'active',
+    current_period_start: sub.start_time ?? new Date().toISOString(),
+  };
+  if (sub.billing_info?.next_billing_time) {
+    activationUpdate.current_period_end = sub.billing_info.next_billing_time;
+  }
   const { error } = await supabase
     .from('subscriptions')
-    .update({
-      status: 'active',
-      current_period_start: new Date().toISOString(),
-      current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
-    })
+    .update(activationUpdate)
     .eq('paypal_subscription_id', subscriptionId);
 
   if (error) {
@@ -345,10 +592,22 @@ async function handleSubscriptionActivated(supabase: any, resource: any) {
 
 async function handleSubscriptionCancelled(supabase: any, resource: any) {
   logStep("Processing subscription cancellation", { subscriptionId: resource.id });
-  
+
   const subscriptionId = resource.id;
-  
-  // Update subscription status
+  if (!subscriptionId) return;
+
+  const accessToken = await getPayPalAccessToken();
+  if (!accessToken) throw new Error("PayPal not configured for subscription verification");
+  const sub = await fetchPayPalSubscription(accessToken, subscriptionId);
+  if (!sub) throw new Error("PayPal subscription re-query failed");
+  if (sub.status !== "CANCELLED") {
+    logStep("Subscription is not CANCELLED at PayPal — leaving local state alone", {
+      subscriptionId,
+      paypalStatus: sub.status ?? null,
+    });
+    return;
+  }
+
   const { error } = await supabase
     .from('subscriptions')
     .update({
@@ -364,38 +623,110 @@ async function handleSubscriptionCancelled(supabase: any, resource: any) {
 }
 
 async function handleSubscriptionPaymentCompleted(supabase: any, resource: any) {
-  logStep("Processing subscription payment", { subscriptionId: resource.billing_agreement_id });
-  
-  // Create invoice for the payment
+  // PAYMENT.SALE.COMPLETED: resource is the sale. Its shape (per
+  // PayPal's docs) is what this handler was always written for —
+  // billing_agreement_id + amount.total / amount.currency — it was
+  // simply registered under an event name that does not exist.
+  const saleId = resource.id;
+  const subscriptionId = resource.billing_agreement_id;
+  logStep("Processing subscription payment", { subscriptionId, saleId });
+  if (!saleId || !subscriptionId) return;
+
+  // Re-query the sale and take amount/currency/state from PayPal,
+  // not from the payload (audit D5).
+  const accessToken = await getPayPalAccessToken();
+  if (!accessToken) throw new Error("PayPal not configured for subscription payment verification");
+  const sale = await fetchPayPalSale(accessToken, saleId);
+  if (!sale) throw new Error("PayPal sale re-query failed");
+  if (sale.state !== "completed") {
+    logStep("Subscription sale is not completed at PayPal — not recording", {
+      saleId,
+      paypalState: sale.state ?? null,
+    });
+    return;
+  }
+
   const { data: subscription } = await supabase
     .from('subscriptions')
-    .select('user_id, subscription_tier')
-    .eq('paypal_subscription_id', resource.billing_agreement_id)
+    .select('id, user_id, subscription_tier')
+    .eq('paypal_subscription_id', subscriptionId)
     .single();
 
-  if (subscription) {
-    const invoiceNumber = await generateInvoiceNumber(supabase);
-    
-    await supabase
-      .from('invoices')
-      .insert({
-        user_id: subscription.user_id,
-        amount: parseFloat(resource.amount.total),
-        currency: resource.amount.currency,
-        status: 'paid',
-        invoice_number: invoiceNumber,
-        paid_at: new Date().toISOString()
-      });
-
-    logStep("Subscription payment recorded", { subscriptionId: resource.billing_agreement_id });
+  if (!subscription) {
+    logStep("Subscription sale for unknown subscription", { subscriptionId, saleId });
+    return;
   }
+
+  // Exactly once per sale: the sale id rides in paypal_order_id,
+  // and a replay finds the invoice already recorded.
+  const { data: existing } = await supabase
+    .from('invoices')
+    .select('id')
+    .eq('paypal_order_id', saleId)
+    .maybeSingle();
+  if (existing) {
+    logStep("Subscription payment already recorded", { saleId });
+    return;
+  }
+
+  const invoiceNumber = await generateInvoiceNumber(supabase);
+
+  const { error: invoiceError } = await supabase
+    .from('invoices')
+    .insert({
+      user_id: subscription.user_id,
+      subscription_id: subscription.id,
+      amount: parseFloat(sale.amount.total),
+      currency: sale.amount.currency,
+      status: 'paid',
+      invoice_number: invoiceNumber,
+      paypal_order_id: saleId,
+      paid_at: sale.create_time ?? new Date().toISOString()
+    });
+  if (invoiceError) {
+    logStep("Error recording subscription payment", invoiceError);
+    return;
+  }
+
+  // Roll the period from PayPal's own billing state.
+  const sub = await fetchPayPalSubscription(accessToken, subscriptionId);
+  if (sub?.billing_info?.next_billing_time) {
+    await supabase
+      .from('subscriptions')
+      .update({
+        current_period_start: sale.create_time ?? new Date().toISOString(),
+        current_period_end: sub.billing_info.next_billing_time
+      })
+      .eq('paypal_subscription_id', subscriptionId);
+  }
+
+  logStep("Subscription payment recorded", { subscriptionId, saleId });
 }
 
 async function handleSubscriptionPaymentFailed(supabase: any, resource: any) {
-  logStep("Processing subscription payment failure", { subscriptionId: resource.billing_agreement_id });
-  
-  // You might want to notify the user or take other actions here
-  // For now, just log the failure
+  const subscriptionId = resource.id ?? resource.billing_agreement_id;
+  logStep("Processing subscription payment failure", { subscriptionId });
+  if (!subscriptionId) return;
+
+  // Record the failure truthfully (this handler used to be a
+  // log-only no-op): the subscription is marked payment_failed so
+  // entitlement checks stop treating it as a paying subscription,
+  // and the failure time is kept on the row's updated_at. A later
+  // successful sale re-activates via the ACTIVATED/sale handlers.
+  const { error } = await supabase
+    .from('subscriptions')
+    .update({
+      status: 'payment_failed',
+      updated_at: new Date().toISOString()
+    })
+    .eq('paypal_subscription_id', subscriptionId)
+    .in('status', ['active', 'pending']);
+
+  if (error) {
+    logStep("Error recording subscription payment failure", error);
+  } else {
+    logStep("Subscription payment failure recorded", { subscriptionId });
+  }
 }
 
 async function generateInvoiceNumber(supabase: any): Promise<string> {

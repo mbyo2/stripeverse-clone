@@ -52,48 +52,18 @@ export const useMarketplace = () => {
         throw new Error('Cannot send payment to yourself');
       }
 
-      // Calculate platform fee and net amount
-      const platformFeePercentage = paymentData.platformFeePercentage || 2.5; // Default 2.5%
-      const platformFee = (paymentData.amount * platformFeePercentage) / 100;
-      const netAmount = paymentData.amount - platformFee;
-
-      // Call marketplace payment function
-      const { data, error } = await supabase.functions.invoke('paypal-marketplace', {
-        body: {
-          receiverUserId: paymentData.receiverUserId,
-          grossAmount: paymentData.amount,
-          platformFee,
-          netAmount,
-          currency: paymentData.currency || 'ZMW',
-          description: paymentData.description || 'Marketplace payment'
-        }
-      });
-
-      if (error) {
-        console.error('Marketplace payment error:', error);
-        throw new Error(error.message || 'Payment processing failed');
-      }
-
-      if (!data?.success) {
-        throw new Error(data?.error || 'Payment processing failed');
-      }
-
+      // PayPal marketplace payments are deprecated (audit D1): the
+      // legacy function's orders could never be captured or settled,
+      // and its fee "split" was never sent to PayPal. Marketplace
+      // sales settle through the seller's payment link or wallet —
+      // refuse here, honestly, without invoking anything.
+      const error = 'PayPal marketplace payments are not available — marketplace sales settle through the seller\'s payment link or wallet instead.';
       toast({
-        title: "Payment Initiated",
-        description: "Redirecting to PayPal for payment completion...",
+        title: "Marketplace Payment",
+        description: error,
+        variant: "destructive",
       });
-
-      // Redirect to PayPal
-      if (data.approvalUrl) {
-        window.open(data.approvalUrl, '_blank');
-      }
-
-      return {
-        success: true,
-        approvalUrl: data.approvalUrl,
-        orderId: data.orderId,
-        transactionId: data.transactionId
-      };
+      return { success: false, error };
 
     } catch (error) {
       const errorMessage = toUserFacingError(error, 'The payment could not be completed. Please try again.');

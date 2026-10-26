@@ -263,8 +263,10 @@ async function handleCreate(admin: any, userId: string, body: any) {
   if (!row) throw new Error("Reserved withdrawal could not be re-read");
 
   // A replayed create for an already-sent withdrawal just reports
-  // its current state — never sends twice (PayPal would also dedupe
-  // on sender_batch_id, but we don't rely on that alone).
+  // its current state — never sends twice. (Our reserve RPC's
+  // idempotency is what guarantees this; a re-POST would in any case
+  // be rejected by PayPal as a duplicate sender_batch_id, which the
+  // send path classifies as already-submitted, not as a refusal.)
   if (reserve.outcome === "already_reserved" && row.status !== "pending") {
     return json({
       success: true,
@@ -293,11 +295,15 @@ async function handleCreate(admin: any, userId: string, body: any) {
       await refundUnsentWithdrawal(admin, row, message);
       return json({ success: false, status: "failed", error: message }, 400);
     }
+    case "already_submitted":
     case "unreachable": {
-      // The batch may or may not exist at PayPal — sender_batch_id
-      // is the withdrawal id, so PayPal will dedupe any later retry,
-      // and the status action / webhook settle from PayPal's state.
-      // The reservation stands; NOTHING is refunded on a guess.
+      // The batch may already exist at PayPal: either the send's
+      // outcome was lost (unreachable) or PayPal told us this
+      // withdrawal's sender_batch_id was already used
+      // (already_submitted — the original batch, which may still pay
+      // out). Either way the reservation stands and NOTHING is
+      // refunded on a guess; the status action and the webhook
+      // backstop settle the row from PayPal's own state.
       const { error: updateError } = await admin
         .from("paypal_withdrawals")
         .update({ status: "processing", updated_at: new Date().toISOString() })

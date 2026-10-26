@@ -111,13 +111,24 @@ export type CreatePayoutResult =
   | { kind: "not_configured" }
   | { kind: "not_enabled" }
   | { kind: "insufficient_funds" }
+  | { kind: "already_submitted" }
   | { kind: "rejected"; message: string }
   | { kind: "unreachable" };
 
 /**
  * POST /v1/payments/payouts for one reserved withdrawal. The batch
- * id and item id are the withdrawal's own id, so a retried send is
- * deduped by PayPal and the payout is traceable to its row.
+ * id and item id are the withdrawal's own id, so the payout is
+ * traceable to its row. Two distinct idempotency mechanisms ride on
+ * the request, and they behave differently (audit D9):
+ *   - the PayPal-Request-Id header (the withdrawal id): PayPal's
+ *     documented Payouts idempotency — a retry with the same key
+ *     returns the payout's current state instead of creating a
+ *     second payout;
+ *   - sender_batch_id (also the withdrawal id): NOT a dedupe key —
+ *     PayPal rejects its reuse within 30 days, with a link to the
+ *     original batch. That rejection is classified
+ *     "already_submitted" below and resolved against the original
+ *     batch — never refunded, because the original may still pay.
  */
 export async function createPayPalPayout(
   row: PayPalWithdrawalRow,
@@ -130,6 +141,7 @@ export async function createPayPalPayout(
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
+        "PayPal-Request-Id": row.id,
       },
       body: JSON.stringify(
         buildPayoutRequest({
@@ -154,6 +166,21 @@ export async function createPayPalPayout(
       const failure = classifyPayoutPostFailure(response.status, body);
       if (failure.kind === "not_enabled") return { kind: "not_enabled" };
       if (failure.kind === "insufficient_funds") return { kind: "insufficient_funds" };
+      if (failure.kind === "already_submitted") {
+        // The original batch exists. With its id recovered from the
+        // error's HATEOAS link, hand it to the finalizer exactly
+        // like a fresh acceptance with unknown item state — it
+        // re-reads the batch and settles from PayPal's truth.
+        if (failure.batchId) {
+          return {
+            kind: "accepted",
+            batchId: failure.batchId,
+            item: null,
+            batchStatus: null,
+          };
+        }
+        return { kind: "already_submitted" };
+      }
       return { kind: "rejected", message: failure.message };
     }
     const header = (body as Record<string, unknown> | null)?.batch_header as

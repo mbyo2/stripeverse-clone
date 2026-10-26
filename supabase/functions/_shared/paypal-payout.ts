@@ -286,9 +286,18 @@ export interface PayoutRequestInput {
 
 /**
  * The POST /v1/payments/payouts body. sender_batch_id and
- * sender_item_id are BOTH the withdrawal's own id: PayPal dedupes a
- * retried batch on sender_batch_id, and every payout item is
- * traceable back to its withdrawal row and ledger history.
+ * sender_item_id are BOTH the withdrawal's own id, so every payout
+ * is traceable back to its withdrawal row and ledger history.
+ *
+ * sender_batch_id is NOT a dedupe key at PayPal (audit D9,
+ * 2026-10-26 — an earlier version of this comment claimed it was):
+ * PayPal requires it to be unique within 30 days and REJECTS a
+ * reused one, returning an error with a HATEOAS link to the
+ * original batch. Exactly-once therefore comes from OUR reserve
+ * RPC's idempotency; the reused-id rejection is classified
+ * separately (classifyPayoutPostFailure → "already_submitted") and
+ * never treated as a refusal, because the original batch may still
+ * pay out.
  */
 export function buildPayoutRequest(input: PayoutRequestInput) {
   const currency = normalizeCurrency(input.currency);
@@ -391,6 +400,7 @@ const REFUND_ITEM_STATUSES: ReadonlySet<string> = new Set([
   "REFUNDED",
   "REVERSED",
   "DENIED",
+  "CANCELED",
 ]);
 
 /**
@@ -430,6 +440,8 @@ export function payoutFailureReason(item: PayoutItemState | null): string {
       return "PayPal reversed this payout.";
     case "DENIED":
       return "PayPal denied this payout.";
+    case "CANCELED":
+      return "This payout was canceled before it completed.";
     default:
       return "PayPal could not complete this payout.";
   }
@@ -440,14 +452,64 @@ export function payoutFailureReason(item: PayoutItemState | null): string {
 export type PayoutPostFailure =
   | { kind: "not_enabled" }
   | { kind: "insufficient_funds" }
+  | { kind: "already_submitted"; batchId: string | null }
   | { kind: "rejected"; message: string };
+
+/**
+ * Detect PayPal's duplicate sender_batch_id rejection (audit D9).
+ * Per PayPal's Payouts documentation, reusing a sender_batch_id
+ * within 30 days REJECTS the request (it is not deduped) and the
+ * error carries a HATEOAS link to the original batch. Detection is
+ * deliberately multi-signal — an error name mentioning the
+ * duplication, a message/detail naming sender_batch_id, or a
+ * payouts link in the error body — and the original batch id is
+ * recovered from that link when present, so the caller can attach
+ * and finalize from the ORIGINAL batch instead of refunding money
+ * that may still be on its way out.
+ */
+export function duplicateBatchFromFailure(body: unknown): { batchId: string | null } | null {
+  const record = asRecord(body);
+  if (!record) return null;
+  const name = stringOrNull(record.name)?.toUpperCase() ?? "";
+  const message = stringOrNull(record.message) ?? "";
+  const details = Array.isArray(record.details) ? record.details : [];
+  const detailText = details
+    .map((d) => {
+      const r = asRecord(d);
+      return r ? `${stringOrNull(r.issue) ?? ""} ${stringOrNull(r.description) ?? ""}` : "";
+    })
+    .join(" ");
+  let batchId: string | null = null;
+  const links = Array.isArray(record.links) ? record.links : [];
+  for (const raw of links) {
+    const link = asRecord(raw);
+    const href = link ? stringOrNull(link.href) : null;
+    const match = href ? href.match(/\/v1\/payments\/payouts\/([^/?#]+)/) : null;
+    if (match) {
+      batchId = match[1];
+      break;
+    }
+  }
+  const mentionsDuplicate =
+    name.includes("DUPLICATE") ||
+    /sender_batch_id/i.test(message) ||
+    /sender_batch_id/i.test(detailText) ||
+    /duplicate/i.test(detailText);
+  if (mentionsDuplicate || batchId) return { batchId };
+  return null;
+}
 
 /**
  * Classify a non-2xx POST /v1/payments/payouts answer. The one that
  * matters most commercially: a 403 means the platform's PayPal
  * account is not enabled for Payouts (or the API caller lacks the
  * payout permission) — the user must hear "not available yet", never
- * a raw PayPal error and never a fake success.
+ * a raw PayPal error and never a fake success. The one that matters
+ * most for safety: a duplicate sender_batch_id rejection means the
+ * ORIGINAL batch exists at PayPal and may still pay out, so it is
+ * classified "already_submitted", never "rejected" — a rejected
+ * classification would refund the user while the payout completes,
+ * paying them twice.
  */
 export function classifyPayoutPostFailure(
   httpStatus: number,
@@ -466,6 +528,10 @@ export function classifyPayoutPostFailure(
   }
   if (name === "INSUFFICIENT_FUNDS" || /insufficient/i.test(message)) {
     return { kind: "insufficient_funds" };
+  }
+  const duplicate = duplicateBatchFromFailure(body);
+  if (duplicate) {
+    return { kind: "already_submitted", batchId: duplicate.batchId };
   }
   return {
     kind: "rejected",
@@ -519,6 +585,9 @@ export const PAYOUT_WEBHOOK_EVENT_TYPES: ReadonlySet<string> = new Set([
   "PAYMENT.PAYOUTS-ITEM.RETURNED",
   "PAYMENT.PAYOUTS-ITEM.UNCLAIMED",
   "PAYMENT.PAYOUTS-ITEM.BLOCKED",
+  "PAYMENT.PAYOUTS-ITEM.DENIED",
+  "PAYMENT.PAYOUTS-ITEM.CANCELED",
+  "PAYMENT.PAYOUTS-ITEM.REFUNDED",
   "PAYMENT.PAYOUTSBATCH.DENIED",
   "PAYMENT.PAYOUTSBATCH.SUCCESS",
 ]);

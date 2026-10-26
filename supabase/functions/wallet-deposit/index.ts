@@ -42,6 +42,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyProvider, paypalDepositCurrencyRefusal } from "../_shared/payment-providers.ts";
+import { getPayPalAccessToken, paypalBaseUrl } from "../_shared/paypal-deposit.ts";
 import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 import { paypalErrorTrace } from "../_shared/deposit-capture.ts";
 
@@ -190,12 +191,18 @@ serve(async (req) => {
       });
     }
 
+    // Our transaction id is generated BEFORE the order (the
+    // process-payment pattern) so the PayPal order create can carry
+    // it as its PayPal-Request-Id: a retried create replays the
+    // original order instead of minting a second one (audit D8).
+    const transactionUuid = crypto.randomUUID();
     const order = await createPayPalOrder(accessToken, {
       amount,
       currency,
       description: "BMaGlass Pay wallet deposit",
       returnUrl,
       cancelUrl,
+      requestId: `wallet-deposit-order-${transactionUuid}`,
     });
     if (!order) {
       return json({
@@ -211,6 +218,7 @@ serve(async (req) => {
     const { data: transaction, error: txError } = await supabase
       .from("transactions")
       .insert({
+        uuid_id: transactionUuid,
         user_id: user.id,
         wallet_id: wallet.id,
         amount,
@@ -252,32 +260,10 @@ serve(async (req) => {
   }
 });
 
-// ── PayPal REST (mirrors paypal-checkout's token/order pattern) ──────
-
-async function getPayPalAccessToken(): Promise<string | null> {
-  const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
-  const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
-  if (!clientId || !clientSecret) return null;
-
-  const isProduction = Deno.env.get("PAYPAL_ENV") === "production";
-  const baseUrl = isProduction ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
-  try {
-    const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: "grant_type=client_credentials",
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data.access_token ?? null;
-  } catch (e) {
-    console.error("PayPal token error:", e);
-    return null;
-  }
-}
+// ── PayPal REST ──────────────────────────────────────────────────
+// The OAuth token comes from the shared, cached getter in
+// _shared/paypal-deposit.ts (audit D7 — this function's private
+// copy is deleted).
 
 /**
  * Returns the value unchanged only when it is a well-formed https
@@ -306,10 +292,10 @@ async function createPayPalOrder(
     description?: string;
     returnUrl?: string | null;
     cancelUrl?: string | null;
+    requestId: string;
   },
 ): Promise<{ id: string; approvalUrl: string | null } | null> {
-  const isProduction = Deno.env.get("PAYPAL_ENV") === "production";
-  const baseUrl = isProduction ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+  const baseUrl = paypalBaseUrl();
   // PayPal sends the user back to these URLs after approval/cancel;
   // without them the deposit-capture return flow can never fire.
   // Included only when at least one valid URL was supplied, so order
@@ -325,7 +311,8 @@ async function createPayPalOrder(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
+        "Authorization": `Bearer ${accessToken}`,
+        "PayPal-Request-Id": input.requestId,
       },
       body: JSON.stringify({
         intent: "CAPTURE",

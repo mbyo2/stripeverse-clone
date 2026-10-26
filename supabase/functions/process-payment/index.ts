@@ -41,7 +41,8 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { classifyProvider } from "../_shared/payment-providers.ts";
+import { classifyProvider, paypalOrderCurrencyRefusal } from "../_shared/payment-providers.ts";
+import { getPayPalAccessToken, paypalBaseUrl } from "../_shared/paypal-deposit.ts";
 import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
 import { paypalErrorTrace } from "../_shared/deposit-capture.ts";
 import { parseCheckoutTerms } from "../_shared/checkout-capture.ts";
@@ -118,6 +119,17 @@ serve(async (req) => {
     if (route.kind === "not_configured") {
       // Truthful refusal: no rows written, no balances touched.
       return json({ success: false, status: "not_configured", error: route.error });
+    }
+
+    // D3 (audit 2026-10-26): the one PayPal order-currency allowlist,
+    // refused up front. This also retires the silent "ZMW" default
+    // above for PayPal payments: a missing or kwacha currency can
+    // never become a PayPal order (ZMW is not a PayPal currency), and
+    // the refusal lands BEFORE any wallet is resolved or created, so
+    // an unsettleable payment leaves no trace.
+    const currencyRefusal = paypalOrderCurrencyRefusal(currency);
+    if (currencyRefusal) {
+      return json({ success: false, status: "unsupported_currency", error: currencyRefusal }, 400);
     }
 
     // ── PayPal: record the checkout, create a real order; ──────────
@@ -283,32 +295,10 @@ serve(async (req) => {
   }
 });
 
-// ── PayPal REST (mirrors paypal-checkout's token/order pattern) ──────────
-
-async function getPayPalAccessToken(): Promise<string | null> {
-  const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
-  const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
-  if (!clientId || !clientSecret) return null;
-
-  const isProduction = Deno.env.get("PAYPAL_ENV") === "production";
-  const baseUrl = isProduction ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
-  try {
-    const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: "grant_type=client_credentials",
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data.access_token ?? null;
-  } catch (e) {
-    console.error("PayPal token error:", e);
-    return null;
-  }
-}
+// ── PayPal REST ──────────────────────────────────────────────────
+// The OAuth token comes from the shared, cached getter in
+// _shared/paypal-deposit.ts (audit D7 — this function's private
+// copy is deleted).
 
 async function createPayPalOrder(
   accessToken: string,
@@ -324,8 +314,7 @@ async function createPayPalOrder(
     cancelUrl?: string | null;
   },
 ): Promise<{ id: string; approvalUrl: string | null } | null> {
-  const isProduction = Deno.env.get("PAYPAL_ENV") === "production";
-  const baseUrl = isProduction ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+  const baseUrl = paypalBaseUrl();
   try {
     const applicationContext = input.returnUrl || input.cancelUrl
       ? {
@@ -338,6 +327,12 @@ async function createPayPalOrder(
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
+        // Idempotency at PayPal (audit D8): keyed on our transaction
+        // uuid, so a retried create for the same payment replays the
+        // original order instead of minting a second one.
+        ...(input.referenceId
+          ? { "PayPal-Request-Id": `paypal-order-${input.referenceId}` }
+          : {}),
       },
       body: JSON.stringify({
         intent: "CAPTURE",

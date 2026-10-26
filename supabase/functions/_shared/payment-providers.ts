@@ -73,6 +73,51 @@ export function paypalDepositCurrencyRefusal(currency: string): string | null {
   return "PayPal deposits are in US dollars only — choose your USD wallet to deposit by PayPal.";
 }
 
+/**
+ * Currencies a PayPal ORDER may be created in on this platform
+ * (audit D3, 2026-10-26). One allowlist, enforced up front at every
+ * order-creation site (process-payment, wallet-deposit via the
+ * stricter USD-only deposit gate above, and the subscription flow
+ * in paypal-checkout) — before it existed, each site kept its own
+ * list, two of them included ZMW, and process-payment silently
+ * defaulted a missing currency to "ZMW": orders PayPal could only
+ * reject after a round-trip, because ZMW is not a PayPal currency
+ * at all. The set is the two-decimal major currencies this platform
+ * can settle into a same-currency wallet; zero-decimal currencies
+ * (JPY, HUF, …) are deliberately excluded so every amount here
+ * formats as "12.34", the same reasoning as PAYPAL_PAYOUT_CURRENCIES.
+ */
+export const PAYPAL_ORDER_CURRENCIES: readonly string[] = [
+  "USD",
+  "EUR",
+  "GBP",
+  "AUD",
+  "CAD",
+  "CHF",
+  "SEK",
+  "NOK",
+  "DKK",
+  "NZD",
+  "SGD",
+  "HKD",
+  "MXN",
+  "PLN",
+  "CZK",
+];
+
+/** Up-front refusal for a PayPal order in a currency we cannot settle. */
+export function paypalOrderCurrencyRefusal(currency: string): string | null {
+  const c = (currency || "").trim().toUpperCase();
+  if (PAYPAL_ORDER_CURRENCIES.includes(c)) return null;
+  if (c === "ZMW") {
+    return "PayPal can't take Zambian kwacha (ZMW) — PayPal payments are made in US dollars or another major currency. Choose a USD amount to pay by PayPal.";
+  }
+  if (!c) {
+    return "Choose a currency for this PayPal payment — PayPal payments are made in US dollars or another major currency, not kwacha.";
+  }
+  return `PayPal payments aren't supported in ${c} on this platform — use US dollars or another major currency instead.`;
+}
+
 export type LinkPaymentMethod = "wallet" | "card" | "mobile_money" | "bank";
 
 export type LinkMethodRoute =

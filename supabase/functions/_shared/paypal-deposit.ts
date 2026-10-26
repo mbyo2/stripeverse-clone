@@ -249,7 +249,19 @@ export function paypalBaseUrl(): string {
     : "https://api-m.sandbox.paypal.com";
 }
 
+// OAuth token caching (audit D7, 2026-10-26): every PayPal caller
+// used to fetch a fresh client-credentials token per operation —
+// five separate implementations across the functions, each an extra
+// round-trip and a needless load on PayPal's token endpoint. This
+// shared getter caches the token in the function isolate until
+// shortly before PayPal's stated expiry; all PayPal functions now
+// route through it (the legacy per-function copies are deleted).
+let cachedToken: { value: string; expiresAtMs: number } | null = null;
+
 export async function getPayPalAccessToken(): Promise<string | null> {
+  if (cachedToken && cachedToken.expiresAtMs > Date.now()) {
+    return cachedToken.value;
+  }
   const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
   const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
   if (!clientId || !clientSecret) return null;
@@ -264,7 +276,15 @@ export async function getPayPalAccessToken(): Promise<string | null> {
     });
     if (!response.ok) return null;
     const data = await response.json();
-    return data.access_token ?? null;
+    const token = data.access_token ?? null;
+    if (token) {
+      const expiresInSec = Number(data.expires_in);
+      const ttlMs = Number.isFinite(expiresInSec) && expiresInSec > 120
+        ? (expiresInSec - 60) * 1000
+        : 300_000;
+      cachedToken = { value: token, expiresAtMs: Date.now() + ttlMs };
+    }
+    return token;
   } catch (e) {
     console.error("PayPal token error:", e);
     return null;
@@ -314,6 +334,43 @@ export async function capturePayPalOrder(
     return await response.json();
   } catch (e) {
     console.error("PayPal capture error:", e);
+    return null;
+  }
+}
+
+// ── Capture / refund re-queries (audit D2) ───────────────────────
+// The reversal webhook cases decide from PayPal's authoritative
+// state, never from the event payload: these two reads are that
+// state (GET /v2/payments/captures/{id} and /refunds/{id}).
+
+export async function fetchPayPalCapture(
+  accessToken: string,
+  captureId: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const response = await fetch(`${paypalBaseUrl()}/v2/payments/captures/${captureId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (e) {
+    console.error("PayPal capture fetch error:", e);
+    return null;
+  }
+}
+
+export async function fetchPayPalRefund(
+  accessToken: string,
+  refundId: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const response = await fetch(`${paypalBaseUrl()}/v2/payments/refunds/${refundId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (e) {
+    console.error("PayPal refund fetch error:", e);
     return null;
   }
 }
