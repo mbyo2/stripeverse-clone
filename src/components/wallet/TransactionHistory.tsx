@@ -15,7 +15,10 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTransactions } from '@/hooks/useTransactions';
 import { useRecoveringRetry } from "@/hooks/useRecoveringRetry";
-import { transactionTitle } from "@/utils/transactionLabels";
+import { transactionTitle, isCardFundingTransaction } from "@/utils/transactionLabels";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import TransactionReceipt from '@/components/TransactionReceipt';
 import { SkeletonListRow } from "@/components/ui/skeletons";
 
@@ -57,6 +60,25 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
 
   const { transactions, isLoading, error, refetch } = useTransactions(limit, walletIds);
   const retryWithRecovery = useRecoveringRetry();
+
+  // Card-funding rows name the funded card ("To virtual card
+  // ••••3696") via the shared labelling rule; resolve masked numbers
+  // from the same cache entry useWallet maintains. Best-effort.
+  const { user } = useAuth();
+  const { data: userCards = [] } = useQuery({
+    queryKey: ['virtualCards', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('virtual_cards')
+        .select('id, masked_number')
+        .eq('user_id', user!.id);
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+  const maskedByCardId = new Map(
+    userCards.map((c) => [c.id, c.masked_number as string | null]),
+  );
 
   const filteredTransactions = transactions
     .filter(transaction => {
@@ -207,8 +229,13 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
                           the sender's side and names the recipient, so echoing
                           it verbatim mislabels money the user received.
                           Outgoing rows keep their description as written. */}
-                      {transaction.direction === 'incoming'
-                        ? transactionTitle(transaction)
+                      {transaction.direction === 'incoming' || isCardFundingTransaction(transaction)
+                        ? transactionTitle({
+                            ...transaction,
+                            card_masked_number: transaction.virtual_card_id
+                              ? maskedByCardId.get(transaction.virtual_card_id) ?? null
+                              : null,
+                          })
                         : transaction.description || 'Transaction'}
                     </p>
                     {transaction.recipient_name && (

@@ -1958,6 +1958,7 @@ export type Database = {
           created_at: string | null
           first_name: string | null
           id: string
+          is_frozen: boolean | null
           last_name: string | null
           phone: string | null
           updated_at: string | null
@@ -1967,6 +1968,7 @@ export type Database = {
           created_at?: string | null
           first_name?: string | null
           id: string
+          is_frozen?: boolean | null
           last_name?: string | null
           phone?: string | null
           updated_at?: string | null
@@ -1976,6 +1978,7 @@ export type Database = {
           created_at?: string | null
           first_name?: string | null
           id?: string
+          is_frozen?: boolean | null
           last_name?: string | null
           phone?: string | null
           updated_at?: string | null
@@ -2948,6 +2951,7 @@ export type Database = {
           updated_at: string | null
           user_id: string | null
           uuid_id: string
+          virtual_card_id: string | null
           wallet_id: string | null
         }
         Insert: {
@@ -2976,6 +2980,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           uuid_id?: string
+          virtual_card_id?: string | null
           wallet_id?: string | null
         }
         Update: {
@@ -3004,6 +3009,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           uuid_id?: string
+          virtual_card_id?: string | null
           wallet_id?: string | null
         }
         Relationships: [

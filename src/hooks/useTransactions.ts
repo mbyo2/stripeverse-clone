@@ -18,6 +18,7 @@ export interface Transaction {
   recipient_account?: string;
   payment_method: string;
   category?: string;
+  virtual_card_id?: string | null;
   provider?: string;
   created_at: string;
   updated_at: string;

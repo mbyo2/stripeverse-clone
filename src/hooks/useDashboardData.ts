@@ -32,6 +32,8 @@ interface RecentTransaction {
   currency: string;
   created_at: string;
   status: string;
+  virtual_card_id?: string | null;
+  card_masked_number?: string | null;
 }
 
 interface UserRewards {
@@ -165,12 +167,32 @@ export const useDashboardData = () => {
       // needs the raw fields.
       const { data, error } = await supabase
         .from('transactions')
-        .select('id, direction, recipient_name, description, category, amount, currency, created_at, status')
+        .select('id, direction, recipient_name, description, category, amount, currency, created_at, status, virtual_card_id')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(4);
       if (error) throw error;
-      return data || [];
+      // Card-funding rows name the funded card ("To virtual card
+      // ••••3696") via the shared labelling rule; resolve the masked
+      // numbers for any card rows in this window. Best-effort — the
+      // label degrades to "To virtual card" when unresolved.
+      const rows = data || [];
+      if (rows.some((r) => r.virtual_card_id)) {
+        const { data: cards } = await supabase
+          .from('virtual_cards')
+          .select('id, masked_number')
+          .eq('user_id', user.id);
+        const maskedByCardId = new Map(
+          (cards || []).map((c) => [c.id, c.masked_number as string | null]),
+        );
+        return rows.map((r) => ({
+          ...r,
+          card_masked_number: r.virtual_card_id
+            ? maskedByCardId.get(r.virtual_card_id) ?? null
+            : null,
+        }));
+      }
+      return rows;
     },
     enabled: !!user?.id,
   });

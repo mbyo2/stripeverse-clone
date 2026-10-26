@@ -28,6 +28,8 @@ interface TransactionRow {
   category: string | null;
   direction: string;
   payment_method: string;
+  virtual_card_id?: string | null;
+  card_masked_number?: string | null;
   recipient_name: string | null;
   reference: string | null;
   transaction_id: string | null;
@@ -68,8 +70,11 @@ const mapRow = (row: TransactionRow): Transaction => {
     // Incoming rows use the shared direction-aware labelling (a
     // transfer's stored description is the sender's phrasing and
     // names this user); outgoing rows keep the description as written.
+    // Card-funding rows go through the shared labelling in BOTH
+    // directions: they carry no description or recipient, so the
+    // outgoing fallback used to surface the raw category string.
     description:
-      row.direction === 'incoming'
+      row.direction === 'incoming' || row.category === 'card_funding'
         ? transactionTitle(row)
         : row.description ||
           row.recipient_name ||
@@ -96,12 +101,30 @@ const TransactionList = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transactions')
-        .select('id, amount, currency, status, description, category, direction, payment_method, recipient_name, reference, transaction_id, created_at')
+        .select('id, amount, currency, status, description, category, direction, payment_method, recipient_name, reference, transaction_id, created_at, virtual_card_id')
         .eq('user_id', user!.id)
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
-      return (data || []).map(mapRow);
+      // Resolve card masked numbers so card-funding rows can name
+      // the card ("To virtual card ••••3696") instead of a bare
+      // category or reference. Best-effort: labels degrade to
+      // "To virtual card" when a card can't be resolved.
+      const { data: cards } = await supabase
+        .from('virtual_cards')
+        .select('id, masked_number')
+        .eq('user_id', user!.id);
+      const maskedByCardId = new Map(
+        (cards || []).map((c) => [c.id, c.masked_number as string | null]),
+      );
+      return (data || []).map((row) =>
+        mapRow({
+          ...row,
+          card_masked_number: row.virtual_card_id
+            ? maskedByCardId.get(row.virtual_card_id) ?? null
+            : null,
+        }),
+      );
     },
     enabled: !!user,
   });

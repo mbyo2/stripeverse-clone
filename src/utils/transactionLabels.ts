@@ -25,12 +25,22 @@
 //      BMaGlass user" — the counterparty the data can honestly name.
 //   4. Any other row with a description uses it (matching the Wallet
 //      page); only a row with neither keeps the legacy "Unknown".
+//   5. Card-funding rows (category "card_funding") are titled
+//      "Card funding"; their counterparty is the user's own virtual
+//      card — "To virtual card ••••<last4>" when the caller resolved
+//      the masked number from virtual_card_id, else "To virtual
+//      card". Never "Unknown", never the raw FUND- reference.
 
 export interface LabelableTransaction {
   direction?: string | null;
   recipient_name?: string | null;
   description?: string | null;
   category?: string | null;
+  virtual_card_id?: string | null;
+  /** Masked number (e.g. "**** **** **** 3696") of the virtual card a
+   * card-funding row belongs to, when the caller resolved it from
+   * virtual_card_id. Only the last four digits are ever rendered. */
+  card_masked_number?: string | null;
 }
 
 const INTERNAL_CATEGORIES = new Set([
@@ -41,6 +51,27 @@ const INTERNAL_CATEGORIES = new Set([
 
 export function isInternalTransaction(tx: LabelableTransaction): boolean {
   return !!tx.category && INTERNAL_CATEGORIES.has(tx.category);
+}
+
+/**
+ * Card-funding rows (category "card_funding", written by
+ * fund-virtual-card) move money from the user's wallet to their OWN
+ * virtual card. They carry no recipient_name and no description —
+ * only the virtual_card_id and a machine reference
+ * ("FUND-<cardId>-<ts>") — so every generic fallback used to render
+ * them as "Sent to Unknown" (or as the raw reference / category
+ * string). They get their own label, like internal movements.
+ */
+export function isCardFundingTransaction(tx: LabelableTransaction): boolean {
+  return tx.category === "card_funding";
+}
+
+/** "To virtual card ••••3696" — last four only, when resolvable. */
+export function cardFundingCounterparty(tx: LabelableTransaction): string {
+  const digits = (tx.card_masked_number || "").replace(/\D/g, "");
+  const last4 = digits.length >= 4 ? digits.slice(-4) : null;
+  const cardRef = last4 ? `virtual card ••••${last4}` : "virtual card";
+  return tx.direction === "incoming" ? `From ${cardRef}` : `To ${cardRef}`;
 }
 
 const SENDER_VOICE_DESCRIPTION = /^(send money|transfer) to\s/i;
@@ -84,6 +115,7 @@ export function internalCategoryLabel(tx: LabelableTransaction): string {
  */
 export function transactionCounterpartyLabel(tx: LabelableTransaction): string {
   if (tx.recipient_name) return tx.recipient_name;
+  if (isCardFundingTransaction(tx)) return cardFundingCounterparty(tx);
   if (isInternalTransaction(tx)) return tx.description || internalCategoryLabel(tx);
   if (hasSenderVoiceDescription(tx)) return "BMaGlass user";
   if (tx.description) return tx.description;
@@ -95,6 +127,7 @@ export function transactionTitle(tx: LabelableTransaction): string {
   if (tx.recipient_name) {
     return `${tx.direction === "outgoing" ? "Sent to" : "Received from"} ${tx.recipient_name}`;
   }
+  if (isCardFundingTransaction(tx)) return "Card funding";
   if (isInternalTransaction(tx)) return tx.description || internalCategoryLabel(tx);
   if (hasSenderVoiceDescription(tx)) return "Received from BMaGlass user";
   if (tx.description) return tx.description;
