@@ -1,4 +1,9 @@
--- 20261226 — PayPal capture reversals + subscription billing catalogue
+-- 20261227 — PayPal capture reversals + subscription billing catalogue
+-- (provider-connections audit D2 + D4, 2026-10-26). Applied live via
+-- the Management API on 2026-10-26; the file was renumbered from
+-- 20261226 to 20261227 the same day because the MoonPay mission's
+-- event-order guard took 20261226 first — the live objects are
+-- identical either way (the number is only the repo ordering key).
 -- (provider-connections audit D2 + D4, 2026-10-26).
 --
 -- D2: until now, nothing reconciled a PayPal refund / reversal /

@@ -14,7 +14,7 @@
 //      whether a local credit must be reversed and to what
 //      CUMULATIVE total (refunds can be partial and multiple).
 //   3. The money move itself happens inside the
-//      reverse_paypal_credit RPC (migration 20261226), which is
+//      reverse_paypal_credit RPC (migration 20261227), which is
 //      keyed per reversal event and clamps at the credited amount —
 //      so replays, races and out-of-order events can never reverse
 //      twice or reverse more than was credited. An event for a

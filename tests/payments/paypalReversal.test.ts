@@ -4,7 +4,7 @@
 //      planner (_shared/paypal-reversal.ts), the order-currency
 //      allowlist (_shared/payment-providers.ts), and the payout
 //      duplicate classification (_shared/paypal-payout.ts).
-//   2. The reversal RPC at source level (migration 20261226): the
+//   2. The reversal RPC at source level (migration 20261227): the
 //      exactly-once discipline — row lock, per-key no-op, cumulative
 //      cap, non-negative wallet clamp, provenance symmetry — pinned
 //      in order, plus a guard that the 20261213 float bodies of
@@ -267,8 +267,8 @@ describe("payout duplicate classification (D9) and CANCELED finalization (D6)", 
   });
 });
 
-describe("migration 20261226 pins", () => {
-  const sql = read("../../supabase/migrations/20261226_paypal_capture_reversals.sql");
+describe("migration 20261227 pins", () => {
+  const sql = read("../../supabase/migrations/20261227_paypal_capture_reversals.sql");
 
   it("reversal is keyed and locked before any money moves", () => {
     const keyCheck = sql.indexOf("e ->> 'key' = p_reversal_key");
