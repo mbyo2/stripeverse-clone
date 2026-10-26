@@ -12,11 +12,11 @@ import BitcoinLinkPayment from '@/components/payments/BitcoinLinkPayment';
 import { useToast } from '@/hooks/use-toast';
 import { useInvalidateMoneyState } from '@/utils/moneyFreshness';
 import {
+  feeBreakdownForLink,
   resolveLinkAmount,
   validateLinkPayment,
   type LinkPaymentMethod,
 } from '@/utils/paymentLinkSettlement';
-import { computePlatformFee } from '@/utils/splitPayments';
 
 interface PaymentLinkData {
   id: string;
@@ -61,24 +61,11 @@ const PublicCheckout = () => {
   const [receiptRef, setReceiptRef] = useState('');
   const [payErrorMsg, setPayErrorMsg] = useState<string | null>(null);
 
-  // Fee-bearer display truth: on a buyer-pays link the buyer funds
-  // the platform fee, so the page shows price + fee = total BEFORE
-  // paying. Fixed-price links take the server's computed fee from
-  // describe; any-amount links compute it live with the same single
-  // fee rule the settlement charges (computePlatformFee). Seller-pays
-  // links return null here — the page shows the single total, exactly
-  // as it always has.
-  const feeBreakdownFor = (priceAmount: number) => {
-    if (!linkData || linkData.fee_payer !== 'buyer' || !(priceAmount > 0)) return null;
-    const fee = linkData.amount != null && linkData.fee_amount != null
-      ? linkData.fee_amount
-      : computePlatformFee(priceAmount, linkData.fee_rate_percent ?? 0);
-    return {
-      price: priceAmount,
-      fee,
-      total: Math.round((priceAmount + fee) * 100) / 100,
-    };
-  };
+  // Fee-bearer display truth lives in feeBreakdownForLink (unit-pinned
+  // with the describe contract): buyer-pays links get a price + fee =
+  // total breakdown before paying; seller-pays links get null and the
+  // page shows the single total, exactly as it always has.
+  const feeBreakdownFor = (priceAmount: number) => feeBreakdownForLink(linkData, priceAmount);
 
   // One idempotency key per page session: if a pay attempt's response is
   // lost (network drop, timeout), retrying with the same key replays the

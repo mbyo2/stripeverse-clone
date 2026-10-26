@@ -8,6 +8,7 @@
 // is unit-testable without a browser or a database.
 
 import type { AccountRow } from "./accountGrouping";
+import { computePlatformFee } from "./splitPayments";
 
 export type LinkPaymentMethod = "wallet" | "card" | "mobile_money" | "bank";
 
@@ -51,6 +52,52 @@ export function resolveLinkAmount(
   const parsed = typeof customAmount === "string" ? Number(customAmount) : customAmount;
   if (parsed == null || !Number.isFinite(parsed) || parsed <= 0) return null;
   return parsed;
+}
+
+/** The fee fields of a payment link, as the checkout function's
+ *  describe action reports them (and as the dashboard stores them). */
+export interface LinkFeeFields {
+  /** Who funds the platform fee: the link's stored, seller-chosen
+   *  value, enforced server-side at settlement. */
+  fee_payer?: string | null;
+  /** Server-computed fee for a fixed-price link; null when the
+   *  price is not fixed yet (any-amount link). */
+  fee_amount?: number | null;
+  /** The platform's current link fee rate (%), for live breakdowns
+   *  on any-amount links. */
+  fee_rate_percent?: number | null;
+}
+
+export interface LinkFeeBreakdown {
+  price: number;
+  fee: number;
+  total: number;
+}
+
+/**
+ * Fee-bearer display truth for the public pay page: on a buyer-pays
+ * link the buyer funds the platform fee, so the page shows
+ * price + fee = total BEFORE paying. Fixed-price links take the
+ * server's computed fee; any-amount links compute it live with the
+ * same single fee rule the settlement charges (computePlatformFee).
+ * Seller-pays links return null — the page shows the single total,
+ * exactly as it always has. A describe payload that omits the fee
+ * fields also returns null, which is why the describe contract is
+ * pinned by tests alongside this helper: no fields, no breakdown.
+ */
+export function feeBreakdownForLink(
+  link: (PaymentLinkLike & LinkFeeFields) | null | undefined,
+  priceAmount: number,
+): LinkFeeBreakdown | null {
+  if (!link || link.fee_payer !== "buyer" || !(priceAmount > 0)) return null;
+  const fee = link.amount != null && link.fee_amount != null
+    ? link.fee_amount
+    : computePlatformFee(priceAmount, link.fee_rate_percent ?? 0);
+  return {
+    price: priceAmount,
+    fee,
+    total: Math.round((priceAmount + fee) * 100) / 100,
+  };
 }
 
 /**
