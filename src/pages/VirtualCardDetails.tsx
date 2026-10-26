@@ -67,16 +67,17 @@ const fetchVirtualCard = async (cardId: string) => {
     holderName = '';
   }
 
-  // Transaction history for this card (best-effort)
+  // Transaction history for this card — via manage-virtual-card,
+  // the checked server path (ownership + card gate enforced
+  // there). The old direct query named columns that don't exist
+  // on the live transactions table, failed silently, and always
+  // rendered an empty history.
   let transactions: any[] = [];
   try {
-    const { data: txs } = await supabase
-      .from('transactions')
-      .select('id, amount, transaction_type, status, reference, description, processed_at, created_at')
-      .eq('virtual_card_id', cardId)
-      .order('created_at', { ascending: false })
-      .limit(50);
-    transactions = txs || [];
+    const { data } = await supabase.functions.invoke('manage-virtual-card', {
+      body: { action: 'transactions', cardId },
+    });
+    if (data?.success) transactions = data.transactions || [];
   } catch {
     transactions = [];
   }
@@ -97,10 +98,10 @@ const fetchVirtualCard = async (cardId: string) => {
     },
     transactions: transactions.map((tx: any) => ({
       id: tx.id,
-      type: tx.transaction_type === 'card_funding' ? 'funding' : 'payment',
+      type: tx.category === 'card_funding' ? 'funding' : 'payment',
       amount: Number(tx.amount ?? 0),
-      description: tx.reference || tx.description || tx.transaction_type,
-      date: tx.processed_at || tx.created_at,
+      description: tx.reference || tx.description || tx.category,
+      date: tx.created_at,
       status: tx.status,
     })),
   };

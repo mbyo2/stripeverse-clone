@@ -274,9 +274,13 @@ serve(async (req) => {
     }
 
     if (action === "transactions") {
+      // LIVE columns only (verified 2026-10-26): the transaction
+      // kind is carried by `category` and created_at is the row
+      // time. Selecting columns the live table doesn't have made
+      // PostgREST reject the whole query (500 in the first probe).
       const { data: txs, error } = await supabase
         .from("transactions")
-        .select("id, amount, fee_amount, transaction_type, status, reference, description, processed_at, created_at")
+        .select("id, amount, fee_amount, category, status, reference, description, created_at")
         .eq("virtual_card_id", card.id)
         .order("created_at", { ascending: false })
         .limit(50);

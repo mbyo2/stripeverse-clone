@@ -162,7 +162,15 @@ serve(async (req) => {
       throw new Error("Failed to credit virtual card");
     }
 
-    // Record transaction
+    // Record transaction — LIVE columns only (verified against
+    // information_schema 2026-10-26): public.transactions has NO
+    // transaction_type and NO processed_at column; the funding
+    // kind is carried by `category`. The previous insert named
+    // both phantom columns, PostgREST rejected it, and the failure
+    // was swallowed by the warning below — no funding row was ever
+    // recorded (live count of transactions with a virtual_card_id
+    // was 0). created_at defaults to now() and serves as the
+    // processed time.
     const { error: transactionError } = await supabaseClient
       .from('transactions')
       .insert({
@@ -171,12 +179,11 @@ serve(async (req) => {
         amount: amount,
         fee_amount: feeAmount,
         currency: 'ZMW',
-        transaction_type: 'card_funding',
+        category: 'card_funding',
         direction: 'outgoing',
         status: 'completed',
         payment_method: 'wallet',
-        reference: `FUND-${cardId}-${Date.now()}`,
-        processed_at: new Date().toISOString()
+        reference: `FUND-${cardId}-${Date.now()}`
       });
 
     if (transactionError) {

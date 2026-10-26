@@ -122,6 +122,16 @@ describe("manage-virtual-card — reveal path ordering", () => {
     expect(manageFn).toContain("details_iv: null");
   });
 
+  it("transactions action selects only live transactions columns", () => {
+    // Live public.transactions (2026-10-26) has category + created_at
+    // and NO transaction_type / processed_at — selecting either
+    // phantom column makes PostgREST reject the query (live 500 in
+    // the first QA probe round, fixed here).
+    expect(manageFn).toContain('"id, amount, fee_amount, category, status, reference, description, created_at"');
+    expect(manageFn).not.toContain("transaction_type");
+    expect(manageFn).not.toContain("processed_at");
+  });
+
   it("card fetch never returns ciphertext in a non-reveal response shape", () => {
     // The only response carrying a PAN is the reveal success.
     const panResponses = manageFn.split("card_number: details.pan").length - 1;
@@ -170,6 +180,10 @@ describe("VirtualCardDetails — no direct DB writes remain", () => {
     expect(detailsPage).toContain("action: 'terminate'");
     expect(detailsPage).toContain("action: 'set_limits'");
     expect(detailsPage).toContain("action: 'reveal'");
+    expect(detailsPage).toContain("action: 'transactions'");
+    // No direct transactions-table read with phantom columns.
+    expect(detailsPage).not.toContain("transaction_type");
+    expect(detailsPage).not.toContain("processed_at");
   });
 
   it("never selects the ciphertext columns", () => {

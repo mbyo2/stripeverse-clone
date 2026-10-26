@@ -81,7 +81,13 @@ describe("FIX 1 — fund-virtual-card debits the card's bound wallet", () => {
 
   it("keeps the funding economics and response shape unchanged", () => {
     expect(fundFn).toContain("Math.max(amount * 0.01, 2)");
-    expect(fundFn).toContain("transaction_type: 'card_funding'");
+    // The ledger insert targets LIVE transactions columns
+    // (category, not the phantom transaction_type / processed_at —
+    // live-verified 2026-10-26; the old insert silently failed and
+    // no funding row was ever recorded).
+    expect(fundFn).toContain("category: 'card_funding'");
+    expect(fundFn).not.toContain("transaction_type:");
+    expect(fundFn).not.toContain("processed_at:");
     expect(fundFn).toContain("newCardBalance: card.balance + amount");
     expect(fundFn).toContain("newWalletBalance: wallet.balance - totalDebit");
   });
