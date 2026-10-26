@@ -12,13 +12,16 @@ import ts from "typescript";
 import {
   LightningNotConfiguredError,
   LightningUpstreamError,
+  PROVIDER_PAY_CONFIRMED,
   lightningProviderConfigured,
   parseCoinosInvoice,
   parseCoinosInvoiceAmounts,
   parseCoinosInvoiceState,
+  parseCoinosOutgoingPayment,
   parseCoinosPaymentHash,
   providerCreateInvoice,
   providerGetInvoice,
+  providerGetOutgoingPayment,
   providerPayInvoice,
   readLightningProviderConfig,
 } from "../../supabase/functions/_shared/lightning-provider";
@@ -254,13 +257,145 @@ describe("provider calls (stubbed fetch)", () => {
     expect(init.method).toBe("GET");
   });
 
-  it("pays an invoice and returns its payment hash", async () => {
+  it("pays an invoice: a 2xx is classified accepted, with the hash when present", async () => {
     const fetchMock = stubFetch(200, { paymentHash: "c".repeat(64) });
     const res = await providerPayInvoice(BOLT11_100, CFG);
-    expect(res.paymentHash).toBe("c".repeat(64));
+    expect(res).toEqual({ kind: "accepted", paymentHash: "c".repeat(64) });
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://coinos.test/api/payments");
     expect(JSON.parse(init.body as string)).toEqual({ payment: { text: BOLT11_100 } });
+  });
+});
+
+describe("providerPayInvoice outcome classification (send-path safety)", () => {
+  // The classification IS the money safety: only "rejected" may
+  // release a reservation. Everything ambiguous must stay "unknown"
+  // so the sats hold for reconciliation — never auto-refunded.
+  it("the pay leg is confirmed wired (the designed 503 era is over)", () => {
+    expect(PROVIDER_PAY_CONFIRMED).toBe(true);
+  });
+
+  it("a 2xx with an EMPTY body is accepted with no hash (the probed Coinos shape)", async () => {
+    stubFetch(200, "");
+    const res = await providerPayInvoice(BOLT11_100, CFG);
+    expect(res).toEqual({ kind: "accepted", paymentHash: null });
+  });
+
+  it("a 4xx is a definitive rejection — the payment provably was not made", async () => {
+    stubFetch(400, { message: "insufficient balance" });
+    const res = await providerPayInvoice(BOLT11_100, CFG);
+    expect(res.kind).toBe("rejected");
+  });
+
+  it("a 5xx is unknown — never a rejection", async () => {
+    stubFetch(500, "internal coinos detail");
+    const res = await providerPayInvoice(BOLT11_100, CFG);
+    expect(res.kind).toBe("unknown");
+  });
+
+  it("a network failure is unknown — never a rejection", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("network down");
+    }));
+    const res = await providerPayInvoice(BOLT11_100, CFG);
+    expect(res.kind).toBe("unknown");
+  });
+
+  it("throws LightningNotConfiguredError when unconfigured", async () => {
+    stubFetch(200, {});
+    await expect(
+      providerPayInvoice(BOLT11_100, { provider: null, token: null, base: CFG.base }),
+    ).rejects.toBeInstanceOf(LightningNotConfiguredError);
+  });
+});
+
+describe("parseCoinosOutgoingPayment (the read-back a send settles on)", () => {
+  const HASH = "a".repeat(64);
+
+  it("finds no payment in an empty list", () => {
+    expect(parseCoinosOutgoingPayment({ payments: [] }, { paymentHash: HASH }))
+      .toEqual({ state: "not_found", feeSats: null, paymentHash: null });
+  });
+
+  it("ignores payments for other invoices", () => {
+    const res = parseCoinosOutgoingPayment(
+      { payments: [{ paymentHash: "b".repeat(64), preimage: "ab".repeat(32) }] },
+      { paymentHash: HASH },
+    );
+    expect(res.state).toBe("not_found");
+  });
+
+  it("a preimage proves paid; the provider fee is extracted", () => {
+    const res = parseCoinosOutgoingPayment(
+      { payments: [{ paymentHash: HASH, amount: 100, preimage: "ab".repeat(32), fee: 0 }] },
+      { paymentHash: HASH },
+    );
+    expect(res).toEqual({ state: "paid", feeSats: 0, paymentHash: HASH });
+  });
+
+  it("an invoice-shaped entry paid in full reads paid via received ≥ amount", () => {
+    const res = parseCoinosOutgoingPayment(
+      { payments: [{ text: BOLT11_100, amount: 100, received: 100 }] },
+      { bolt11: BOLT11_100 },
+    );
+    expect(res.state).toBe("paid");
+  });
+
+  it("an invoice-shaped entry not yet paid stays pending", () => {
+    const res = parseCoinosOutgoingPayment(
+      { payments: [{ text: BOLT11_100, amount: 100, received: 0 }] },
+      { bolt11: BOLT11_100 },
+    );
+    expect(res.state).toBe("pending");
+  });
+
+  it("a failed status word reads failed", () => {
+    const res = parseCoinosOutgoingPayment(
+      { payments: [{ paymentHash: HASH, status: "failed" }] },
+      { paymentHash: HASH },
+    );
+    expect(res.state).toBe("failed");
+  });
+
+  it("the most terminal state wins across duplicate entries", () => {
+    const res = parseCoinosOutgoingPayment(
+      {
+        payments: [
+          { paymentHash: HASH, status: "failed" },
+          { paymentHash: HASH, preimage: "cd".repeat(32) },
+        ],
+      },
+      { paymentHash: HASH },
+    );
+    expect(res.state).toBe("paid");
+  });
+
+  it("the `hash` field is NOT trusted as a payment hash when it holds the bolt11", () => {
+    // The documented Coinos trap: on invoice objects `hash`
+    // duplicates the bolt11 text. Matching must fall back to text.
+    const res = parseCoinosOutgoingPayment(
+      { payments: [{ hash: BOLT11_100, text: BOLT11_100, amount: 100, received: 100 }] },
+      { paymentHash: HASH, bolt11: BOLT11_100 },
+    );
+    expect(res.state).toBe("paid");
+    expect(res.paymentHash).toBeNull();
+  });
+
+  it("providerGetOutgoingPayment reads the payments list and parses it", async () => {
+    const fetchMock = stubFetch(200, {
+      payments: [{ paymentHash: HASH, preimage: "ab".repeat(32) }],
+    });
+    const res = await providerGetOutgoingPayment({ paymentHash: HASH }, CFG);
+    expect(res.state).toBe("paid");
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://coinos.test/api/payments");
+    expect(init.method).toBe("GET");
+  });
+
+  it("providerGetOutgoingPayment throws upstream on a 5xx (caller holds the send)", async () => {
+    stubFetch(500, "boom");
+    await expect(providerGetOutgoingPayment({ paymentHash: HASH }, CFG))
+      .rejects.toBeInstanceOf(LightningUpstreamError);
   });
 });
 

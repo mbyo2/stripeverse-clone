@@ -5,18 +5,27 @@
 // unchanged.
 // Actions:
 //   POST { action: "create_invoice", amount_sats, description } → bolt11 invoice
-//   POST { action: "pay_invoice", bolt11 } → pay from user balance
-//   POST { action: "check_status", breez_invoice_id } → poll invoice status
+//   POST { action: "decode_invoice", bolt11 } → invoice summary (no money moves)
+//   POST { action: "pay_invoice", bolt11, idempotency_key } → pay from user balance
+//   POST { action: "check_status", breez_invoice_id } → poll a payment's status
 //        (breez_invoice_id is the lightning_payments row id returned as
-//        payment_id by create_invoice)
+//        payment_id by create_invoice / pay_invoice; works for both
+//        inbound invoices and outbound sends)
+//   POST { action: "reconcile_payment", payment_id, resolution } →
+//        service-role ONLY: ops resolution of a held outbound send
+//        (resolution "paid" settles, "failed" releases the hold)
 //
 // Auth: user JWT required; identity comes from the verified token only.
+// (reconcile_payment is the single exception: it requires the
+// service-role key itself, never a user token.)
 // Balances are integer sats in crypto_wallets, moved ONLY through the
 // btc_adjust_crypto_wallet RPC (row-locked, non-negative), the atomic
 // btc_settle_lightning_deposit RPC in check_status (single-transaction
 // claim + credit — a settled invoice can never be credited twice), or
-// the reserve/settle RPC sequence in pay_invoice (an outbound payment
-// can never overdraw or double-spend the wallet).
+// the reserve/settle/release RPC trio in pay_invoice
+// (btc_reserve_lightning_send / btc_settle_lightning_send /
+// btc_release_lightning_send — an outbound payment can never overdraw,
+// double-pay an invoice, or auto-refund an unknown outcome).
 //
 // History note: the previous version decoded invoice amounts with
 // floating-point math (mispricing pico-denominated invoices) and did
@@ -26,14 +35,14 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
-import { decodeBolt11Msat } from "../_shared/btc-core.ts";
+import { decodeBolt11, decodeBolt11Msat, isBolt11Expired } from "../_shared/btc-core.ts";
 import {
   LightningNotConfiguredError,
   LightningUpstreamError,
-  PROVIDER_PAY_CONFIRMED,
   lightningProviderConfigured,
   providerCreateInvoice,
   providerGetInvoice,
+  providerGetOutgoingPayment,
   providerPayInvoice,
 } from "../_shared/lightning-provider.ts";
 import {
@@ -46,6 +55,16 @@ const MAX_SATS = (() => {
   const raw = Deno.env.get("BREEZ_MAX_SATS");
   const n = raw ? Number.parseInt(raw, 10) : NaN;
   return Number.isFinite(n) && n > 0 ? n : 1_000_000;
+})();
+
+// Rolling-24h cap across a user's outbound Lightning sends, enforced
+// inside btc_reserve_lightning_send — the same env + default as the
+// on-chain withdrawal cap in btc-onchain, so both rails share one
+// daily ceiling policy.
+const MAX_DAILY_SATS = (() => {
+  const raw = Deno.env.get("BTC_MAX_DAILY_SATS");
+  const n = raw ? Number.parseInt(raw, 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 5_000_000;
 })();
 
 const corsHeaders = {
@@ -73,13 +92,32 @@ const LIGHTNING_DEPOSITS_NOT_CONFIGURED =
   "Lightning deposits are not available yet — Lightning is not configured on this deployment.";
 const LIGHTNING_PAYMENTS_NOT_CONFIGURED =
   "Lightning payments are not available yet — Lightning is not configured on this deployment.";
-// Upstream-unreachable refusals: truthful and plain. Lightning deposits
-// and payments are not available on the custodial wallet yet (Lightning
-// lives in the self-custody Spark wallet); on-chain Bitcoin works.
+// Upstream-unreachable refusals: truthful and plain. When the
+// provider cannot be reached, the honest answer is that the
+// Lightning leg is temporarily unavailable and on-chain Bitcoin
+// works — the raw provider/network text never reaches the caller.
 const LIGHTNING_DEPOSITS_UNAVAILABLE =
   "Lightning deposits are not available yet — please use an on-chain Bitcoin deposit for now.";
 const LIGHTNING_PAYMENTS_UNAVAILABLE =
   "Lightning payments are not available yet — please use an on-chain Bitcoin payment for now.";
+// Outbound-send refusals (decode / validation), in the app's voice.
+// These are returned BEFORE any balance is reserved.
+const INVOICE_INVALID =
+  "That doesn't look like a valid Lightning invoice — check the code and try again.";
+const INVOICE_AMOUNTLESS =
+  "This invoice doesn't state an amount, so it can't be paid from here — ask for an invoice with the amount filled in.";
+const INVOICE_EXPIRED =
+  "That Lightning invoice has expired — ask for a fresh one and try again.";
+const INVOICE_NO_HASH =
+  "That invoice is missing its payment reference, so it can't be paid safely from here — ask for a fresh invoice.";
+// The provider definitively refused the payment (it provably was not
+// made; the reservation has been released in full).
+const PAYMENT_REFUSED =
+  "The Lightning network refused this payment — no Bitcoin left your wallet. Check the invoice and try again.";
+// The payment's outcome is not yet known: the hold stays, the send
+// must NOT be repeated, and check_status keeps resolving it.
+const PAYMENT_PROCESSING_MESSAGE =
+  "Your payment is being confirmed — don't pay this invoice again. We're checking it automatically.";
 
 // Returns the designed 503 refusal while the provider is not
 // configured, else null.
@@ -102,6 +140,103 @@ function thrownMessage(e: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Decode + validate a bolt11 for the SEND path, before any money
+ * moves. Returns the decoded details, or a ready refusal Response.
+ * Refused, in order: malformed, amount-less, sub-sat remainder,
+ * over the per-payment limit, missing its payment hash (the send's
+ * identity — an invoice without one can never be tracked or safely
+ * de-duplicated), and expired.
+ */
+function decodeSendInvoice(bolt11: string):
+  | { details: NonNullable<ReturnType<typeof decodeBolt11>>; sats: number }
+  | { refusal: Response } {
+  const details = decodeBolt11(bolt11);
+  if (!details) {
+    return { refusal: json(400, { error: INVOICE_INVALID }) };
+  }
+  if (details.amountMsat === null || details.amountMsat <= 0n) {
+    return { refusal: json(400, { error: INVOICE_AMOUNTLESS }) };
+  }
+  if (details.amountMsat % 1000n !== 0n) {
+    return { refusal: json(400, { error: "Invoice amount must be a whole number of sats" }) };
+  }
+  const sats = Number(details.amountMsat / 1000n);
+  if (sats > MAX_SATS) {
+    return { refusal: json(400, { error: `Invoice exceeds the ${MAX_SATS} sat payment limit` }) };
+  }
+  if (!details.paymentHash) {
+    return { refusal: json(400, { error: INVOICE_NO_HASH }) };
+  }
+  if (isBolt11Expired(details, Math.floor(Date.now() / 1000))) {
+    return { refusal: json(400, { error: INVOICE_EXPIRED }) };
+  }
+  return { details, sats };
+}
+
+type OutboundResolution = "paid" | "processing" | "failed";
+
+/**
+ * Resolve a held ('processing') outbound send against the provider's
+ * independent read-back — the ONLY evidence a send may settle on.
+ * Paid → settle RPC (atomic debit + ledger). Definitively failed →
+ * release RPC (hold returned in full). Anything else — still
+ * pending at the provider, not yet visible there, or the read-back
+ * itself unreachable — stays 'processing': an unknown outcome is
+ * never auto-refunded and never re-paid.
+ */
+async function resolveOutboundSend(
+  admin: ReturnType<typeof getServiceRoleClient>,
+  payment: { id: string; bolt11: string | null; payment_hash: string | null },
+): Promise<OutboundResolution> {
+  let readback;
+  try {
+    readback = await providerGetOutgoingPayment({
+      paymentHash: payment.payment_hash,
+      bolt11: payment.bolt11,
+    });
+  } catch (e) {
+    console.error(
+      "lightning-service: outgoing read-back failed for payment",
+      payment.id, thrownMessage(e, "unknown"),
+    );
+    return "processing";
+  }
+  if (readback.state === "paid") {
+    if (readback.feeSats !== null && readback.feeSats > 0) {
+      // Fee-policy tripwire: Coinos's published terms charge 0% on
+      // Lightning-out. A reported provider fee is a terms change —
+      // log it loudly for ops; the user is still debited exactly
+      // the invoice amount (at-cost doctrine), never the fee.
+      console.error(
+        "CRITICAL: Lightning provider reported a fee on an outbound payment",
+        payment.id, readback.feeSats, "sats — review provider terms",
+      );
+    }
+    const { error } = await admin.rpc("btc_settle_lightning_send", {
+      p_payment_id: payment.id,
+      p_payment_hash: readback.paymentHash ?? undefined,
+    });
+    if (error) {
+      console.error("CRITICAL: Lightning settle failed", payment.id, error);
+      return "processing";
+    }
+    return "paid";
+  }
+  if (readback.state === "failed") {
+    const { error } = await admin.rpc("btc_release_lightning_send", {
+      p_payment_id: payment.id,
+      p_reason: "Provider reported the payment failed",
+    });
+    if (error) {
+      console.error("CRITICAL: Lightning release failed", payment.id, error);
+      return "processing";
+    }
+    return "failed";
+  }
+  return "processing";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -109,6 +244,50 @@ serve(async (req) => {
 
   let currentAction = "";
   try {
+    const admin = getServiceRoleClient();
+    const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
+
+    // The body is parsed before auth: reconcile_payment (below) is
+    // authorised by the service-role key itself, not by a user JWT.
+    const body = await req.json().catch(() => ({}));
+    const {
+      action, amount_sats, description, bolt11, breez_invoice_id,
+      idempotency_key, payment_id, resolution,
+    } = body ?? {};
+    currentAction = typeof action === "string" ? action : "";
+
+    // ── Ops reconciliation of a held outbound send (service role) ──
+    // The manual backstop for a send stuck in 'processing': once the
+    // true outcome is known out-of-band, ops settle or release it
+    // through the same RPCs the automatic paths use. Requires the
+    // service-role key as the bearer token — a user JWT never
+    // qualifies, and a missing server key fails closed.
+    if (action === "reconcile_payment") {
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+      if (!serviceKey || token !== serviceKey) {
+        return json(403, { error: "Service role required" });
+      }
+      if (!payment_id || typeof payment_id !== "string") {
+        return json(400, { error: "payment_id required" });
+      }
+      if (resolution !== "paid" && resolution !== "failed") {
+        return json(400, { error: 'resolution must be "paid" or "failed"' });
+      }
+      const { data, error } = resolution === "paid"
+        ? await admin.rpc("btc_settle_lightning_send", { p_payment_id: payment_id })
+        : await admin.rpc("btc_release_lightning_send", {
+          p_payment_id: payment_id,
+          p_reason: "Ops reconciliation: payment confirmed not made",
+        });
+      if (error) throw error;
+      const outcome = Array.isArray(data) ? data[0] : data;
+      return json(200, {
+        ok: true,
+        outcome: outcome?.outcome ?? null,
+        status: outcome?.payment_status ?? null,
+      });
+    }
+
     const supabase = getSupabaseClient(req);
     // All DB work below runs through the dedicated service-role client:
     // lightning_payments is SELECT-own-only under RLS and the btc_* RPCs
@@ -116,15 +295,10 @@ serve(async (req) => {
     // caller's JWT (PostgREST would run as `authenticated` and be
     // denied). Identity is verified from the JWT via `supabase`; rows
     // and money move via `admin`. (Pattern: atomic-transfer.)
-    const admin = getServiceRoleClient();
-    const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return json(401, { error: "Unauthorized" });
     }
-
-    const { action, amount_sats, description, bolt11, breez_invoice_id } = await req.json();
-    currentAction = typeof action === "string" ? action : "";
 
     // ── Create inbound Lightning invoice ──
     if (action === "create_invoice") {
@@ -175,6 +349,24 @@ serve(async (req) => {
       });
     }
 
+    // ── Decode an invoice for the send confirm screen (no money) ──
+    if (action === "decode_invoice") {
+      const gate = lightningProviderGate(LIGHTNING_PAYMENTS_NOT_CONFIGURED);
+      if (gate) return gate;
+
+      if (!bolt11 || typeof bolt11 !== "string") {
+        return json(400, { error: "bolt11 required" });
+      }
+      const decoded = decodeSendInvoice(bolt11.trim());
+      if ("refusal" in decoded) return decoded.refusal;
+      return json(200, {
+        amount_sats: decoded.sats,
+        description: decoded.details.description,
+        payment_hash: decoded.details.paymentHash,
+        expires_at: new Date(decoded.details.expiresAtSeconds * 1000).toISOString(),
+      });
+    }
+
     // ── Pay an outbound Lightning invoice (from wallet balance) ──
     if (action === "pay_invoice") {
       const gate = lightningProviderGate(LIGHTNING_PAYMENTS_NOT_CONFIGURED);
@@ -193,115 +385,119 @@ serve(async (req) => {
         return json(503, { error: msg });
       }
 
-      // The provider's pay contract could not be confirmed live
-      // (Coinos POST /payments answered 200/empty with no observable
-      // effect at zero balance for every probed shape), so outbound
-      // Lightning stays at the designed not-available refusal — with
-      // the full reserve/pay/settle flow below wired and ready —
-      // until a funded drill confirms the shape and flips
-      // PROVIDER_PAY_CONFIRMED in _shared/lightning-provider.ts.
-      if (!PROVIDER_PAY_CONFIRMED) {
-        return json(503, { error: LIGHTNING_PAYMENTS_UNAVAILABLE });
-      }
-
       if (!bolt11 || typeof bolt11 !== "string") {
         return json(400, { error: "bolt11 required" });
       }
-
-      // Decode the amount with integer math BEFORE any money moves, and
-      // verify the balance covers it. Our ledger is whole sats, so
-      // sub-sat (millisat remainder) invoices are refused, not rounded.
-      const msat = decodeBolt11Msat(bolt11);
-      if (msat === null || msat <= 0n) {
-        return json(400, { error: "Could not decode invoice amount" });
-      }
-      if (msat % 1000n !== 0n) {
-        return json(400, { error: "Invoice amount must be a whole number of sats" });
-      }
-      const sats = Number(msat / 1000n);
-      if (sats > MAX_SATS) {
-        return json(400, { error: `Invoice exceeds the ${MAX_SATS} sat payment limit` });
+      if (!idempotency_key || typeof idempotency_key !== "string" || !idempotency_key.trim()) {
+        return json(400, { error: "idempotency_key required" });
       }
 
-      // Record the attempt first — it is the audit + idempotency anchor.
-      const { data: payment, error: insErr } = await admin.from("lightning_payments").insert({
-        user_id: user.id,
-        direction: "outbound",
-        amount_sats: sats,
-        bolt11,
-        status: "pending",
-      }).select("id").single();
-      if (insErr) throw insErr;
+      // Decode and validate the invoice BEFORE any money moves:
+      // amount (integer math), whole sats only, per-payment limit,
+      // payment hash present, not expired.
+      const decoded = decodeSendInvoice(bolt11.trim());
+      if ("refusal" in decoded) return decoded.refusal;
+      const { details, sats } = decoded;
 
-      // Reserve spendable balance atomically (row-locked RPC; raises on
-      // insufficient funds). A concurrent payment now cannot pass with
-      // the same sats.
-      const { error: reserveErr } = await admin.rpc("btc_adjust_crypto_wallet", {
-        p_user_id: user.id,
-        p_delta_balance: 0,
-        p_delta_available: -sats,
-      });
-      if (reserveErr) {
-        await admin.from("lightning_payments")
-          .update({ status: "failed" }).eq("id", payment.id);
-        return json(400, { error: "Insufficient BTC balance" });
-      }
-
-      // Balance reserved — now pay via the Lightning provider.
-      let payResult: { paymentHash?: string };
-      try {
-        payResult = await providerPayInvoice(bolt11);
-      } catch (e) {
-        // Payment provably not made by us: release the reservation.
-        await admin.rpc("btc_adjust_crypto_wallet", {
+      // Reserve the amount and record the send atomically
+      // (btc_reserve_lightning_send): the row is the audit +
+      // idempotency anchor, the hold drops available_sats only.
+      // A replay (same key, or the same invoice already live/paid)
+      // returns the original row — this call then reports its state
+      // and NEVER pays again.
+      const { data: reserveRows, error: reserveErr } = await admin.rpc(
+        "btc_reserve_lightning_send",
+        {
           p_user_id: user.id,
-          p_delta_balance: 0,
-          p_delta_available: sats,
+          p_bolt11: bolt11.trim(),
+          p_payment_hash: details.paymentHash,
+          p_amount_sats: sats,
+          p_idempotency_key: idempotency_key.trim(),
+          p_max_daily_sats: MAX_DAILY_SATS,
+        },
+      );
+      if (reserveErr) {
+        const msg = thrownMessage(reserveErr, "");
+        if (msg.includes("Insufficient BTC balance")) {
+          return json(400, { error: "Insufficient BTC balance" });
+        }
+        if (msg.includes("Daily Lightning payment limit exceeded")) {
+          return json(400, { error: "You've reached today's Lightning payment limit. Try again tomorrow." });
+        }
+        if (msg.includes("Idempotency key already used")) {
+          return json(409, { error: "This payment request was already used. Start a new payment." });
+        }
+        throw reserveErr;
+      }
+      const reserve = Array.isArray(reserveRows) ? reserveRows[0] : reserveRows;
+      if (!reserve?.payment_id) throw new Error("btc_reserve_lightning_send returned no row");
+      const paymentId = reserve.payment_id as string;
+
+      if (reserve.replayed) {
+        // Report the original attempt's state; never pay twice.
+        if (reserve.status === "paid") {
+          return json(200, { status: "paid", paid_sats: sats, payment_id: paymentId });
+        }
+        if (reserve.status === "failed") {
+          return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
+        }
+        return json(200, {
+          status: "processing",
+          payment_id: paymentId,
+          message: PAYMENT_PROCESSING_MESSAGE,
         });
-        await admin.from("lightning_payments")
-          .update({ status: "failed" }).eq("id", payment.id);
-        throw e;
       }
 
-      // Settle the total balance (available was already reduced). If this
-      // ever failed, the reservation still prevents re-spending the sats
-      // and the paid lightning_payments row is the reconciliation record.
-      const { error: settleErr } = await admin.rpc("btc_adjust_crypto_wallet", {
-        p_user_id: user.id,
-        p_delta_balance: -sats,
-        p_delta_available: 0,
-      });
-      if (settleErr) {
-        console.error("CRITICAL: Lightning paid but balance settle failed", payment.id, settleErr);
+      // Fresh reservation — ask the provider to pay. The classified
+      // outcome decides: a definitive refusal releases the hold in
+      // full; acceptance triggers an independent read-back (the POST
+      // response alone never settles); an unknown outcome holds.
+      const payOutcome = await providerPayInvoice(bolt11.trim());
+      if (payOutcome.kind === "rejected") {
+        console.error("lightning-service: provider refused payment", paymentId, payOutcome.detail);
+        const { error: relErr } = await admin.rpc("btc_release_lightning_send", {
+          p_payment_id: paymentId,
+          p_reason: "Provider refused the payment",
+        });
+        if (relErr) {
+          console.error("CRITICAL: Lightning release after refusal failed", paymentId, relErr);
+          return json(200, {
+            status: "processing",
+            payment_id: paymentId,
+            message: PAYMENT_PROCESSING_MESSAGE,
+          });
+        }
+        return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
+      }
+      if (payOutcome.kind === "unknown") {
+        console.error("lightning-service: payment outcome unknown", paymentId, payOutcome.detail);
+        return json(200, {
+          status: "processing",
+          payment_id: paymentId,
+          message: PAYMENT_PROCESSING_MESSAGE,
+        });
       }
 
-      const paymentHash = payResult.paymentHash ?? null;
-      await admin.from("lightning_payments").update({
-        status: "paid",
-        payment_hash: paymentHash,
-        settled_at: new Date().toISOString(),
-      }).eq("id", payment.id);
-
-      const { error: txErr } = await admin.from("transactions").insert({
-        user_id: user.id,
-        currency: "BTC",
-        amount: sats / 100_000_000,
-        direction: "outgoing",
-        payment_method: "lightning",
-        status: "completed",
-        description: "Lightning payment",
-        reference: paymentHash,
-        category: "lightning_payment",
-        transaction_id: paymentHash || `ln-out-${payment.id}`,
-        idempotency_key: `ln-out:${payment.id}`,
-        metadata: { type: "lightning_payment", sats },
+      // Accepted: confirm via read-back before settling anything.
+      const resolution = await resolveOutboundSend(admin, {
+        id: paymentId,
+        bolt11: bolt11.trim(),
+        payment_hash: details.paymentHash,
       });
-      if (txErr) console.error("Lightning payment ledger row failed:", txErr);
-
-      return json(200, { ok: true, paid_sats: sats, payment_id: payment.id });
+      if (resolution === "paid") {
+        return json(200, { status: "paid", paid_sats: sats, payment_id: paymentId });
+      }
+      if (resolution === "failed") {
+        return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
+      }
+      return json(200, {
+        status: "processing",
+        payment_id: paymentId,
+        message: PAYMENT_PROCESSING_MESSAGE,
+      });
     }
 
-    // ── Check inbound invoice status; credit on settlement ──
+    // ── Check a payment's status; settle on confirmation ──
     if (action === "check_status") {
       if (!breez_invoice_id) {
         return json(400, { error: "breez_invoice_id required" });
@@ -311,9 +507,20 @@ serve(async (req) => {
         .select("*").eq("id", breez_invoice_id).eq("user_id", user.id).single();
 
       if (!payment) return json(404, { error: "Payment not found" });
-      if (payment.direction !== "inbound") {
-        return json(400, { error: "Not an inbound invoice" });
+
+      // Outbound sends resolve against the provider read-back:
+      // paid/failed are terminal; 'processing' re-checks the
+      // provider and settles or releases atomically via the RPCs.
+      if (payment.direction === "outbound") {
+        if (payment.status === "paid") return json(200, { status: "paid" });
+        if (payment.status === "failed") return json(200, { status: "failed" });
+        if (payment.status !== "processing") {
+          return json(200, { status: payment.status });
+        }
+        const resolution = await resolveOutboundSend(admin, payment);
+        return json(200, { status: resolution });
       }
+
       if (payment.status === "paid") return json(200, { status: "paid" });
       if (payment.status === "expired" || payment.status === "failed") {
         return json(200, { status: payment.status });

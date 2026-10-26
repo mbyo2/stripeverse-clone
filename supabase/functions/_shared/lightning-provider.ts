@@ -31,11 +31,14 @@
 //       bolt11 text; does NOT resolve by paymentHash).
 //   GET  /me → account object with top-level numeric `balance` (sats).
 //   GET  /payments → { payments: [...], count, incoming, outgoing }.
-//   POST /payments → 200 with an EMPTY body for every probed shape,
-//       with no observable effect at zero balance: the pay contract
-//       could NOT be confirmed, so PROVIDER_PAY_CONFIRMED stays false
-//       and pay_invoice answers the designed 503 until a funded drill
-//       confirms the real shape.
+//   POST /payments → pay an outbound invoice,
+//       {"payment":{"text": <bolt11>}} — the live-probed shape
+//       (2026-10-24: 200 with an EMPTY body and no observable effect
+//       at zero balance for every probed shape; POST /pay → 404,
+//       POST /send → a different route family). Because the POST
+//       response alone proves nothing, a send is settled only on an
+//       independent GET /payments read-back — see
+//       PROVIDER_PAY_CONFIRMED and providerPayInvoice below.
 //   Auth: Authorization: Bearer <token> (register/login-issued JWT).
 //
 // This module is dependency-free (no imports) so the vitest suite can
@@ -102,14 +105,36 @@ export interface ProviderInvoice {
 }
 
 /**
- * Whether the provider's pay (outbound) contract has been confirmed
- * live. The Coinos pay route could not be confirmed from a
- * zero-balance account (200/empty, no observable effect for every
- * probed shape), so this stays false — pay_invoice answers the
- * designed 503 — until a funded drill confirms the real shape, at
- * which point flipping this one flag wires providerPayInvoice in.
+ * Whether the provider's pay (outbound) leg is wired.
+ *
+ * History: the Coinos pay route could not be confirmed from a
+ * zero-balance account (POST /payments answered 200/empty with no
+ * observable effect for every probed shape), so this stayed false —
+ * pay_invoice answered the designed 503 — through 2026-10-24.
+ *
+ * Wired 2026-10-26 (custodial Lightning send mission) on this
+ * doctrine, which is what makes wiring it safe BEFORE a funded
+ * drill exists:
+ *   - The pay REQUEST uses the live-probed shape
+ *     (POST /payments {"payment":{"text": bolt11}} — the shape the
+ *     2026-10-24 probes found accepted with 200, never a hard 4xx).
+ *   - The POST response is NEVER trusted as settlement. A send
+ *     settles only on an INDEPENDENT read-back (GET /payments via
+ *     providerGetOutgoingPayment) showing the payment completed.
+ *   - A 2xx POST with no confirmed read-back leaves the send in
+ *     its reserved "processing" state — held, visible, and
+ *     reconcilable by ops — never auto-refunded and never
+ *     double-payable (the invoice's payment hash is the identity).
+ *   - A definitive provider rejection (4xx) releases the
+ *     reservation in full; network/timeout/5xx outcomes are
+ *     "unknown" and also hold (mirror of the on-chain broadcast
+ *     doctrine in _shared/btc-core.ts).
+ * The remaining proof is the funded drill: the first real custodial
+ * Lightning send settles a real invoice end to end. Until then,
+ * every code path around the pay call is unit-proven and the
+ * live-probed refusals hold.
  */
-export const PROVIDER_PAY_CONFIRMED = false;
+export const PROVIDER_PAY_CONFIRMED = true;
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v)
@@ -333,14 +358,176 @@ export async function providerGetInvoice(
   };
 }
 
-/** Pay an outbound bolt11 invoice from the platform Coinos account. */
+/** The classified outcome of one outbound pay attempt. */
+export type ProviderPayOutcome =
+  | { kind: "accepted"; paymentHash: string | null }
+  | { kind: "rejected"; detail: string }
+  | { kind: "unknown"; detail: string };
+
+/**
+ * Pay an outbound bolt11 invoice from the platform Coinos account.
+ *
+ * NEVER throws for a provider-side outcome (only for a missing
+ * configuration): the caller must be able to distinguish a
+ * DEFINITIVE rejection — the payment provably was not made, so the
+ * reservation may be released — from an UNKNOWN outcome (timeout,
+ * 5xx, connection drop), where the payment may in fact have been
+ * made and the reservation must HOLD for reconciliation. This is
+ * the Lightning mirror of classifyBroadcastOutcome in btc-core.ts:
+ *
+ *   - 2xx        → "accepted". NOT settled — the caller confirms
+ *                  via providerGetOutgoingPayment before settling;
+ *                  the 2026-10-24 probes showed a 2xx can carry an
+ *                  empty body and proves nothing on its own.
+ *   - 4xx        → "rejected" (the provider refused the payment
+ *                  itself: malformed, unpayable, insufficient
+ *                  provider balance). Definitive.
+ *   - 5xx / network / timeout → "unknown".
+ */
 export async function providerPayInvoice(
   bolt11: string,
   config?: LightningProviderConfig,
-): Promise<{ paymentHash?: string }> {
+): Promise<ProviderPayOutcome> {
   const cfg = config ?? readLightningProviderConfig();
-  const payload = await coinosFetch(cfg, "/payments", "POST", {
-    payment: { text: bolt11 },
-  });
-  return { paymentHash: parseCoinosPaymentHash(payload) ?? undefined };
+  if (!lightningProviderConfigured(cfg)) {
+    throw new LightningNotConfiguredError("Lightning provider not configured");
+  }
+  let res: Response;
+  try {
+    res = await fetch(`${cfg.base}/payments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cfg.token}`,
+      },
+      body: JSON.stringify({ payment: { text: bolt11 } }),
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (e) {
+    return {
+      kind: "unknown",
+      detail: `pay request unreachable: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+  const text = await res.text().catch(() => "");
+  if (res.status >= 200 && res.status < 300) {
+    let parsed: unknown = null;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      parsed = null;
+    }
+    return { kind: "accepted", paymentHash: parseCoinosPaymentHash(parsed) };
+  }
+  if (res.status >= 400 && res.status < 500) {
+    return { kind: "rejected", detail: `Coinos pay refused ${res.status}: ${text.slice(0, 200)}` };
+  }
+  return { kind: "unknown", detail: `Coinos pay answered ${res.status}: ${text.slice(0, 200)}` };
+}
+
+export type ProviderOutgoingState = "paid" | "failed" | "pending" | "not_found";
+
+export interface ProviderOutgoingPayment {
+  state: ProviderOutgoingState;
+  /** Provider-reported fee in sats, when the payload carries one. */
+  feeSats: number | null;
+  paymentHash: string | null;
+}
+
+const PAID_STATUS_WORDS = new Set([
+  "paid", "settled", "complete", "completed", "success", "succeeded",
+]);
+const FAILED_STATUS_WORDS = new Set([
+  "failed", "error", "rejected", "cancelled", "canceled", "expired",
+]);
+
+/**
+ * Find OUR payment for an invoice in a Coinos GET /payments payload
+ * and map it to a settlement state. Pure; the caller fetches.
+ *
+ * Matching: by payment hash (the invoice's identity) or by the
+ * bolt11 text itself. Coinos payment records are invoice-shaped
+ * objects in both directions; an entry carrying `received` is read
+ * with the invoice-state rules (paid ⇔ received ≥ amount — which is
+ * also the correct read-back when the platform pays an invoice it
+ * issued itself), otherwise the payment-state words / preimage /
+ * settled flags decide. Across multiple matches the most terminal
+ * state wins (paid > failed > pending): mirrors can lag, and a
+ * payment that completed anywhere is completed.
+ */
+export function parseCoinosOutgoingPayment(
+  payload: unknown,
+  match: { paymentHash?: string | null; bolt11?: string | null },
+): ProviderOutgoingPayment {
+  const outer = asRecord(payload);
+  const list: unknown[] = Array.isArray(payload)
+    ? payload
+    : Array.isArray(outer?.payments)
+    ? (outer!.payments as unknown[])
+    : outer
+    ? [outer.payment ?? outer]
+    : [];
+
+  const wantHash = (match.paymentHash ?? "").toLowerCase() || null;
+  const wantBolt11 = match.bolt11 ?? null;
+
+  let best: ProviderOutgoingPayment = { state: "not_found", feeSats: null, paymentHash: null };
+  const rank = (s: ProviderOutgoingState) =>
+    s === "paid" ? 3 : s === "failed" ? 2 : s === "pending" ? 1 : 0;
+
+  for (const entry of list) {
+    const rec = asRecord(entry);
+    if (!rec) continue;
+    const entryHash = firstString(rec, ["paymentHash", "payment_hash"]) ??
+      (() => {
+        const h = firstString(rec, ["hash"]);
+        return h && HEX64.test(h) ? h : null;
+      })();
+    const entryBolt11 = firstString(rec, ["text", "bolt11", "payment_request", "invoice"]);
+    const hashMatches = wantHash !== null && entryHash !== null &&
+      entryHash.toLowerCase() === wantHash;
+    const boltMatches = wantBolt11 !== null && entryBolt11 !== null &&
+      entryBolt11 === wantBolt11;
+    if (!hashMatches && !boltMatches) continue;
+
+    let state: ProviderOutgoingState = "pending";
+    const status = typeof rec.status === "string" ? rec.status.toLowerCase() : "";
+    if (typeof rec.received === "number" && typeof rec.amount === "number") {
+      const invState = parseCoinosInvoiceState(rec);
+      state = invState === "paid" ? "paid" : invState === "expired" ? "failed" : "pending";
+    } else if (
+      firstString(rec, ["preimage", "payment_preimage"]) ||
+      rec.settled === true ||
+      PAID_STATUS_WORDS.has(status)
+    ) {
+      state = "paid";
+    } else if (FAILED_STATUS_WORDS.has(status) || rec.failed === true) {
+      state = "failed";
+    }
+    const fee = typeof rec.fee === "number" && Number.isFinite(rec.fee)
+      ? Math.abs(Math.trunc(rec.fee))
+      : null;
+    if (rank(state) > rank(best.state)) {
+      best = { state, feeSats: fee, paymentHash: entryHash };
+    } else if (best.feeSats === null && fee !== null) {
+      best = { ...best, feeSats: fee };
+    }
+  }
+  return best;
+}
+
+/**
+ * Read back the state of an outbound payment by polling the
+ * provider's payments list. This read-back — never the POST
+ * response — is the only evidence a send may settle on. A fetch
+ * failure throws LightningUpstreamError and the caller keeps the
+ * send in its held "processing" state.
+ */
+export async function providerGetOutgoingPayment(
+  match: { paymentHash?: string | null; bolt11?: string | null },
+  config?: LightningProviderConfig,
+): Promise<ProviderOutgoingPayment> {
+  const cfg = config ?? readLightningProviderConfig();
+  const payload = await coinosFetch(cfg, "/payments", "GET");
+  return parseCoinosOutgoingPayment(payload, match);
 }

@@ -24,7 +24,7 @@ import {
   p2wpkh,
 } from "npm:@scure/btc-signer@2.4.1";
 import { sha256 } from "npm:@scure/btc-signer@2.4.1/utils.js";
-import { base58check } from "npm:@scure/base@2.4.0";
+import { base58check, bech32 } from "npm:@scure/base@2.4.0";
 
 export const SATS_PER_BTC = 100_000_000;
 export const DUST_LIMIT_SATS = 546;
@@ -714,6 +714,135 @@ export function decodeBolt11Msat(bolt11: string): bigint | null {
     default:
       return null;
   }
+}
+
+// ── BOLT11 full decode (timestamp, expiry, payment hash, description) ────
+//
+// decodeBolt11Msat reads only the amount from the human-readable part.
+// The custodial Lightning SEND path needs the whole invoice validated
+// BEFORE any balance is reserved: the payment hash (the send's
+// identity — an invoice must never be paid twice), the creation
+// timestamp + expiry (an expired invoice must be refused, not
+// attempted), and the description for the confirm screen. Pure and
+// checksum-verified (bech32), like everything else in this module:
+// a malformed or tampered string decodes to null, never to a guess.
+
+export interface Bolt11Details {
+  /** Amount in millisatoshis, or null for an amount-less invoice. */
+  amountMsat: bigint | null;
+  /** Invoice creation time (BOLT11 timestamp field), epoch seconds. */
+  timestampSeconds: number;
+  /** Validity window in seconds (BOLT11 expiry field; 3600 default). */
+  expirySeconds: number;
+  /** timestampSeconds + expirySeconds. */
+  expiresAtSeconds: number;
+  /** 64-hex payment hash (field type 1), or null when absent. */
+  paymentHash: string | null;
+  /** Plain description (field type 13), or null when absent/hashed. */
+  description: string | null;
+}
+
+const BOLT11_DEFAULT_EXPIRY_SECONDS = 3600;
+// Tagged-field type numbers (BOLT11 spec).
+const BOLT11_FIELD_PAYMENT_HASH = 1;
+const BOLT11_FIELD_EXPIRY = 6;
+const BOLT11_FIELD_DESCRIPTION = 13;
+
+/** Regroup 5-bit words into bytes (BOLT11 data encoding), dropping pad bits. */
+function bolt11WordsToBytes(words: number[]): number[] {
+  let acc = 0;
+  let bits = 0;
+  const out: number[] = [];
+  for (const w of words) {
+    acc = (acc << 5) | w;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      out.push((acc >> bits) & 0xff);
+    }
+  }
+  return out;
+}
+
+function bolt11WordsToInt(words: number[]): number {
+  let v = 0;
+  for (const w of words) v = v * 32 + w;
+  return v;
+}
+
+function bytesToHex(bytes: number[]): string {
+  return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Decode and checksum-verify a BOLT11 invoice. Returns null for
+ * anything that is not a well-formed invoice (bad charset, bad
+ * checksum, truncated fields). The signature is not verified —
+ * BOLT11 payers never verify it; the bech32 checksum is the
+ * integrity check, exactly as in every wallet.
+ */
+export function decodeBolt11(bolt11: string): Bolt11Details | null {
+  if (typeof bolt11 !== "string") return null;
+  const cleaned = bolt11.trim().toLowerCase();
+  if (!cleaned.startsWith("ln")) return null;
+
+  let decoded: { prefix: string; words: number[] };
+  try {
+    decoded = bech32.decode(cleaned, 16384) as { prefix: string; words: number[] };
+  } catch {
+    return null;
+  }
+  const words = decoded.words;
+  // 7 words of timestamp + at least the 104-word signature.
+  if (!Array.isArray(words) || words.length < 7 + 104) return null;
+
+  const timestampSeconds = bolt11WordsToInt(words.slice(0, 7));
+
+  let expirySeconds = BOLT11_DEFAULT_EXPIRY_SECONDS;
+  let paymentHash: string | null = null;
+  let description: string | null = null;
+
+  // Tagged fields run from word 7 to 104 words before the end
+  // (the trailing signature). A field whose declared length
+  // overruns the field area makes the invoice malformed.
+  const fieldsEnd = words.length - 104;
+  let pos = 7;
+  while (pos + 3 <= fieldsEnd) {
+    const type = words[pos];
+    const len = words[pos + 1] * 32 + words[pos + 2];
+    if (pos + 3 + len > fieldsEnd) return null;
+    const data = words.slice(pos + 3, pos + 3 + len);
+    if (type === BOLT11_FIELD_PAYMENT_HASH && paymentHash === null) {
+      const bytes = bolt11WordsToBytes(data);
+      if (bytes.length >= 32) paymentHash = bytesToHex(bytes.slice(0, 32));
+    } else if (type === BOLT11_FIELD_EXPIRY) {
+      const v = bolt11WordsToInt(data);
+      if (Number.isFinite(v) && v > 0) expirySeconds = v;
+    } else if (type === BOLT11_FIELD_DESCRIPTION && description === null) {
+      try {
+        description = new TextDecoder("utf-8", { fatal: true }).decode(
+          new Uint8Array(bolt11WordsToBytes(data)),
+        );
+      } catch {
+        description = null;
+      }
+    }
+    pos += 3 + len;
+  }
+
+  return {
+    amountMsat: decodeBolt11Msat(cleaned),
+    timestampSeconds,
+    expirySeconds,
+    expiresAtSeconds: timestampSeconds + expirySeconds,
+    paymentHash,
+    description,
+  };
+}
+
+/** True when the invoice's validity window has passed at `nowSeconds`. */
+export function isBolt11Expired(details: Bolt11Details, nowSeconds: number): boolean {
+  return nowSeconds >= details.expiresAtSeconds;
 }
 
 // ── Broadcast outcome classification (withdrawal refund safety) ──────────

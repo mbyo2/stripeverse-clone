@@ -26,6 +26,7 @@ import QRCode from "qrcode.react";
 import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound, ArrowUpRight, ArrowDownLeft, Bitcoin, CreditCard } from "lucide-react";
 import { useMoonpay } from "@/hooks/useMoonpay";
 import { MOONPAY_COMING_SOON_COPY } from "@/config/moonpay";
+import { LightningSend } from "@/components/bitcoin/LightningSend";
 import { QrScanButton } from "@/components/QrScanButton";
 import { parseQrPayload } from "@/lib/qrScan";
 
@@ -363,7 +364,7 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
     toast({
       title: "That code isn't a Bitcoin address",
       description:
-        "This form sends Bitcoin on-chain, so it can't pay a Lightning invoice, LNURL, or Spark address. Scan a Bitcoin address (bc1…) here, or pay Lightning codes from your self-custody wallet.",
+        "This tab sends Bitcoin on-chain, so it can't pay a Lightning invoice, LNURL, or Spark address. Scan a Bitcoin address (bc1…) here, or open the Lightning tab above to pay a Lightning invoice.",
       variant: "destructive",
     });
   };
@@ -710,6 +711,7 @@ export default function BitcoinWallet() {
   // Controlled so the Lightning panel can route the user onto the
   // On-chain tab (custodial Lightning deposits are unavailable).
   const [depositTab, setDepositTab] = useState("onchain");
+  const [sendTab, setSendTab] = useState("onchain");
 
   useEffect(() => {
     document.title = "Bitcoin Wallet | BTC balance & deposits";
@@ -815,15 +817,35 @@ export default function BitcoinWallet() {
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={sendOpen} onOpenChange={setSendOpen}>
+              <Dialog
+                open={sendOpen}
+                onOpenChange={(next) => {
+                  setSendOpen(next);
+                  // Reopening Send always lands on the On-chain tab,
+                  // mirroring the Deposit dialog's behaviour.
+                  if (!next) setSendTab("onchain");
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button size="lg" variant="outline">Send BTC</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Send Bitcoin (on-chain)</DialogTitle>
+                    <DialogTitle>Send Bitcoin</DialogTitle>
                   </DialogHeader>
-                  <SendOnchain onDone={handleDone} />
+
+                  <Tabs value={sendTab} onValueChange={setSendTab} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="onchain">On-chain</TabsTrigger>
+                      <TabsTrigger value="lightning">Lightning</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="onchain" className="pt-4">
+                      <SendOnchain onDone={handleDone} />
+                    </TabsContent>
+                    <TabsContent value="lightning" className="pt-4">
+                      <LightningSend onDone={handleDone} />
+                    </TabsContent>
+                  </Tabs>
                 </DialogContent>
               </Dialog>
               </div>
