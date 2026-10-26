@@ -627,6 +627,270 @@ export function buildWithdrawalTx(params: {
   };
 }
 
+// ── Withdrawal batching (P4, 2026-10-26) ──────────────────────────────────
+//
+// Low-fee-window batching for custodial withdrawals (design in
+// pay-with-bitcoin-addendum-2026-10-26.md, "Three protections" → P4;
+// queue/reserve/settle contract in migration 20261225). Queued
+// withdrawals reserve amount + their SOLO fee estimate; the batcher
+// forms ONE multi-output transaction when the network is cheap (or
+// the oldest queue member has waited the configured maximum). The
+// DECISIONS live here, pure, like every other money policy in this
+// module; the edge function gathers observations and executes.
+
+/**
+ * Multi-recipient coin selection: selectCoins generalised to N
+ * payment outputs. Largest-first, deterministic; returns null when
+ * the UTXOs cannot cover totalTarget + fee. The fee is sized with
+ * estimateVsize over ALL payment scripts (+ the change script when
+ * change survives the dust limit; dust change folds into the fee,
+ * exactly as in the solo path).
+ */
+export function selectCoinsMulti(
+  utxos: Utxo[],
+  totalTargetSats: number,
+  feeRateSatVb: number,
+  paymentScripts: Uint8Array[],
+  changeScript: Uint8Array,
+): CoinSelection | null {
+  if (paymentScripts.length === 0) return null;
+  const rate = Math.max(1, Math.ceil(feeRateSatVb));
+  const sorted = [...utxos]
+    .filter((u) => u.value > 0)
+    .sort((a, b) => b.value - a.value);
+
+  const picked: Utxo[] = [];
+  let total = 0;
+
+  for (const utxo of sorted) {
+    picked.push(utxo);
+    total += utxo.value;
+
+    const feeWithChange = estimateVsize(
+      picked.length,
+      [...paymentScripts, changeScript],
+    ) * rate;
+    if (total >= totalTargetSats + feeWithChange) {
+      const change = total - totalTargetSats - feeWithChange;
+      if (change >= DUST_LIMIT_SATS) {
+        return { selected: picked, feeSats: feeWithChange, changeSats: change };
+      }
+      const feeNoChange = estimateVsize(picked.length, paymentScripts) * rate;
+      if (total >= totalTargetSats + feeNoChange) {
+        return {
+          selected: picked,
+          feeSats: total - totalTargetSats,
+          changeSats: 0,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+export interface BatchPayment {
+  toAddress: string;
+  amountSats: number;
+}
+
+export interface BuiltBatchWithdrawal {
+  hex: string;
+  txid: string;
+  feeSats: number;
+  changeSats: number;
+  vsize: number;
+  changeIndex: number;
+  inputCount: number;
+}
+
+/**
+ * Build and sign ONE transaction paying every member of a batch.
+ * Mirrors buildWithdrawalTx's discipline (largest-first selection,
+ * dust-folded change at chain 1 / changeIndex, per-input signing);
+ * the returned fee is the BUILT transaction's real fee
+ * (inputs − outputs), which is what fee shares are allocated from.
+ * Throws on an empty batch, a dust payment output, or insufficient
+ * platform funds.
+ */
+export function buildBatchWithdrawalTx(params: {
+  accountPriv: HDKey;
+  accountPub: HDKey;
+  utxos: Utxo[];
+  payments: BatchPayment[];
+  feeRateSatVb: number;
+  changeIndex: number;
+}): BuiltBatchWithdrawal {
+  const { accountPriv, accountPub, utxos, payments } = params;
+  if (payments.length === 0) throw new Error("Cannot build an empty batch");
+  const recipients = payments.map((p) => {
+    if (!Number.isInteger(p.amountSats) || p.amountSats < DUST_LIMIT_SATS) {
+      throw new Error("Batch payment amount would be dust");
+    }
+    return validateMainnetAddress(p.toAddress);
+  });
+  const changeScript = deriveScript(accountPub, 1, params.changeIndex);
+  const totalTarget = payments.reduce((s, p) => s + p.amountSats, 0);
+
+  const selection = selectCoinsMulti(
+    utxos,
+    totalTarget,
+    params.feeRateSatVb,
+    recipients.map((r) => r.script),
+    changeScript,
+  );
+  if (!selection) throw new Error("Insufficient platform UTXO funds");
+
+  const tx = new Transaction();
+  for (const utxo of selection.selected) {
+    const script = deriveScript(accountPub, utxo.chain, utxo.index);
+    tx.addInput({
+      txid: utxo.txid,
+      index: utxo.vout,
+      witnessUtxo: { script, amount: BigInt(utxo.value) },
+    });
+  }
+  for (const p of payments) {
+    tx.addOutputAddress(p.toAddress, BigInt(p.amountSats));
+  }
+  if (selection.changeSats > 0) {
+    tx.addOutputAddress(
+      deriveAddress(accountPub, 1, params.changeIndex),
+      BigInt(selection.changeSats),
+    );
+  }
+
+  for (const utxo of selection.selected) {
+    const key = deriveChildKey(accountPriv, utxo.chain, utxo.index);
+    if (!key.privateKey) throw new Error("Missing private key for input");
+    tx.sign(key.privateKey);
+  }
+  tx.finalize();
+
+  return {
+    hex: tx.hex,
+    txid: tx.id,
+    feeSats: Number(tx.fee),
+    changeSats: selection.changeSats,
+    vsize: tx.vsize,
+    changeIndex: params.changeIndex,
+    inputCount: selection.selected.length,
+  };
+}
+
+export interface BatchFeeMember {
+  /** Withdrawal id. */
+  id: string;
+  /** The member's solo-transaction vsize (P3 estimate at queue time). */
+  soloVsize: number;
+  /** The member's reserved solo fee — the hard cap on their share. */
+  reservedFeeSats: number;
+}
+
+export interface BatchFeeAllocation {
+  /** One entry per member, in input order. */
+  shares: Array<{ id: string; shareSats: number }>;
+  /**
+   * Sats of the actual fee NOT covered by any member because every
+   * member's proportional share hit their reserved-fee cap. The
+   * platform absorbs this (the confirm screen promises the fee never
+   * exceeds the shown estimate). Invariant:
+   * Σ shares + absorbedSats === actualFeeSats.
+   */
+  absorbedSats: number;
+}
+
+/**
+ * Allocate a batch's ACTUAL network fee across its members (P4 fee
+ * shares): each member pays in proportion to their solo vsize —
+ * `actualFee × soloVsize_i / Σ soloVsize` — floored to whole sats,
+ * CAPPED at their reserved solo estimate; the flooring remainder is
+ * distributed one sat at a time to the largest fractional parts
+ * (ties broken by input order, fully deterministic) among members
+ * still below their cap. Whatever cannot be placed under the caps
+ * is platform-absorbed. Savings versus solo sends go to the
+ * withdrawers; the platform never takes more than the actual fee.
+ */
+export function allocateBatchFeeShares(
+  members: BatchFeeMember[],
+  actualFeeSats: number,
+): BatchFeeAllocation {
+  if (!Number.isInteger(actualFeeSats) || actualFeeSats < 0) {
+    throw new Error("Actual fee must be a non-negative integer");
+  }
+  if (members.length === 0) {
+    return { shares: [], absorbedSats: actualFeeSats };
+  }
+  const weights = members.map((m) => Math.max(1, Math.floor(m.soloVsize)));
+  const totalWeight = weights.reduce((s, w) => s + w, 0);
+
+  const raws = members.map((_, i) => (actualFeeSats * weights[i]) / totalWeight);
+  const shares = members.map((m, i) =>
+    Math.min(Math.max(0, Math.floor(m.reservedFeeSats)), Math.floor(raws[i])),
+  );
+
+  let remaining = actualFeeSats - shares.reduce((s, x) => s + x, 0);
+  if (remaining > 0) {
+    const order = members
+      .map((_, i) => i)
+      .sort((a, b) => {
+        const fa = raws[a] - Math.floor(raws[a]);
+        const fb = raws[b] - Math.floor(raws[b]);
+        if (fb !== fa) return fb - fa;
+        return a - b;
+      });
+    // Cycle the deterministic order, +1 sat per member per pass,
+    // until the remainder is placed or every member is capped.
+    let progressed = true;
+    while (remaining > 0 && progressed) {
+      progressed = false;
+      for (const i of order) {
+        if (remaining <= 0) break;
+        const cap = Math.max(0, Math.floor(members[i].reservedFeeSats));
+        if (shares[i] < cap) {
+          shares[i] += 1;
+          remaining -= 1;
+          progressed = true;
+        }
+      }
+    }
+  }
+
+  return {
+    shares: members.map((m, i) => ({ id: m.id, shareSats: shares[i] })),
+    absorbedSats: remaining,
+  };
+}
+
+export interface BatchTrigger {
+  form: boolean;
+  /** True when the max-wait rule (not the fee window) forces formation. */
+  forcedByWait: boolean;
+}
+
+/**
+ * The batcher's formation trigger (P4): form a batch when the live
+ * fee rate is at/under the batch cap, OR the oldest queued
+ * withdrawal has waited at least the configured maximum — then it
+ * broadcasts at market. An empty queue never forms.
+ */
+export function shouldFormBatch(params: {
+  queuedCount: number;
+  feeRateSatVb: number;
+  batchCapSatVb: number;
+  oldestQueuedAgeHours: number;
+  maxWaitHours: number;
+}): BatchTrigger {
+  if (params.queuedCount <= 0) return { form: false, forcedByWait: false };
+  const cap = Math.max(1, params.batchCapSatVb);
+  if (Math.ceil(params.feeRateSatVb) <= cap) {
+    return { form: true, forcedByWait: false };
+  }
+  if (params.oldestQueuedAgeHours >= params.maxWaitHours) {
+    return { form: true, forcedByWait: true };
+  }
+  return { form: false, forcedByWait: false };
+}
+
 // ── Buy/sell quote math (integer-safe; rounding favours the platform) ─────
 
 function floorToCents(x: number): number {

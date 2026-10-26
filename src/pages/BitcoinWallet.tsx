@@ -284,6 +284,7 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
   const [result, setResult] = useState<
     | { kind: "broadcast"; txid: string; fee_sats: number }
     | { kind: "verifying"; txid: string | null; message: string }
+    | { kind: "queued"; deadline: string | null; reservedFeeSats: number }
     | null
   >(null);
   // Protection P3: a live, read-only fee estimate for the entered
@@ -295,6 +296,15 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
     | { kind: "insufficient" }
     | null
   >(null);
+  // P4 withdrawal batching: the send can ride the next low-fee batch
+  // (default) or go out instantly on the solo path. The estimate
+  // response carries the live batch policy; when batching is off
+  // server-side the choice is hidden and Instant is used.
+  const [sendMethod, setSendMethod] = useState<"batch" | "instant">("batch");
+  const [batchInfo, setBatchInfo] = useState<{ enabled: boolean; maxWaitHours: number } | null>(null);
+  const batchAvailable = batchInfo?.enabled !== false;
+  const effectiveMethod = batchAvailable ? sendMethod : "instant";
+  const maxWaitHours = batchInfo?.maxWaitHours ?? 6;
 
   useEffect(() => {
     const addr = address.trim();
@@ -313,6 +323,12 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
         if (error || !data?.estimate_available) {
           setFeeEstimate(null);
           return;
+        }
+        if (typeof data.batch_enabled === "boolean") {
+          setBatchInfo({
+            enabled: data.batch_enabled,
+            maxWaitHours: Number(data.batch_max_wait_hours) || 6,
+          });
         }
         if (data.sufficient) {
           setFeeEstimate({
@@ -419,7 +435,66 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
     }
   };
 
+  /**
+   * P4: queue into the low-fee batch instead of broadcasting now.
+   * The server reserves the amount plus the solo fee estimate shown
+   * above — that reserved fee is the most this withdrawal can ever
+   * cost; whatever the batch doesn't use comes back at broadcast.
+   */
+  const queue = async () => {
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("btc-onchain", {
+        body: {
+          action: "queue_send",
+          to_address: address.trim(),
+          amount_sats: Number(sats),
+          idempotency_key: idemKey,
+        },
+      });
+      if (error) throw error;
+      setResult({
+        kind: "queued",
+        deadline: data?.batch_deadline ?? null,
+        reservedFeeSats: Number(data?.reserved_fee_sats ?? 0),
+      });
+      toast({
+        title: "Withdrawal queued",
+        description: "It will go out in the next low-fee batch — you can cancel it any time before it sends.",
+      });
+      setIdemKey(crypto.randomUUID());
+      invalidateMoney();
+      onDone();
+    } catch (e: any) {
+      toast({ title: "Could not queue the withdrawal", description: await resolveEdgeFunctionError(e, "The withdrawal could not be queued."), variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (result) {
+    if (result.kind === "queued") {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Your withdrawal is queued for the next low-fee batch</p>
+          <p className="text-sm text-muted-foreground">
+            {Number(sats).toLocaleString()} sats will be sent to {address.trim()} in the next
+            low-fee window{result.deadline
+              ? <> — and always by <span className="font-medium text-foreground">{new Date(result.deadline).toLocaleString()}</span></>
+              : ""}.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            We reserved a network fee of up to {result.reservedFeeSats.toLocaleString()} sats —
+            you will only pay your share of the batch's actual fee, and the rest comes
+            straight back to your balance when the batch sends.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Changed your mind? You can cancel it from your Bitcoin wallet for a full
+            refund any time before it sends.
+          </p>
+        </div>
+      );
+    }
     if (result.kind === "verifying") {
       return (
         <div className="space-y-3">
@@ -473,9 +548,46 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
           available — the exact fee is confirmed when your withdrawal broadcasts.
         </p>
       )}
-      <Button onClick={send} disabled={sending || !address || !sats} className="w-full">
+      {batchAvailable && (
+        <div className="grid gap-2" role="radiogroup" aria-label="Sending speed">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={effectiveMethod === "batch"}
+            onClick={() => setSendMethod("batch")}
+            className={`text-left rounded-lg border p-3 transition-colors ${effectiveMethod === "batch" ? "border-primary bg-primary/5" : "border-border"}`}
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium">Low-fee batch</span>
+              <Badge variant="secondary">Cheaper</Badge>
+            </span>
+            <span className="block text-xs text-muted-foreground mt-1">
+              Sends in the next low-fee batch — usually within the hour, always within{" "}
+              {maxWaitHours} hours. Your fee is never more than the estimate above,
+              and is usually less — you only pay your share of the batch's fee.
+            </span>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={effectiveMethod === "instant"}
+            onClick={() => setSendMethod("instant")}
+            className={`text-left rounded-lg border p-3 transition-colors ${effectiveMethod === "instant" ? "border-primary bg-primary/5" : "border-border"}`}
+          >
+            <span className="text-sm font-medium">Instant</span>
+            <span className="block text-xs text-muted-foreground mt-1">
+              Sends right away on its own, at the current network rate.
+            </span>
+          </button>
+        </div>
+      )}
+      <Button
+        onClick={effectiveMethod === "batch" ? queue : send}
+        disabled={sending || !address || !sats}
+        className="w-full"
+      >
         {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-        Send Bitcoin
+        {effectiveMethod === "batch" ? "Queue for low-fee batch" : "Send Bitcoin"}
       </Button>
     </div>
   );
@@ -701,6 +813,136 @@ function MoonpayBuyCard() {
   );
 }
 
+/**
+ * P4: the user's queued / in-flight batched withdrawals. A 'queued'
+ * row can still be cancelled (full reservation refund via
+ * btc-onchain cancel_batch_send); a 'batched' row is already claimed
+ * into a batch and follows the broadcast from there. Reads the
+ * owner's own rows under RLS; refreshes whenever the page's money
+ * state refreshes (refreshKey).
+ */
+function PendingBtcWithdrawals({ refreshKey }: { refreshKey: number }) {
+  const { toast } = useToast();
+  const invalidateMoney = useInvalidateMoneyState();
+  const [rows, setRows] = useState<any[]>([]);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  const load = async () => {
+    const { data } = await supabase
+      .from("btc_withdrawals")
+      .select("id, to_address, amount_sats, fee_sats, status, txid, batch_deadline, created_at")
+      .eq("mode", "batch")
+      .in("status", ["queued", "batched"])
+      .order("created_at", { ascending: true });
+    setRows(data ?? []);
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  if (rows.length === 0) return null;
+
+  const cancel = async (row: any) => {
+    setCancellingId(row.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("btc-onchain", {
+        body: { action: "cancel_batch_send", withdrawal_id: row.id },
+      });
+      if (error) throw error;
+      toast({
+        title: "Withdrawal cancelled",
+        description: `${Number(data?.refunded_sats ?? 0).toLocaleString()} sats returned to your balance.`,
+      });
+      setConfirmingId(null);
+      invalidateMoney();
+      await load();
+    } catch (e: any) {
+      toast({
+        title: "Could not cancel",
+        description: await resolveEdgeFunctionError(e, "This withdrawal could not be cancelled."),
+        variant: "destructive",
+      });
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const shortAddress = (a: string) => (a.length > 20 ? `${a.slice(0, 10)}…${a.slice(-8)}` : a);
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle className="text-lg">Queued Bitcoin withdrawals</CardTitle>
+        <CardDescription>
+          These withdrawals are waiting for a low-fee window. You only pay your share of
+          the batch's actual network fee — anything reserved above that comes back to you.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y divide-border">
+          {rows.map((row) => (
+            <li key={row.id} className="py-3 space-y-1">
+              {row.status === "queued" ? (
+                <>
+                  <p className="text-sm font-medium">Bitcoin withdrawal — waiting for a low-fee window</p>
+                  <p className="text-sm text-muted-foreground">
+                    {Number(row.amount_sats).toLocaleString()} sats to {shortAddress(row.to_address)}
+                    {row.batch_deadline
+                      ? <> · latest by {new Date(row.batch_deadline).toLocaleString()}</>
+                      : ""}
+                  </p>
+                  {confirmingId === row.id ? (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => void cancel(row)}
+                        disabled={cancellingId === row.id}
+                      >
+                        {cancellingId === row.id
+                          ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          : null}
+                        Yes, cancel and refund {(Number(row.amount_sats) + Number(row.fee_sats)).toLocaleString()} sats
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setConfirmingId(null)}>
+                        Keep it queued
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-1"
+                      onClick={() => setConfirmingId(row.id)}
+                    >
+                      Cancel withdrawal
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium">
+                    {row.txid ? "Bitcoin withdrawal — sent, confirming on the network" : "Bitcoin withdrawal — in a batch, sending…"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {Number(row.amount_sats).toLocaleString()} sats to {shortAddress(row.to_address)}
+                  </p>
+                  {row.txid && (
+                    <p className="font-mono text-xs break-all text-muted-foreground">{row.txid}</p>
+                  )}
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function BitcoinWallet() {
   const navigate = useNavigate();
   const { wallet, isLoading, walletError, isWalletError, refetchWallet, transactions, isTxLoading, refetchTx } = useBitcoinWallet();
@@ -708,6 +950,9 @@ export default function BitcoinWallet() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  // Bumped on every money-state refresh so the P4 queued-withdrawals
+  // section re-reads its rows alongside wallet + activity.
+  const [pendingRefresh, setPendingRefresh] = useState(0);
   // Controlled so the Lightning panel can route the user onto the
   // On-chain tab (custodial Lightning deposits are unavailable).
   const [depositTab, setDepositTab] = useState("onchain");
@@ -721,6 +966,7 @@ export default function BitcoinWallet() {
 
   const handleDone = async () => {
     await Promise.all([refetchWallet(), refetchTx()]);
+    setPendingRefresh((n) => n + 1);
     setOpen(false);
   };
 
@@ -851,6 +1097,8 @@ export default function BitcoinWallet() {
               </div>
             </CardContent>
           </Card>
+
+          <PendingBtcWithdrawals refreshKey={pendingRefresh} />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             <div className="lg:col-span-2 space-y-6">

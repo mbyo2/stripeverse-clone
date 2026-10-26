@@ -15,6 +15,17 @@
 //                   confirmed leaves the row 'reserved' for manual
 //                   reconciliation (never auto-refunded —
 //                   see classifyBroadcastOutcome in btc-core)
+//   estimate_send   (user JWT)  → read-only P3 fee estimate for the
+//                   send form (+ the P4 batch policy for its copy)
+//   queue_send      (user JWT)  → P4: queue a withdrawal into the
+//                   low-fee batch, reserving amount + the solo fee
+//                   estimate (btc_queue_batched_withdrawal)
+//   cancel_batch_send (user JWT) → P4: cancel a still-queued batch
+//                   withdrawal; the reservation is refunded in full
+//   consolidate     (service role only) → P2b UTXO consolidation duty
+//   run_batch       (service role only) → P4 batcher: form + broadcast
+//                   one batch when the fee window is open or the
+//                   oldest queued withdrawal hits the max wait
 //
 // Concurrency (audit M1): the reservation is the serialization
 // point. After reserving, send() re-validates against state that
@@ -45,6 +56,8 @@ import {
   isAccountFrozen,
 } from "../_shared/account-freeze.ts";
 import {
+  allocateBatchFeeShares,
+  buildBatchWithdrawalTx,
   buildConsolidationTx,
   buildWithdrawalTx,
   classifyBroadcastOutcome,
@@ -59,6 +72,8 @@ import {
   receiveStatus,
   requiredConfirmationsFor,
   selectCoins,
+  selectCoinsMulti,
+  shouldFormBatch,
   spentOutpointsFromTx,
   validateMainnetAddress,
   type BroadcastClassification,
@@ -148,6 +163,30 @@ async function esplora(path: string, init?: RequestInit): Promise<Response> {
   });
 }
 
+/**
+ * The P4 batch policy from platform_settings (single-row table):
+ * kill switch, the broadcast fee cap and the hard max wait. Defaults
+ * match migration 20261225 (enabled, 5 sat/vB cap, 6h) so a missing
+ * row or column degrades to the designed behaviour, never to a
+ * surprise.
+ */
+async function batchPolicy(supabase: any): Promise<{
+  enabled: boolean;
+  capSatVb: number;
+  maxWaitHours: number;
+}> {
+  const { data: settings } = await supabase
+    .from("platform_settings")
+    .select("btc_batch_enabled, btc_fee_window_batch_max_sat_vb, btc_batch_max_wait_hours")
+    .limit(1)
+    .maybeSingle();
+  return {
+    enabled: settings?.btc_batch_enabled !== false,
+    capSatVb: Number(settings?.btc_fee_window_batch_max_sat_vb ?? 5),
+    maxWaitHours: Number(settings?.btc_batch_max_wait_hours ?? 6),
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -195,6 +234,16 @@ serve(async (req) => {
       return await consolidate(admin);
     }
 
+    // ── run_batch: scheduler-only (P4 withdrawal batching) ──────────────
+    if (action === "run_batch") {
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
+      if (!serviceKey || !timingSafeEqual(token, serviceKey)) {
+        return json(401, { error: "Service role required" });
+      }
+      return await runBatch(admin);
+    }
+
     // ── Everything else needs a real user ──────────────────────────────────
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -205,6 +254,8 @@ serve(async (req) => {
     if (action === "receive") return await receive(admin, user.id);
     if (action === "estimate_send") return await estimateSend(admin, user.id, body);
     if (action === "send") return await send(admin, user.id, body);
+    if (action === "queue_send") return await queueSend(admin, user.id, body);
+    if (action === "cancel_batch_send") return await cancelBatchSend(admin, user.id, body);
 
     return json(400, { error: `Unknown action: ${action}` });
   } catch (e) {
@@ -600,6 +651,15 @@ async function estimateSend(supabase: any, userId: string, body: any) {
   const feeRate = Math.max(1, Math.ceil(Number(fees.halfHourFee) || 0));
   if (!feeRate) return json(502, { error: "Fee estimation unavailable" });
 
+  // P4: the same response carries the batch policy so the send
+  // form's batch copy ("always within N hours") quotes the live
+  // setting, never a stale constant.
+  const policy = await batchPolicy(supabase);
+  const batchFields = {
+    batch_enabled: policy.enabled,
+    batch_max_wait_hours: policy.maxWaitHours,
+  };
+
   const utxos = await gatherUtxos(supabase, accountPub);
   const changeScript = deriveScript(accountPub, 1, 0);
   const selection = selectCoins(utxos, amountSats, feeRate, recipient.script, changeScript);
@@ -611,6 +671,7 @@ async function estimateSend(supabase: any, userId: string, body: any) {
       estimated_fee_sats: null,
       estimated_vsize: null,
       input_count: null,
+      ...batchFields,
     });
   }
   return json(200, {
@@ -621,6 +682,7 @@ async function estimateSend(supabase: any, userId: string, body: any) {
     estimated_vsize: estimateVsize(selection.selected.length, [recipient.script, changeScript]),
     input_count: selection.selected.length,
     total_debit_sats: amountSats + selection.feeSats,
+    ...batchFields,
   });
 }
 
@@ -827,6 +889,498 @@ async function consolidate(supabase: any) {
   return json(200, {
     consolidated: true, status: "broadcast", run_id: runId,
     txid: built.txid, fee_sats: built.feeSats, input_count: plan.inputs.length,
+  });
+}
+
+// ── queue_send (P4): queue a withdrawal into the low-fee batch ──────────
+
+/**
+ * The batched counterpart of send(): same gates (custody interlock,
+ * freeze, limits), same solo coin selection — but instead of building
+ * and broadcasting, it RESERVES amount + the solo fee estimate via
+ * btc_queue_batched_withdrawal and leaves the row 'queued' for the
+ * batcher. The reserved fee is the most the member can ever be
+ * charged for this withdrawal: the batch settle refunds whatever the
+ * batch didn't use, and any overage above the cap is the platform's.
+ * The row's batch_deadline (queue time + the live max-wait setting)
+ * is the user-facing "latest by" promise.
+ */
+async function queueSend(supabase: any, userId: string, body: any) {
+  const c = custody();
+  if (!c.configured) {
+    console.error("btc-onchain queue_send: custody not configured (" + c.reason + ")");
+    return json(503, { error: WITHDRAWALS_NOT_CONFIGURED });
+  }
+  if (await isAccountFrozen(supabase, userId)) {
+    return json(403, { error: ACCOUNT_FROZEN_MESSAGE });
+  }
+  const accountPub = c.accountPub;
+
+  const policy = await batchPolicy(supabase);
+  if (!policy.enabled) {
+    return json(400, {
+      error: "Low-fee batch sending is not available right now — please use Instant send instead.",
+    });
+  }
+
+  const toAddress = typeof body?.to_address === "string" ? body.to_address.trim() : "";
+  const amountSats = Number(body?.amount_sats);
+  const idempotencyKey = typeof body?.idempotency_key === "string" ? body.idempotency_key : "";
+
+  if (!toAddress) return json(400, { error: "to_address is required" });
+  if (!Number.isInteger(amountSats) || amountSats <= 0) {
+    return json(400, { error: "amount_sats must be a positive integer" });
+  }
+  if (idempotencyKey.length < 8 || idempotencyKey.length > 80) {
+    return json(400, { error: "idempotency_key is required (8–80 chars)" });
+  }
+
+  let recipient;
+  try {
+    recipient = validateMainnetAddress(toAddress);
+  } catch {
+    return json(400, { error: "Invalid mainnet Bitcoin address" });
+  }
+  // A batch output below the dust limit can never be constructed;
+  // refuse here, at request time, not at formation.
+  if (amountSats < 546) {
+    return json(400, {
+      error: "That amount is below the Bitcoin network's dust limit — it could never be sent. Please queue at least 10,000 sats.",
+    });
+  }
+
+  // Replay of an earlier queue request? Return its recorded state.
+  const { data: prior } = await supabase
+    .from("btc_withdrawals")
+    .select("*")
+    .eq("idempotency_key", idempotencyKey)
+    .maybeSingle();
+  if (prior) {
+    if (prior.user_id !== userId || prior.mode !== "batch") {
+      return json(409, { error: "Idempotency key already used" });
+    }
+    if (prior.status === "cancelled") {
+      return json(400, { error: "This withdrawal was cancelled" });
+    }
+    if (prior.status === "failed") {
+      return json(400, { error: `This withdrawal already failed: ${prior.error ?? "unknown"}` });
+    }
+    return json(200, {
+      withdrawal_id: prior.id,
+      status: prior.status,
+      amount_sats: prior.amount_sats,
+      reserved_fee_sats: prior.reserved_fee_sats ?? prior.fee_sats,
+      fee_share_sats: prior.fee_share_sats,
+      txid: prior.txid,
+      batch_deadline: prior.batch_deadline,
+    });
+  }
+
+  const minSats = envInt("BTC_MIN_WITHDRAWAL_SATS", 10_000);
+  const maxTxSats = envInt("BTC_MAX_TX_SATS", 2_000_000);
+  const maxDailySats = envInt("BTC_MAX_DAILY_SATS", 5_000_000);
+  if (amountSats < minSats) {
+    return json(400, { error: `Minimum withdrawal is ${minSats} sats` });
+  }
+  if (amountSats > maxTxSats) {
+    return json(400, { error: `Maximum per-transaction withdrawal is ${maxTxSats} sats` });
+  }
+  const dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const sentToday = await sumRecentWithdrawalSats(supabase, userId, dayAgo);
+  if (sentToday + amountSats > maxDailySats) {
+    return json(400, { error: `Daily withdrawal limit is ${maxDailySats} sats` });
+  }
+
+  // The solo estimate the reservation is taken at — the same rate and
+  // selection send() would use right now (P3's figure).
+  const feeRes = await esplora("/v1/fees/recommended");
+  if (!feeRes.ok) return json(502, { error: "Fee estimation unavailable" });
+  const fees = await feeRes.json();
+  const feeRate = Math.max(1, Math.ceil(Number(fees.halfHourFee) || 0));
+  if (!feeRate) return json(502, { error: "Fee estimation unavailable" });
+
+  const utxos = await gatherUtxos(supabase, accountPub);
+  const changeScript = deriveScript(accountPub, 1, 0);
+  const selection = selectCoins(utxos, amountSats, feeRate, recipient.script, changeScript);
+  if (!selection) {
+    return json(409, {
+      error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
+    });
+  }
+  const soloVsize = estimateVsize(selection.selected.length, [recipient.script, changeScript]);
+  const deadline = new Date(Date.now() + policy.maxWaitHours * 3600 * 1000).toISOString();
+
+  const { data: rows, error: queueErr } = await supabase.rpc("btc_queue_batched_withdrawal", {
+    p_user_id: userId,
+    p_to_address: toAddress,
+    p_amount_sats: amountSats,
+    p_reserved_fee_sats: selection.feeSats,
+    p_solo_vsize: soloVsize,
+    p_idempotency_key: idempotencyKey,
+    p_max_daily_sats: maxDailySats,
+    p_deadline: deadline,
+  });
+  if (queueErr) {
+    if (queueErr.message?.includes("Idempotency key already used")) {
+      return json(409, { error: "Idempotency key already used" });
+    }
+    return json(400, { error: queueErr.message });
+  }
+  const row = Array.isArray(rows) ? rows[0] : rows;
+  return json(200, {
+    withdrawal_id: row.withdrawal_id,
+    status: row.status,
+    amount_sats: row.amount_sats,
+    reserved_fee_sats: row.fee_sats,
+    batch_deadline: row.batch_deadline,
+  });
+}
+
+// ── cancel_batch_send (P4) ────────────────────────────────────────────────
+
+/**
+ * Cancel a still-queued batch withdrawal. The RPC refunds the whole
+ * reservation (amount + reserved fee) atomically and refuses once
+ * the withdrawal has been claimed into a batch — from there it is
+ * already on its way and follows the broadcast doctrine instead.
+ */
+async function cancelBatchSend(supabase: any, userId: string, body: any) {
+  const withdrawalId = typeof body?.withdrawal_id === "string" ? body.withdrawal_id : "";
+  if (!withdrawalId) return json(400, { error: "withdrawal_id is required" });
+
+  const { data: row } = await supabase
+    .from("btc_withdrawals")
+    .select("id, user_id, amount_sats, fee_sats")
+    .eq("id", withdrawalId)
+    .maybeSingle();
+  if (!row || row.user_id !== userId) {
+    return json(404, { error: "Withdrawal not found" });
+  }
+
+  const { data, error } = await supabase.rpc("btc_cancel_batched_withdrawal", {
+    p_user_id: userId,
+    p_withdrawal_id: withdrawalId,
+  });
+  if (error) {
+    return json(400, { error: thrownMessage(error, "This withdrawal could not be cancelled") });
+  }
+  return json(200, {
+    withdrawal_id: withdrawalId,
+    status: "cancelled",
+    outcome: data,
+    refunded_sats: Number(row.amount_sats) + Number(row.fee_sats),
+  });
+}
+
+// ── run_batch (P4): the low-fee batcher ───────────────────────────────────
+
+const BATCH_MAX_MEMBERS = 50;
+
+/**
+ * Form and broadcast ONE withdrawal batch when the fee window is
+ * open (live halfHourFee at/under the batch cap in platform_settings)
+ * or the oldest queued withdrawal has waited the hard maximum — then
+ * at market. Every invocation writes a btc_withdrawal_batches audit
+ * row saying what was decided and why (the consolidation duty's
+ * standard). Members were reserved at their solo estimates at queue
+ * time; at settle each pays a proportional share of the ACTUAL fee
+ * (allocateBatchFeeShares), capped at their reserve, and the unused
+ * reserve is refunded by btc_settle_withdrawal_batch. A broadcast
+ * that is not positively confirmed leaves every member 'batched' with
+ * reserves held — never auto-refunded (classifyBroadcastOutcome).
+ */
+async function runBatch(supabase: any) {
+  const recordRun = async (
+    status: string,
+    reason: string,
+    extra: Record<string, unknown> = {},
+  ) => {
+    const { data, error } = await supabase
+      .from("btc_withdrawal_batches")
+      .insert({ status, reason, ...extra })
+      .select("id")
+      .single();
+    if (error) console.error("btc-onchain run_batch: audit row failed:", error);
+    return data?.id as string | undefined;
+  };
+  const skip = async (status: string, reason: string, extra: Record<string, unknown> = {}) => {
+    const runId = await recordRun(status, reason, extra);
+    return json(200, { batched: false, status, reason, run_id: runId ?? null });
+  };
+
+  const policy = await batchPolicy(supabase);
+  if (!policy.enabled) {
+    return await skip("skipped_disabled", "Withdrawal batching is switched off in platform settings");
+  }
+
+  // One batch in flight at a time.
+  const { count: inFlight } = await supabase
+    .from("btc_withdrawal_batches")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["forming", "broadcast_unknown", "broadcast_unsettled"]);
+  if ((inFlight ?? 0) > 0) {
+    return await skip("skipped_in_flight", "A previous batch is still unresolved");
+  }
+
+  const { data: queued } = await supabase
+    .from("btc_withdrawals")
+    .select("id, created_at")
+    .eq("mode", "batch")
+    .eq("status", "queued")
+    .order("created_at", { ascending: true })
+    .limit(BATCH_MAX_MEMBERS);
+  if (!queued || queued.length === 0) {
+    return await skip("skipped_empty", "No queued withdrawals");
+  }
+  const oldestAgeHours =
+    (Date.now() - new Date(queued[0].created_at).getTime()) / 3600_000;
+
+  const feeRes = await esplora("/v1/fees/recommended");
+  if (!feeRes.ok) {
+    return await skip("failed", "Fee estimation unavailable — esplora did not answer", {
+      member_count: queued.length,
+    });
+  }
+  const fees = await feeRes.json();
+  const feeRate = Math.max(1, Math.ceil(Number(fees.halfHourFee) || 0));
+  if (!feeRate) {
+    return await skip("failed", "Fee estimation unavailable — no halfHourFee", {
+      member_count: queued.length,
+    });
+  }
+
+  const trigger = shouldFormBatch({
+    queuedCount: queued.length,
+    feeRateSatVb: feeRate,
+    batchCapSatVb: policy.capSatVb,
+    oldestQueuedAgeHours: oldestAgeHours,
+    maxWaitHours: policy.maxWaitHours,
+  });
+  if (!trigger.form) {
+    return await skip(
+      "skipped_fee_window",
+      `Fee rate ${feeRate} sat/vB is above the batch cap ${policy.capSatVb} and the oldest queued withdrawal is ${oldestAgeHours.toFixed(1)}h old (max wait ${policy.maxWaitHours}h)`,
+      { fee_rate_sat_vb: feeRate, member_count: queued.length },
+    );
+  }
+
+  const c = custody();
+  if (!c.configured) {
+    return await skip("skipped_no_custody", "Custody not configured (" + c.reason + ")", {
+      fee_rate_sat_vb: feeRate, member_count: queued.length,
+    });
+  }
+  const accountPub = c.accountPub;
+  const accountPriv = c.accountPriv;
+
+  // Pool pre-check BEFORE claiming: the batch total must be coverable
+  // from the spendable pool (committed outpoints excluded), or the
+  // queue simply keeps waiting — nobody's reservation is disturbed.
+  const paymentsPreview = await supabase
+    .from("btc_withdrawals")
+    .select("to_address, amount_sats")
+    .eq("mode", "batch")
+    .eq("status", "queued")
+    .order("created_at", { ascending: true })
+    .limit(BATCH_MAX_MEMBERS);
+  const previewRows = paymentsPreview.data ?? [];
+  const previewTotal = previewRows.reduce(
+    (s: number, r: any) => s + Number(r.amount_sats), 0,
+  );
+  const previewScripts = previewRows.map((r: any) => validateMainnetAddress(r.to_address).script);
+  const poolUtxos = await gatherUtxos(supabase, accountPub);
+  const committedPreview = await committedOutpoints(
+    supabase, "00000000-0000-0000-0000-000000000000",
+  );
+  const spendablePreview = filterUncommittedUtxos(poolUtxos, committedPreview);
+  const previewSelection = selectCoinsMulti(
+    spendablePreview, previewTotal, feeRate, previewScripts,
+    deriveScript(accountPub, 1, 0),
+  );
+  if (!previewSelection) {
+    return await skip(
+      "skipped_insufficient_pool",
+      "Confirmed pool funds cannot yet cover the queued total plus the batch fee",
+      { fee_rate_sat_vb: feeRate, member_count: queued.length },
+    );
+  }
+
+  // Claim the queue atomically (the RPC re-checks the in-flight guard
+  // and takes the formation lock).
+  const { data: members, error: claimErr } = await supabase.rpc(
+    "btc_claim_withdrawal_batch", { p_max_members: BATCH_MAX_MEMBERS },
+  );
+  if (claimErr) {
+    return await skip("failed", `Batch claim failed: ${thrownMessage(claimErr, "unknown")}`, {
+      fee_rate_sat_vb: feeRate, member_count: queued.length,
+    });
+  }
+  if (!members || members.length === 0) {
+    return await skip("skipped_empty", "Queue was claimed by another formation first", {
+      fee_rate_sat_vb: feeRate,
+    });
+  }
+  const batchId = members[0].batch_id as string;
+  const releaseAndSkip = async (reason: string) => {
+    const { error: relErr } = await supabase.rpc("btc_release_batch_claim", {
+      p_batch_id: batchId,
+      p_reason: reason,
+    });
+    if (relErr) {
+      console.error("CRITICAL: batch claim release failed", batchId, reason, relErr);
+    }
+    return json(200, {
+      batched: false, status: "released", reason, run_id: batchId,
+    });
+  };
+
+  // Re-gather against post-claim state and rebuild the selection for
+  // the CLAIMED member set (the queue may have changed under us).
+  const totalAmount = members.reduce(
+    (s: number, m: any) => s + Number(m.amount_sats), 0,
+  );
+  const utxos = await gatherUtxos(supabase, accountPub);
+  const committed = await committedOutpoints(supabase, "00000000-0000-0000-0000-000000000000");
+  const spendable = filterUncommittedUtxos(utxos, committed);
+  const memberScripts = members.map((m: any) => validateMainnetAddress(m.to_address).script);
+  const selection = selectCoinsMulti(
+    spendable, totalAmount, feeRate, memberScripts, deriveScript(accountPub, 1, 0),
+  );
+  if (!selection) {
+    return await releaseAndSkip("Pool selection failed after claim — members returned to the queue");
+  }
+
+  const { data: changeIdx, error: changeErr } = await supabase.rpc("btc_next_change_index");
+  if (changeErr) {
+    return await releaseAndSkip("Change index allocation failed");
+  }
+  const changeIndex = Number(changeIdx);
+
+  await supabase
+    .from("btc_withdrawal_batches")
+    .update({
+      fee_rate_sat_vb: feeRate,
+      forced_by_wait: trigger.forcedByWait,
+      total_amount_sats: totalAmount,
+      change_index: changeIndex,
+      inputs: selection.selected,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", batchId);
+
+  let built;
+  try {
+    built = buildBatchWithdrawalTx({
+      accountPriv, accountPub, utxos: spendable,
+      payments: members.map((m: any) => ({
+        toAddress: m.to_address as string,
+        amountSats: Number(m.amount_sats),
+      })),
+      feeRateSatVb: feeRate,
+      changeIndex,
+    });
+  } catch (e) {
+    return await releaseAndSkip(
+      `Batch build failed: ${thrownMessage(e, "unknown")} — members returned to the queue`,
+    );
+  }
+
+  // Pre-broadcast input re-confirmation (the solo path's M1 check):
+  // every built input must still be unspent.
+  const spentInput = await firstSpentInput(accountPub, selection.selected);
+  if (spentInput) {
+    return await releaseAndSkip(
+      "A batch input was committed elsewhere before broadcast — members returned to the queue",
+    );
+  }
+
+  const broadcast = await broadcastTx(built.hex, built.txid);
+  if (broadcast.outcome === "unknown") {
+    // Reserves stay held; the batch is ops-visible for reconciliation
+    // and settles through btc_settle_withdrawal_batch once the true
+    // outcome is proven. NEVER auto-refund (see broadcast doctrine).
+    const { error: markErr } = await supabase.rpc("btc_mark_batch_broadcast_unknown", {
+      p_batch_id: batchId,
+      p_txid: built.txid,
+      p_reason: broadcast.detail,
+    });
+    if (markErr) {
+      console.error(
+        "CRITICAL: batch broadcast unknown AND marking failed", batchId, built.txid, markErr,
+      );
+    }
+    console.error(
+      "CRITICAL: batch broadcast outcome unknown — members left 'batched', reserves held (do NOT refund)",
+      batchId, built.txid, broadcast.detail,
+    );
+    return json(202, {
+      batched: false, status: "broadcast_unknown", run_id: batchId, txid: built.txid,
+    });
+  }
+
+  // Positively confirmed on the network: record the txid on batch +
+  // members FIRST (so the inputs are excluded from later selections
+  // even if settling fails), then settle the fee shares atomically.
+  const { error: recErr } = await supabase.rpc("btc_record_batch_txid", {
+    p_batch_id: batchId,
+    p_txid: built.txid,
+  });
+  if (recErr) {
+    console.error("CRITICAL: could not record batch txid", batchId, built.txid, recErr);
+  }
+
+  const allocation = allocateBatchFeeShares(
+    members.map((m: any) => ({
+      id: m.withdrawal_id as string,
+      soloVsize: Number(m.solo_vsize),
+      reservedFeeSats: Number(m.fee_sats),
+    })),
+    built.feeSats,
+  );
+  const { error: settleErr } = await supabase.rpc("btc_settle_withdrawal_batch", {
+    p_batch_id: batchId,
+    p_txid: built.txid,
+    p_actual_fee_sats: built.feeSats,
+    p_shares: allocation.shares.map((s) => ({
+      withdrawal_id: s.id,
+      share_sats: s.shareSats,
+    })),
+  });
+  if (settleErr) {
+    await supabase
+      .from("btc_withdrawal_batches")
+      .update({
+        status: "broadcast_unsettled",
+        reason: `Broadcast confirmed but fee settle failed: ${thrownMessage(settleErr, "unknown")}`,
+        actual_fee_sats: built.feeSats,
+        vsize: built.vsize,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", batchId);
+    console.error(
+      "CRITICAL: batch broadcast but fee settle failed — members stay 'batched' for ops settle",
+      batchId, built.txid, settleErr,
+    );
+    return json(500, {
+      batched: true, status: "broadcast_unsettled", run_id: batchId, txid: built.txid,
+    });
+  }
+
+  await supabase
+    .from("btc_withdrawal_batches")
+    .update({ vsize: built.vsize, updated_at: new Date().toISOString() })
+    .eq("id", batchId);
+
+  return json(200, {
+    batched: true,
+    status: "broadcast",
+    run_id: batchId,
+    txid: built.txid,
+    member_count: members.length,
+    actual_fee_sats: built.feeSats,
+    absorbed_sats: allocation.absorbedSats,
+    fee_rate_sat_vb: feeRate,
+    forced_by_wait: trigger.forcedByWait,
   });
 }
 
@@ -1141,25 +1695,28 @@ async function sumRecentWithdrawalSats(supabase: any, userId: string, sinceIso: 
     .from("btc_withdrawals")
     .select("amount_sats")
     .eq("user_id", userId)
-    .in("status", ["reserved", "broadcast", "confirmed"])
+    .in("status", ["reserved", "broadcast", "confirmed", "queued", "batched"])
     .gte("created_at", sinceIso);
   return (recent ?? []).reduce((s: number, r: any) => s + Number(r.amount_sats), 0);
 }
 
 /**
  * Outpoints already committed to OTHER in-flight withdrawals: every
- * 'reserved' (broadcast outcome unresolved) or 'broadcast' row that
- * carries a txid has a transaction on the network, and its inputs
- * are spoken for. The txids are resolved through esplora; a lookup
- * failure is logged and skipped — the UTXO endpoint the caller
- * gathered from is the same provider, and the broadcast
- * classification remains the safety net for anything missed here.
+ * 'reserved' (broadcast outcome unresolved), 'broadcast', or 'batched'
+ * row that carries a txid has a transaction on the network, and its
+ * inputs are spoken for. Batched members carry the batch's txid
+ * (written by btc_record_batch_txid) once the batch has broadcast, so
+ * the same esplora resolution covers them. The txids are resolved
+ * through esplora; a lookup failure is logged and skipped — the UTXO
+ * endpoint the caller gathered from is the same provider, and the
+ * broadcast classification remains the safety net for anything
+ * missed here.
  */
 async function committedOutpoints(supabase: any, excludeWithdrawalId: string): Promise<Outpoint[]> {
   const { data: rows } = await supabase
     .from("btc_withdrawals")
     .select("id, txid")
-    .in("status", ["reserved", "broadcast"])
+    .in("status", ["reserved", "broadcast", "batched"])
     .not("txid", "is", null)
     .neq("id", excludeWithdrawalId);
   const out: Outpoint[] = [];
@@ -1263,10 +1820,15 @@ async function gatherUtxos(supabase: any, accountPub: any): Promise<Utxo[]> {
   const { count: withdrawalCount } = await supabase
     .from("btc_withdrawals")
     .select("id", { count: "exact", head: true });
+  // Batched withdrawals (P4) consume one change index per broadcast
+  // batch, not one per member — count batch rows alongside.
+  const { count: batchCount } = await supabase
+    .from("btc_withdrawal_batches")
+    .select("id", { count: "exact", head: true });
   // Every allocated change index belongs to exactly one withdrawal row
-  // (allocation happens after reserve), so change outputs can only live
-  // at indices 0..(row count). Scan with a small margin.
-  const maxChange = (withdrawalCount ?? 0) + 1;
+  // (or one batch), so change outputs can only live at indices
+  // 0..(row count). Scan with a small margin.
+  const maxChange = (withdrawalCount ?? 0) + (batchCount ?? 0) + 1;
 
   const targets: Array<{ chain: 0 | 1; index: number }> = [];
   for (let i = 0; i <= maxExternal; i++) targets.push({ chain: 0, index: i });
