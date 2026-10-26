@@ -242,7 +242,7 @@ BEGIN
      'ln-out:' || v_row.id::text,
      jsonb_build_object('type', 'lightning_payment',
                         'sats', v_row.amount_sats))
-  ON CONFLICT (idempotency_key) DO NOTHING;
+  ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING;
 
   outcome := 'settled';
   payment_status := 'paid';

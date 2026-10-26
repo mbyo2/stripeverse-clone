@@ -70,7 +70,10 @@ describe("migration 20261224 (SQL source proof)", () => {
 
   it("settle writes the ledger row in the same transaction, keyed per payment", () => {
     expect(sql).toContain("'ln-out:' || v_row.id::text");
-    expect(sql).toContain("ON CONFLICT (idempotency_key) DO NOTHING");
+    // The live idempotency index is PARTIAL — the conflict target
+    // must restate its predicate or the insert raises 42P10 at
+    // runtime (caught by the live ledger-math proof, 2026-10-26).
+    expect(sql).toContain("ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING");
   });
 
   it("release returns the hold in full, from 'processing' only", () => {
