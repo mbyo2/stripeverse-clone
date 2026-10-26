@@ -55,7 +55,9 @@ $event = Client::parseWebhookEvent(file_get_contents('php://input'),
   hold. Anything else throws `unsupported_currency`; no exchange
   rate is ever invented.
 - Webhook events that really occur today: `transaction.completed`
-  (your own API transfers), `payment_link.created`, `webhook.test`.
+  (your own API transfers), `payment_link.created`,
+  `payment_link.paid` (a payment link was paid — exactly once per
+  settlement), `webhook.test`.
 
 ## Test
 

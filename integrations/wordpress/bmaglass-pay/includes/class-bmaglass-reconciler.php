@@ -1,13 +1,20 @@
 <?php
 /**
- * Order/payment reconciliation for BMaGlass Pay.
+ * Order/payment settlement for BMaGlass Pay.
  *
- * The developer API does not (yet) emit a "payment link paid" webhook
- * event, so settlement is confirmed by checking the link's counters
- * via the API: when payment_count has grown past what we last saw AND
- * total_collected covers the order total, the order is completed —
- * exactly once (status + settled-flag guard), with the link code as
- * the transaction reference.
+ * Primary path (push): the developer API emits a signed
+ * `payment_link.paid` webhook the moment a link is paid;
+ * complete_order_from_event() finishes the matching order immediately.
+ *
+ * Fallback path (poll): reconciliation checks the link's counters via
+ * the API — when payment_count has grown past what we last saw AND
+ * total_collected covers the order total, the order is completed.
+ * It runs on WP-Cron, on the thank-you page and from the order action,
+ * and covers any webhook delivery the site missed.
+ *
+ * Both paths complete the order EXACTLY ONCE (status + settled-flag
+ * guard), with the link code as the transaction reference, so the two
+ * paths racing the same payment cannot double-complete it.
  *
  * @package BMaGlassPay
  */
@@ -80,6 +87,60 @@ class BMaGlass_Reconciler
         }
         $order->save();
         return false;
+    }
+
+    /** Find the unsettled order carrying a link code, or null. */
+    public static function find_order_by_link_code($linkCode)
+    {
+        $orders = wc_get_orders(array(
+            'limit' => 1,
+            'status' => array('on-hold', 'pending'),
+            'meta_query' => array(
+                array('key' => '_bmaglass_link_code', 'value' => (string) $linkCode),
+            ),
+        ));
+        return $orders ? $orders[0] : null;
+    }
+
+    /**
+     * Complete an order directly from a verified payment_link.paid
+     * event. The webhook route HMAC-verified the payload before this
+     * runs; we still cross-check the link code, currency and amount
+     * against the order before completing. The settled flag is
+     * persisted BEFORE payment_complete so a racing reconciler pass
+     * (or a duplicate delivery) sees the claim and stands down.
+     *
+     * Returns true when the order is settled after this call —
+     * including "was already settled" — and false when the event does
+     * not match a completable order (the caller then falls back to
+     * API reconciliation for the order).
+     */
+    public static function complete_order_from_event($linkCode, $amount, $currency)
+    {
+        $order = self::find_order_by_link_code($linkCode);
+        if (!$order) {
+            return false;
+        }
+        if ($order->get_meta('_bmaglass_settled') === 'yes') {
+            return true;
+        }
+        if (strtoupper((string) $currency) !== strtoupper((string) $order->get_currency())) {
+            return false;
+        }
+        if ((float) $amount + 0.009 < round((float) $order->get_total(), 2)) {
+            return false;
+        }
+        $order->update_meta_data('_bmaglass_settled', 'yes');
+        $order->save();
+        $order->payment_complete((string) $linkCode);
+        $order->add_order_note(sprintf(
+            'BMaGlass Pay payment confirmed by webhook (payment_link.paid) — link %s, %s %s.',
+            $linkCode,
+            number_format((float) $amount, 2),
+            strtoupper((string) $currency)
+        ));
+        $order->save();
+        return true;
     }
 
     /** Cron entry point: sweep recent unsettled BMaGlass orders. */

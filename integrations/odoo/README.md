@@ -45,19 +45,21 @@ tests/
   the exact amount; the buyer is redirected to the hosted page
   `https://bmaglasspay.online/pay/<code>` and pays wallet-to-wallet
   from their BMaGlass Pay account.
-- Settlement is confirmed by a **cron reconciliation every 5
-  minutes**: when the link's `payment_count` / `total_collected`
-  cover the transaction amount, the transaction is set to done
-  exactly once (Odoo's `_set_done()` is state-guarded).
+- Settlement is **push-first**: the developer API fires a signed
+  `payment_link.paid` webhook when the link is paid, and the module's
+  HMAC-verified controller settles the matching transaction
+  immediately (the payload is cross-checked — link code, currency,
+  amount — before `_set_done()` runs).
+- A **cron reconciliation every 5 minutes** remains as the fallback:
+  when the link's `payment_count` / `total_collected` cover the
+  transaction amount, the transaction is set to done. Both paths are
+  exactly-once (Odoo's `_set_done()` is state-guarded).
 
-**Why reconciliation instead of webhooks?** The developer API's
-signed webhooks currently fire for `payment_link.created` and for the
-account's own API transfers (`transaction.completed`, whose payload
-carries no sale/order identity). There is no "payment link paid"
-event yet, so a webhook-only flow would silently never settle. The
-webhook endpoint here is fully HMAC-verified and logs every signed
-event — ready to carry settlement the moment the API adds the event.
-No fake sandbox, no pretend push settlement.
+**History:** this module originally settled by reconciliation alone,
+because the API had no "payment link paid" event. The event
+(`payment_link.paid`, exactly once per settlement) has since shipped
+on the platform; the controller now settles from it directly and the
+cron remains as the safety net.
 
 ## Honest limits
 

@@ -15,9 +15,11 @@ is the PHP SDK (`sdk/php`), vendored **verbatim** in
   payment link is created for the exact total, and the buyer is
   redirected to the hosted page.
 - Settlement: the HMAC-verified webhook (module controller
-  `webhook`) nudges reconciliation; the module also reconciles from
-  the configuration page ("Check pending orders"). Paid links mark
-  orders paid **exactly once**.
+  `webhook`) settles immediately on `payment_link.paid` — the paid
+  link's order is confirmed via the API and marked paid; the module
+  also reconciles from the configuration page ("Check pending
+  orders") as the fallback. Paid links mark orders paid
+  **exactly once**.
 
 ## Install
 
@@ -32,12 +34,12 @@ is the PHP SDK (`sdk/php`), vendored **verbatim** in
 
 - Wallet-to-wallet only (buyers need a BMaGlass account).
 - Test keys are read-only by design: connection checks only.
-- Because link settlement is confirmed by polling, there can be a
+- Settlement is normally instant (the `payment_link.paid` webhook).
+  If a delivery is missed, the fallback reconciliation can leave a
   short delay between the buyer paying and the order flipping to
-  paid (the webhook nudge makes it near-instant when deliveries
-  flow). PrestaShop has no built-in cron: for hands-off operation,
+  paid. PrestaShop has no built-in cron: for hands-off operation,
   hit the module's reconcile action from your server cron via the
-  configuration page, or rely on webhook nudges + the shop's normal
+  configuration page, or rely on webhooks + the shop's normal
   admin visits.
 
 ## Verification status

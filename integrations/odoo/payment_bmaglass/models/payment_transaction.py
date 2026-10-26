@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from odoo import fields, models
 
-from .bmaglass_api import BMaGlassError, payment_link_url
+from .bmaglass_api import BMaGlassError, paid_event_matches, payment_link_url
 
 _logger = logging.getLogger(__name__)
 
@@ -56,7 +56,37 @@ class PaymentTransaction(models.Model):
             res["bmaglass_link_code"] = self.bmaglass_link_code
         return res
 
-    # -- reconciliation -----------------------------------------------------
+    # -- settlement: webhook first, reconciliation as fallback --------------
+    def _bmaglass_settle_from_paid_event(self, data):
+        """Settle this transaction from a verified payment_link.paid event.
+
+        The controller HMAC-verified the delivery; paid_event_matches
+        cross-checks link code, currency and amount before _set_done()
+        runs. _set_done() is state-guarded, so a duplicate delivery —
+        or the reconciliation cron racing the same payment — can never
+        settle twice. Returns True when this transaction is settled
+        after the call; False declines the event (the controller then
+        falls back to _bmaglass_check_paid()).
+        """
+        self.ensure_one()
+        if self.state == "done":
+            return True
+        if self.state in ("cancel", "error") or not self.bmaglass_link_code:
+            return False
+        ok, reason = paid_event_matches(
+            data, self.bmaglass_link_code, self.amount, self.currency_id.name)
+        if not ok:
+            _logger.info(
+                "BMaGlass payment_link.paid declined for %s: %s", self.reference, reason)
+            return False
+        self._set_done()
+        self._log_message_on_transaction(
+            "BMaGlass Pay payment confirmed by webhook (payment_link.paid) — link %s, %s %s."
+            % (self.bmaglass_link_code, "{:,.2f}".format(float(data.get("amount"))),
+               self.currency_id.name)
+        )
+        return True
+
     def _bmaglass_check_paid(self):
         """Settle this transaction if its link shows the money landed.
 
@@ -91,10 +121,9 @@ class PaymentTransaction(models.Model):
     def _bmaglass_reconcile_pending(self):
         """Cron entry point: sweep unsettled BMaGlass transactions.
 
-        The developer API does not yet emit a 'payment link paid'
-        webhook event, so settlement is confirmed by this scheduled
-        reconciliation (the signed webhook endpoint is live and will
-        carry the event the moment the API adds it).
+        Settlement normally arrives instantly via the payment_link.paid
+        webhook; this scheduled reconciliation is the fallback that
+        settles any transaction whose delivery was missed.
         """
         providers = self.env["payment.provider"].search([("code", "=", "bmaglass")])
         txs = self.search([

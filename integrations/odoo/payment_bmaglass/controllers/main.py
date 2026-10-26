@@ -16,11 +16,14 @@ class BMaGlassPayController(http.Controller):
     Security is the HMAC-SHA256 signature (X-BMaGlass-Signature) over
     the exact raw body, checked against the secret stored on the
     provider when the webhook was registered. Events today:
-    webhook.test (connectivity proof), payment_link.created, and
+    webhook.test (connectivity proof), payment_link.created,
     transaction.completed (the account's own API transfers — its
     payload carries no sale/order identity, so it cannot settle a
-    payment transaction; settlement runs on the reconciliation cron
-    in models/payment_transaction.py). Every verified event is logged.
+    payment transaction), and payment_link.paid — the settlement
+    event: it settles the matching payment transaction immediately
+    (models/payment_transaction.py), with the reconciliation cron
+    kept as the fallback for any missed delivery. Every verified
+    event is logged.
     """
 
     @http.route("/payment/bmaglass/webhook", type="http", auth="public",
@@ -43,6 +46,18 @@ class BMaGlassPayController(http.Controller):
         data = event.get("data") or {}
         if etype == "webhook.test":
             _logger.info("BMaGlass webhook.test received and verified.")
+        elif etype == "payment_link.paid":
+            tx = request.env["payment.transaction"].sudo().search(
+                [("bmaglass_link_code", "=", data.get("link_code"))], limit=1)
+            if tx:
+                settled = tx._bmaglass_settle_from_paid_event(data)
+                if not settled:
+                    # The event's checks declined it — verify against
+                    # the API instead of trusting the payload further.
+                    tx._bmaglass_check_paid()
+            else:
+                _logger.info(
+                    "BMaGlass payment_link.paid for unknown link %s.", data.get("link_code"))
         elif etype == "payment_link.created":
             _logger.info("BMaGlass payment_link.created: link %s.", data.get("link_code"))
             tx = request.env["payment.transaction"].sudo().search(

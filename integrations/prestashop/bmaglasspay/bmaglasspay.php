@@ -216,6 +216,38 @@ class Bmaglasspay extends PaymentModule
         foreach ((array) $links as $link) {
             $paidCounts[(string) $link['link_code']] = (int) $link['payment_count'];
         }
+        return $this->settleRows($rows, $paidCounts);
+    }
+
+    /**
+     * Complete the order recorded for ONE link code — the
+     * payment_link.paid webhook path (immediate, targeted). The link
+     * is still confirmed via the API before anything completes.
+     */
+    public function reconcileOrderByLink($linkCode)
+    {
+        $rows = Db::getInstance()->executeS(
+            'SELECT `id_order`, `link_code` FROM `' . _DB_PREFIX_ . 'bmaglasspay_orders` WHERE `paid` = 0 AND `link_code` = \''
+            . pSQL((string) $linkCode) . '\' LIMIT 1'
+        );
+        if (!$rows) {
+            return 0;
+        }
+        try {
+            $links = $this->client()->listPaymentLinks();
+        } catch (ApiException $e) {
+            return 0;
+        }
+        $paidCounts = array();
+        foreach ((array) $links as $link) {
+            $paidCounts[(string) $link['link_code']] = (int) $link['payment_count'];
+        }
+        return $this->settleRows($rows, $paidCounts);
+    }
+
+    /** Shared completion step: settle recorded rows whose link shows paid. */
+    private function settleRows($rows, $paidCounts)
+    {
         $completed = 0;
         foreach ($rows as $row) {
             if (($paidCounts[$row['link_code']] ?? 0) < 1) {

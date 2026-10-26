@@ -14,9 +14,10 @@ verified by `integrations/check-vendored-clients.sh`).
   is created for the exact total (order currency, **ZMW/USD only**),
   and the buyer is redirected to the hosted page.
 - Settlement: BMaGlass webhooks are HMAC-verified at
-  `https://YOUR-STORE/bmaglass/webhook` and nudge reconciliation;
-  a cron job (every 5 minutes) plus the webhook pass poll the API's
-  payment-link list and register the capture **exactly once**.
+  `https://YOUR-STORE/bmaglass/webhook`. A `payment_link.paid` event
+  reconciles its order immediately (confirmed via the API); a cron
+  job (every 5 minutes) also polls the API's payment-link list as
+  the fallback. Captures register **exactly once**.
 
 ## Install
 

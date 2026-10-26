@@ -15,11 +15,12 @@ use Magento\Framework\Controller\ResultFactory;
 /**
  * Webhook receiver: /bmaglass/webhook
  *
- * Verifies the HMAC signature with the configured secret. Any valid
- * event nudges a reconciliation pass (the payload carries no
- * payment-link identity today, so settlement itself is confirmed via
- * the API, exactly once, by the Reconciler). Invalid signatures get
- * a 400 and are never processed.
+ * Verifies the HMAC signature with the configured secret. A
+ * payment_link.paid event carries the paid link's code, so its order
+ * is reconciled (and completed) immediately and specifically; any
+ * other valid event nudges a full reconciliation pass. Settlement
+ * itself is always confirmed via the API, exactly once, by the
+ * Reconciler. Invalid signatures get a 400 and are never processed.
  */
 class Index extends Action implements CsrfAwareActionInterface
 {
@@ -54,7 +55,14 @@ class Index extends Action implements CsrfAwareActionInterface
             $result->setContents('invalid signature');
             return $result;
         }
-        $this->reconciler->reconcilePending();
+        $event = json_decode($raw, true);
+        if (is_array($event)
+            && ($event['type'] ?? '') === 'payment_link.paid'
+            && !empty($event['data']['link_code'])) {
+            $this->reconciler->reconcileLink((string) $event['data']['link_code']);
+        } else {
+            $this->reconciler->reconcilePending();
+        }
         $result->setHttpResponseCode(200);
         $result->setContents('ok');
         return $result;

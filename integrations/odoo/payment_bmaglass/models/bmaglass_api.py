@@ -77,6 +77,32 @@ def assert_supported_currency(currency):
     return code
 
 
+def paid_event_matches(data, link_code, amount, currency):
+    """Pure check: does a payment_link.paid event's `data` settle the
+    transaction that owns `link_code` for `amount`/`currency`?
+
+    The webhook route HMAC-verifies the payload before this runs; this
+    is the second, semantic line of defence (right link, right
+    currency, amount covering the transaction total within a ngwee of
+    rounding). Returns (ok, reason) — reason is for logs, never shown
+    to buyers. Kept dependency-free so the unit tests exercise it
+    without an Odoo runtime.
+    """
+    if not isinstance(data, dict):
+        return False, "payload data is not an object"
+    if not link_code or data.get("link_code") != link_code:
+        return False, "link_code mismatch"
+    if str(data.get("currency") or "").upper() != str(currency or "").upper():
+        return False, "currency mismatch"
+    try:
+        paid = float(data.get("amount"))
+    except (TypeError, ValueError):
+        return False, "amount missing or not numeric"
+    if paid + 0.009 < round(float(amount), 2):
+        return False, "amount below the transaction total"
+    return True, "ok"
+
+
 def payment_link_url(link_code):
     """Hosted payment page URL for a link code."""
     return "%s/pay/%s" % (SITE_BASE, link_code)

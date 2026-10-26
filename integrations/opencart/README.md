@@ -12,9 +12,11 @@ PHP SDK (`sdk/php`), vendored **verbatim** under
 - Checkout (enabled + live key + ZMW/USD store currency only):
   confirm creates ONE payment link per order and redirects the
   buyer to the hosted page.
-- Settlement: the HMAC-verified callback nudges reconciliation
-  polling (`GET /payment-links` matched to the stored per-order
-  link code); paid orders flip to the configured paid status
+- Settlement: the HMAC-verified callback receives
+  `payment_link.paid` and reconciles that order immediately
+  (`GET /payment-links` matched to the stored per-order link code,
+  confirmed via the API); the polling reconciliation remains as
+  the fallback. Paid orders flip to the configured paid status
   **exactly once**.
 
 ## Install

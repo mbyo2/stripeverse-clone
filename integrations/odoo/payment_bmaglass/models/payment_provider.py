@@ -97,7 +97,7 @@ class PaymentProvider(models.Model):
         try:
             hook = client.create_webhook(
                 self._bmaglass_webhook_url(),
-                ["transaction.completed", "payment_link.created", "webhook.test"],
+                ["transaction.completed", "payment_link.created", "payment_link.paid", "webhook.test"],
             )
         except BMaGlassError as e:
             raise UserError(e.user_message())

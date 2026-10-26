@@ -39,21 +39,23 @@ tests/
   exact total (reused on retries — never duplicated) and redirects
   the buyer to the hosted page `https://bmaglasspay.online/pay/<code>`,
   where they pay wallet-to-wallet from their BMaGlass Pay account.
-- The order sits **on-hold** until the reconciler confirms the link's
-  `payment_count` / `total_collected` cover the total; then
+- The order sits **on-hold** until it is settled. Settlement is
+  **push-first**: the developer API fires a signed `payment_link.paid`
+  webhook the moment the link is paid, and this plugin's
+  HMAC-verified endpoint completes the matching order immediately.
   `payment_complete()` runs exactly once with the link code as the
   reference.
+- **Reconciliation is the fallback**: cron (5 min), the thank-you
+  page and the per-order action still poll the link's
+  `payment_count` / `total_collected` and complete any order whose
+  webhook delivery was missed. Both paths share the same
+  settled-flag + status guard, so they cannot double-complete.
 
-**Why reconciliation instead of webhooks?** The developer API's
-signed webhooks currently fire for `payment_link.created` and for the
-account's own API transfers (`transaction.completed`, whose payload
-carries no order identity). There is no "payment link paid" event
-yet, so a webhook-only checkout would silently never complete
-orders. The webhook endpoint in this plugin is fully HMAC-verified
-and logs every signed event — it will carry settlement the moment
-the API adds the event, with no plugin change needed on the
-verification side. This is stated in the plugin readme too — no fake
-sandbox, no pretend push settlement.
+**History:** this plugin originally confirmed orders by
+reconciliation alone, because the API had no "payment link paid"
+event. The event (`payment_link.paid`, exactly once per settlement)
+has since shipped on the platform; the webhook handler now settles
+from it directly and reconciliation remains as the safety net.
 
 ## Honest limits
 

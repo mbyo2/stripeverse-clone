@@ -1,9 +1,10 @@
 <?php
 /**
- * Webhook receiver. Verifies the HMAC signature, then nudges a
- * reconciliation pass (settlement itself is confirmed via the API —
- * exactly once — because link payments carry no per-link webhook
- * identity today).
+ * Webhook receiver. Verifies the HMAC signature, then settles: a
+ * payment_link.paid event completes its order immediately via a
+ * targeted reconciliation of that link (settlement itself is always
+ * confirmed via the API — exactly once); any other valid event
+ * nudges a full reconciliation pass.
  */
 
 require_once _PS_MODULE_DIR_ . 'bmaglasspay/classes/sdk/ApiException.php';
@@ -23,7 +24,14 @@ class BmaglasspayWebhookModuleFrontController extends ModuleFrontController
             http_response_code(400);
             die('invalid signature');
         }
-        $this->module->reconcilePendingOrders();
+        $event = json_decode($raw, true);
+        if (is_array($event)
+            && ($event['type'] ?? '') === 'payment_link.paid'
+            && !empty($event['data']['link_code'])) {
+            $this->module->reconcileOrderByLink((string) $event['data']['link_code']);
+        } else {
+            $this->module->reconcilePendingOrders();
+        }
         http_response_code(200);
         die('ok');
     }

@@ -12,15 +12,13 @@
  * WC requires at least: 7.0
  * WC tested up to:   9.3
  *
- * How settlement is confirmed (read before judging the design): the
- * developer API's signed webhooks fire for payment_link.created and
- * for the account's own API transfers (transaction.completed) — there
- * is no "payment link paid" event yet. This plugin therefore confirms
- * orders by API reconciliation (WP-Cron every 5 minutes + an immediate
- * check on the thank-you page + a per-order admin action), and still
- * registers an HMAC-verified webhook endpoint (webhook.test proves
- * connectivity; every signed event is logged) that will carry the
- * settlement event the moment the API adds it.
+ * How settlement is confirmed: the developer API fires a signed
+ * payment_link.paid webhook the moment a payment link is paid, and
+ * this plugin's HMAC-verified endpoint completes the matching order
+ * immediately (exactly once). API reconciliation (WP-Cron every 5
+ * minutes + an immediate check on the thank-you page + a per-order
+ * admin action) remains as the fallback for any delivery the site
+ * misses — both paths are guarded so they can never double-complete.
  */
 
 if (!defined('ABSPATH')) {
@@ -156,6 +154,34 @@ function bmaglass_handle_webhook(WP_REST_Request $request)
         case 'payment_link.created':
             $logger->info('BMaGlass payment_link.created: ' . wp_json_encode(isset($event['data']) ? $event['data'] : array()), array('source' => 'bmaglass-pay'));
             break;
+        case 'payment_link.paid':
+            // The settlement event: complete the matching order now.
+            // The reconciler cross-checks link code, currency and
+            // amount, and completes exactly once; if its checks
+            // decline the payload, fall back to API reconciliation
+            // for that order before giving up.
+            $paidData = isset($event['data']) && is_array($event['data']) ? $event['data'] : array();
+            $paidCode = isset($paidData['link_code']) ? (string) $paidData['link_code'] : '';
+            $paidSettled = false;
+            if ($paidCode !== '') {
+                $paidSettled = BMaGlass_Reconciler::complete_order_from_event(
+                    $paidCode,
+                    isset($paidData['amount']) ? $paidData['amount'] : 0,
+                    isset($paidData['currency']) ? $paidData['currency'] : ''
+                );
+                if (!$paidSettled) {
+                    $paidOrder = BMaGlass_Reconciler::find_order_by_link_code($paidCode);
+                    $paidClient = bmaglass_client_from_settings();
+                    if ($paidOrder && $paidClient !== null) {
+                        $paidSettled = BMaGlass_Reconciler::reconcile_order($paidOrder, $paidClient);
+                    }
+                }
+            }
+            $logger->info(
+                'BMaGlass payment_link.paid: link ' . $paidCode . ($paidSettled ? ' — order settled.' : ' — no unsettled order matched (already settled or unknown link).'),
+                array('source' => 'bmaglass-pay')
+            );
+            break;
         case 'transaction.completed':
             // Fires for the merchant account's own API transfers. Its
             // payload (transaction_id/amount/currency) carries no
@@ -226,7 +252,7 @@ add_action('admin_post_bmaglass_register_webhook', function () {
     try {
         $hook = $client->createWebhook(
             rest_url('bmaglass/v1/webhook'),
-            array('transaction.completed', 'payment_link.created', 'webhook.test')
+            array('transaction.completed', 'payment_link.created', 'payment_link.paid', 'webhook.test')
         );
         $s = bmaglass_settings();
         $s['webhook_id'] = isset($hook['id']) ? $hook['id'] : '';

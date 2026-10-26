@@ -17,7 +17,7 @@ How it works:
 
 1. At checkout the plugin creates a BMaGlass payment link for the exact order total and sends the buyer to the hosted BMaGlass payment page.
 2. The buyer pays from their BMaGlass Pay wallet.
-3. The plugin confirms the payment automatically (reconciliation runs every 5 minutes, plus an immediate check when the buyer returns, plus a per-order "Check BMaGlass payment" action) and marks the order paid exactly once.
+3. When the link is paid, BMaGlass sends a signed payment_link.paid webhook and the plugin marks the order paid immediately — exactly once. (Reconciliation also runs every 5 minutes, plus an immediate check when the buyer returns, plus a per-order "Check BMaGlass payment" action, as a fallback for any missed delivery.)
 
 Requirements and honest limits:
 
@@ -25,7 +25,7 @@ Requirements and honest limits:
 * A live API key (bmp_live_...) is required to take payments. Test keys (bmp_test_...) are read-only by design across BMaGlass Pay — there is no test-mode ledger — so a test key can check the connection and read wallets, but can never take a payment. The plugin says so instead of pretending to sandbox.
 * Buyers pay from a BMaGlass Pay wallet on the hosted payment page; guest card checkout is not offered.
 
-Webhooks: the plugin registers an HMAC-SHA256-verified webhook endpoint with BMaGlass (one click in the gateway settings). Signed webhook.test events prove connectivity, and every signed event is logged. Order confirmation itself uses API reconciliation because the developer API does not yet emit a "payment link paid" event — the webhook endpoint is ready to carry it the moment the API adds it.
+Webhooks: the plugin registers an HMAC-SHA256-verified webhook endpoint with BMaGlass (one click in the gateway settings). Signed webhook.test events prove connectivity, and every signed event is logged. The payment_link.paid event completes orders the moment a link is paid; API reconciliation remains as the fallback.
 
 == Installation ==
 
@@ -46,7 +46,7 @@ No. The API key belongs to your normal BMaGlass Pay account; payments settle int
 BMaGlass Pay has no test-mode ledger, so test keys are read-only everywhere (app API, SDKs, and this plugin). Use a test key to verify the connection and wallets; use a live key — and a small real order — to test checkout.
 
 = How does the plugin know an order was paid? =
-It reconciles: every 5 minutes (and on the buyer's return, and on demand from the order screen) it checks the order's payment link via the API. When the link shows the payment landed and the collected amount covers the order total, the order is completed exactly once, with the link code as the reference.
+BMaGlass tells it: the signed payment_link.paid webhook fires when the payment link is paid, and the plugin completes the order immediately, exactly once, with the link code as the reference. As a fallback it also reconciles — every 5 minutes (and on the buyer's return, and on demand from the order screen) it checks the order's payment link via the API and completes any order whose delivery was missed.
 
 = Which fees apply? =
 Payment-link settlement follows your BMaGlass Pay account's standard link settlement terms (shown in the app). The plugin adds no fees of its own.

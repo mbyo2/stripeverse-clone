@@ -7,19 +7,15 @@
  *     order total (live key required) and redirects the buyer to the
  *     hosted BMaGlass payment page, where they pay wallet-to-wallet
  *     from their BMaGlass Pay account.
- *  2. The order is confirmed by reconciliation: a WP-Cron job (plus an
- *     immediate check on the thank-you page and a "Check BMaGlass
- *     payment" order action) polls the API for the link's
- *     payment_count / total_collected and completes the order exactly
- *     once when the money has landed.
- *
- * Why polling? The developer API's signed webhooks today fire for
- * payment_link.created and for the account's own API transfers
- * (transaction.completed) — the API does not yet emit a "link paid"
- * event, so no honest webhook-only design exists. This plugin still
- * registers an HMAC-verified webhook endpoint (connectivity proof via
- * webhook.test, signed event log) so it is ready the day the API
- * adds that event. See README.md.
+ *  2. The order is confirmed the moment the link is paid: the
+ *     developer API's signed payment_link.paid webhook hits this
+ *     plugin's HMAC-verified endpoint, which completes the order
+ *     immediately and exactly once.
+ *  3. Reconciliation is the fallback: a WP-Cron job (plus an immediate
+ *     check on the thank-you page and a "Check BMaGlass payment"
+ *     order action) polls the API for the link's payment_count /
+ *     total_collected and completes any order whose webhook delivery
+ *     was missed — guarded so it can never double-complete.
  *
  * @package BMaGlassPay
  */
@@ -83,9 +79,9 @@ class WC_Gateway_BMaGlass extends WC_Payment_Gateway
             'webhook_id' => array(
                 'title' => 'Webhook ID',
                 'type' => 'text',
-                'description' => 'Filled automatically by "Register webhook" below. The webhook proves connectivity '
-                    . '(signed webhook.test events) and logs signed events; order confirmation itself runs on '
-                    . 'automatic reconciliation (see the plugin README for why).',
+                'description' => 'Filled automatically by "Register webhook" below. When a payment link is paid, '
+                    . 'the signed payment_link.paid webhook completes the order immediately; automatic '
+                    . 'reconciliation runs as the fallback (see the plugin README).',
                 'custom_attributes' => array('readonly' => 'readonly'),
             ),
             'webhook_secret' => array(

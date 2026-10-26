@@ -106,5 +106,48 @@ class WebhookVerifyTest(unittest.TestCase):
         self.assertIsNone(api.parse_webhook_event(self.RAW, "sha256=deadbeef", "whsec_testsecret"))
 
 
+class PaidEventMatchTest(unittest.TestCase):
+    """payment_link.paid semantic guard (the controller's second line
+    of defence after HMAC verification): right link, right currency,
+    amount covering the transaction total."""
+
+    DATA = {"link_code": "LK1", "amount": 5, "currency": "ZMW",
+            "transaction_id": "tx-owner-1", "reference": "SO001"}
+
+    def test_exact_match(self):
+        ok, _ = api.paid_event_matches(self.DATA, "LK1", 5.00, "ZMW")
+        self.assertTrue(ok)
+
+    def test_currency_case_insensitive_and_string_amount(self):
+        ok, _ = api.paid_event_matches(
+            {**self.DATA, "amount": "5.00", "currency": "zmw"}, "LK1", 5, "ZMW")
+        self.assertTrue(ok)
+
+    def test_wrong_link_declined(self):
+        ok, reason = api.paid_event_matches(self.DATA, "OTHER", 5, "ZMW")
+        self.assertFalse(ok)
+        self.assertIn("link_code", reason)
+
+    def test_wrong_currency_declined(self):
+        ok, reason = api.paid_event_matches(self.DATA, "LK1", 5, "USD")
+        self.assertFalse(ok)
+        self.assertIn("currency", reason)
+
+    def test_short_amount_declined(self):
+        ok, reason = api.paid_event_matches(
+            {**self.DATA, "amount": 2}, "LK1", 5, "ZMW")
+        self.assertFalse(ok)
+        self.assertIn("amount", reason)
+
+    def test_missing_amount_declined(self):
+        data = {k: v for k, v in self.DATA.items() if k != "amount"}
+        ok, _ = api.paid_event_matches(data, "LK1", 5, "ZMW")
+        self.assertFalse(ok)
+
+    def test_non_dict_declined(self):
+        ok, _ = api.paid_event_matches(None, "LK1", 5, "ZMW")
+        self.assertFalse(ok)
+
+
 if __name__ == "__main__":
     unittest.main()

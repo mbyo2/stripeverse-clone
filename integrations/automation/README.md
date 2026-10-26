@@ -13,16 +13,20 @@ BMaGlass webhooks fire for:
 |---|---|---|
 | `transaction.completed` | a transfer made **via the developer API** completes | `{transaction_id, amount, currency, to_user_id}` |
 | `payment_link.created` | a payment link is created (app or API) | the link row (`id`, `link_code`, `title`, `amount`, `currency`, `status`) |
+| `payment_link.paid` | a buyer **pays** a payment link (exactly once per settlement) | `{payment_link_id, link_code, title, amount, currency, transaction_id, payer_transaction_id, payment_method, payment_count, total_collected, reference, metadata, settled_at}` |
 | `webhook.test` | you press "send test" | `{ping: true}` |
 
 Example payloads: `examples/*.json` in this folder.
 
-**Not available today:** a webhook when a buyer *pays* a payment
-link. If an automation must react to a customer paying you, poll
-`GET /payment-links` (Zapier Schedule → Webhooks GET, or a Make
-scenario on a timer) and watch `payment_count` / `total_collected`
-for your link — that is the same reconciliation pattern the shop
-connectors use.
+**Reacting to a customer paying you:** subscribe a hook to
+`payment_link.paid` — it fires at settlement with the link code and
+the link's merchant-supplied `reference`/`metadata`, so your
+automation can match the payment to the order. Keep a polling
+fallback anyway (Zapier Schedule → Webhooks GET, or a Make scenario
+on a timer, watching `payment_count` / `total_collected` on
+`GET /payment-links`) for any delivery your endpoint missed — the
+same webhook-first, reconcile-as-backup pattern the shop connectors
+use.
 
 ## Zapier recipes
 

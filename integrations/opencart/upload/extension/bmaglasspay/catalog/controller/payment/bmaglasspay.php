@@ -8,11 +8,13 @@ use BMaGlass\Sdk\Client;
 /**
  * Checkout confirm + webhook callback.
  *
- * Settlement: the developer API does not emit a per-link webhook
- * today, so the HMAC-verified callback nudges reconciliation
- * polling (GET /payment-links matched to the stored per-order
- * link_code). Orders complete exactly once. For hands-off shops,
- * any storefront visit to the confirm view also reconciles.
+ * Settlement: the developer API fires a signed payment_link.paid
+ * event when a link is paid; the HMAC-verified callback then
+ * reconciles that link's order immediately (GET /payment-links
+ * matched to the stored per-order link_code, confirmed via the API).
+ * The polling reconciliation remains as the fallback for any missed
+ * delivery. Orders complete exactly once. For hands-off shops, any
+ * storefront visit to the confirm view also reconciles.
  */
 class Bmaglasspay extends \Opencart\System\Engine\Controller
 {
@@ -69,7 +71,8 @@ class Bmaglasspay extends \Opencart\System\Engine\Controller
 
     /**
      * Webhook receiver: …?route=extension/bmaglasspay/payment/bmaglasspay.callback
-     * HMAC-verified; nudges reconciliation.
+     * HMAC-verified; a payment_link.paid event reconciles its own
+     * order immediately, any other valid event nudges a full pass.
      */
     public function callback(): void
     {
@@ -83,14 +86,28 @@ class Bmaglasspay extends \Opencart\System\Engine\Controller
             $this->response->setOutput('invalid signature');
             return;
         }
-        $this->reconcile();
+        $event = json_decode($raw, true);
+        if (is_array($event)
+            && ($event['type'] ?? '') === 'payment_link.paid'
+            && !empty($event['data']['link_code'])) {
+            $this->reconcile((string) $event['data']['link_code']);
+        } else {
+            $this->reconcile();
+        }
         $this->response->setOutput('ok');
     }
 
-    /** Complete orders whose link has been paid. Exactly once per order. */
-    public function reconcile(): int
+    /**
+     * Complete orders whose link has been paid — all pending orders,
+     * or just the one for $linkCode (the webhook path). Exactly once
+     * per order.
+     */
+    public function reconcile(?string $linkCode = null): int
     {
-        $rows = $this->db->query('SELECT `order_id`, `link_code` FROM `' . DB_PREFIX . 'bmaglasspay_orders` WHERE `paid` = 0 LIMIT 50')->rows;
+        $filter = $linkCode !== null
+            ? ' AND `link_code` = \'' . $this->db->escape($linkCode) . '\''
+            : '';
+        $rows = $this->db->query('SELECT `order_id`, `link_code` FROM `' . DB_PREFIX . 'bmaglasspay_orders` WHERE `paid` = 0' . $filter . ' LIMIT 50')->rows;
         if (!$rows) {
             return 0;
         }
