@@ -1,0 +1,15 @@
+name: bmaglass_sdk
+description: BMaGlass Pay client for Flutter — wallets, transfers, payment links, Bitcoin and webhooks over the BMaGlass developer API.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  http: ^1.2.0
+  crypto: ^3.0.3
+  convert: ^3.1.1
+
+dev_dependencies:
+  test: ^1.24.0

@@ -1,0 +1,16 @@
+<div class="d-inline-block pt-2 pd-2 w-100">
+  <div class="float-end">
+    <button type="button" id="button-confirm" class="btn btn-primary">{{ text_confirm }}</button>
+  </div>
+</div>
+<script>
+document.getElementById('button-confirm').addEventListener('click', function () {
+  fetch('{{ confirm_url }}'.replace(/&amp;/g, '&'), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json())
+    .then(j => {
+      if (j.redirect) { window.location = j.redirect; }
+      else { alert(j.error || 'Something went wrong. Please try again.'); }
+    })
+    .catch(() => alert('Something went wrong. Please try again.'));
+});
+</script>
