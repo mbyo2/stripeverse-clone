@@ -175,7 +175,12 @@ php sdk/php/tests/run-tests.php   # the test suite`}</pre>
             <p>Webhooks: when a payment link is paid, the <code>payment_link.paid</code> event fires at
               settlement (exactly once per payment) — verify it with the same signature helper shown in
               each SDK tab above, and keep polling <code>GET /payment-links</code> as a reconciliation
-              fallback for any delivery your endpoint missed.</p>
+              fallback for any delivery your endpoint missed. The payload's data also reports the fee
+              truth — <code>fee_payer</code> (<code>seller</code> | <code>buyer</code>), <code>fee_amount</code> and
+              <code> total_charged</code> — who bore the payment-link platform fee and what the buyer
+              actually paid in total. Who pays the fee is the merchant's account setting in BMaGlass
+              Pay (readable via <code>GET /settings</code>); SDKs and plugins inherit it and have no
+              fee-bearer setting of their own.</p>
           </CardContent>
         </Card>
       </main>

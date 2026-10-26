@@ -17,8 +17,9 @@ const ENDPOINTS = [
   { method: "GET", path: "/wallets", scope: "wallets:read", desc: "List your wallets and balances" },
   { method: "GET", path: "/transactions", scope: "transactions:read", desc: "Recent transactions (limit 1–100)" },
   { method: "POST", path: "/transfers", scope: "transfers:write", desc: "Wallet-to-wallet transfer — live keys only, 1.5% fee charged on top, Idempotency-Key supported" },
-  { method: "GET", path: "/payment-links", scope: "payment_links:read", desc: "List your payment links" },
-  { method: "POST", path: "/payment-links", scope: "payment_links:write", desc: "Create a payment link — live keys only" },
+  { method: "GET", path: "/payment-links", scope: "payment_links:read", desc: "List your payment links — each carries its fee_payer plus the computed fee_amount, buyer_total and seller_receives" },
+  { method: "POST", path: "/payment-links", scope: "payment_links:write", desc: "Create a payment link — live keys only; optional fee_payer ('seller' | 'buyer') overrides your account default for this link" },
+  { method: "GET", path: "/settings", scope: "any valid key", desc: "Your account's fee-bearer default (fee_payer_default) and the platform fee rate — set in your BMaGlass dashboard, read here" },
   { method: "GET", path: "/bitcoin/balance", scope: "bitcoin:read", desc: "Custodial Bitcoin balance (sats)" },
   { method: "GET", path: "/bitcoin/deposit-address", scope: "bitcoin:read", desc: "The custodial deposit address already issued to your account in the app" },
   { method: "POST", path: "/bitcoin/quote", scope: "bitcoin:read", desc: "60-second BTC buy/sell quote at the app's 1.5% fee — quote only, execution stays in the app" },
@@ -92,6 +93,19 @@ export default function Developers() {
               (each link reports <code>payment_count</code> and <code>total_collected</code>) to reconcile any
               delivery your endpoint missed — that is the pattern the shop connectors below use
               (webhook first, reconciliation as the safety net).</p>
+            <p><strong>Who pays the platform fee is the merchant's choice, made in BMaGlass Pay — not in
+              your plugin.</strong> Every payment link carries a <code>fee_payer</code>: <code>seller</code> (the
+              fee comes out of what the seller receives) or <code>buyer</code> (the fee is added on top, so the
+              seller receives the full price). The default lives in the merchant's account settings
+              (BMaGlass Pay → Settings → Payment); read it with <code>GET /settings</code> the moment you connect
+              with their key, or pass <code>fee_payer</code> when creating a link to override it for that link.
+              Plugins, extensions and SDKs have no fee-bearer setting of their own — they inherit the
+              merchant's. Link responses include the computed <code>fee_amount</code>, <code>buyer_total</code> and
+              <code>seller_receives</code>, and the <code>payment_link.paid</code> payload reports
+              <code> fee_payer</code>, <code>fee_amount</code> and <code>total_charged</code> (what the buyer
+              actually paid), so your shop can reconcile the paid total against the order total without
+              reimplementing the fee math. Settlement always follows the link's stored value — it cannot
+              be changed at pay time.</p>
           </CardContent>
         </Card>
 
