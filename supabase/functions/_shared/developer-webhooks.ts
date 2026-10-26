@@ -118,9 +118,20 @@ export interface PaymentLinkPaidSettlement {
   ownerTransactionId: string;
   /** Payer-side ledger row, when the payer has one (wallet payments). */
   payerTransactionId?: string | null;
+  /** The link's price — what the payment was FOR. */
   amount: number;
   currency: string;
   paymentMethod: string;
+  /** Who bore the platform fee: the link's stored choice, enforced
+   *  server-side at settlement (seller | buyer). */
+  feePayer: string;
+  /** The platform fee the settlement actually took. */
+  feeAmount: number;
+  /** What the buyer actually paid in total: the price when the
+   *  seller bore the fee, price + fee when the buyer did. Lets a
+   *  shop connector reconcile the buyer's paid total against its
+   *  order total (+ the fee it added at checkout, where it did). */
+  totalCharged: number;
   /** ISO timestamp of the settlement. */
   settledAt: string;
 }
@@ -152,8 +163,9 @@ export interface PaymentLinkPaidOutcome {
  * adds the settlement facts a shop connector needs to complete an
  * order immediately: the link's public code (order identity is the
  * merchant's link ↔ order mapping), the amount and currency, the
- * owner-side transaction id, and the link's merchant-supplied
- * `reference`/`metadata` when present.
+ * fee truth (fee_payer, fee_amount, and total_charged — what the
+ * buyer actually paid), the owner-side transaction id, and the
+ * link's merchant-supplied `reference`/`metadata` when present.
  */
 export async function dispatchPaymentLinkPaid(
   db: Db,
@@ -189,6 +201,9 @@ export async function dispatchPaymentLinkPaid(
     title: link.title,
     amount: settlement.amount,
     currency: settlement.currency,
+    fee_payer: settlement.feePayer,
+    fee_amount: settlement.feeAmount,
+    total_charged: settlement.totalCharged,
     transaction_id: settlement.ownerTransactionId,
     payer_transaction_id: settlement.payerTransactionId ?? null,
     payment_method: settlement.paymentMethod,

@@ -3,6 +3,29 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import type { FeePayer } from '@/utils/splitPayments';
+
+/**
+ * The merchant's account-level fee-bearer default (Settings →
+ * Payment). The dashboard create form starts each new link from this
+ * value; the link's own stored fee_payer is what settlement enforces.
+ */
+export const useFeePayerDefault = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['fee-payer-default', user?.id],
+    queryFn: async (): Promise<FeePayer> => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('payment_link_fee_payer')
+        .eq('id', user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.payment_link_fee_payer === 'buyer' ? 'buyer' : 'seller';
+    },
+    enabled: !!user,
+  });
+};
 
 export const usePaymentLinks = () => {
   const { user } = useAuth();
@@ -30,6 +53,10 @@ export const useCreatePaymentLink = () => {
       currency?: string; max_payments?: number; expires_at?: string;
       /** Settlement target account (Phase 1.5); null/omitted = Main. */
       account_id?: string | null;
+      /** Who funds the platform fee; omitted = the merchant's
+       *  account default applies (the column default keeps it
+       *  seller-pays for anything that doesn't say). */
+      fee_payer?: FeePayer;
     }) => {
       const { data, error } = await supabase.from('payment_links').insert({
         user_id: user!.id, ...link,
@@ -58,6 +85,8 @@ export const useUpdatePaymentLink = () => {
       max_payments?: number | null;
       /** Settlement target account (Phase 1.5); null = Main. */
       account_id?: string | null;
+      /** Who funds the platform fee for this link. */
+      fee_payer?: FeePayer;
     }) => {
       const { data, error } = await supabase.from('payment_links').update(updates).eq('id', id).select().single();
       if (error) throw error;

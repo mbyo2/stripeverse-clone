@@ -166,27 +166,40 @@ describe("payment-links page disclosure wiring", () => {
     expect(paymentLinks).toContain("split_platform_fee_percent ?? 2.5");
   });
 
+  // Fee-bearer update (CEO order, 2026-10-26): the Wave B disclosure
+  // ("the fee comes out of what you receive") became a CHOICE — the
+  // create/edit forms now ask who pays the fee, with live numbers for
+  // both sides, defaulting to the merchant's account setting. The
+  // disclosure duty these pins guard is unchanged; the copy is the
+  // choice's.
   it("computes the disclosed figures with the shared fee mirror", () => {
-    expect(paymentLinks).toContain("computePaymentLinkNet");
+    expect(paymentLinks).toContain("computePaymentLinkBreakdown");
   });
 
-  it("the create form states what the seller receives per payment", () => {
-    expect(paymentLinks).toContain("you receive {fmtFee(createNet.sellerReceives)} per payment");
+  it("the create form asks who pays the fee, with live numbers for both sides", () => {
+    expect(paymentLinks).toContain("Who pays the {rate}% platform fee?");
+    expect(paymentLinks).toContain("You receive ${fmtFee(sellerBd.sellerReceives)} · buyer pays ${fmtFee(sellerBd.buyerPays)}");
+    expect(paymentLinks).toContain("You receive ${fmtFee(buyerBd.sellerReceives)} · buyer pays ${fmtFee(buyerBd.buyerPays)}");
+    expect(paymentLinks).toContain("value={feePayer} onChange={setFeePayer}");
+    // …and the choice starts from the merchant's account default.
+    expect(paymentLinks).toContain("useFeePayerDefault");
+    expect(paymentLinks).toContain("fee_payer: feePayer");
   });
 
-  it("the edit form states what the seller receives per payment", () => {
-    expect(paymentLinks).toContain("you receive {fmtFee(editNet.sellerReceives)} per payment");
+  it("the edit form asks the same question, seeded from the link's stored choice", () => {
+    expect(paymentLinks).toContain("value={editFeePayer} onChange={setEditFeePayer}");
+    expect(paymentLinks).toContain("setEditFeePayer(link.fee_payer === 'buyer' ? 'buyer' : 'seller')");
+    expect(paymentLinks).toContain("fee_payer: editFeePayer");
   });
 
-  it("open-amount links still disclose the fee and its side", () => {
-    expect(paymentLinks).toContain(
-      "the fee comes out of what you receive, not on top of what the payer pays"
-    );
+  it("open-amount links still disclose the fee and both of its sides", () => {
+    expect(paymentLinks).toContain("platform fee comes out of what you receive on each payment");
+    expect(paymentLinks).toContain("platform fee is added on top of the amount the buyer enters");
   });
 
-  it("each fixed-amount link in the list shows the seller's net", () => {
-    expect(paymentLinks).toContain("You receive {fmtFee(computePaymentLinkNet(Number(link.amount), platformFeeRate).sellerReceives)} of each");
-    expect(paymentLinks).toContain("({platformFeeRate}% platform fee)");
+  it("each fixed-amount link in the list shows the money truth for its mode", () => {
+    expect(paymentLinks).toContain("You receive {fmtFee(bd.sellerReceives)} of each {fmtFee(bd.price)} payment ({platformFeeRate}% platform fee)");
+    expect(paymentLinks).toContain("Buyer pays {fmtFee(bd.buyerPays)} ({fmtFee(bd.price)} + {fmtFee(bd.platformFee)} fee) — you receive the full {fmtFee(bd.sellerReceives)}");
   });
 });
 

@@ -32,6 +32,18 @@
 // in public.developer_webhook_deliveries. The dispatcher itself lives
 // in ../_shared/developer-webhooks.ts so every emitter signs, filters
 // subscriptions and logs identically.
+//
+// Fee-bearer (2026-10-26): who funds the payment-link platform fee —
+// the seller or the buyer — is the merchant's account setting in
+// BMaGlass Pay (dashboard Settings → Payment), exposed read-only here
+// as GET /settings so a connected plugin/SDK learns it from the
+// merchant's key instead of asking again. Link create accepts an
+// optional per-link fee_payer; when omitted it resolves from that
+// account default. Plugins get NO fee-bearer setting of their own —
+// they inherit. Link responses carry the resolved fee_payer plus the
+// computed fee_amount / buyer_total / seller_receives (shared
+// _shared/fee-math.ts — the same rule settlement charges), and
+// settlement is enforced server-side from the link's stored value.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -39,6 +51,7 @@ import {
   dispatchEvent,
   KNOWN_DEVELOPER_EVENTS,
 } from "../_shared/developer-webhooks.ts";
+import { paymentLinkAmounts, type FeePayer } from "../_shared/fee-math.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -135,7 +148,7 @@ serve(async (req) => {
         name: "BMaGlass Pay Developer API",
         version: "1",
         mode_note: "Test keys (bmp_test_) are read-only. Live keys (bmp_live_) move real money.",
-        resources: ["wallets", "transactions", "transfers", "payment-links", "bitcoin", "webhooks", "webhook-deliveries"],
+        resources: ["wallets", "transactions", "transfers", "payment-links", "settings", "bitcoin", "webhooks", "webhook-deliveries"],
         unavailable: ["moonpay", "stripe", "payoneer", "card-issuing"],
       });
     }
@@ -145,6 +158,57 @@ serve(async (req) => {
     const key = keyOrRes;
     const userId = key.user_id;
     const body = method === "POST" ? await req.json().catch(() => ({})) : {};
+
+    // The merchant's fee-bearer truth: their account default (set in
+    // the BMaGlass dashboard — the source of truth) and the platform's
+    // current payment-link fee rate, resolved together.
+    const feeContext = async () => {
+      const [{ data: settings }, { data: profile }] = await Promise.all([
+        db.from("platform_settings").select("split_platform_fee_percent").eq("id", true).maybeSingle(),
+        db.from("profiles").select("payment_link_fee_payer").eq("id", userId).maybeSingle(),
+      ]);
+      const feePayerDefault: FeePayer =
+        profile?.payment_link_fee_payer === "buyer" ? "buyer" : "seller";
+      return { feePayerDefault, rate: settings?.split_platform_fee_percent ?? null };
+    };
+    // Merge the computed money picture into a link row. Amount fields
+    // are null when the link has no fixed price (or the rate is
+    // somehow unavailable): the client can then compute from
+    // fee_payer + the rate exposed by GET /settings.
+    const withAmounts = (
+      row: Record<string, unknown>,
+      rate: number | string | null,
+    ): Record<string, unknown> => {
+      const feePayer: FeePayer = row.fee_payer === "buyer" ? "buyer" : "seller";
+      if (row.amount == null || rate === null) {
+        return { ...row, fee_payer: feePayer, fee_amount: null, buyer_total: null, seller_receives: null };
+      }
+      const a = paymentLinkAmounts(Number(row.amount), String(rate), feePayer);
+      return {
+        ...row,
+        fee_payer: feePayer,
+        fee_amount: a.fee_amount,
+        buyer_total: a.buyer_total,
+        seller_receives: a.seller_receives,
+      };
+    };
+
+    // ── Settings (read-only): the merchant's fee-bearer default ──
+    // The setting itself is changed in the BMaGlass dashboard
+    // (Settings → Payment); this read exists so a connected plugin,
+    // extension or SDK learns it from the merchant's key the moment
+    // it connects. Plugins have no fee-bearer setting of their own.
+    if (resource === "settings" && method === "GET") {
+      const { feePayerDefault, rate } = await feeContext();
+      return json(200, {
+        data: {
+          fee_payer_default: feePayerDefault,
+          platform_fee_percent: rate === null ? null : Number(rate),
+          note: "fee_payer_default decides who funds the payment-link platform fee: 'seller' — the fee comes out of what the seller receives; 'buyer' — the fee is added on top of the price and the seller receives the full price. It is set in the BMaGlass Pay dashboard (Settings → Payment) and can be overridden per payment link at creation. Settlement always follows the link's stored fee_payer.",
+        },
+        mode: modeOf(key),
+      });
+    }
 
     // ── Wallets ──
     if (resource === "wallets" && method === "GET") {
@@ -197,25 +261,38 @@ serve(async (req) => {
     if (resource === "payment-links" && method === "GET") {
       const denied = requireScope(key, "payment_links:read"); if (denied) return denied;
       const { data, error } = await db.from("payment_links")
-        .select("id, title, description, amount, currency, link_code, status, payment_count, total_collected, expires_at, created_at")
+        .select("id, title, description, amount, currency, link_code, status, fee_payer, payment_count, total_collected, expires_at, created_at")
         .eq("user_id", userId).order("created_at", { ascending: false }).limit(100);
       if (error) throw error;
-      return json(200, { data, mode: modeOf(key) });
+      const { rate } = await feeContext();
+      return json(200, {
+        data: (data ?? []).map((row) => withAmounts(row as Record<string, unknown>, rate)),
+        mode: modeOf(key),
+      });
     }
     if (resource === "payment-links" && method === "POST") {
       const denied = requireScope(key, "payment_links:write"); if (denied) return denied;
       const ro = requireLive(key); if (ro) return ro;
-      const { title, description, amount, currency, expires_at } = body;
+      const { title, description, amount, currency, expires_at, fee_payer } = body;
       if (!title || typeof title !== "string") return err(400, "invalid_request", "title is required.");
+      if (fee_payer !== undefined && fee_payer !== "seller" && fee_payer !== "buyer") {
+        return err(400, "invalid_request", "fee_payer must be 'seller' or 'buyer'.");
+      }
+      // Resolution: explicit per-link choice > the merchant's
+      // account default (their BMaGlass dashboard setting) > 'seller'.
+      const { feePayerDefault, rate } = await feeContext();
+      const resolvedFeePayer: FeePayer = fee_payer ?? feePayerDefault;
       const { data, error } = await db.from("payment_links").insert({
         user_id: userId, title: title.slice(0, 200), description: description ?? null,
         amount: amount != null ? Number(amount) : null,
         currency: typeof currency === "string" ? currency : "ZMW",
         expires_at: expires_at ?? null,
-      }).select("id, title, amount, currency, link_code, status, created_at").single();
+        fee_payer: resolvedFeePayer,
+      }).select("id, title, amount, currency, link_code, status, fee_payer, created_at").single();
       if (error) throw error;
-      await dispatchEvent(db, userId, "payment_link.created", data).catch(() => []);
-      return json(201, { data, mode: "live" });
+      const out = withAmounts(data as Record<string, unknown>, rate);
+      await dispatchEvent(db, userId, "payment_link.created", out).catch(() => []);
+      return json(201, { data: out, mode: "live" });
     }
 
     // ── Bitcoin (custodial, read-only via API) ──

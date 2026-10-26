@@ -91,6 +91,51 @@ export function computePaymentLinkNet(amount: number, ratePercent: number): Paym
   return { platformFee, sellerReceives };
 }
 
+/** Who funds the payment-link platform fee (CEO order, 2026-10-26):
+ *  "seller" — it comes out of what the seller receives (the original
+ *  behaviour); "buyer" — it is added on top of the price, so the
+ *  seller receives the full price. The choice is the merchant's
+ *  account setting (profiles.payment_link_fee_payer, set in Settings
+ *  → Payment); each link stores its resolved value
+ *  (payment_links.fee_payer), and settlement enforces the stored
+ *  value — nothing can change it at pay time. */
+export type FeePayer = "seller" | "buyer";
+
+export interface PaymentLinkBreakdown {
+  /** The link's price — what the payment is FOR. */
+  price: number;
+  /** The platform fee at the given rate (computePlatformFee). */
+  platformFee: number;
+  /** What the buyer actually pays: price (+ fee when buyer-pays). */
+  buyerPays: number;
+  /** What lands with the seller before their split rules run:
+   *  the full price when buyer-pays, price − fee when seller-pays. */
+  sellerReceives: number;
+}
+
+/**
+ * The full money picture of one payment-link payment for the given
+ * fee-bearer. The fee itself is computePlatformFee — the same single
+ * rule the settlement charges (round-half-up to whole ngwee, capped
+ * at the price); only WHO funds it changes between the two modes.
+ * Seller-pays at K100 / 2.5%: buyer pays K100.00, seller gets K97.50.
+ * Buyer-pays: buyer pays K102.50, seller receives exactly K100.00.
+ */
+export function computePaymentLinkBreakdown(
+  amount: number,
+  ratePercent: number,
+  feePayer: FeePayer,
+): PaymentLinkBreakdown {
+  const price = amount > 0 ? roundMoney(amount) : 0;
+  const platformFee = computePlatformFee(price, ratePercent);
+  return {
+    price,
+    platformFee,
+    buyerPays: feePayer === "buyer" ? roundMoney(price + platformFee) : price,
+    sellerReceives: feePayer === "buyer" ? price : roundMoney(price - platformFee),
+  };
+}
+
 /** Shared leg loop: percentages are shares of `amount` (the ORIGINAL
  *  payment), capped at a remainder that starts at `startingRemaining`. */
 function computeLegsFrom(

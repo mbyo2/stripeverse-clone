@@ -15,6 +15,7 @@ import {
   validateLinkPayment,
   type LinkPaymentMethod,
 } from '@/utils/paymentLinkSettlement';
+import { computePlatformFee } from '@/utils/splitPayments';
 
 interface PaymentLinkData {
   id: string;
@@ -25,6 +26,16 @@ interface PaymentLinkData {
   status: string;
   user_id: string;
   account_id: string | null;
+  /** Who funds the platform fee — the link's stored, seller-chosen
+   *  value, enforced server-side at settlement. */
+  fee_payer?: string;
+  /** The platform's current link fee rate (%), for live breakdowns
+   *  on any-amount links. */
+  fee_rate_percent?: number | null;
+  /** Server-computed fee picture for fixed-price links. */
+  fee_amount?: number | null;
+  buyer_total?: number | null;
+  seller_receives?: number | null;
 }
 
 const PublicCheckout = () => {
@@ -44,6 +55,25 @@ const PublicCheckout = () => {
   const [success, setSuccess] = useState(false);
   const [receiptRef, setReceiptRef] = useState('');
   const [payErrorMsg, setPayErrorMsg] = useState<string | null>(null);
+
+  // Fee-bearer display truth: on a buyer-pays link the buyer funds
+  // the platform fee, so the page shows price + fee = total BEFORE
+  // paying. Fixed-price links take the server's computed fee from
+  // describe; any-amount links compute it live with the same single
+  // fee rule the settlement charges (computePlatformFee). Seller-pays
+  // links return null here — the page shows the single total, exactly
+  // as it always has.
+  const feeBreakdownFor = (priceAmount: number) => {
+    if (!linkData || linkData.fee_payer !== 'buyer' || !(priceAmount > 0)) return null;
+    const fee = linkData.amount != null && linkData.fee_amount != null
+      ? linkData.fee_amount
+      : computePlatformFee(priceAmount, linkData.fee_rate_percent ?? 0);
+    return {
+      price: priceAmount,
+      fee,
+      total: Math.round((priceAmount + fee) * 100) / 100,
+    };
+  };
 
   // One idempotency key per page session: if a pay attempt's response is
   // lost (network drop, timeout), retrying with the same key replays the
@@ -215,15 +245,23 @@ const PublicCheckout = () => {
     </div>
   );
 
-  if (success) return (
+  if (success) {
+    const paidPrice = linkData?.amount || Number(customAmount) || 0;
+    const paidBd = feeBreakdownFor(paidPrice);
+    return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <CardContent className="pt-8 pb-8 text-center space-y-4">
           <CheckCircle className="h-14 w-14 mx-auto text-green-500" />
           <h2 className="text-xl font-semibold">Payment Successful!</h2>
           <div className="bg-muted rounded-lg p-4 space-y-2">
-            <p className="text-2xl font-bold">{linkData?.currency} {(linkData?.amount || Number(customAmount)).toFixed(2)}</p>
+            <p className="text-2xl font-bold">{linkData?.currency} {(paidBd?.total ?? paidPrice).toFixed(2)}</p>
             <p className="text-sm text-muted-foreground">to {linkData?.title}</p>
+            {paidBd && (
+              <p className="text-xs text-muted-foreground">
+                {linkData?.currency} {paidBd.price.toFixed(2)} to the seller + {linkData?.currency} {paidBd.fee.toFixed(2)} platform fee
+              </p>
+            )}
           </div>
           {receiptRef && (
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -235,9 +273,12 @@ const PublicCheckout = () => {
         </CardContent>
       </Card>
     </div>
-  );
+    );
+  }
 
   const amount = linkData?.amount || Number(customAmount) || 0;
+  const bd = feeBreakdownFor(amount);
+  const payTotal = bd?.total ?? amount;
   const methods = [
     ...(payerId ? [{ id: 'wallet' as const, icon: Wallet, label: 'BMaGlass Wallet' }] : []),
     { id: 'card' as const, icon: CreditCard, label: 'Card' },
@@ -269,14 +310,52 @@ const PublicCheckout = () => {
           </CardHeader>
           <CardContent className="space-y-6">
             {linkData?.amount ? (
-              <div className="text-center p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">Amount Due</p>
-                <p className="text-3xl font-bold text-foreground">{linkData.currency} {linkData.amount.toFixed(2)}</p>
-              </div>
+              bd ? (
+                <div className="p-4 bg-muted rounded-lg space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Price</span>
+                    <span className="font-medium">{linkData.currency} {bd.price.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Platform fee</span>
+                    <span className="font-medium">{linkData.currency} {bd.fee.toFixed(2)}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Total to pay</span>
+                    <span className="text-2xl font-bold text-foreground">{linkData.currency} {bd.total.toFixed(2)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">The seller receives the full {linkData.currency} {bd.price.toFixed(2)} — the platform fee is added on top for you.</p>
+                </div>
+              ) : (
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">Amount Due</p>
+                  <p className="text-3xl font-bold text-foreground">{linkData.currency} {linkData.amount.toFixed(2)}</p>
+                </div>
+              )
             ) : (
-              <div>
-                <Label>Amount ({linkData?.currency})</Label>
-                <Input type="number" placeholder="0.00" value={customAmount} onChange={e => setCustomAmount(e.target.value)} />
+              <div className="space-y-3">
+                <div>
+                  <Label>Amount ({linkData?.currency})</Label>
+                  <Input type="number" placeholder="0.00" value={customAmount} onChange={e => setCustomAmount(e.target.value)} />
+                </div>
+                {bd && (
+                  <div className="p-4 bg-muted rounded-lg space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Price</span>
+                      <span className="font-medium">{linkData?.currency} {bd.price.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Platform fee</span>
+                      <span className="font-medium">{linkData?.currency} {bd.fee.toFixed(2)}</span>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Total to pay</span>
+                      <span className="text-xl font-bold text-foreground">{linkData?.currency} {bd.total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -314,7 +393,9 @@ const PublicCheckout = () => {
 
             {paymentMethod === 'wallet' && (
               <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
-                The amount will be taken from your BMaGlass wallet balance ({linkData?.currency}) and paid to the seller immediately.
+                {bd
+                  ? <>{linkData?.currency} {bd.total.toFixed(2)} will be taken from your BMaGlass wallet balance — {linkData?.currency} {bd.price.toFixed(2)} to the seller plus the {linkData?.currency} {bd.fee.toFixed(2)} platform fee.</>
+                  : <>The amount will be taken from your BMaGlass wallet balance ({linkData?.currency}) and paid to the seller immediately.</>}
               </div>
             )}
 
@@ -338,7 +419,7 @@ const PublicCheckout = () => {
 
             <Button onClick={handlePay} disabled={processing} className="w-full h-12 text-base">
               {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
-              {processing ? 'Processing...' : `Pay ${linkData?.currency} ${amount.toFixed(2)}`}
+              {processing ? 'Processing...' : `Pay ${linkData?.currency} ${payTotal.toFixed(2)}`}
             </Button>
 
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">

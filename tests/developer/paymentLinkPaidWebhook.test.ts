@@ -78,6 +78,11 @@ const SETTLEMENT = {
   amount: 5,
   currency: "ZMW",
   paymentMethod: "wallet",
+  // Fee-bearer truth: this settlement was buyer-pays — the K5 price
+  // carried a K0.13 fee (2.5%, half-up) and the buyer paid K5.13.
+  feePayer: "buyer",
+  feeAmount: 0.13,
+  totalCharged: 5.13,
   settledAt: "2026-10-26T07:00:00.000Z",
 };
 
@@ -138,6 +143,11 @@ describe("payment_link.paid dispatcher", () => {
     expect(evt.data.currency).toBe("ZMW");
     expect(evt.data.transaction_id).toBe(SETTLEMENT.ownerTransactionId);
     expect(evt.data.payer_transaction_id).toBe(SETTLEMENT.payerTransactionId);
+    // The fee truth rides along so a shop can reconcile the buyer's
+    // paid total (price + fee) against its order.
+    expect(evt.data.fee_payer).toBe("buyer");
+    expect(evt.data.fee_amount).toBe(0.13);
+    expect(evt.data.total_charged).toBe(5.13);
     expect(evt.data.reference).toBe("WC-1042");
     expect(evt.data.metadata).toEqual(LINK.metadata);
     expect(evt.data.settled_at).toBe(SETTLEMENT.settledAt);

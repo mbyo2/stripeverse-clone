@@ -11,6 +11,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeSplitLegs,
   computePlatformFee,
+  computePaymentLinkBreakdown,
   computeSplitPreview,
   committedPercentage,
   splitRulesWarning,
@@ -177,6 +178,40 @@ describe("computePlatformFee (rate 2.5%, the launch default)", () => {
 
   it("is zero for a zero or invalid amount", () => {
     expect(computePlatformFee(0, 2.5)).toBe(0);
+  });
+});
+
+describe("computePaymentLinkBreakdown (fee-bearer choice, 2026-10-26)", () => {
+  it("seller-pays is today's behaviour: the fee comes out of the seller's side", () => {
+    expect(computePaymentLinkBreakdown(100, 2.5, "seller")).toEqual({
+      price: 100, platformFee: 2.5, buyerPays: 100, sellerReceives: 97.5,
+    });
+  });
+
+  it("buyer-pays adds the fee on top: the seller receives the full price", () => {
+    expect(computePaymentLinkBreakdown(100, 2.5, "buyer")).toEqual({
+      price: 100, platformFee: 2.5, buyerPays: 102.5, sellerReceives: 100,
+    });
+  });
+
+  it("both modes charge the same fee and conserve the total", () => {
+    for (const amount of [0.5, 5, 15, 40.2, 99.99, 250.75]) {
+      const s = computePaymentLinkBreakdown(amount, 2.5, "seller");
+      const b = computePaymentLinkBreakdown(amount, 2.5, "buyer");
+      expect(b.platformFee).toBe(s.platformFee);
+      expect(b.platformFee).toBe(computePlatformFee(amount, 2.5));
+      // Nobody's money appears or vanishes: buyer out = seller in + fee.
+      expect(roundMoney(b.sellerReceives + b.platformFee)).toBe(b.buyerPays);
+      expect(roundMoney(s.sellerReceives + s.platformFee)).toBe(s.buyerPays);
+    }
+  });
+
+  it("a zero or invalid amount breaks down to zeros in both modes", () => {
+    for (const mode of ["seller", "buyer"] as const) {
+      expect(computePaymentLinkBreakdown(0, 2.5, mode)).toEqual({
+        price: 0, platformFee: 0, buyerPays: 0, sellerReceives: 0,
+      });
+    }
   });
 });
 

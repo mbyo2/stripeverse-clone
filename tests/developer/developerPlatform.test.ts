@@ -58,7 +58,7 @@ describe("developer-api contract", () => {
     expect(JSON.stringify(spec)).toContain("payment_link.paid");
   });
 
-  it("public/openapi.json is the complete served contract (11 path templates)", () => {
+  it("public/openapi.json is the complete served contract (12 path templates)", () => {
     // This replaces the old sdk-copy byte-identity pin: the second copy
     // moved to the bmaglasspay-connectors repo, so the guard now pins
     // the served copy itself — complete and self-contained.
@@ -67,6 +67,7 @@ describe("developer-api contract", () => {
       "/bitcoin/deposit-address",
       "/bitcoin/quote",
       "/payment-links",
+      "/settings",
       "/transactions",
       "/transfers",
       "/wallets",
@@ -75,6 +76,36 @@ describe("developer-api contract", () => {
       "/webhooks/{id}",
       "/webhooks/{id}/test",
     ]);
+    expect(router).toContain('resource === "settings"');
+  });
+});
+
+describe("fee-bearer choice (CEO order, 2026-10-26)", () => {
+  it("the merchant's account default is readable over the API and drives link resolution", () => {
+    // GET /settings exposes the dashboard-set default (fee_payer_default).
+    expect(router).toContain("fee_payer_default");
+    expect(router).toContain("payment_link_fee_payer");
+    // Link create accepts fee_payer, validates it, and resolves
+    // explicit > account default; reads carry the computed amounts.
+    expect(router).toContain("fee_payer must be 'seller' or 'buyer'");
+    expect(router).toContain("paymentLinkAmounts");
+    expect(spec.paths["/settings"]).toBeDefined();
+    expect(spec.paths["/payment-links"].post.requestBody.content["application/json"].schema.properties.fee_payer.enum)
+      .toEqual(["seller", "buyer"]);
+  });
+
+  it("settlement is enforced from the link's stored fee_payer, with the fee truth in the paid payload", () => {
+    const migration = read("supabase/migrations/20261216_payment_link_fee_payer.sql");
+    expect(migration).toContain("payment_links_fee_payer_check");
+    expect(migration).toContain("profiles_payment_link_fee_payer_check");
+    expect(migration).toContain("v_fee_payer = 'buyer'");
+    const checkout = read("supabase/functions/payment-link-checkout/index.ts");
+    expect(checkout).toContain("fee_payer");
+    expect(checkout).toContain("total_charged");
+    const shared = read("supabase/functions/_shared/developer-webhooks.ts");
+    expect(shared).toContain("fee_payer: settlement.feePayer");
+    expect(shared).toContain("total_charged: settlement.totalCharged");
+    expect(JSON.stringify(spec)).toContain("total_charged");
   });
 });
 

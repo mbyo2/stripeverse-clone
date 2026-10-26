@@ -1643,6 +1643,7 @@ export type Database = {
           currency: string
           description: string | null
           expires_at: string | null
+          fee_payer: string
           id: string
           link_code: string
           max_payments: number | null
@@ -1662,6 +1663,7 @@ export type Database = {
           currency?: string
           description?: string | null
           expires_at?: string | null
+          fee_payer?: string
           id?: string
           link_code?: string
           max_payments?: number | null
@@ -1681,6 +1683,7 @@ export type Database = {
           currency?: string
           description?: string | null
           expires_at?: string | null
+          fee_payer?: string
           id?: string
           link_code?: string
           max_payments?: number | null
@@ -1960,6 +1963,7 @@ export type Database = {
           id: string
           is_frozen: boolean | null
           last_name: string | null
+          payment_link_fee_payer: string
           phone: string | null
           updated_at: string | null
         }
@@ -1970,6 +1974,7 @@ export type Database = {
           id: string
           is_frozen?: boolean | null
           last_name?: string | null
+          payment_link_fee_payer?: string
           phone?: string | null
           updated_at?: string | null
         }
@@ -1980,6 +1985,7 @@ export type Database = {
           id?: string
           is_frozen?: boolean | null
           last_name?: string | null
+          payment_link_fee_payer?: string
           phone?: string | null
           updated_at?: string | null
         }

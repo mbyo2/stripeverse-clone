@@ -20,6 +20,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { CurrencySelector } from "@/components/CurrencySelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { usePlatformSettings } from "@/hooks/useSubaccounts";
+import { computePaymentLinkBreakdown, type FeePayer } from "@/utils/splitPayments";
 
 const Settings = () => {
   const { user, signOut } = useAuth();
@@ -65,6 +67,17 @@ const Settings = () => {
     internationalPayments: false
   });
 
+  // Payment-link fee-bearer default (CEO order, 2026-10-26): who
+  // funds the payment-link platform fee. This account setting is the
+  // source of truth — new links start from it, connected apps read it
+  // through the developer API (GET /settings), and each link can
+  // override it at creation. Stored on profiles.
+  const [feePayerDefault, setFeePayerDefault] = useState<FeePayer>('seller');
+  const [isSavingFeePayer, setIsSavingFeePayer] = useState(false);
+  const { data: platformSettings } = usePlatformSettings();
+  const linkFeeRate = Number(platformSettings?.split_platform_fee_percent ?? 2.5);
+  const fmtK = (n: number) => `K${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   useEffect(() => {
     if (!user?.id) return;
 
@@ -84,6 +97,7 @@ const Settings = () => {
             phone: profileRes.data.phone || '',
             avatar_url: profileRes.data.avatar_url || '',
           });
+          setFeePayerDefault(profileRes.data.payment_link_fee_payer === 'buyer' ? 'buyer' : 'seller');
         }
 
         if (notifRes.data) {
@@ -130,6 +144,30 @@ const Settings = () => {
       toast({ title: "Update Failed", description: toUserFacingError(error), variant: "destructive" });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleFeePayerDefaultSave = async () => {
+    if (!user?.id) return;
+    setIsSavingFeePayer(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ payment_link_fee_payer: feePayerDefault })
+        .eq('id', user.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['fee-payer-default', user.id] });
+      toast({
+        title: "Fee setting saved",
+        description: feePayerDefault === 'buyer'
+          ? "New payment links will add the platform fee on top — buyers pay it and you receive the full price."
+          : "New payment links will take the platform fee out of what you receive.",
+      });
+    } catch (error: any) {
+      toast({ title: "Couldn't save", description: toUserFacingError(error), variant: "destructive" });
+    } finally {
+      setIsSavingFeePayer(false);
     }
   };
 
@@ -578,6 +616,51 @@ const Settings = () => {
                     <Label className="text-sm font-medium">Default Currency</Label>
                     <CurrencySelector />
                     <p className="text-xs text-muted-foreground">Used across the entire app</p>
+                  </div>
+
+                  <Separator />
+
+                  {/* Payment-link fee-bearer default — the account-level
+                      source of truth (CEO order, 2026-10-26). New links
+                      start from this; apps connected with your API key
+                      read it automatically. Each link can still be
+                      changed when it is created. */}
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground">Payment Link Fees</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Every payment link carries a {linkFeeRate}% platform fee. Choose who pays it by default.
+                        On a {fmtK(100)} link the fee is {fmtK(computePaymentLinkBreakdown(100, linkFeeRate, 'seller').platformFee)}.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" role="radiogroup" aria-label="Who pays the payment link fee by default">
+                      {([
+                        {
+                          key: 'seller' as FeePayer, title: 'I pay the fee',
+                          detail: `Buyers pay exactly the price — on ${fmtK(100)} you receive ${fmtK(computePaymentLinkBreakdown(100, linkFeeRate, 'seller').sellerReceives)}.`,
+                        },
+                        {
+                          key: 'buyer' as FeePayer, title: 'Buyer pays the fee',
+                          detail: `The fee is added on top — on ${fmtK(100)} the buyer pays ${fmtK(computePaymentLinkBreakdown(100, linkFeeRate, 'buyer').buyerPays)} and you receive the full ${fmtK(100)}.`,
+                        },
+                      ]).map(o => (
+                        <button
+                          key={o.key} type="button" role="radio" aria-checked={feePayerDefault === o.key}
+                          onClick={() => setFeePayerDefault(o.key)}
+                          className={`text-left rounded-lg border p-3 transition-colors ${feePayerDefault === o.key ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'}`}
+                        >
+                          <span className="block text-sm font-medium">{o.title}</span>
+                          <span className="block text-xs text-muted-foreground mt-1">{o.detail}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Applies to new links — you can still choose per link when you create one. Apps and plugins
+                      connected with your API key use this setting automatically; they have no fee setting of their own.
+                    </p>
+                    <Button onClick={handleFeePayerDefaultSave} disabled={isSavingFeePayer}>
+                      {isSavingFeePayer ? 'Saving...' : 'Save Fee Setting'}
+                    </Button>
                   </div>
 
                   <Separator />

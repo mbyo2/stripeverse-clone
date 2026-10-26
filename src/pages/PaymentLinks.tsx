@@ -11,16 +11,75 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link2, Plus, Copy, ExternalLink, XCircle, DollarSign, Eye, Pencil, Wallet } from 'lucide-react';
-import { usePaymentLinks, useCreatePaymentLink, useUpdatePaymentLink, useDeactivatePaymentLink } from '@/hooks/usePaymentLinks';
+import { usePaymentLinks, useCreatePaymentLink, useUpdatePaymentLink, useDeactivatePaymentLink, useFeePayerDefault } from '@/hooks/usePaymentLinks';
 import { useAccounts } from '@/hooks/useAccounts';
 import { usePlatformSettings } from '@/hooks/useSubaccounts';
-import { computePaymentLinkNet } from '@/utils/splitPayments';
+import { computePaymentLinkBreakdown, type FeePayer } from '@/utils/splitPayments';
 import { settlementTargetLabel, selectableSettlementAccounts } from '@/utils/paymentLinkSettlement';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 /** Sentinel for the Main account in the settlement picker (Radix Select needs a non-empty value). */
 const MAIN_ACCOUNT_VALUE = 'main';
+
+/**
+ * The fee-bearer choice (CEO order, 2026-10-26): two plain options
+ * with LIVE numbers for the amount in the form, so the seller decides
+ * with the real figures in front of them — "You receive K97.50 ·
+ * buyer pays K100.00" vs "You receive K100.00 · buyer pays K102.50".
+ * Used by both the create and edit dialogs; the value starts from the
+ * merchant's account default (create) or the link's stored choice
+ * (edit) and is stored on the link — settlement enforces it.
+ */
+const FeePayerChoice = ({ amount, rate, value, onChange, fmtFee }: {
+  amount: number; rate: number; value: FeePayer;
+  onChange: (v: FeePayer) => void; fmtFee: (n: number) => string;
+}) => {
+  const b = computePaymentLinkBreakdown(amount, rate, value);
+  const sellerBd = computePaymentLinkBreakdown(amount, rate, 'seller');
+  const buyerBd = computePaymentLinkBreakdown(amount, rate, 'buyer');
+  const options: { key: FeePayer; title: string; detail: string }[] = amount > 0 ? [
+    {
+      key: 'seller', title: 'I pay the fee',
+      detail: `You receive ${fmtFee(sellerBd.sellerReceives)} · buyer pays ${fmtFee(sellerBd.buyerPays)}`,
+    },
+    {
+      key: 'buyer', title: 'Buyer pays the fee',
+      detail: `You receive ${fmtFee(buyerBd.sellerReceives)} · buyer pays ${fmtFee(buyerBd.buyerPays)}`,
+    },
+  ] : [
+    {
+      key: 'seller', title: 'I pay the fee',
+      detail: `The ${rate}% platform fee comes out of what you receive on each payment.`,
+    },
+    {
+      key: 'buyer', title: 'Buyer pays the fee',
+      detail: `The ${rate}% platform fee is added on top of the amount the buyer enters — you receive the full amount.`,
+    },
+  ];
+  return (
+    <div>
+      <Label>Who pays the {rate}% platform fee?</Label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2" role="radiogroup" aria-label="Who pays the platform fee">
+        {options.map(o => (
+          <button
+            key={o.key} type="button" role="radio" aria-checked={value === o.key}
+            onClick={() => onChange(o.key)}
+            className={`text-left rounded-lg border p-3 transition-colors ${value === o.key ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'}`}
+          >
+            <span className="block text-sm font-medium">{o.title}</span>
+            <span className="block text-xs text-muted-foreground mt-1">{o.detail}</span>
+          </button>
+        ))}
+      </div>
+      {amount > 0 && (
+        <p className="text-xs text-muted-foreground mt-2">
+          Platform fee on {fmtFee(b.price)}: {fmtFee(b.platformFee)}.
+        </p>
+      )}
+    </div>
+  );
+};
 
 const PaymentLinks = () => {
   const { data: links, isLoading } = usePaymentLinks();
@@ -32,27 +91,30 @@ const PaymentLinks = () => {
   const [fixedAmount, setFixedAmount] = useState(true);
   const [form, setForm] = useState({ title: '', description: '', amount: '', max_payments: '' });
   const [settleAccount, setSettleAccount] = useState(MAIN_ACCOUNT_VALUE);
+  const [feePayer, setFeePayer] = useState<FeePayer>('seller');
 
   const [editLinkId, setEditLinkId] = useState<string | null>(null);
   const [editFixedAmount, setEditFixedAmount] = useState(true);
   const [editForm, setEditForm] = useState({ title: '', description: '', amount: '', max_payments: '' });
   const [editSettleAccount, setEditSettleAccount] = useState(MAIN_ACCOUNT_VALUE);
+  const [editFeePayer, setEditFeePayer] = useState<FeePayer>('seller');
 
   const settlementOptions = selectableSettlementAccounts(accounts ?? []);
 
-  // Platform fee disclosure. Every payment-link settlement pays the
-  // BMaGlass Pay platform fee FIRST, out of the seller's side (the
-  // server takes it inside execute_payment_link_settlement; the rate
-  // is platform_settings.split_platform_fee_percent, 2.5% at launch).
-  // Wave B QA (2026-10-24) found it was disclosed nowhere before the
-  // fact — a K2.00 link payment simply landed as K1.95. The fee and
-  // its side are unchanged; the create/edit forms and the link list
-  // now say what the seller receives before anyone pays.
+  // Platform fee disclosure + the fee-bearer choice. Every
+  // payment-link settlement pays the BMaGlass Pay platform fee (the
+  // rate is platform_settings.split_platform_fee_percent, 2.5% at
+  // launch). WHO funds it is the seller's choice (CEO order
+  // 2026-10-26): out of the seller's side, or added on top for the
+  // buyer. The create form starts from the merchant's account
+  // default (Settings → Payment) and can be changed per link; the
+  // stored choice is what execute_payment_link_settlement enforces.
+  // Wave B QA (2026-10-24) found the fee was disclosed nowhere before
+  // the fact — a K2.00 link payment simply landed as K1.95.
   const { data: platformSettings } = usePlatformSettings();
+  const { data: feePayerDefault } = useFeePayerDefault();
   const platformFeeRate = Number(platformSettings?.split_platform_fee_percent ?? 2.5);
   const fmtFee = (n: number) => `K${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const createNet = computePaymentLinkNet(Number(form.amount) || 0, platformFeeRate);
-  const editNet = computePaymentLinkNet(Number(editForm.amount) || 0, platformFeeRate);
 
   const handleCreate = () => {
     createLink.mutate({
@@ -60,7 +122,8 @@ const PaymentLinks = () => {
       amount: fixedAmount && form.amount ? Number(form.amount) : undefined,
       max_payments: form.max_payments ? Number(form.max_payments) : undefined,
       account_id: settleAccount === MAIN_ACCOUNT_VALUE ? null : settleAccount,
-    }, { onSuccess: () => { setOpen(false); setForm({ title: '', description: '', amount: '', max_payments: '' }); setSettleAccount(MAIN_ACCOUNT_VALUE); } });
+      fee_payer: feePayer,
+    }, { onSuccess: () => { setOpen(false); setForm({ title: '', description: '', amount: '', max_payments: '' }); setSettleAccount(MAIN_ACCOUNT_VALUE); setFeePayer(feePayerDefault ?? 'seller'); } });
   };
 
   const openEdit = (link: NonNullable<typeof links>[number]) => {
@@ -73,6 +136,7 @@ const PaymentLinks = () => {
       max_payments: link.max_payments != null ? String(link.max_payments) : '',
     });
     setEditSettleAccount(link.account_id ?? MAIN_ACCOUNT_VALUE);
+    setEditFeePayer(link.fee_payer === 'buyer' ? 'buyer' : 'seller');
   };
 
   const handleEdit = () => {
@@ -84,6 +148,7 @@ const PaymentLinks = () => {
       amount: editFixedAmount && editForm.amount ? Number(editForm.amount) : null,
       max_payments: editForm.max_payments ? Number(editForm.max_payments) : null,
       account_id: editSettleAccount === MAIN_ACCOUNT_VALUE ? null : editSettleAccount,
+      fee_payer: editFeePayer,
     }, { onSuccess: () => setEditLinkId(null) });
   };
 
@@ -101,7 +166,7 @@ const PaymentLinks = () => {
             <h1 className="text-[28px] leading-tight font-display font-semibold">Payment Links</h1>
             <p className="text-sm text-muted-foreground mt-1">Create shareable checkout pages to collect payments</p>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={o => { setOpen(o); if (o) setFeePayer(feePayerDefault ?? 'seller'); }}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Create Link</Button></DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Create Payment Link</DialogTitle></DialogHeader>
@@ -113,11 +178,8 @@ const PaymentLinks = () => {
                   <Switch checked={fixedAmount} onCheckedChange={setFixedAmount} />
                 </div>
                 {fixedAmount && <div><Label>Amount (ZMW)</Label><Input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></div>}
-                {fixedAmount && Number(form.amount) > 0 ? (
-                  <p className="text-xs text-muted-foreground">BMaGlass Pay takes a {platformFeeRate}% platform fee ({fmtFee(createNet.platformFee)}) on every payment — you receive {fmtFee(createNet.sellerReceives)} per payment, before any split rules you've set up divide it further.</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">BMaGlass Pay takes a {platformFeeRate}% platform fee on every payment to this link — the fee comes out of what you receive, not on top of what the payer pays.</p>
-                )}
+                <FeePayerChoice amount={fixedAmount ? Number(form.amount) || 0 : 0} rate={platformFeeRate} value={feePayer} onChange={setFeePayer} fmtFee={fmtFee} />
+                <p className="text-xs text-muted-foreground">This starts from your account default. Change the default for new links any time in Settings → Payment.</p>
                 <div><Label>Max Payments (optional)</Label><Input type="number" value={form.max_payments} onChange={e => setForm(p => ({ ...p, max_payments: e.target.value }))} placeholder="Unlimited" /></div>
                 <div>
                   <Label>Settles Into</Label>
@@ -150,11 +212,7 @@ const PaymentLinks = () => {
                   <Switch checked={editFixedAmount} onCheckedChange={setEditFixedAmount} />
                 </div>
                 {editFixedAmount && <div><Label>Amount (ZMW)</Label><Input type="number" value={editForm.amount} onChange={e => setEditForm(p => ({ ...p, amount: e.target.value }))} /></div>}
-                {editFixedAmount && Number(editForm.amount) > 0 ? (
-                  <p className="text-xs text-muted-foreground">BMaGlass Pay takes a {platformFeeRate}% platform fee ({fmtFee(editNet.platformFee)}) on every payment — you receive {fmtFee(editNet.sellerReceives)} per payment, before any split rules you've set up divide it further.</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">BMaGlass Pay takes a {platformFeeRate}% platform fee on every payment to this link — the fee comes out of what you receive, not on top of what the payer pays.</p>
-                )}
+                <FeePayerChoice amount={editFixedAmount ? Number(editForm.amount) || 0 : 0} rate={platformFeeRate} value={editFeePayer} onChange={setEditFeePayer} fmtFee={fmtFee} />
                 <div><Label>Max Payments (optional)</Label><Input type="number" value={editForm.max_payments} onChange={e => setEditForm(p => ({ ...p, max_payments: e.target.value }))} placeholder="Unlimited" /></div>
                 <div>
                   <Label>Settles Into</Label>
@@ -241,11 +299,16 @@ const PaymentLinks = () => {
                         <Wallet className="h-3.5 w-3.5" />
                         <span>Settles to: {settlementTargetLabel(link.account_id, accounts ?? [])}</span>
                       </div>
-                      {link.amount != null && Number(link.amount) > 0 && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          You receive {fmtFee(computePaymentLinkNet(Number(link.amount), platformFeeRate).sellerReceives)} of each {fmtFee(Number(link.amount))} payment ({platformFeeRate}% platform fee).
-                        </p>
-                      )}
+                      {link.amount != null && Number(link.amount) > 0 && (() => {
+                        const bd = computePaymentLinkBreakdown(Number(link.amount), platformFeeRate, link.fee_payer === 'buyer' ? 'buyer' : 'seller');
+                        return (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {link.fee_payer === 'buyer'
+                              ? <>Buyer pays {fmtFee(bd.buyerPays)} ({fmtFee(bd.price)} + {fmtFee(bd.platformFee)} fee) — you receive the full {fmtFee(bd.sellerReceives)}.</>
+                              : <>You receive {fmtFee(bd.sellerReceives)} of each {fmtFee(bd.price)} payment ({platformFeeRate}% platform fee).</>}
+                          </p>
+                        );
+                      })()}
                       <div className="mt-2 p-2 rounded bg-muted/50 text-xs font-mono truncate">
                         {window.location.origin}/pay/{link.link_code}
                       </div>

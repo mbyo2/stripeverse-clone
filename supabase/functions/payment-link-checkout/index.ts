@@ -46,11 +46,22 @@
 //         A successful settlement also dispatches the developer
 //         webhook event payment_link.paid (exactly once per
 //         settlement, via _shared/developer-webhooks.ts).
+//
+// Fee-bearer (2026-10-26): a link's stored fee_payer ('seller' |
+// 'buyer') decides who funds the platform fee. It was resolved when
+// the link was created (per-link choice > merchant account default >
+// 'seller') and is enforced by the settlement RPC — this function
+// never lets a caller change it at pay time. describe returns the
+// resolved choice plus the computed amounts (via the shared
+// _shared/fee-math.ts, the same rule the RPC charges) so the pay
+// page can show a buyer the full breakdown BEFORE they pay:
+// price + fee = total when the buyer bears the fee.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyLinkMethod } from "../_shared/payment-providers.ts";
 import { dispatchPaymentLinkPaid } from "../_shared/developer-webhooks.ts";
+import { paymentLinkAmounts, type FeePayer } from "../_shared/fee-math.ts";
 import {
   ACCOUNT_FROZEN_MESSAGE,
   isAccountFrozen,
@@ -92,7 +103,7 @@ serve(async (req) => {
 
     const { data: link, error: linkError } = await admin
       .from("payment_links")
-      .select("id, user_id, title, description, amount, currency, status, account_id, expires_at, max_payments, payment_count")
+      .select("id, user_id, title, description, amount, currency, status, account_id, fee_payer, expires_at, max_payments, payment_count")
       .eq("link_code", linkCode)
       .maybeSingle();
 
@@ -100,6 +111,8 @@ serve(async (req) => {
     if (!link || link.status !== "active") {
       return json({ success: false, status: "not_found", error: "Payment link not found or no longer active" }, 404);
     }
+
+    const feePayer: FeePayer = link.fee_payer === "buyer" ? "buyer" : "seller";
 
     // ── describe: the public link payload + where its money settles ──
     if (body.action === "describe") {
@@ -112,6 +125,20 @@ serve(async (req) => {
           .maybeSingle();
         if (account?.name) settlementAccountName = account.name;
       }
+      // The fee picture for the link's fixed price, computed with
+      // the same rule the settlement charges (shared fee-math). The
+      // computed amounts are null on any-amount links (no fixed
+      // price yet): the pay page then computes the breakdown live
+      // from fee_payer + fee_rate_percent.
+      const { data: settingsRow } = await admin
+        .from("platform_settings")
+        .select("split_platform_fee_percent")
+        .eq("id", true)
+        .maybeSingle();
+      const feeRate = settingsRow?.split_platform_fee_percent ?? null;
+      const fixed = link.amount == null || feeRate === null
+        ? null
+        : paymentLinkAmounts(Number(link.amount), String(feeRate), feePayer);
       return json({
         success: true,
         settlement_account_name: settlementAccountName,
@@ -124,6 +151,11 @@ serve(async (req) => {
           status: link.status,
           user_id: link.user_id,
           account_id: link.account_id,
+          fee_payer: feePayer,
+          fee_rate_percent: feeRate === null ? null : Number(feeRate),
+          fee_amount: fixed?.fee_amount ?? null,
+          buyer_total: fixed?.buyer_total ?? null,
+          seller_receives: fixed?.seller_receives ?? null,
         },
       });
     }
@@ -213,6 +245,12 @@ serve(async (req) => {
           amount,
           currency: link.currency,
           paymentMethod: "wallet",
+          // The settlement's own fee truth (the RPC reports what it
+          // did, including on an idempotent replay) — never a guess
+          // at this layer.
+          feePayer: row.fee_payer ?? feePayer,
+          feeAmount: row.fee_amount != null ? Number(row.fee_amount) : 0,
+          totalCharged: row.total_charged != null ? Number(row.total_charged) : amount,
           settledAt: new Date().toISOString(),
         });
       }
@@ -226,6 +264,9 @@ serve(async (req) => {
       transaction_id: row.transaction_id,
       owner_transaction_id: row.owner_transaction_id,
       payer_new_balance: row.payer_new_balance != null ? Number(row.payer_new_balance) : null,
+      fee_payer: row.fee_payer ?? feePayer,
+      fee_amount: row.fee_amount != null ? Number(row.fee_amount) : null,
+      total_charged: row.total_charged != null ? Number(row.total_charged) : amount,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Payment could not be processed";
