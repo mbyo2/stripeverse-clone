@@ -766,8 +766,8 @@ const AdminUserDetail = () => {
                     <TableBody>
                       {paymentLinks.map((l) => (
                         <TableRow key={l.id}>
-                          <TableCell className="max-w-[120px] truncate font-medium md:max-w-none">{l.title || "—"}</TableCell>
-                          <TableCell className="hidden font-mono text-xs md:table-cell">{l.link_code}</TableCell>
+                          <TableCell className="max-w-[120px] truncate font-medium md:max-w-[140px] lg:max-w-[280px]">{l.title || "—"}</TableCell>
+                          <TableCell className="hidden max-w-[110px] truncate font-mono text-xs md:table-cell lg:max-w-none">{l.link_code}</TableCell>
                           <TableCell>
                             {l.amount != null ? fmtMoney(l.currency, l.amount) : "Any amount"}
                           </TableCell>
