@@ -142,9 +142,21 @@ describe("Coinos invoice response mapping", () => {
     expect(inv?.paymentHash).toBe(HASH64);
   });
 
-  it("falls back to the payment hash as the lookup key when no id is present", () => {
-    const inv = parseCoinosInvoice({ text: BOLT11_100, paymentHash: HASH64 });
-    expect(inv?.providerId).toBe(HASH64);
+  it("returns null when no invoice id is present — the payment hash is never a lookup key", () => {
+    // The contract proves GET /invoice/<paymentHash> returns 500:
+    // the hash is an identity for matching, not a status key. An
+    // invoice payload without an `id` is incomplete.
+    expect(parseCoinosInvoice({ text: BOLT11_100, paymentHash: HASH64 })).toBeNull();
+  });
+
+  it("ignores a non-64-hex `paymentHash` field — the guard applies to it as to `hash`", () => {
+    const inv = parseCoinosInvoice({ id: "inv-4", text: BOLT11_100, paymentHash: "not-a-hash" });
+    expect(inv?.paymentHash).toBeNull();
+    // A genuine 64-hex `hash` still wins over a bogus paymentHash.
+    const inv2 = parseCoinosInvoice({
+      id: "inv-5", text: BOLT11_100, paymentHash: "not-a-hash", hash: HASH64,
+    });
+    expect(inv2?.paymentHash).toBe(HASH64);
   });
 
   it("returns null for incomplete or malformed payloads", () => {
@@ -184,6 +196,28 @@ describe("Coinos invoice state mapping", () => {
     expect(parseCoinosInvoiceState({ created, expiry: 3600 }, now)).toBe("expired");
   });
 
+  it("maps the LIVE epoch-milliseconds `created` shape against the expiry window", () => {
+    // The live-verified contract: `created` is epoch MILLISECONDS
+    // and `expiry` a duration in seconds (2592000 = 30 days).
+    const createdMs = now - 7_200_000; // 2h ago, in ms
+    expect(parseCoinosInvoiceState({ created: createdMs, expiry: 3600 }, now)).toBe("expired");
+    expect(parseCoinosInvoiceState({ created: createdMs, expiry: 2592000 }, now)).toBe("pending");
+    const createdRecentMs = now - 600_000; // 10 min ago, in ms
+    expect(parseCoinosInvoiceState({ created: createdRecentMs, expiry: 3600 }, now)).toBe("pending");
+  });
+
+  it("never reads `expiry` as an absolute timestamp — without `created` it cannot expire", () => {
+    // A duration misread as an epoch would call this long-expired;
+    // per the contract `expiry` is seconds-from-created only.
+    expect(parseCoinosInvoiceState({ expiry: 1_700_000_000 }, now)).toBe("pending");
+    expect(parseCoinosInvoiceState({ expiry: 2592000 }, now)).toBe("pending");
+  });
+
+  it("still honours an absolute `expires_at` timestamp", () => {
+    expect(parseCoinosInvoiceState({ expires_at: "2026-10-24T11:00:00Z" }, now)).toBe("expired");
+    expect(parseCoinosInvoiceState({ expires_at: "2026-10-24T13:00:00Z" }, now)).toBe("pending");
+  });
+
   it("maps an unpaid invoice inside its expiry window to pending", () => {
     const created = Math.floor(now / 1000) - 600;
     expect(parseCoinosInvoiceState({ created, expiry: 3600 }, now)).toBe("pending");
@@ -205,6 +239,8 @@ describe("Coinos payment hash mapping", () => {
     expect(parseCoinosPaymentHash({ payment: { payment_hash: "f".repeat(64) } })).toBe("f".repeat(64));
     // A bolt11-shaped `hash` field is not a payment hash.
     expect(parseCoinosPaymentHash({ hash: BOLT11_100 })).toBeNull();
+    // Neither is a non-64-hex `paymentHash` field — same guard.
+    expect(parseCoinosPaymentHash({ paymentHash: "not-a-hash" })).toBeNull();
     expect(parseCoinosPaymentHash({})).toBeNull();
     expect(parseCoinosPaymentHash(null)).toBeNull();
   });
@@ -247,14 +283,25 @@ describe("provider calls (stubbed fetch)", () => {
     ).rejects.toBeInstanceOf(LightningNotConfiguredError);
   });
 
-  it("fetches invoice state by invoice id", async () => {
+  it("fetches invoice state by invoice id; the payment hash is never fabricated from the id", async () => {
     const fetchMock = stubFetch(200, { id: "inv-uuid-1", amount: 100, received: 0 });
     const res = await providerGetInvoice("inv-uuid-1", CFG);
     expect(res.state).toBe("pending");
-    expect(res.paymentHash).toBe("inv-uuid-1");
+    // The invoice id is a UUID, not a payment hash — when the payload
+    // carries no paymentHash, none is invented.
+    expect(res.paymentHash).toBeUndefined();
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://coinos.test/api/invoice/inv-uuid-1");
     expect(init.method).toBe("GET");
+  });
+
+  it("returns the payload's own payment hash when the invoice carries one", async () => {
+    stubFetch(200, {
+      id: "inv-uuid-2", text: BOLT11_100, paymentHash: "a".repeat(64), amount: 100, received: 100,
+    });
+    const res = await providerGetInvoice("inv-uuid-2", CFG);
+    expect(res.state).toBe("paid");
+    expect(res.paymentHash).toBe("a".repeat(64));
   });
 
   it("pays an invoice: a 2xx is classified accepted, with the hash when present", async () => {
@@ -281,10 +328,53 @@ describe("providerPayInvoice outcome classification (send-path safety)", () => {
     expect(res).toEqual({ kind: "accepted", paymentHash: null });
   });
 
-  it("a 4xx is a definitive rejection — the payment provably was not made", async () => {
+  it("a 400 with a structured provider JSON error body is a definitive rejection", async () => {
     stubFetch(400, { message: "insufficient balance" });
     const res = await providerPayInvoice(BOLT11_100, CFG);
     expect(res.kind).toBe("rejected");
+  });
+
+  it("a 422 with a structured provider JSON error body is a definitive rejection", async () => {
+    stubFetch(422, { error: "invoice is not payable" });
+    const res = await providerPayInvoice(BOLT11_100, CFG);
+    expect(res.kind).toBe("rejected");
+  });
+
+  it("a 408 (request timeout) is unknown — the payment may have been taken", async () => {
+    stubFetch(408, { message: "request timeout" });
+    const res = await providerPayInvoice(BOLT11_100, CFG);
+    expect(res.kind).toBe("unknown");
+  });
+
+  it("a 429 (rate limited) is unknown — never a rejection", async () => {
+    stubFetch(429, { message: "too many requests" });
+    const res = await providerPayInvoice(BOLT11_100, CFG);
+    expect(res.kind).toBe("unknown");
+  });
+
+  it("a 4xx with an HTML body (Cloudflare/proxy answer) is unknown — not a provider verdict", async () => {
+    stubFetch(403, "<html><head><title>Attention Required! | Cloudflare</title></head></html>");
+    const res = await providerPayInvoice(BOLT11_100, CFG);
+    expect(res.kind).toBe("unknown");
+  });
+
+  it("a 400 with a non-JSON body is unknown — no structured provider verdict", async () => {
+    stubFetch(400, "Bad Request");
+    const res = await providerPayInvoice(BOLT11_100, CFG);
+    expect(res.kind).toBe("unknown");
+  });
+
+  it("a 400 whose JSON body carries no error field is unknown", async () => {
+    stubFetch(400, { unexpected: "shape" });
+    const res = await providerPayInvoice(BOLT11_100, CFG);
+    expect(res.kind).toBe("unknown");
+  });
+
+  it("other 4xx statuses are unknown even with a JSON error body (401/404 are not pay verdicts)", async () => {
+    stubFetch(401, { message: "unauthorized" });
+    expect((await providerPayInvoice(BOLT11_100, CFG)).kind).toBe("unknown");
+    stubFetch(404, { message: "not found" });
+    expect((await providerPayInvoice(BOLT11_100, CFG)).kind).toBe("unknown");
   });
 
   it("a 5xx is unknown — never a rejection", async () => {
@@ -375,6 +465,15 @@ describe("parseCoinosOutgoingPayment (the read-back a send settles on)", () => {
     // duplicates the bolt11 text. Matching must fall back to text.
     const res = parseCoinosOutgoingPayment(
       { payments: [{ hash: BOLT11_100, text: BOLT11_100, amount: 100, received: 100 }] },
+      { paymentHash: HASH, bolt11: BOLT11_100 },
+    );
+    expect(res.state).toBe("paid");
+    expect(res.paymentHash).toBeNull();
+  });
+
+  it("a non-64-hex `paymentHash` on a payment entry is not trusted as its hash", () => {
+    const res = parseCoinosOutgoingPayment(
+      { payments: [{ paymentHash: "not-a-hash", text: BOLT11_100, amount: 100, received: 100 }] },
       { paymentHash: HASH, bolt11: BOLT11_100 },
     );
     expect(res.state).toBe("paid");

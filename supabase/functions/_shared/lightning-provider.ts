@@ -125,10 +125,12 @@ export interface ProviderInvoice {
  *     its reserved "processing" state — held, visible, and
  *     reconcilable by ops — never auto-refunded and never
  *     double-payable (the invoice's payment hash is the identity).
- *   - A definitive provider rejection (4xx) releases the
- *     reservation in full; network/timeout/5xx outcomes are
- *     "unknown" and also hold (mirror of the on-chain broadcast
- *     doctrine in _shared/btc-core.ts).
+ *   - A definitive provider rejection (a structured 400/422
+ *     provider error — see providerPayInvoice) releases the
+ *     reservation in full; every ambiguous answer — network,
+ *     timeout, 5xx, rate limit, proxy page — is "unknown" and also
+ *     holds (mirror of the on-chain broadcast doctrine in
+ *     _shared/btc-core.ts).
  * The remaining proof is the funded drill: the first real custodial
  * Lightning send settles a real invoice end to end. Until then,
  * every code path around the pay call is unit-proven and the
@@ -158,9 +160,12 @@ const HEX64 = /^[0-9a-f]{64}$/i;
  * bolt11 lives in `text`, the payment hash in `paymentHash` (the
  * `hash` field is a duplicate of the bolt11 string — it is only
  * treated as a payment hash when it actually is 64-hex), and the
- * status-lookup key is the invoice `id`. Returns null when the
- * payload carries no bolt11 or no lookup key — an incomplete invoice
- * is an upstream failure, never a half-created deposit.
+ * status-lookup key is the invoice `id`. The payment hash is an
+ * IDENTITY for matching payments, never a lookup key: the contract
+ * proves GET /invoice/<paymentHash> returns 500, so a payload with
+ * no `id` is incomplete. Returns null when the payload carries no
+ * bolt11 or no invoice id — an incomplete invoice is an upstream
+ * failure, never a half-created deposit.
  */
 export function parseCoinosInvoice(payload: unknown): ProviderInvoice | null {
   const outer = asRecord(payload);
@@ -168,10 +173,13 @@ export function parseCoinosInvoice(payload: unknown): ProviderInvoice | null {
   const rec = asRecord(outer.invoice) ?? outer;
   const bolt11 = firstString(rec, ["text", "bolt11", "payment_request", "invoice"]);
   const hashField = firstString(rec, ["hash", "payment_hash"]);
-  const paymentHash = firstString(rec, ["paymentHash", "payment_hash"]) ??
+  const paymentHashField = firstString(rec, ["paymentHash", "payment_hash"]);
+  // A payment hash is 64-hex or it is not a payment hash — the guard
+  // applies to the `paymentHash` field exactly as to `hash`.
+  const paymentHash =
+    (paymentHashField && HEX64.test(paymentHashField) ? paymentHashField : null) ??
     (hashField && HEX64.test(hashField) ? hashField : null);
-  const id = firstString(rec, ["id"]);
-  const providerId = id ?? paymentHash;
+  const providerId = firstString(rec, ["id"]);
   if (!bolt11 || !providerId) return null;
   return { bolt11, providerId, paymentHash };
 }
@@ -240,24 +248,30 @@ export function parseCoinosInvoiceState(
   }
   if (status === "expired" || rec.expired === true) return "expired";
 
-  // Expiry arithmetic: Coinos invoices carry `created` (epoch ms or s)
-  // plus `expiry` (seconds), or an absolute `expiry`/`expires_at`.
-  const expiryRaw = rec.expiry ?? rec.expires_at ?? rec.expire_at;
-  if (typeof expiryRaw === "number" && Number.isFinite(expiryRaw)) {
-    const createdRaw = rec.created ?? rec.created_at;
-    const createdMs = typeof createdRaw === "number"
-      ? (createdRaw > 1e12 ? createdRaw : createdRaw * 1000)
-      : null;
-    if (createdMs !== null) {
-      if (nowMs > createdMs + expiryRaw * 1000) return "expired";
-    } else if (expiryRaw > 1e12) {
-      if (nowMs > expiryRaw) return "expired";
-    } else if (expiryRaw > 1e9) {
-      if (nowMs > expiryRaw * 1000) return "expired";
-    }
-  } else if (typeof expiryRaw === "string") {
-    const t = Date.parse(expiryRaw);
+  // Expiry arithmetic (contract): `created` is epoch MILLISECONDS
+  // (epoch seconds tolerated) and `expiry` is a DURATION in seconds
+  // counted from `created` — never an absolute timestamp, so an
+  // `expiry` with no `created` says nothing about expiry.
+  const createdRaw = rec.created ?? rec.created_at;
+  const createdMs = typeof createdRaw === "number" && Number.isFinite(createdRaw)
+    ? (createdRaw > 1e12 ? createdRaw : createdRaw * 1000)
+    : null;
+  const expirySecs = rec.expiry;
+  if (
+    typeof expirySecs === "number" && Number.isFinite(expirySecs) &&
+    createdMs !== null && nowMs > createdMs + expirySecs * 1000
+  ) {
+    return "expired";
+  }
+  // Absolute expiry timestamps carried by other surfaces/versions
+  // live under their own field names.
+  const expiresAt = rec.expires_at ?? rec.expire_at;
+  if (typeof expiresAt === "string") {
+    const t = Date.parse(expiresAt);
     if (Number.isFinite(t) && nowMs > t) return "expired";
+  } else if (typeof expiresAt === "number" && Number.isFinite(expiresAt)) {
+    const expiresMs = expiresAt > 1e12 ? expiresAt : expiresAt * 1000;
+    if (nowMs > expiresMs) return "expired";
   }
   return "pending";
 }
@@ -268,7 +282,7 @@ export function parseCoinosPaymentHash(payload: unknown): string | null {
   if (!outer) return null;
   const rec = asRecord(outer.payment) ?? outer;
   const direct = firstString(rec, ["paymentHash", "payment_hash"]);
-  if (direct) return direct;
+  if (direct && HEX64.test(direct)) return direct;
   const hashField = firstString(rec, ["hash"]);
   return hashField && HEX64.test(hashField) ? hashField : null;
 }
@@ -331,7 +345,13 @@ export async function providerCreateInvoice(
   return invoice;
 }
 
-/** Fetch an invoice's state by its provider id (the Coinos payment hash). */
+/**
+ * Fetch an invoice's state by its provider id (the Coinos invoice
+ * `id`, a UUID — never the payment hash: the contract proves lookup
+ * by paymentHash returns 500). The returned paymentHash comes only
+ * from the payload itself; it is never fabricated from the lookup
+ * key (a UUID is not a payment hash).
+ */
 export async function providerGetInvoice(
   providerId: string,
   config?: LightningProviderConfig,
@@ -352,7 +372,7 @@ export async function providerGetInvoice(
   const amounts = parseCoinosInvoiceAmounts(payload);
   return {
     state,
-    paymentHash: parsed?.paymentHash ?? providerId,
+    paymentHash: parsed?.paymentHash ?? undefined,
     amountSats: amounts.amountSats,
     receivedSats: amounts.receivedSats,
   };
@@ -365,24 +385,54 @@ export type ProviderPayOutcome =
   | { kind: "unknown"; detail: string };
 
 /**
+ * Extract a structured provider error message from a response body,
+ * when the body is a JSON object carrying one. HTML pages, plain
+ * text, non-object JSON and JSON without an error field all return
+ * null — those are the answers a proxy, a Cloudflare challenge or a
+ * rate limiter gives, NOT provider verdicts, and they must never be
+ * read as one.
+ */
+function providerErrorMessage(text: string): string | null {
+  if (!text) return null;
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  const rec = asRecord(parsedJson);
+  if (!rec) return null;
+  return firstString(rec, ["message", "error", "error_message", "detail"]);
+}
+
+/**
  * Pay an outbound bolt11 invoice from the platform Coinos account.
  *
  * NEVER throws for a provider-side outcome (only for a missing
  * configuration): the caller must be able to distinguish a
  * DEFINITIVE rejection — the payment provably was not made, so the
- * reservation may be released — from an UNKNOWN outcome (timeout,
- * 5xx, connection drop), where the payment may in fact have been
- * made and the reservation must HOLD for reconciliation. This is
- * the Lightning mirror of classifyBroadcastOutcome in btc-core.ts:
+ * reservation may be released — from an UNKNOWN outcome, where the
+ * payment may in fact have been made and the reservation must HOLD
+ * for reconciliation. This is the Lightning mirror of
+ * classifyBroadcastOutcome in btc-core.ts:
  *
  *   - 2xx        → "accepted". NOT settled — the caller confirms
  *                  via providerGetOutgoingPayment before settling;
  *                  the 2026-10-24 probes showed a 2xx can carry an
  *                  empty body and proves nothing on its own.
- *   - 4xx        → "rejected" (the provider refused the payment
- *                  itself: malformed, unpayable, insufficient
- *                  provider balance). Definitive.
- *   - 5xx / network / timeout → "unknown".
+ *   - 400 / 422 WITH a structured provider JSON error body →
+ *                  "rejected" (Coinos itself refused the payment:
+ *                  malformed, unpayable, insufficient provider
+ *                  balance). Definitive.
+ *   - EVERYTHING else non-2xx → "unknown": 408/429 (timeout / rate
+ *                  limit — the payment may well have been taken),
+ *                  any other 4xx, and any 4xx whose body is HTML or
+ *                  non-JSON (a Cloudflare/proxy answer, not a
+ *                  provider verdict), 5xx, network, timeout.
+ *                  Reading an ambiguous 4xx as "rejected" would
+ *                  release the reservation for a payment that may
+ *                  have been made — the double-pay exposure this
+ *                  split exists to prevent.
  */
 export async function providerPayInvoice(
   bolt11: string,
@@ -419,8 +469,14 @@ export async function providerPayInvoice(
     }
     return { kind: "accepted", paymentHash: parseCoinosPaymentHash(parsed) };
   }
-  if (res.status >= 400 && res.status < 500) {
-    return { kind: "rejected", detail: `Coinos pay refused ${res.status}: ${text.slice(0, 200)}` };
+  if (res.status === 400 || res.status === 422) {
+    const providerError = providerErrorMessage(text);
+    if (providerError !== null) {
+      return {
+        kind: "rejected",
+        detail: `Coinos pay refused ${res.status}: ${providerError.slice(0, 200)}`,
+      };
+    }
   }
   return { kind: "unknown", detail: `Coinos pay answered ${res.status}: ${text.slice(0, 200)}` };
 }
@@ -478,11 +534,12 @@ export function parseCoinosOutgoingPayment(
   for (const entry of list) {
     const rec = asRecord(entry);
     if (!rec) continue;
-    const entryHash = firstString(rec, ["paymentHash", "payment_hash"]) ??
-      (() => {
-        const h = firstString(rec, ["hash"]);
-        return h && HEX64.test(h) ? h : null;
-      })();
+    const entryHash = (() => {
+      const ph = firstString(rec, ["paymentHash", "payment_hash"]);
+      if (ph && HEX64.test(ph)) return ph;
+      const h = firstString(rec, ["hash"]);
+      return h && HEX64.test(h) ? h : null;
+    })();
     const entryBolt11 = firstString(rec, ["text", "bolt11", "payment_request", "invoice"]);
     const hashMatches = wantHash !== null && entryHash !== null &&
       entryHash.toLowerCase() === wantHash;
