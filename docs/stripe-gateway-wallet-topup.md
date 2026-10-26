@@ -37,9 +37,17 @@ verified PayPal capture (`paypal_taint_credit`).
 Supabase function secrets (project `paymentgetway`):
 
 - `STRIPE_GATEWAY_SECRET_KEY` — test mode now: a **restricted key**
-  `rk_test_…` scoped to Checkout Sessions *write*, Payment Intents
-  *read*, Charges *read*, Events *read* (a plain `sk_test_…` also
-  works). **Not** the subscription feature's `STRIPE_SECRET_KEY`.
+  `rk_test_…` scoped to Checkout Sessions *write*, **Refunds *write***,
+  Payment Intents *read*, Charges *read*, Events *read* (a plain
+  `sk_test_…` also works). **Not** the subscription feature's `STRIPE_SECRET_KEY`.
+  - **Refunds: Write is required** — without it Stripe refuses the
+    refund create call and the admin refund action cannot work.
+  - The Payment Intents / Charges / Events **read** grants are
+    currently **unused by the code**: settlement re-queries the
+    Checkout Session, refunds are created against the PaymentIntent
+    id recorded at settlement, and events arrive by webhook. They
+    are granted for ops lookups and future actions — keep them
+    read-only; never widen them.
 - `STRIPE_GATEWAY_WEBHOOK_SECRET` — the `whsec_…` of the webhook
   endpoint below (each endpoint has its own).
 
@@ -57,6 +65,11 @@ Dashboard → Workbench → Webhooks → Create an event destination:
   `checkout.session.async_payment_succeeded`,
   `checkout.session.async_payment_failed`, `checkout.session.expired`,
   `charge.refunded`
+- **API version: pin the endpoint to `2023-10-16`** — the version
+  every Stripe call in this repo is pinned to. An endpoint left on
+  the account default inherits whatever Stripe's current default is,
+  which drifts over time and would deliver events in a shape the
+  handler was not pinned against.
 - Then set the endpoint's signing secret as
   `STRIPE_GATEWAY_WEBHOOK_SECRET` above.
 
@@ -64,7 +77,10 @@ Dashboard → Workbench → Webhooks → Create an event destination:
 
 1. Apply migration `20261106_stripe_gateway_deposit.sql` (RPC +
    `platform_settings.stripe_gateway_enabled`, default `true` — set
-   it `false` to disable the rail instantly).
+   it `false` to disable the rail instantly). The checkout gate and
+   the admin status share one decision: the rail is enabled only
+   when the flag reads exactly `true`, so a missing settings row
+   fails closed in both.
 2. Deploy `stripe-gateway-checkout` (verify_jwt **on**) and
    `stripe-gateway-webhook` (verify_jwt **off** — see
    `supabase/config.toml`).
@@ -80,22 +96,26 @@ until the keys exist.
 
 ## Currency note (ZMW)
 
-ZMW is attempted first for ZMW wallets. Stripe recognises ZMW (it is
-in Stripe's currency data and FX conversion lists), but presentment
-is defined per account country and cannot be proven from docs for
-this account — so if Stripe rejects the currency at session
-creation, the same amount is charged in USD to the user's USD wallet
-in the same account scope (the PayPal precedent), recorded on the
-ledger row (`metadata.fallback_applied`) and reported in the
-checkout response and the app. Never silent.
+ZMW is attempted for ZMW wallets. Stripe recognises ZMW (it is in
+Stripe's currency data and FX conversion lists), but presentment is
+defined per account country and cannot be proven from docs for this
+account — so if Stripe rejects the currency at session creation, the
+top-up is **refused honestly** and the ledger row is closed as
+failed (`metadata.failure = "currency_rejected"`). The user may then
+start a USD top-up and type a dollar amount themselves. An amount is
+only ever charged in the currency and value the user entered: there
+is **no automatic fallback charge in another currency** (the
+same-amount USD fallback was removed by audit fix D1, 2026-10-26 —
+it would have charged a K10,000 amount as $10,000).
 
 ## Production swap = replace the three values with live ones
 
 1. Swap `STRIPE_GATEWAY_SECRET_KEY` → live `rk_live_…`/`sk_live_…`
    and `VITE_STRIPE_PUBLISHABLE_KEY` → `pk_live_…`.
 2. Register a **separate live** webhook endpoint (same URL, same
-   events) and set its new `whsec_…` as
-   `STRIPE_GATEWAY_WEBHOOK_SECRET` — test secrets never carry over.
+   events, **API version pinned to `2023-10-16`**) and set its new
+   `whsec_…` as `STRIPE_GATEWAY_WEBHOOK_SECRET` — test secrets never
+   carry over.
 3. Flip `STRIPE_GATEWAY_MODE` to `"live"` in
    `src/config/stripeGateway.ts` so the UI stops calling it a
    sandbox rail.

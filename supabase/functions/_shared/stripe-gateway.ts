@@ -35,11 +35,15 @@
 // ZMW presentment for this account; only Stripe's answer at session
 // creation can. The checkout function therefore ATTEMPTS the wallet's
 // own currency (ZMW included) and, if Stripe rejects the currency,
-// falls back to USD against the caller's USD wallet in the same
-// account scope — the exact PayPal precedent in this app (PayPal
-// cannot take ZMW at all, so that rail is USD-only from the start).
-// The fallback is recorded on the ledger row and reported in the
-// checkout response; nothing about it is silent.
+// REFUSES the top-up honestly — the user may then start a USD top-up
+// and type a dollar amount themselves (the PayPal precedent: that
+// rail is USD-only from the start, with the amount always the user's
+// own). There is NO automatic fallback charge in another currency:
+// the previous same-amount USD fallback was removed by audit fix D1
+// (2026-10-26) — it re-ran checkout with the UNCHANGED numeric amount
+// against the USD wallet, so a K10,000 ZMW top-up would have become
+// a $10,000 USD charge. An amount is only ever charged in the
+// currency and value the user themselves entered.
 
 // ── Money ────────────────────────────────────────────────────────────
 
@@ -110,6 +114,38 @@ export const STRIPE_GATEWAY_ROLES = ["admin", "super_admin"] as const;
 
 export function canUseStripeGateway(roles: readonly string[]): boolean {
   return roles.some((r) => (STRIPE_GATEWAY_ROLES as readonly string[]).includes(r));
+}
+
+/**
+ * The ONE Stripe API version every Stripe call in this repo is
+ * pinned to (audit fix D3, 2026-10-26): the subscription functions
+ * (create-checkout, customer-portal) pin `apiVersion: "2023-10-16"`
+ * through stripe@14.21.0, and this gateway sends the same version as
+ * its `Stripe-Version` header — one API dialect repo-wide. (An
+ * earlier comment here claimed the gateway's 2024-06-20 pin was "the
+ * same pin the subscription checkout uses"; it was not.)
+ *
+ * The gateway's WEBHOOK ENDPOINT must also be pinned to this version
+ * when it is registered in the Dashboard — endpoints otherwise
+ * inherit the account's default version, which drifts as Stripe
+ * releases, and events would arrive in a shape this code did not
+ * pin against. See docs/stripe-gateway-wallet-topup.md.
+ */
+export const STRIPE_API_VERSION = "2023-10-16";
+
+/**
+ * The kill-switch decision, shared by the checkout gate and the
+ * admin status (audit fix D6, 2026-10-26): the rail is enabled ONLY
+ * when platform_settings.stripe_gateway_enabled reads exactly true.
+ * A missing settings row or a NULL value therefore reads as DISABLED
+ * in both places — previously checkout treated a missing row as
+ * enabled while the admin status reported it disabled. (The column
+ * itself is `NOT NULL DEFAULT true`, and the live row currently
+ * reads false, so this changes no live behaviour today; it makes
+ * the two readers agree by construction.)
+ */
+export function stripeGatewayKillSwitchEnabled(value: unknown): boolean {
+  return value === true;
 }
 
 // ── Server-side price guard ──────────────────────────────────────────
@@ -192,6 +228,52 @@ export function buildCheckoutSessionParams(input: CheckoutSessionInput): Record<
   return params;
 }
 
+// ── Return URLs (audit fixes D9/D10, 2026-10-26) ────────────────────
+
+/** The app's canonical origin — the default return destination. */
+export const STRIPE_GATEWAY_CANONICAL_ORIGIN = "https://bmaglasspay.online";
+
+/** Production origins a Checkout return may legitimately land on. */
+export const STRIPE_GATEWAY_RETURN_ORIGINS: readonly string[] = [
+  "https://bmaglasspay.online",
+  "https://www.bmaglasspay.online",
+];
+
+/**
+ * Resolve the origin the Checkout success/cancel URLs are built
+ * from. The request's `Origin` header is attacker-influenceable, so
+ * it is honoured ONLY when it is exactly one of the app's own
+ * origins; anything else falls back to the canonical origin. Without
+ * this, a crafted call could send a payer who just paid on Stripe's
+ * trusted page onward to an arbitrary site. In TEST mode only,
+ * loopback origins are also allowed so a sandbox proof can run
+ * against a local dev server; a live key never honours them.
+ */
+export function resolveStripeReturnOrigin(
+  originHeader: string | null | undefined,
+  mode: StripeKeyMode | null,
+): string {
+  if (typeof originHeader === "string" && originHeader) {
+    try {
+      const parsed = new URL(originHeader);
+      const origin = parsed.origin;
+      if ((STRIPE_GATEWAY_RETURN_ORIGINS as readonly string[]).includes(origin)) {
+        return origin;
+      }
+      if (
+        mode === "test" &&
+        parsed.protocol === "http:" &&
+        (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1")
+      ) {
+        return origin;
+      }
+    } catch {
+      // Malformed header — fall through to the canonical origin.
+    }
+  }
+  return STRIPE_GATEWAY_CANONICAL_ORIGIN;
+}
+
 // ── Stripe API errors ────────────────────────────────────────────────
 
 export interface StripeApiErrorLike {
@@ -202,17 +284,23 @@ export interface StripeApiErrorLike {
 }
 
 /**
- * True when a Stripe error is the currency rejection the ZMW attempt
- * can meet: an invalid_request_error whose message names the
- * currency. Deliberately narrow — any other failure must surface as a
- * failure, never trigger the USD fallback.
+ * True when a Stripe error is a currency rejection, judged ONLY on
+ * documented error fields: an `invalid_request_error` whose `param`
+ * names the currency parameter (both fields are part of Stripe's
+ * documented error object). It deliberately does NOT match on the
+ * human-readable `message` (undocumented, free to change) or on the
+ * `currency_not_supported` code (not in Stripe's documented error
+ * codes) — audit fix D4, 2026-10-26.
+ *
+ * Since audit fix D1 this verdict drives NO money decision: it only
+ * chooses the truthful refusal copy and the trace fields recorded on
+ * the failed ledger row. If detection ever misses, the refusal is
+ * the generic one — safe either way, because nothing is charged.
  */
 export function isStripeCurrencyRejection(error: StripeApiErrorLike | null | undefined): boolean {
   if (!error) return false;
-  if (error.code === "currency_not_supported") return true;
   if (error.type !== "invalid_request_error") return false;
-  if (error.param && error.param.includes("currency")) return true;
-  return typeof error.message === "string" && /currenc/i.test(error.message);
+  return typeof error.param === "string" && error.param.includes("currency");
 }
 
 /**
@@ -234,6 +322,51 @@ export function stripeErrorTrace(
   } catch {
     return { status, type: null, code: null };
   }
+}
+
+// ── Stripe API retry policy (audit fix D7, 2026-10-26) ──────────────
+
+/** Hard cap on attempts for one logical Stripe API call. */
+export const STRIPE_MAX_ATTEMPTS = 3;
+
+/**
+ * Whether a failed Stripe API attempt may be retried. Retryable
+ * failures are transient by definition: a network error or timeout
+ * (status 0), 429 (rate limited) and 5xx (Stripe-side). A 4xx is
+ * Stripe's verdict on the request itself — retrying changes nothing.
+ *
+ * Safety: reads (GET) are always safe to retry. A POST is retried
+ * ONLY when the call carries an Idempotency-Key — every POST this
+ * rail makes does (session create = ledger id, refund create =
+ * `refund:<ledger id>`), so a retry can never create a second
+ * session or a second refund; Stripe replays the original response.
+ */
+export function shouldRetryStripeRequest(input: {
+  /** 1-based number of the attempt that just failed. */
+  attempt: number;
+  /** HTTP status of the failed attempt; 0 = network error/timeout. */
+  status: number;
+  method: string;
+  hasIdempotencyKey: boolean;
+}): boolean {
+  if (input.attempt >= STRIPE_MAX_ATTEMPTS) return false;
+  const transient = input.status === 0 || input.status === 429 || input.status >= 500;
+  if (!transient) return false;
+  const method = input.method.toUpperCase();
+  if (method === "GET" || method === "HEAD") return true;
+  return input.hasIdempotencyKey;
+}
+
+/**
+ * Delay before the next attempt: short exponential backoff (300ms,
+ * 900ms), honouring Stripe's `Retry-After` when it sends one, capped
+ * at 5s so a webhook invocation never waits out a long penalty box.
+ */
+export function stripeRetryDelayMs(attempt: number, retryAfterSeconds?: number | null): number {
+  if (typeof retryAfterSeconds === "number" && Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return Math.min(retryAfterSeconds * 1000, 5000);
+  }
+  return 300 * Math.pow(3, Math.max(0, attempt - 1));
 }
 
 // ── Webhook signature verification ───────────────────────────────────
@@ -370,6 +503,28 @@ export function sessionIdFromEvent(event: unknown): string | null {
   return typeof record.id === "string" && record.id.startsWith("cs_") ? record.id : null;
 }
 
+/**
+ * The client_reference_id (= our ledger uuid) carried by a session
+ * event, if present. The close-unsettled path uses it as the same
+ * defensive ledger lookup the settlement path performs
+ * (findStripeDepositTransaction), so an expiry/failure event that
+ * arrives before the checkout function has written the session
+ * reference back can still find — and close — its row (audit fix
+ * D5, 2026-10-26).
+ */
+export function clientReferenceIdFromEvent(event: unknown): string | null {
+  if (!event || typeof event !== "object") return null;
+  const data = (event as { data?: unknown }).data;
+  if (!data || typeof data !== "object") return null;
+  const object = (data as { object?: unknown }).object;
+  if (!object || typeof object !== "object") return null;
+  const record = object as { client_reference_id?: unknown; object?: unknown };
+  if (record.object !== "checkout.session") return null;
+  return typeof record.client_reference_id === "string" && record.client_reference_id
+    ? record.client_reference_id
+    : null;
+}
+
 /** The PaymentIntent id a charge.refunded event refers to, if present. */
 export function paymentIntentIdFromChargeEvent(event: unknown): string | null {
   if (!event || typeof event !== "object") return null;
@@ -474,11 +629,11 @@ export function planStripeSettlement(
 /**
  * Pure status mapping for `stripe-gateway-admin` { action: "status" }.
  * `kill_switch_enabled` is exactly
- * `platform_settings.stripe_gateway_enabled === true` — the column
- * defaults to true and only an explicit true reads as enabled here,
- * so a missing row reports disabled rather than inventing a state.
- * `webhook_configured` is presence-only: the secret value itself
- * never leaves the function.
+ * `platform_settings.stripe_gateway_enabled === true`
+ * (stripeGatewayKillSwitchEnabled — the same decision the checkout
+ * gate makes, so the console and the gate can never disagree about
+ * a missing row). `webhook_configured` is presence-only: the secret
+ * value itself never leaves the function.
  */
 export function stripeGatewayStatus(input: {
   secretKey: string | null | undefined;
@@ -494,7 +649,7 @@ export function stripeGatewayStatus(input: {
   return {
     configured,
     mode,
-    kill_switch_enabled: input.gatewayEnabled === true,
+    kill_switch_enabled: stripeGatewayKillSwitchEnabled(input.gatewayEnabled),
     webhook_configured:
       typeof input.webhookSecret === "string" && input.webhookSecret.trim().length > 0,
   };

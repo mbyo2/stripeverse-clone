@@ -79,17 +79,11 @@ export function useStripeGatewayDeposit() {
         return false;
       }
 
-      if (data.fallback_applied) {
-        toast({
-          title: 'Top-up will be in US dollars',
-          description:
-            data.message ||
-            'Stripe does not accept this currency on our account, so the top-up is charged in USD to your USD wallet.',
-        });
-      }
-
       // Hand the user to Stripe's hosted checkout; the wallet is
-      // credited by the webhook after confirmation, not here.
+      // credited by the webhook after confirmation, not here. (There
+      // is no currency fallback to announce: since audit fix D1 the
+      // server refuses a currency Stripe won't take instead of
+      // re-charging the same amount in USD.)
       window.location.href = data.url as string;
       return true;
     } finally {

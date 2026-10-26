@@ -24,26 +24,33 @@
 //   2. Role: admin / super_admin only (canUseStripeGateway). The rail
 //      is 'Coming soon' publicly — everyone else gets a plain
 //      refusal here and never sees the option in the app either.
-//   3. Kill switch: platform_settings.stripe_gateway_enabled = false
-//      disables the rail instantly (default true; the rail is dark
-//      until the secret below exists, and role-gated besides).
+//   3. Kill switch: platform_settings.stripe_gateway_enabled must
+//      read exactly true (stripeGatewayKillSwitchEnabled — the same
+//      decision the admin status reports, so a missing settings row
+//      reads as disabled in both places; audit fix D6). The column
+//      defaults to true, but the rail is dark until the secret below
+//      exists, and role-gated besides.
 //   4. Configuration: STRIPE_GATEWAY_SECRET_KEY must hold a Stripe
 //      secret/restricted key (sk_/rk_, test or live). Absent or
 //      malformed → truthful `not_configured`, no rows written. The
 //      subscription feature's STRIPE_SECRET_KEY is NEVER read here.
 //
-// Currency: the wallet's own currency is attempted first (ZMW
-// included — see the evidence note in _shared/stripe-gateway.ts). If
-// Stripe rejects the currency, the SAME amount is charged in USD to
-// the caller's USD wallet in the same account scope (the PayPal
-// precedent: PayPal cannot take ZMW, so that rail is USD-only), the
-// fallback is recorded on the ledger row, and the response reports
-// it. Nothing about the fallback is silent.
+// Currency: the wallet's own currency is attempted (ZMW included —
+// see the evidence note in _shared/stripe-gateway.ts). If Stripe
+// rejects the currency, the top-up is REFUSED honestly and the
+// ledger row is closed as failed: the user may start a USD top-up
+// and type a dollar amount themselves, but an amount is only ever
+// charged in the currency and value the user entered. There is NO
+// automatic fallback charge in another currency — the previous
+// same-amount USD fallback was removed by audit fix D1 (2026-10-26):
+// it re-ran checkout with the UNCHANGED numeric amount against the
+// USD wallet, so a K10,000 ZMW top-up would have become a $10,000
+// USD charge.
 //
 // Input:  { amount, currency?, wallet_id?, account_id? }
 // Output: { success, status, transaction_id?, session_id?, url?,
-//           charge_currency?, target_currency?, fallback_applied?,
-//           mode?, message?, error? }
+//           charge_currency?, target_currency?, mode?, message?,
+//           error? }
 // `success: true` means only "a Checkout Session exists" — the
 // deposit itself completes in the webhook, never here.
 
@@ -53,7 +60,9 @@ import {
   buildCheckoutSessionParams,
   canUseStripeGateway,
   isStripeCurrencyRejection,
+  resolveStripeReturnOrigin,
   stripeGatewayConfig,
+  stripeGatewayKillSwitchEnabled,
   validateStripeTopUp,
 } from "../_shared/stripe-gateway.ts";
 import { createStripeCheckoutSession } from "../_shared/stripe-gateway-server.ts";
@@ -122,13 +131,13 @@ serve(async (req) => {
       }, 403);
     }
 
-    // ── 3. Kill switch ──
+    // ── 3. Kill switch (explicit-true semantics, audit fix D6) ──
     const { data: settings } = await supabase
       .from("platform_settings")
       .select("stripe_gateway_enabled")
       .eq("id", true)
       .maybeSingle();
-    if (settings && settings.stripe_gateway_enabled === false) {
+    if (!stripeGatewayKillSwitchEnabled(settings?.stripe_gateway_enabled)) {
       return json({
         success: false,
         status: "not_configured",
@@ -250,7 +259,6 @@ serve(async (req) => {
           gateway: "stripe",
           requested_currency: requestedCurrency ?? wallet.currency,
           charge_currency: wallet.currency,
-          fallback_applied: false,
           stripe_mode: config.mode,
           account_id: wallet.account_id,
         },
@@ -263,90 +271,66 @@ serve(async (req) => {
     // returned value is the truth and leads from here.
     const ledgerId = (inserted?.uuid_id as string | undefined) ?? requestedLedgerId;
 
-    const origin = req.headers.get("origin") ?? "https://bmaglasspay.online";
+    // Return URLs are built ONLY from an allowlisted origin (audit
+    // fixes D9/D10): the raw Origin header is attacker-influenceable
+    // and must never decide where Stripe sends a payer after payment.
+    const origin = resolveStripeReturnOrigin(req.headers.get("origin"), config.mode);
     const successUrl = `${origin}/wallet?stripe_return=success&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${origin}/wallet?stripe_return=cancelled`;
 
-    const attempt = async (chargeWallet: WalletRow, idempotencyKey: string) => {
-      const form = buildCheckoutSessionParams({
-        ledgerId,
-        userId: user.id,
-        amount,
-        currency: chargeWallet.currency,
-        successUrl,
-        cancelUrl,
-        customerEmail: user.email ?? null,
-      });
-      return createStripeCheckoutSession(secretKey, form, idempotencyKey);
-    };
-
-    // ── Create the session (attempt 1: the wallet's own currency) ──
-    let chargeWallet = wallet;
-    let fallbackApplied = false;
-    let result = await attempt(chargeWallet, ledgerId);
-
-    // ── USD fallback on a currency rejection (PayPal precedent) ──
-    if (!result.ok && isStripeCurrencyRejection(result.error) && chargeWallet.currency !== "USD") {
-      const usdValidation = validateStripeTopUp(amount, "USD");
-      if (usdValidation.ok) {
-        const usdWallet = await getOrCreateWallet(supabase, user.id, "USD", wallet.account_id);
-        if (usdWallet && usdWallet.status === "active") {
-          logStep("Currency rejected by Stripe — falling back to USD", {
-            from: chargeWallet.currency,
-            ledgerId,
-          });
-          chargeWallet = usdWallet;
-          fallbackApplied = true;
-          await supabase
-            .from("transactions")
-            .update({
-              wallet_id: usdWallet.id,
-              currency: "USD",
-              metadata: {
-                kind: "wallet_deposit",
-                wallet_id: usdWallet.id,
-                gateway: "stripe",
-                requested_currency: requestedCurrency ?? wallet.currency,
-                charge_currency: "USD",
-                fallback_applied: true,
-                fallback_from: wallet.currency,
-                stripe_currency_rejection: {
-                  type: result.error?.type ?? null,
-                  code: result.error?.code ?? null,
-                },
-                stripe_mode: config.mode,
-                account_id: wallet.account_id,
-              },
-            })
-            .eq("uuid_id", ledgerId);
-          result = await attempt(chargeWallet, `${ledgerId}:usd-fallback`);
-        }
-      }
-    }
+    // ── Create the session — ONE attempt, in the wallet's own
+    // currency, for the amount the user typed. No second attempt in
+    // another currency ever follows (audit fix D1). ──
+    const form = buildCheckoutSessionParams({
+      ledgerId,
+      userId: user.id,
+      amount,
+      currency: wallet.currency,
+      successUrl,
+      cancelUrl,
+      customerEmail: user.email ?? null,
+    });
+    const result = await createStripeCheckoutSession(secretKey, form, ledgerId);
 
     if (!result.ok || !result.data?.id || !result.data.url) {
       // No session: close the ledger row as failed so it never sits
       // pending pretending money might arrive, and answer plainly.
+      // A currency rejection gets the truthful, actionable refusal;
+      // detection uses documented error fields only and drives no
+      // money decision (audit fixes D1 + D4).
+      const currencyRejected = isStripeCurrencyRejection(result.error);
       await supabase
         .from("transactions")
         .update({
           status: "failed",
           metadata: {
             kind: "wallet_deposit",
-            wallet_id: chargeWallet.id,
+            wallet_id: wallet.id,
             gateway: "stripe",
             requested_currency: requestedCurrency ?? wallet.currency,
-            charge_currency: chargeWallet.currency,
-            fallback_applied: fallbackApplied,
+            charge_currency: wallet.currency,
             stripe_mode: config.mode,
             account_id: wallet.account_id,
-            failure: "session_create_failed",
+            failure: currencyRejected ? "currency_rejected" : "session_create_failed",
             stripe_error_type: result.error?.type ?? null,
             stripe_error_code: result.error?.code ?? null,
           },
         })
         .eq("uuid_id", ledgerId);
-      logStep("Session creation failed", { ledgerId, status: result.status });
+      logStep("Session creation failed", {
+        ledgerId,
+        status: result.status,
+        currencyRejected,
+      });
+      if (currencyRejected) {
+        return json({
+          success: false,
+          status: "unsupported_currency",
+          error:
+            `Stripe doesn't accept ${wallet.currency} charges on this account yet, so this top-up can't start. No money was charged. ` +
+            "To top up in US dollars instead, start a new top-up, choose your USD wallet and enter the dollar amount yourself — an amount is never converted or charged in another currency automatically.",
+        }, 400);
+      }
       return json({
         success: false,
         status: "failed",
@@ -362,12 +346,10 @@ serve(async (req) => {
         external_reference: session.id,
         metadata: {
           kind: "wallet_deposit",
-          wallet_id: chargeWallet.id,
+          wallet_id: wallet.id,
           gateway: "stripe",
           requested_currency: requestedCurrency ?? wallet.currency,
-          charge_currency: chargeWallet.currency,
-          fallback_applied: fallbackApplied,
-          ...(fallbackApplied ? { fallback_from: wallet.currency } : {}),
+          charge_currency: wallet.currency,
           stripe_mode: config.mode,
           account_id: wallet.account_id,
           stripe_session_id: session.id,
@@ -383,8 +365,7 @@ serve(async (req) => {
     logStep("Checkout session created", {
       ledgerId,
       sessionId: session.id,
-      chargeCurrency: chargeWallet.currency,
-      fallbackApplied,
+      chargeCurrency: wallet.currency,
       mode: config.mode,
     });
 
@@ -394,13 +375,11 @@ serve(async (req) => {
       transaction_id: ledgerId,
       session_id: session.id,
       url: session.url,
-      charge_currency: chargeWallet.currency,
-      target_currency: chargeWallet.currency,
-      fallback_applied: fallbackApplied,
+      charge_currency: wallet.currency,
+      target_currency: wallet.currency,
       mode: config.mode,
-      message: fallbackApplied
-        ? `Stripe doesn't accept ${wallet.currency} charges on this account, so this top-up is in US dollars and will land in your USD wallet. Your wallet is credited once Stripe confirms the payment.`
-        : "Top-up started with Stripe. Your wallet is credited only after Stripe confirms the payment — no money has moved yet.",
+      message:
+        "Top-up started with Stripe. Your wallet is credited only after Stripe confirms the payment — no money has moved yet.",
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

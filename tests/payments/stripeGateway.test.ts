@@ -10,8 +10,15 @@
 //     exact amount, currency and ledger id of the pending row.
 //   - Settlement is exactly-once at the decision layer: a replayed
 //     session plans as already_completed, never as a second credit.
-//   - ZMW is attempted as a first-class two-decimal currency; only a
-//     genuine Stripe currency rejection may trigger the USD fallback.
+//   - ZMW is attempted as a first-class two-decimal currency; a
+//     Stripe currency rejection REFUSES the top-up (audit D1) —
+//     there is no same-amount fallback charge in another currency,
+//     and the rejection is recognised from documented error fields
+//     only (audit D4).
+//   - Shared decisions the functions must not disagree on: the API
+//     version pin (D3), explicit-true kill-switch semantics (D6),
+//     the close-path ledger lookup (D5), the API retry policy (D7)
+//     and the allowlisted return origin (D9/D10).
 
 import { describe, it, expect } from "vitest";
 import { createHmac } from "node:crypto";
@@ -19,6 +26,7 @@ import {
   buildCheckoutSessionParams,
   buildStripeRefundParams,
   canUseStripeGateway,
+  clientReferenceIdFromEvent,
   decideStripeRefundEligibility,
   fromMinorUnits,
   isStripeCurrencyRejection,
@@ -29,14 +37,20 @@ import {
   paymentIntentIdFromChargeEvent,
   plainStripeRefundError,
   planStripeSettlement,
+  resolveStripeReturnOrigin,
   sessionIdFromEvent,
+  shouldRetryStripeRequest,
+  STRIPE_API_VERSION,
+  STRIPE_GATEWAY_CANONICAL_ORIGIN,
   stripeErrorTrace,
   stripeEventAction,
   stripeGatewayConfig,
+  stripeGatewayKillSwitchEnabled,
   stripeGatewayStatus,
   stripeKeyMode,
   stripePaymentIntentIdFromRow,
   stripeRefundIdempotencyKey,
+  stripeRetryDelayMs,
   stripeSessionIdFromRow,
   timingSafeEqualHex,
   toMinorUnits,
@@ -156,23 +170,34 @@ describe("buildCheckoutSessionParams (the session-create contract)", () => {
   });
 });
 
-describe("isStripeCurrencyRejection (USD fallback trigger)", () => {
-  it("recognises a genuine currency rejection", () => {
-    expect(isStripeCurrencyRejection({
-      type: "invalid_request_error",
-      message: "The currency provided (zmw) is not supported.",
-    })).toBe(true);
+describe("isStripeCurrencyRejection (refusal copy only — no fallback, audits D1/D4)", () => {
+  it("recognises a currency rejection from documented fields only", () => {
     expect(isStripeCurrencyRejection({
       type: "invalid_request_error", param: "line_items[0][price_data][currency]",
     })).toBe(true);
-    expect(isStripeCurrencyRejection({ code: "currency_not_supported" })).toBe(true);
+  });
+
+  it("does NOT trust the human-readable message (undocumented, free to change)", () => {
+    expect(isStripeCurrencyRejection({
+      type: "invalid_request_error",
+      message: "The currency provided (zmw) is not supported.",
+    })).toBe(false);
+  });
+
+  it("does NOT trust the undocumented currency_not_supported code", () => {
+    expect(isStripeCurrencyRejection({ code: "currency_not_supported" })).toBe(false);
+    expect(isStripeCurrencyRejection({
+      type: "invalid_request_error", code: "currency_not_supported",
+    })).toBe(false);
   });
 
   it("never treats other failures as a currency rejection", () => {
     expect(isStripeCurrencyRejection({
-      type: "invalid_request_error", message: "Your card was declined.",
+      type: "invalid_request_error", param: "amount", message: "Your card was declined.",
     })).toBe(false);
-    expect(isStripeCurrencyRejection({ type: "api_error", message: "currency service down" })).toBe(false);
+    expect(isStripeCurrencyRejection({
+      type: "api_error", param: "currency",
+    })).toBe(false);
     expect(isStripeCurrencyRejection(null)).toBe(false);
     expect(isStripeCurrencyRejection(undefined)).toBe(false);
   });
@@ -634,5 +659,100 @@ describe("plainStripeRefundError (classified 502 language)", () => {
     expect(message).not.toContain("sk_test_abc");
     expect(message).toContain("No money has moved");
     expect(plainStripeRefundError(null)).toContain("No money has moved");
+  });
+});
+
+// ── Audit fixes 2026-10-26 (D3, D5, D6, D7, D9/D10) ────────────────
+
+describe("STRIPE_API_VERSION (one dialect repo-wide, audit D3)", () => {
+  it("is the version the subscription functions pin (create-checkout, customer-portal)", () => {
+    expect(STRIPE_API_VERSION).toBe("2023-10-16");
+  });
+});
+
+describe("stripeGatewayKillSwitchEnabled (explicit-true semantics, audit D6)", () => {
+  it("enables only on exactly true — a missing row or NULL reads disabled", () => {
+    expect(stripeGatewayKillSwitchEnabled(true)).toBe(true);
+    expect(stripeGatewayKillSwitchEnabled(false)).toBe(false);
+    expect(stripeGatewayKillSwitchEnabled(null)).toBe(false);
+    expect(stripeGatewayKillSwitchEnabled(undefined)).toBe(false);
+  });
+});
+
+describe("clientReferenceIdFromEvent (close-path lookup parity, audit D5)", () => {
+  it("extracts the ledger id from a well-formed session event", () => {
+    const event = {
+      type: "checkout.session.expired",
+      data: { object: { id: "cs_test_1", object: "checkout.session", client_reference_id: "ledger-123" } },
+    };
+    expect(clientReferenceIdFromEvent(event)).toBe("ledger-123");
+  });
+
+  it("returns null for non-session objects, missing refs and malformed events", () => {
+    expect(clientReferenceIdFromEvent({ data: { object: { id: "ch_1", object: "charge", client_reference_id: "x" } } })).toBeNull();
+    expect(clientReferenceIdFromEvent({ data: { object: { id: "cs_1", object: "checkout.session" } } })).toBeNull();
+    expect(clientReferenceIdFromEvent({ data: { object: { id: "cs_1", object: "checkout.session", client_reference_id: "" } } })).toBeNull();
+    expect(clientReferenceIdFromEvent(null)).toBeNull();
+    expect(clientReferenceIdFromEvent({})).toBeNull();
+  });
+});
+
+describe("shouldRetryStripeRequest / stripeRetryDelayMs (audit D7)", () => {
+  it("retries transient failures: network (0), 429 and 5xx", () => {
+    expect(shouldRetryStripeRequest({ attempt: 1, status: 0, method: "GET", hasIdempotencyKey: false })).toBe(true);
+    expect(shouldRetryStripeRequest({ attempt: 1, status: 429, method: "GET", hasIdempotencyKey: false })).toBe(true);
+    expect(shouldRetryStripeRequest({ attempt: 2, status: 503, method: "GET", hasIdempotencyKey: false })).toBe(true);
+  });
+
+  it("never retries a 4xx verdict", () => {
+    expect(shouldRetryStripeRequest({ attempt: 1, status: 400, method: "GET", hasIdempotencyKey: false })).toBe(false);
+    expect(shouldRetryStripeRequest({ attempt: 1, status: 403, method: "POST", hasIdempotencyKey: true })).toBe(false);
+    expect(shouldRetryStripeRequest({ attempt: 1, status: 404, method: "GET", hasIdempotencyKey: false })).toBe(false);
+  });
+
+  it("retries a POST only when an Idempotency-Key makes the replay safe", () => {
+    expect(shouldRetryStripeRequest({ attempt: 1, status: 500, method: "POST", hasIdempotencyKey: true })).toBe(true);
+    expect(shouldRetryStripeRequest({ attempt: 1, status: 500, method: "POST", hasIdempotencyKey: false })).toBe(false);
+    expect(shouldRetryStripeRequest({ attempt: 1, status: 0, method: "POST", hasIdempotencyKey: false })).toBe(false);
+  });
+
+  it("stops at the attempt cap", () => {
+    expect(shouldRetryStripeRequest({ attempt: 3, status: 500, method: "GET", hasIdempotencyKey: false })).toBe(false);
+    expect(shouldRetryStripeRequest({ attempt: 4, status: 0, method: "GET", hasIdempotencyKey: false })).toBe(false);
+  });
+
+  it("backs off exponentially and honours Retry-After under a 5s cap", () => {
+    expect(stripeRetryDelayMs(1)).toBe(300);
+    expect(stripeRetryDelayMs(2)).toBe(900);
+    expect(stripeRetryDelayMs(1, 2)).toBe(2000);
+    expect(stripeRetryDelayMs(1, 60)).toBe(5000);
+    expect(stripeRetryDelayMs(1, null)).toBe(300);
+  });
+});
+
+describe("resolveStripeReturnOrigin (allowlisted return URLs, audits D9/D10)", () => {
+  it("defaults to the canonical origin when no header is present", () => {
+    expect(resolveStripeReturnOrigin(null, "live")).toBe(STRIPE_GATEWAY_CANONICAL_ORIGIN);
+    expect(resolveStripeReturnOrigin(undefined, "test")).toBe("https://bmaglasspay.online");
+    expect(resolveStripeReturnOrigin("", "live")).toBe("https://bmaglasspay.online");
+  });
+
+  it("honours the app's own production origins", () => {
+    expect(resolveStripeReturnOrigin("https://bmaglasspay.online", "live")).toBe("https://bmaglasspay.online");
+    expect(resolveStripeReturnOrigin("https://www.bmaglasspay.online/wallet", "live")).toBe("https://www.bmaglasspay.online");
+  });
+
+  it("never honours an arbitrary origin (open-redirect guard)", () => {
+    expect(resolveStripeReturnOrigin("https://evil.example.com", "live")).toBe("https://bmaglasspay.online");
+    expect(resolveStripeReturnOrigin("https://bmaglasspay.online.evil.example.com", "live")).toBe("https://bmaglasspay.online");
+    expect(resolveStripeReturnOrigin("http://bmaglasspay.online", "live")).toBe("https://bmaglasspay.online");
+    expect(resolveStripeReturnOrigin("not a url", "live")).toBe("https://bmaglasspay.online");
+  });
+
+  it("allows loopback only in test mode", () => {
+    expect(resolveStripeReturnOrigin("http://localhost:5173", "test")).toBe("http://localhost:5173");
+    expect(resolveStripeReturnOrigin("http://127.0.0.1:8080", "test")).toBe("http://127.0.0.1:8080");
+    expect(resolveStripeReturnOrigin("http://localhost:5173", "live")).toBe("https://bmaglasspay.online");
+    expect(resolveStripeReturnOrigin("http://localhost:5173", null)).toBe("https://bmaglasspay.online");
   });
 });

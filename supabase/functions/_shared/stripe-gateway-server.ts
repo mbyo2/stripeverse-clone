@@ -23,7 +23,10 @@
 
 import {
   fromMinorUnits,
+  shouldRetryStripeRequest,
+  STRIPE_API_VERSION,
   stripeErrorTrace,
+  stripeRetryDelayMs,
   verifyStripeSession,
   planStripeSettlement,
   type StripeApiErrorLike,
@@ -31,11 +34,16 @@ import {
   type PendingStripeDeposit,
 } from "./stripe-gateway.ts";
 
-// Pinned API version — the same pin the subscription checkout uses
-// (create-checkout, stripe@14.21.0 defaults), so both Stripe
-// integrations in this repo speak one API dialect.
-const STRIPE_API_VERSION = "2024-06-20";
+// The API version pin lives in ./stripe-gateway.ts (STRIPE_API_VERSION
+// = "2023-10-16") — the same version the subscription functions
+// (create-checkout, customer-portal) pin through stripe@14.21.0, so
+// every Stripe call in this repo speaks one API dialect (audit fix
+// D3, 2026-10-26 — an earlier comment here claimed a 2024-06-20 pin
+// was "the same pin"; it was not).
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
+
+/** Per-attempt HTTP timeout for Stripe API calls (audit fix D7). */
+const STRIPE_REQUEST_TIMEOUT_MS = 15_000;
 
 // deno-lint-ignore no-explicit-any
 type AdminClient = any;
@@ -47,39 +55,93 @@ export interface StripeApiResult<T> {
   error: StripeApiErrorLike | null;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * One logical Stripe API call, with an HTTP-layer timeout and safe
+ * retries (audit fix D7, 2026-10-26). Previously a hung connection
+ * could stall an invocation indefinitely and a transient 429/5xx
+ * failed the call outright. The retry decision itself is the pure
+ * shouldRetryStripeRequest: transient statuses only, bounded
+ * attempts, and POSTs only with an Idempotency-Key (every POST this
+ * rail makes carries one, so a retry replays rather than duplicates).
+ */
 async function stripeRequest<T>(
   secretKey: string,
   method: string,
   path: string,
   opts?: { form?: Record<string, string>; idempotencyKey?: string },
 ): Promise<StripeApiResult<T>> {
-  try {
-    const response = await fetch(`${STRIPE_API_BASE}${path}`, {
-      method,
-      headers: {
-        "Authorization": `Bearer ${secretKey}`,
-        "Stripe-Version": STRIPE_API_VERSION,
-        ...(opts?.form ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
-        ...(opts?.idempotencyKey ? { "Idempotency-Key": opts.idempotencyKey } : {}),
-      },
-      body: opts?.form ? new URLSearchParams(opts.form).toString() : undefined,
-    });
-    const text = await response.text();
-    if (!response.ok) {
-      // Trace fields only (audit L1) — never the raw error body.
-      console.error("Stripe API error:", stripeErrorTrace(response.status, text));
-      let error: StripeApiErrorLike | null = null;
-      try {
-        error = (JSON.parse(text) as { error?: StripeApiErrorLike }).error ?? null;
-      } catch {
-        error = null;
+  for (let attempt = 1; ; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), STRIPE_REQUEST_TIMEOUT_MS);
+    let status = 0;
+    let retryAfterSeconds: number | null = null;
+    try {
+      const response = await fetch(`${STRIPE_API_BASE}${path}`, {
+        method,
+        signal: controller.signal,
+        headers: {
+          "Authorization": `Bearer ${secretKey}`,
+          "Stripe-Version": STRIPE_API_VERSION,
+          ...(opts?.form ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
+          ...(opts?.idempotencyKey ? { "Idempotency-Key": opts.idempotencyKey } : {}),
+        },
+        body: opts?.form ? new URLSearchParams(opts.form).toString() : undefined,
+      });
+      status = response.status;
+      const retryAfter = response.headers.get("retry-after");
+      if (retryAfter) {
+        const parsed = Number(retryAfter);
+        if (Number.isFinite(parsed)) retryAfterSeconds = parsed;
       }
-      return { ok: false, status: response.status, data: null, error };
+      const text = await response.text();
+      if (!response.ok) {
+        // Trace fields only (audit L1) — never the raw error body.
+        console.error("Stripe API error:", stripeErrorTrace(response.status, text));
+        let error: StripeApiErrorLike | null = null;
+        try {
+          error = (JSON.parse(text) as { error?: StripeApiErrorLike }).error ?? null;
+        } catch {
+          error = null;
+        }
+        const failure: StripeApiResult<T> = { ok: false, status: response.status, data: null, error };
+        if (
+          !shouldRetryStripeRequest({
+            attempt,
+            status: response.status,
+            method,
+            hasIdempotencyKey: !!opts?.idempotencyKey,
+          })
+        ) {
+          return failure;
+        }
+        // else fall through to the retry wait below
+      } else {
+        return { ok: true, status: response.status, data: JSON.parse(text) as T, error: null };
+      }
+    } catch (e) {
+      // Network failure or our own timeout abort — status 0.
+      status = 0;
+      console.error("Stripe API request failed:", e instanceof Error ? e.message : String(e));
+      if (
+        !shouldRetryStripeRequest({
+          attempt,
+          status,
+          method,
+          hasIdempotencyKey: !!opts?.idempotencyKey,
+        })
+      ) {
+        return { ok: false, status: 0, data: null, error: null };
+      }
+    } finally {
+      clearTimeout(timer);
     }
-    return { ok: true, status: response.status, data: JSON.parse(text) as T, error: null };
-  } catch (e) {
-    console.error("Stripe API request failed:", e instanceof Error ? e.message : String(e));
-    return { ok: false, status: 0, data: null, error: null };
+    const delayMs = stripeRetryDelayMs(attempt, retryAfterSeconds);
+    console.error(`Stripe API retry: attempt ${attempt} failed (status ${status}); retrying in ${delayMs}ms`);
+    await sleep(delayMs);
   }
 }
 
@@ -237,7 +299,7 @@ export async function settleStripeDeposit(
       error: "Stripe could not be reached to confirm this deposit. No money has moved.",
     };
   }
-  const session = queried.data;
+  let session = queried.data;
 
   const row = await findStripeDepositTransaction(admin, session);
   if (!row) return { kind: "not_found" };
@@ -269,11 +331,29 @@ export async function settleStripeDeposit(
     return { kind: "not_pending", transactionId: row.uuid_id, status: row.status };
   }
 
-  const verification = verifyStripeSession(session, pending);
+  let verification = verifyStripeSession(session, pending);
+  // A card payment can still be in `processing` when
+  // checkout.session.completed fires, and Stripe does not promise an
+  // async_payment_succeeded follow-up for every such case — so
+  // settlement must not rest on that single event (audit fix D8,
+  // 2026-10-26). Re-poll the session briefly here; if it is STILL
+  // unpaid, the webhook answers non-2xx so Stripe's own retry
+  // schedule re-drives settlement, with async_payment_succeeded kept
+  // as a third driver rather than the only one.
+  for (
+    let poll = 0;
+    !verification.ok && verification.reason === "not_paid" && poll < 2;
+    poll++
+  ) {
+    await sleep(1500);
+    const reQueried = await retrieveStripeSession(secretKey, sessionId);
+    if (!reQueried.ok || !reQueried.data) break;
+    session = reQueried.data;
+    verification = verifyStripeSession(session, pending);
+  }
   if (!verification.ok) {
-    // A genuinely unpaid session (async method still clearing) is
-    // patience, not an error: async_payment_succeeded will re-drive
-    // settlement when the money lands.
+    // A genuinely unpaid session is patience, not an error — but it
+    // is not acked either (see the webhook's handling of "pending").
     if (verification.reason === "not_paid") {
       return { kind: "pending", transactionId: row.uuid_id, reason: verification.reason };
     }
@@ -331,22 +411,55 @@ export async function settleStripeDeposit(
  * or an async payment failed). Only a 'pending' row transitions —
  * a completed row is never rewritten by a late failure event, which
  * is what makes out-of-order delivery safe.
+ *
+ * Row lookup has the same parity as the settlement path
+ * (findStripeDepositTransaction, audit fix D5, 2026-10-26): first by
+ * the recorded session reference, then — for the window where the
+ * session exists but the checkout function has not yet written the
+ * reference back — by the session's client_reference_id (our ledger
+ * uuid), back-filling the reference. A row bound to a DIFFERENT
+ * session is never closed.
  */
 export async function closeStripeDeposit(
   admin: AdminClient,
-  sessionId: string,
+  session: { id: string; clientReferenceId?: string | null },
   reason: string,
 ): Promise<"closed" | "not_found" | "not_pending"> {
   const { data, error } = await admin
     .from("transactions")
     .select(ROW_COLUMNS)
-    .eq("reference", sessionId)
+    .eq("reference", session.id)
     .eq("payment_method", "stripe")
     .order("created_at", { ascending: true });
   if (error) throw new Error(`Stripe deposit lookup failed: ${error.message}`);
-  const row = ((data ?? []) as StripeDepositRow[]).find(
+  let row = ((data ?? []) as StripeDepositRow[]).find(
     (r) => r.metadata?.kind === "wallet_deposit",
   );
+  if (!row && session.clientReferenceId) {
+    const { data: byId, error: byIdError } = await admin
+      .from("transactions")
+      .select(ROW_COLUMNS)
+      .eq("uuid_id", session.clientReferenceId)
+      .eq("payment_method", "stripe")
+      .maybeSingle();
+    if (byIdError) throw new Error(`Stripe deposit lookup failed: ${byIdError.message}`);
+    const candidate = byId as StripeDepositRow | null;
+    if (
+      candidate &&
+      candidate.metadata?.kind === "wallet_deposit" &&
+      (!candidate.reference || candidate.reference === session.id)
+    ) {
+      row = candidate;
+      if (!row.reference) {
+        await admin
+          .from("transactions")
+          .update({ reference: session.id })
+          .eq("uuid_id", row.uuid_id)
+          .is("reference", null);
+        row.reference = session.id;
+      }
+    }
+  }
   if (!row) return "not_found";
   if (row.status !== "pending") return "not_pending";
   const { error: updateError } = await admin

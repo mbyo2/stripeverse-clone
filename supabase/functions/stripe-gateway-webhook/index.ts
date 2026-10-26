@@ -19,14 +19,17 @@
 //   - Logs carry trace identifiers only (event id/type, session id)
 //     — never payload bodies, which can hold payer details.
 //
-// Responses: 200 for every verified event (including ignored types
-// and unknown sessions, so Stripe stops retrying events that can
-// never settle here); 500 only for transient failures Stripe should
-// retry (e.g. the settlement RPC errored); 400 for bad signatures.
+// Responses: 200 for every verified event whose effect is final
+// (settled, ignored, unknown session, already closed, mismatch held
+// for ops); 500 for transient states Stripe should retry — the
+// settlement RPC errored, or the payment is still clearing (audit
+// fix D8: a still-clearing payment is re-driven by Stripe's retries,
+// never acked-and-forgotten); 400 for bad signatures.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient } from "../_shared/supabase-client.ts";
 import {
+  clientReferenceIdFromEvent,
   paymentIntentIdFromChargeEvent,
   sessionIdFromEvent,
   stripeEventAction,
@@ -118,7 +121,9 @@ serve(async (req) => {
     if (action === "close_unsettled") {
       const outcome = await closeStripeDeposit(
         supabase,
-        sessionId,
+        // The client_reference_id gives the close path the same
+        // ledger lookup the settle path has (audit fix D5).
+        { id: sessionId, clientReferenceId: clientReferenceIdFromEvent(event) },
         eventType === "checkout.session.expired" ? "session_expired" : "async_payment_failed",
       );
       logStep("Deposit closed unsettled", { sessionId, outcome });
@@ -141,8 +146,15 @@ serve(async (req) => {
       case "completed":
       case "not_found": // a session this rail never recorded — nothing to settle
       case "not_pending": // already closed; a later 'paid' cannot resurrect it silently
-      case "pending": // async payment still clearing; async_payment_succeeded will re-drive
         return json({ received: true });
+      case "pending":
+        // The payment is still clearing (settleStripeDeposit has
+        // already re-polled briefly). Do NOT ack: a 500 makes
+        // Stripe's retry schedule re-drive settlement, so the credit
+        // never depends solely on async_payment_succeeded arriving
+        // (audit fix D8). Nothing is credited on this path.
+        logStep("Settlement still pending — asking Stripe to retry", { sessionId });
+        return json({ error: "Payment still clearing — retry." }, 500);
       case "mismatch":
         // Verified money that does not match the ledger row: never
         // credited. 200 so Stripe stops retrying; the row stays
