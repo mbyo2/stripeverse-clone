@@ -27,6 +27,18 @@
 //   - buyers return to the app (sanitised caller URLs), never to the
 //     webhook endpoint;
 //   - currency passes the one PAYPAL_ORDER_CURRENCIES allowlist (D3).
+//
+// Subscription-billing migration (2026-10-26, CEO decision 18:03):
+// platform subscriptions bill HERE, in USD — the Stripe subscription
+// surface (create-checkout / customer-portal) is removed. Prices are
+// the Pricing page's kwacha prices converted at the platform's stored
+// ZMW→USD rate (exchange_rates; see the migration addendum for the
+// table). The buyer's billing period (body.period: 'monthly' |
+// 'yearly', default 'monthly') is part of the price point: the
+// catalogue key is (tier, currency, amount, interval_unit) since
+// migration 20261228, and the plan's billing frequency matches the
+// period — before this, the frequency was hard-coded to MONTH, so a
+// yearly checkout would have billed the yearly amount every month.
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -97,6 +109,9 @@ serve(async (req) => {
     const planId = body.planId;
     const amount = Number(body.amount);
     const currency = String(body.currency ?? '').toUpperCase();
+    // The buyer's billing period is part of the price point (see
+    // header): 'yearly' bills yearly, anything else bills monthly.
+    const intervalUnit = body.period === 'yearly' ? 'YEAR' : 'MONTH';
 
     if (!planId || typeof planId !== 'string') {
       throw new Error('Plan ID required for subscriptions');
@@ -112,7 +127,7 @@ serve(async (req) => {
       return json({ success: false, status: "unsupported_currency", error: currencyRefusal }, 400);
     }
 
-    logStep("Subscription checkout request", { planId, amount, currency, userId: user.id });
+    logStep("Subscription checkout request", { planId, amount, currency, intervalUnit, userId: user.id });
 
     const accessToken = await getPayPalAccessToken();
     if (!accessToken) throw new Error("Failed to authenticate with PayPal");
@@ -125,6 +140,7 @@ serve(async (req) => {
       productId,
       amount,
       currency,
+      intervalUnit,
     });
     if (!billingPlanId) throw new Error("PayPal billing plan could not be prepared");
 
@@ -239,14 +255,15 @@ async function ensureSubscriptionProduct(supabase: any, accessToken: string): Pr
 
 /**
  * Find-or-create the PayPal billing plan for one price point
- * (tier + currency + amount). Plans are immutable at PayPal, so the
- * catalogue row is the reuse mechanism: a repeat checkout at the
- * same price returns the stored P-… id and mints nothing.
+ * (tier + currency + amount + billing period). Plans are immutable
+ * at PayPal, so the catalogue row is the reuse mechanism: a repeat
+ * checkout at the same price point returns the stored P-… id and
+ * mints nothing.
  */
 async function ensureBillingPlan(
   supabase: any,
   accessToken: string,
-  input: { tier: string; productId: string; amount: number; currency: string },
+  input: { tier: string; productId: string; amount: number; currency: string; intervalUnit: string },
 ): Promise<string | null> {
   const { data: existing, error } = await supabase
     .from("paypal_billing_plans")
@@ -254,6 +271,7 @@ async function ensureBillingPlan(
     .eq("tier", input.tier)
     .eq("currency", input.currency)
     .eq("amount", input.amount)
+    .eq("interval_unit", input.intervalUnit)
     .maybeSingle();
   if (error) throw new Error(`Billing plan lookup failed: ${error.message}`);
   if (existing?.plan_id) return existing.plan_id as string;
@@ -267,16 +285,16 @@ async function ensureBillingPlan(
         // Deterministic per price point: a retried plan creation for
         // the same price point replays at PayPal instead of minting
         // a twin.
-        "PayPal-Request-Id": `paypal-plan-${input.tier}-${input.currency}-${Math.round(input.amount * 100)}`,
+        "PayPal-Request-Id": `paypal-plan-${input.tier}-${input.currency}-${Math.round(input.amount * 100)}-${input.intervalUnit}`,
       },
       body: JSON.stringify({
         product_id: input.productId,
         name: PLAN_NAMES[input.tier] || input.tier,
-        description: `${PLAN_NAMES[input.tier] || input.tier} subscription`,
+        description: `${PLAN_NAMES[input.tier] || input.tier} subscription (${input.intervalUnit === "YEAR" ? "yearly" : "monthly"})`,
         status: "ACTIVE",
         billing_cycles: [{
           frequency: {
-            interval_unit: "MONTH",
+            interval_unit: input.intervalUnit,
             interval_count: 1
           },
           tenure_type: "REGULAR",
@@ -309,6 +327,7 @@ async function ensureBillingPlan(
         tier: input.tier,
         currency: input.currency,
         amount: input.amount,
+        interval_unit: input.intervalUnit,
         product_id: input.productId,
         plan_id: plan.id,
       });
@@ -321,6 +340,7 @@ async function ensureBillingPlan(
         .eq("tier", input.tier)
         .eq("currency", input.currency)
         .eq("amount", input.amount)
+        .eq("interval_unit", input.intervalUnit)
         .maybeSingle();
       if (raced?.plan_id) return raced.plan_id as string;
       throw new Error(`Billing plan could not be stored: ${insertError.message}`);

@@ -13,6 +13,9 @@ interface PayPalCheckoutProps {
   currency?: string;
   planId?: string;
   planName?: string;
+  /** Subscription billing period — drives the price suffix and the
+   *  period sent to the checkout function (part of the price point). */
+  billingPeriod?: 'monthly' | 'yearly';
   features?: string[];
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -24,6 +27,7 @@ export const PayPalCheckout: React.FC<PayPalCheckoutProps> = ({
   currency = 'ZMW',
   planId,
   planName,
+  billingPeriod = 'monthly',
   features,
   onSuccess,
   onCancel
@@ -41,6 +45,7 @@ export const PayPalCheckout: React.FC<PayPalCheckoutProps> = ({
       currency,
       planId,
       type,
+      period: billingPeriod,
       description: type === 'subscription' ? `${planName} subscription` : 'One-time payment'
     });
 
@@ -83,11 +88,11 @@ export const PayPalCheckout: React.FC<PayPalCheckoutProps> = ({
         </CardTitle>
         <div className="text-3xl font-bold text-primary">
           {formatPrice(amount, currency)}
-          {type === 'subscription' && <span className="text-base text-muted-foreground">/month</span>}
+          {type === 'subscription' && <span className="text-base text-muted-foreground">/{billingPeriod === 'yearly' ? 'year' : 'month'}</span>}
         </div>
         {type === 'subscription' && (
           <Badge variant="secondary" className="w-fit mx-auto mt-2">
-            Monthly Billing
+            {billingPeriod === 'yearly' ? 'Yearly' : 'Monthly'} Billing
           </Badge>
         )}
       </CardHeader>

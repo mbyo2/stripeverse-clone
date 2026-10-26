@@ -10,6 +10,8 @@ interface PayPalPaymentData {
   planId?: string;
   type?: 'payment' | 'subscription';
   description?: string;
+  /** Subscription billing period — part of the PayPal price point. */
+  period?: 'monthly' | 'yearly';
 }
 
 interface PayPalPaymentResult {
@@ -86,6 +88,7 @@ export const usePayPalPayments = () => {
           currency,
           planId: paymentData.planId,
           type: 'subscription',
+          period: paymentData.period ?? 'monthly',
           description: paymentData.description,
           return_url: `${window.location.origin}/pricing`,
           cancel_url: `${window.location.origin}/pricing`
@@ -137,12 +140,13 @@ export const usePayPalPayments = () => {
     }
   }, [user, toast]);
 
-  const createSubscription = useCallback(async (planId: string, amount: number, currency = 'USD'): Promise<PayPalPaymentResult> => {
+  const createSubscription = useCallback(async (planId: string, amount: number, currency = 'USD', period: 'monthly' | 'yearly' = 'monthly'): Promise<PayPalPaymentResult> => {
     return processPayment({
       amount,
       currency,
       planId,
       type: 'subscription',
+      period,
       description: `${planId} subscription`
     });
   }, [processPayment]);

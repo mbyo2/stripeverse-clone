@@ -47,6 +47,12 @@ const Pricing = () => {
     setSelectedPlan(null);
   };
 
+  // Subscription prices are charged in USD via PayPal (CEO decision
+  // 2026-10-26): the kwacha prices converted at the platform's stored
+  // ZMW→USD rate (exchange_rates, 1 ZMW = $0.04933399 — $1 = K20.27,
+  // exchangerate-api, 2026-10-26). monthlyPrice/yearlyPrice are the
+  // USD charge amounts; the *Zmw fields are the original kwacha
+  // prices, shown only as an approximate reference next to the price.
   const plans = [
     {
       id: "free",
@@ -54,6 +60,8 @@ const Pricing = () => {
       description: "Perfect for personal use and getting started",
       monthlyPrice: 0,
       yearlyPrice: 0,
+      monthlyPriceZmw: 0,
+      yearlyPriceZmw: 0,
       icon: <Star className="h-5 w-5" />,
       features: [
         "Dashboard Access",
@@ -75,8 +83,10 @@ const Pricing = () => {
       id: "basic",
       name: "Basic Plan",
       description: "For individuals who need more features",
-      monthlyPrice: 9.99,
-      yearlyPrice: 99.99,
+      monthlyPrice: 0.49,
+      yearlyPrice: 4.93,
+      monthlyPriceZmw: 9.99,
+      yearlyPriceZmw: 99.99,
       icon: <Zap className="h-5 w-5" />,
       popular: true,
       features: [
@@ -98,8 +108,10 @@ const Pricing = () => {
       id: "premium",
       name: "Premium Plan",
       description: "For power users and small businesses",
-      monthlyPrice: 19.99,
-      yearlyPrice: 199.99,
+      monthlyPrice: 0.99,
+      yearlyPrice: 9.87,
+      monthlyPriceZmw: 19.99,
+      yearlyPriceZmw: 199.99,
       icon: <Crown className="h-5 w-5" />,
       features: [
         "All Basic features",
@@ -120,8 +132,10 @@ const Pricing = () => {
       id: "enterprise",
       name: "Enterprise Plan",
       description: "For businesses that need everything",
-      monthlyPrice: 49.99,
-      yearlyPrice: 499.99,
+      monthlyPrice: 2.47,
+      yearlyPrice: 24.67,
+      monthlyPriceZmw: 49.99,
+      yearlyPriceZmw: 499.99,
       icon: <Crown className="h-5 w-5" />,
       features: [
         "All Premium features",
@@ -189,9 +203,14 @@ const Pricing = () => {
               <CardContent className="flex-grow">
                 <div className="mb-6">
                   <span className="text-3xl font-bold">
-                    {plan.monthlyPrice === 0 ? 'Free' : `K${billingPeriod === "monthly" ? plan.monthlyPrice : plan.yearlyPrice}`}
+                    {plan.monthlyPrice === 0 ? 'Free' : `$${(billingPeriod === "monthly" ? plan.monthlyPrice : plan.yearlyPrice).toFixed(2)}`}
                   </span>
                   {plan.monthlyPrice > 0 && <span className="text-muted-foreground">/{billingPeriod === "monthly" ? "month" : "year"}</span>}
+                  {plan.monthlyPrice > 0 && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Billed in US dollars via PayPal · ≈ K{(billingPeriod === "monthly" ? plan.monthlyPriceZmw : plan.yearlyPriceZmw).toFixed(2)}
+                    </div>
+                  )}
                 </div>
 
                 {/* Transaction Pricing */}
@@ -315,6 +334,9 @@ const Pricing = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Complete Your Subscription</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Subscriptions are billed in US dollars (USD) via PayPal.
+            </p>
           </DialogHeader>
           {selectedPlan && (
             <PayPalCheckout
@@ -325,7 +347,8 @@ const Pricing = () => {
                 ? plans.find(p => p.id === selectedPlan)?.monthlyPrice || 0
                 : plans.find(p => p.id === selectedPlan)?.yearlyPrice || 0
               }
-              currency="ZMW"
+              currency="USD"
+              billingPeriod={billingPeriod === 'yearly' ? 'yearly' : 'monthly'}
               features={plans.find(p => p.id === selectedPlan)?.features || []}
               onSuccess={handleCheckoutSuccess}
               onCancel={handleCheckoutCancel}

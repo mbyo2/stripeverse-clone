@@ -1,10 +1,7 @@
-import { toUserFacingError } from "@/utils/userFacingError";
-
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 
 export interface SubscriptionData {
   subscription_tier: string;
@@ -32,7 +29,6 @@ export interface TierLimits {
 
 export const useSubscription = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Fetch subscription data
@@ -100,51 +96,11 @@ export const useSubscription = () => {
     },
   });
 
-  // Create checkout session
-  const createCheckoutMutation = useMutation({
-    mutationFn: async (planId: string) => {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { planId }
-      });
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      if (data.url) {
-        window.open(data.url, '_blank');
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Checkout Failed",
-        description: toUserFacingError(error, "Failed to create checkout session"),
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Open customer portal
-  const openCustomerPortalMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('customer-portal');
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      if (data.url) {
-        window.open(data.url, '_blank');
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Portal Access Failed",
-        description: toUserFacingError(error, "Failed to open customer portal"),
-        variant: "destructive",
-      });
-    },
-  });
+  // NOTE: subscription checkout + plan management no longer run
+  // through Stripe. The create-checkout / customer-portal functions
+  // were removed (subscription-billing migration to PayPal, CEO
+  // decision 2026-10-26); subscribing happens on the Pricing page
+  // through the PayPal subscription flow (paypal-checkout).
 
   // Check usage limits
   const checkUsageLimit = async (limitType: string, amount: number = 1): Promise<boolean> => {
@@ -189,13 +145,9 @@ export const useSubscription = () => {
     usage,
     tierLimits,
     isLoading: subscriptionLoading || usageLoading,
-    createCheckout: createCheckoutMutation.mutate,
-    openCustomerPortal: openCustomerPortalMutation.mutate,
     checkUsageLimit,
     getCurrentTierLimits,
     hasFeatureAccess,
     refreshSubscription,
-    isCreatingCheckout: createCheckoutMutation.isPending,
-    isOpeningPortal: openCustomerPortalMutation.isPending,
   };
 };
