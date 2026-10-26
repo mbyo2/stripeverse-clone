@@ -41,6 +41,8 @@ import { RoleBadge } from "@/components/FeatureAccess";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import PageErrorState from "@/components/PageErrorState";
 import { useProfile, resolveFirstName } from "@/hooks/useProfile";
+import FrozenAccountBanner from "@/components/FrozenAccountBanner";
+import { shouldShowFrozenBanner } from "@/utils/frozenBanner";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useAccount } from "@/contexts/AccountContext";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
@@ -116,6 +118,15 @@ const Dashboard = () => {
       <Header />
       <main className="flex-1 pt-2 pb-16">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
+          {/* A frozen user's dashboard must not look normal: the
+              freeze is stated up front (with the support remedy),
+              not discovered at the first refused send. Own profile
+              only — this is the signed-in user's own dashboard. */}
+          {shouldShowFrozenBanner(profile) && (
+            <div className="pt-6">
+              <FrozenAccountBanner />
+            </div>
+          )}
           {/* Balance Summary */}
           <div className="bg-[#003087] rounded-[24px] px-6 py-8 md:px-8 mb-6">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">

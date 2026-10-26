@@ -7,6 +7,10 @@ export interface UserProfile {
   last_name: string | null;
   phone: string | null;
   avatar_url: string | null;
+  /** profiles.is_frozen — the flag the money paths enforce. The
+   * dashboard reads it to warn a frozen user up front (banner)
+   * instead of letting them discover the freeze at send time. */
+  is_frozen?: boolean | null;
 }
 
 /**
@@ -29,7 +33,7 @@ export const useProfile = () => {
     queryFn: async (): Promise<UserProfile | null> => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('first_name, last_name, phone, avatar_url')
+        .select('first_name, last_name, phone, avatar_url, is_frozen')
         .eq('id', user!.id)
         .maybeSingle();
       if (error) throw error;
