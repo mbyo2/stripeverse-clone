@@ -166,7 +166,7 @@ const AdminRoleRequests = () => {
       <TableHeader>
         <TableRow>
           <TableHead>Requester</TableHead>
-          <TableHead>Requested role</TableHead>
+          <TableHead><span className="md:hidden">Role</span><span className="hidden md:inline">Requested role</span></TableHead>
           <TableHead className="hidden md:table-cell">Requested</TableHead>
           <TableHead>Status</TableHead>
           {showActions && <TableHead>Actions</TableHead>}
