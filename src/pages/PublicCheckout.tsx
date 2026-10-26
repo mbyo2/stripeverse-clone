@@ -295,7 +295,8 @@ const PublicCheckout = () => {
   const bd = feeBreakdownFor(amount);
   const payTotal = bd?.total ?? amount;
   // Method tiles (CEO order 2026-10-26): for now this checkout takes
-  // Bitcoin only — the fiat connections (Lenco/Broadpay, PayPal) are
+  // Bitcoin only — the fiat connections (direct mobile-money
+  // connections, PayPal) are
   // not live yet. Bitcoin appears in BOTH its forms as first-class
   // choices, so a Lightning payer sees Lightning immediately instead
   // of opening a generic "Bitcoin" tile first. Card / mobile money /

@@ -2,7 +2,8 @@
 //
 // Mobile money deposits are not configured yet: the wallet-deposit
 // function answers 'not_configured' for the mobile_money method until
-// the mobile-money rail (Lenco/Broadpay) is connected with live keys.
+// the direct mobile-money connections (MTN MoMo, Airtel Money,
+// Zamtel — no aggregator) are live after telco merchant onboarding.
 // This constant is how the UI says so honestly — the Add Money dialog
 // labels the option "not available yet" and does not default to it.
 //

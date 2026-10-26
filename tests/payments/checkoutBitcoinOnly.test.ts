@@ -4,7 +4,7 @@
 // and bitcoin so as some who love lightning won't feel left out."
 //
 // The defect this prevents: card / mobile money / bank are NOT
-// connected rails (no Lenco/Broadpay keys, no PayPal Payouts yet) but
+// connected rails (no direct mobile-money connection yet, no PayPal Payouts yet) but
 // the pay page presented them as ordinary selectable methods whose
 // only truth arrived AFTER clicking Pay, as the server's
 // not_configured failure — "available until it fails". A guest's
