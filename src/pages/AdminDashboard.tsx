@@ -168,6 +168,13 @@ const AdminDashboard = () => {
       color: "bg-green-500"
     },
     {
+      title: "Treasury & Reports",
+      description: "Platform balances, fee income and reports (super admin)",
+      icon: <Landmark className="h-6 w-6" />,
+      link: "/admin/treasury",
+      color: "bg-amber-500"
+    },
+    {
       title: "P2P Disputes",
       description: "Rule P2P disputes and manage sanctions",
       icon: <AlertTriangle className="h-6 w-6" />,

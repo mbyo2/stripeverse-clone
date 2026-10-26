@@ -129,6 +129,7 @@ const AdminIdentity = lazy(() => import('@/pages/AdminIdentity'));
 const AdminUserDetail = lazy(() => import('@/pages/AdminUserDetail'));
 const AdminRoleRequests = lazy(() => import('@/pages/AdminRoleRequests'));
 const AdminRefunds = lazy(() => import('@/pages/AdminRefunds'));
+const AdminTreasury = lazy(() => import('@/pages/AdminTreasury'));
 
 // Route-loading fallback: a YouTube-style shell skeleton (header bar +
 // a generic page shape) from the tiny ui/skeletons kit, so a lazy route
@@ -253,6 +254,12 @@ const AnimatedRoutes = () => {
         <Route path="/ussd-access" element={<ProtectedPage><UssdAccess /></ProtectedPage>} />
         <Route path="/admin/users" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminUsers /></RoleGuardedPage>} />
         <Route path="/admin/transactions" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminTransactions /></RoleGuardedPage>} />
+        {/* Treasury & Reports is super_admin ONLY (stricter than the
+            ADMIN_ROLES consoles): it exposes the platform's own
+            balances and fee income. The treasury_* RPCs enforce the
+            same gate server-side, so a non-super_admin gets nothing
+            even by calling them directly. */}
+        <Route path="/admin/treasury" element={<RoleGuardedPage roles={['super_admin']}><AdminTreasury /></RoleGuardedPage>} />
         <Route path="/admin/mastercard-move" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminMastercardMove /></RoleGuardedPage>} />
         <Route path="/admin/payoneer" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminPayoneer /></RoleGuardedPage>} />
         <Route path="/admin/stripe" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminStripe /></RoleGuardedPage>} />
