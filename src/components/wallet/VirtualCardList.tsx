@@ -4,7 +4,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { CreditCard, PlusCircle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 interface VirtualCard {
   id: number;
@@ -22,7 +21,6 @@ interface VirtualCardListProps {
 
 const VirtualCardList = ({ virtualCards, onCreateCard }: VirtualCardListProps) => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { formatAmount } = useCurrency();
 
   const handleFundCard = (cardId: number) => {
@@ -30,11 +28,10 @@ const VirtualCardList = ({ virtualCards, onCreateCard }: VirtualCardListProps) =
   };
 
   const handleFreezeCard = (cardId: number) => {
-    // In a real app, this would make an API call to freeze the card
-    toast({
-      title: "Card Frozen",
-      description: "Your virtual card has been temporarily frozen.",
-    });
+    // Freezing runs through the checked manage-virtual-card path on
+    // the details page — this list never claims an action it didn't
+    // take, so it routes there instead of faking a freeze.
+    navigate(`/virtual-card/${cardId}`);
   };
 
   if (virtualCards.length === 0) {

@@ -112,9 +112,13 @@ describe("FIX 2 — VirtualCardNew shows the one-time reveal instead of discardi
     expect(panel).toContain("Your New Card Details");
   });
 
-  it("carries the save-now warning verbatim", () => {
+  it("carries the keep-private warning verbatim", () => {
+    // Copy updated by the card-vault workstream (2026-10-26): new
+    // cards ARE stored as an encrypted envelope and can be viewed
+    // again after password re-auth, so the old "not stored and
+    // cannot be shown again" warning would now be false.
     expect(cardNew).toContain(
-      "Save these now — for your security they are not stored and cannot be shown again.",
+      "Keep these private. They're stored encrypted — you can view them again any time from the card's page after confirming your password.",
     );
   });
 

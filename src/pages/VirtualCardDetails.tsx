@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowUpRight, ArrowDownLeft, ShieldCheck, RefreshCw, Trash2, Lock, Settings } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, ShieldCheck, RefreshCw, Trash2, Lock, Settings, Eye, Copy, Check } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -40,14 +40,32 @@ import { formatCardExpiry } from "@/utils/cardDisplay";
 import VirtualCardsComingSoon from "@/components/VirtualCardsComingSoon";
 // In a real app, this would fetch from API
 const fetchVirtualCard = async (cardId: string) => {
+  // Explicit column list: the vault ciphertext columns
+  // (details_ciphertext / details_iv) must never be sent to the
+  // browser. has_vaulted_details is the generated flag the UI
+  // branches on — vaulted cards can be revealed again after
+  // password re-auth; legacy cards honestly cannot.
   const { data: row, error } = await supabase
     .from('virtual_cards')
-    .select('*')
+    .select('id, user_id, wallet_id, name, masked_number, expiry_date, balance, currency, status, provider, card_type, daily_limit, monthly_limit, transaction_limit, online_transactions, international_transactions, has_vaulted_details, created_at, updated_at')
     .eq('id', cardId)
     .single();
 
   if (error) throw error;
   if (!row) throw new Error('Card not found');
+
+  // Cardholder name for the card face: the owner's profile.
+  let holderName = '';
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('id', row.user_id)
+      .maybeSingle();
+    holderName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim();
+  } catch {
+    holderName = '';
+  }
 
   // Transaction history for this card (best-effort)
   let transactions: any[] = [];
@@ -65,10 +83,8 @@ const fetchVirtualCard = async (cardId: string) => {
 
   return {
     ...row,
-    // The live table stores only the masked number and expiry —
-    // there is no full card_number or cvv column (verified
-    // 2026-10-23), so there is nothing further to reveal here; the
-    // full details are shown once, at creation.
+    holderName: holderName || row.name,
+    hasVaultedDetails: !!row.has_vaulted_details,
     expiry: formatCardExpiry(row.expiry_date),
     limits: {
       daily: Number(row.daily_limit ?? 0),
@@ -126,14 +142,18 @@ const VirtualCardDetails = () => {
     }
   }, [card]);
 
-  // Card status mutation — real UPDATE on virtual_cards
+  // Card status mutation — via manage-virtual-card, the checked
+  // server path (auth + card gate + ownership enforced there).
+  // Direct UPDATEs on virtual_cards are closed at the DB level:
+  // the old owner UPDATE policy let any owner PATCH any column,
+  // including balance, so no card write happens from the browser.
   const toggleCardStatusMutation = useMutation({
     mutationFn: async (newStatus: 'active' | 'frozen') => {
-      const { error } = await supabase
-        .from('virtual_cards')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke('manage-virtual-card', {
+        body: { action: 'set_status', cardId: id, status: newStatus },
+      });
+      if (error) throw new Error(error.message || 'Failed to update card status');
+      if (!data?.success) throw new Error(data?.error || 'Failed to update card status');
       return newStatus;
     },
     onSuccess: (newStatus) => {
@@ -176,14 +196,17 @@ const VirtualCardDetails = () => {
     }
   });
 
-  // Card delete mutation — soft delete (status = cancelled) to preserve the audit trail
+  // Card terminate mutation — via manage-virtual-card: soft delete
+  // (status = cancelled) to preserve the audit trail, and the
+  // server wipes the card's vault envelope so its secrets cease
+  // to exist.
   const deleteCardMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from('virtual_cards')
-        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke('manage-virtual-card', {
+        body: { action: 'terminate', cardId: id },
+      });
+      if (error) throw new Error(error.message || 'Failed to cancel card');
+      if (!data?.success) throw new Error(data?.error || 'Failed to cancel card');
       return true;
     },
     onSuccess: () => {
@@ -199,19 +222,21 @@ const VirtualCardDetails = () => {
     }
   });
 
-  // Card limits mutation — real UPDATE on virtual_cards
+  // Card limits mutation — via manage-virtual-card (validated and
+  // ownership-checked server-side).
   const updateCardLimitsMutation = useMutation({
     mutationFn: async (limits: typeof limitsForm) => {
-      const { error } = await supabase
-        .from('virtual_cards')
-        .update({
-          daily_limit: limits.daily,
-          monthly_limit: limits.monthly,
-          transaction_limit: limits.transaction,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke('manage-virtual-card', {
+        body: {
+          action: 'set_limits',
+          cardId: id,
+          dailyLimit: limits.daily,
+          monthlyLimit: limits.monthly,
+          transactionLimit: limits.transaction,
+        },
+      });
+      if (error) throw new Error(error.message || 'Failed to update limits');
+      if (!data?.success) throw new Error(data?.error || 'Failed to update limits');
       return true;
     },
     onSuccess: () => {
@@ -224,35 +249,6 @@ const VirtualCardDetails = () => {
     },
     onError: (err: any) => {
       toast({ title: "Update Failed", description: toUserFacingError(err, "Could not update limits."), variant: "destructive" });
-    }
-  });
-
-  // Card settings mutation — real UPDATE on virtual_cards
-  const updateCardSettingsMutation = useMutation({
-    mutationFn: async (settings: {
-      online_transactions: boolean,
-      international_transactions: boolean
-    }) => {
-      const { error } = await supabase
-        .from('virtual_cards')
-        .update({
-          online_transactions: settings.online_transactions,
-          international_transactions: settings.international_transactions,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-      if (error) throw error;
-      return true;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['virtualCard', id] });
-      toast({
-        title: "Card Settings Updated",
-        description: "Your card settings have been updated successfully.",
-      });
-    },
-    onError: (err: any) => {
-      toast({ title: "Update Failed", description: toUserFacingError(err, "Could not update settings."), variant: "destructive" });
     }
   });
 
@@ -288,13 +284,97 @@ const VirtualCardDetails = () => {
     updateCardLimitsMutation.mutate(limitsForm);
   };
 
-  const handleToggleSetting = (setting: 'online_transactions' | 'international_transactions') => {
-    if (card && card.settings) {
-      const updatedSettings = {
-        ...card.settings,
-        [setting]: !card.settings[setting]
-      };
-      updateCardSettingsMutation.mutate(updatedSettings);
+  // ── Secure reveal state ──────────────────────────────────────
+  // The full details live ONLY in this component's state after a
+  // successful password re-auth against manage-virtual-card. They
+  // are auto-hidden after 30 seconds, cleared when the dialog
+  // closes, and discarded on unmount/navigation — never persisted
+  // anywhere (no storage, no URL, no query cache).
+  const [showRevealDialog, setShowRevealDialog] = useState(false);
+  const [revealPassword, setRevealPassword] = useState("");
+  const [revealError, setRevealError] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState<{
+    cardNumber: string;
+    cvv: string | null;
+    expiry: string;
+  } | null>(null);
+  const [revealSecondsLeft, setRevealSecondsLeft] = useState(0);
+  const [copiedRevealField, setCopiedRevealField] = useState<string | null>(null);
+
+  const clearReveal = () => {
+    setRevealed(null);
+    setRevealPassword("");
+    setRevealError(null);
+    setRevealSecondsLeft(0);
+    setCopiedRevealField(null);
+  };
+
+  useEffect(() => {
+    if (!revealed) return;
+    setRevealSecondsLeft(30);
+    const started = Date.now();
+    const timer = setInterval(() => {
+      const left = 30 - Math.floor((Date.now() - started) / 1000);
+      if (left <= 0) {
+        clearReveal();
+        setShowRevealDialog(false);
+      } else {
+        setRevealSecondsLeft(left);
+      }
+    }, 500);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealed]);
+
+  useEffect(() => () => clearReveal(), []);
+
+  const revealMutation = useMutation({
+    mutationFn: async (password: string) => {
+      const { data, error } = await supabase.functions.invoke('manage-virtual-card', {
+        body: { action: 'reveal', cardId: id, password },
+      });
+      if (error) {
+        // supabase-js wraps non-2xx; the function's crafted message
+        // rides in the response body — surface it via the data path
+        // below when present.
+        throw new Error('reveal_failed');
+      }
+      return data;
+    },
+    onSuccess: (data) => {
+      if (!data?.success) {
+        setRevealError(data?.error || "Card details couldn't be shown.");
+        return;
+      }
+      if (!data.vaulted) {
+        setRevealError(data.message || "This card's full details can't be displayed again.");
+        return;
+      }
+      setRevealError(null);
+      setRevealPassword("");
+      setRevealed({
+        cardNumber: data.card.card_number,
+        cvv: data.card.cvv ?? null,
+        expiry: formatCardExpiry(data.card.expiry_date),
+      });
+    },
+    onError: () => {
+      setRevealError("That password didn't match your account, or details couldn't be shown. Card details stay hidden.");
+    },
+  });
+
+  const copyRevealField = async (field: string, value?: string | null) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedRevealField(field);
+      setTimeout(() => setCopiedRevealField(null), 2000);
+    } catch {
+      toast({
+        title: "Couldn't copy",
+        description: "Your browser blocked clipboard access — copy the value by hand.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -406,13 +486,13 @@ const VirtualCardDetails = () => {
               </div>
               
               <div className="font-mono text-xl mt-8 mb-6">
-                {card.masked_number}
+                {revealed ? revealed.cardNumber.replace(/(\d{4})(?=\d)/g, '$1 ') : card.masked_number}
               </div>
 
               <div className="flex justify-between text-sm">
                 <div>
                   <div className="text-white/70">Card Holder</div>
-                  <div>BMAGLASS PAY USER</div>
+                  <div>{(card.holderName || 'BMAGLASS PAY USER').toUpperCase()}</div>
                 </div>
                 <div>
                   <div className="text-white/70">Expires</div>
@@ -420,16 +500,37 @@ const VirtualCardDetails = () => {
                 </div>
                 <div>
                   <div className="text-white/70">CVV</div>
-                  <div>***</div>
+                  <div>{revealed ? (revealed.cvv ?? '—') : '***'}</div>
+                </div>
+                <div>
+                  <div className="text-white/70">Status</div>
+                  <div>{card.status.charAt(0).toUpperCase() + card.status.slice(1)}</div>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
-        <p className="text-xs text-muted-foreground -mt-4 mb-6">
+        <p className="text-xs text-muted-foreground -mt-4 mb-2">
           This is an internal BMaGlass wallet card. It isn't a Visa, Mastercard, or bank card and can't be used on card networks or for purchases outside BMaGlass Pay.
-          The full card number and CVV were shown once when this card was created — they aren't stored, so they can't be displayed again.
         </p>
+        {card.hasVaultedDetails ? (
+          <div className="flex items-center gap-3 mb-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { clearReveal(); setShowRevealDialog(true); }}
+            >
+              <Eye className="h-4 w-4 mr-1" /> Show card details
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              You'll confirm your password first. Details hide again automatically after 30 seconds.
+            </span>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground mb-6" data-testid="legacy-card-note">
+            This card was created before secure card storage: its full number and CVV were shown once when it was created and can't be displayed again for this card.
+          </p>
+        )}
         
         {/* Card Details */}
         <div className="grid gap-6 mb-6 md:grid-cols-3">
@@ -677,6 +778,85 @@ const VirtualCardDetails = () => {
         </Tabs>
       </main>
       <Footer />
+
+      {/* Secure Reveal Dialog — password re-auth, then the full
+          details with per-field copy; auto-hides after 30 seconds
+          and clears on close. */}
+      <Dialog
+        open={showRevealDialog}
+        onOpenChange={(open) => {
+          setShowRevealDialog(open);
+          if (!open) clearReveal();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Card details</DialogTitle>
+            <DialogDescription>
+              {revealed
+                ? `These details hide again in ${revealSecondsLeft} seconds. Never share them with anyone.`
+                : "Confirm it's you: enter your account password to view this card's full number and CVV."}
+            </DialogDescription>
+          </DialogHeader>
+          {revealed ? (
+            <div className="space-y-3 py-2">
+              {[
+                { field: 'number', label: 'Card number', value: revealed.cardNumber.replace(/(\d{4})(?=\d)/g, '$1 '), raw: revealed.cardNumber },
+                { field: 'expiry', label: 'Expiry', value: revealed.expiry, raw: revealed.expiry },
+                { field: 'cvv', label: 'CVV', value: revealed.cvv ?? 'Not set for this card', raw: revealed.cvv },
+              ].map((row) => (
+                <div key={row.field} className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm text-muted-foreground">{row.label}</div>
+                    <div className="font-mono text-base">{row.value}</div>
+                  </div>
+                  {row.raw && (
+                    <Button variant="ghost" size="sm" onClick={() => copyRevealField(row.field, row.raw)}>
+                      {copiedRevealField === row.field ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="reveal-password">Account password</Label>
+                <Input
+                  id="reveal-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={revealPassword}
+                  onChange={(e) => setRevealPassword(e.target.value)}
+                />
+              </div>
+              {revealError && <p className="text-sm text-destructive">{revealError}</p>}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setShowRevealDialog(false); clearReveal(); }}
+            >
+              {revealed ? "Hide details" : "Cancel"}
+            </Button>
+            {!revealed && (
+              <Button
+                onClick={() => revealMutation.mutate(revealPassword)}
+                disabled={!revealPassword || revealMutation.isPending}
+              >
+                {revealMutation.isPending ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Checking…
+                  </>
+                ) : (
+                  "Show details"
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm Delete Dialog */}
       <Dialog open={showConfirmDelete} onOpenChange={setShowConfirmDelete}>

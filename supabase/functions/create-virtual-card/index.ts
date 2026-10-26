@@ -7,6 +7,11 @@ import {
   signMastercardRequest,
 } from "../_shared/mastercard-oauth.ts";
 import {
+  cardVaultKeyFromEnv,
+  encryptCardDetails,
+  type VaultEnvelope,
+} from "../_shared/card-vault.ts";
+import {
   PROCESSING_NOT_CONFIGURED_MESSAGE,
   accountsUrl,
   buildCreateAccountBody,
@@ -60,9 +65,12 @@ const logStep = (step: string, details?: any) => {
 //     refusal class + ReasonCode) and NO local card is minted in
 //     its place — presenting a locally generated number as a
 //     Mastercard-issued card is exactly what this layer prevents.
-//   * The CMS-generated PAN is revealed once, in this response,
-//     and never stored or logged; the row keeps the masked number
-//     and the provider contract ids (migration 20261107).
+//   * The CMS-generated PAN is revealed in this response and is
+//     never logged; the row keeps the masked number, the provider
+//     contract ids (migration 20261107) and — since the card vault
+//     (migration 20261116) — an AES-GCM envelope of the PAN under a
+//     key held only as an edge-function secret, so the owner can
+//     view it again via manage-virtual-card after re-auth.
 //   * The CMS returns no CVV at issuance, so none is claimed.
 // When MASTERCARD_ENV is not set, the local interim path below runs
 // exactly as before.
@@ -282,6 +290,16 @@ async function createCardViaProcessing(args: {
     );
   }
 
+  // Vault the CMS-issued PAN so the owner can view it again later
+  // through manage-virtual-card's re-auth reveal. The CMS returns
+  // no CVV at issuance, so the envelope's cvv stays null and none
+  // is ever claimed. When the vault key is not configured the card
+  // is still recorded masked-only (the pre-vault behaviour).
+  const processingVaultKey = cardVaultKeyFromEnv();
+  const processingEnvelope: VaultEnvelope | null = processingVaultKey
+    ? await encryptCardDetails({ pan, cvv: null }, processingVaultKey)
+    : null;
+
   const masked = await supabaseClient.rpc("mask_card_number", { card_number: pan });
   const maskedNumber = (masked.data as string | null) ?? maskPan(pan);
   const expiryDate = expiryDateFromYymm(expiryRaw) ?? (() => {
@@ -316,6 +334,13 @@ async function createCardViaProcessing(args: {
       provider_client_id: providerClientId,
       provider_account_id: providerAccountId,
       provider_card_id: providerCardId,
+      ...(processingEnvelope
+        ? {
+            details_ciphertext: processingEnvelope.ciphertext,
+            details_iv: processingEnvelope.iv,
+            vault_key_version: processingEnvelope.keyVersion,
+          }
+        : {}),
     })
     .select()
     .single();
@@ -494,14 +519,23 @@ serve(async (req) => {
     const maskedNumber = await supabaseClient
       .rpc('mask_card_number', { card_number: cardNumber });
 
-    // Generate CVV and expiry. The CVV is revealed ONCE, in this
-    // function's creation response below, and is NEVER logged and
-    // NEVER persisted (audit CVV hygiene): the live virtual_cards
-    // table has no cvv column (and no card_number column) at all —
-    // verified against information_schema 2026-10-23 — so there is
-    // nowhere to store either secret. Only the masked number and
-    // expiry are written down.
+    // Generate CVV and expiry. The CVV is revealed in this
+    // function's creation response below and is NEVER logged and
+    // NEVER stored in plaintext (audit CVV hygiene): the live
+    // virtual_cards table has no cvv or card_number column —
+    // verified against information_schema 2026-10-23. Since the
+    // card vault (migration 20261116), the PAN+CVV pair is ALSO
+    // stored as an AES-256-GCM envelope whose key exists only as
+    // the CARD_VAULT_KEY edge-function secret, so the owner can
+    // view the details again later through manage-virtual-card
+    // after password re-auth. Without a configured vault key the
+    // card falls back to the pre-vault behaviour: reveal once at
+    // creation, masked number + expiry only in the row.
     const cvv = Math.floor(Math.random() * 900 + 100).toString();
+    const vaultKey = cardVaultKeyFromEnv();
+    const envelope: VaultEnvelope | null = vaultKey
+      ? await encryptCardDetails({ pan: cardNumber, cvv }, vaultKey)
+      : null;
     // Live expiry_date is a DATE: 3 years out, last day of that month.
     const now = new Date();
     const expiryYear = now.getUTCFullYear() + 3;
@@ -535,6 +569,13 @@ serve(async (req) => {
         transaction_limit: transactionLimit,
         online_transactions: allowOnline,
         international_transactions: allowInternational,
+        ...(envelope
+          ? {
+              details_ciphertext: envelope.ciphertext,
+              details_iv: envelope.iv,
+              vault_key_version: envelope.keyVersion,
+            }
+          : {}),
       })
       .select()
       .single();
@@ -557,11 +598,13 @@ serve(async (req) => {
         provider: newCard.provider,
         balance: newCard.balance,
         created_at: newCard.created_at,
-        // One-time reveal: the full number, CVV and expiry are
-        // returned ONLY here, in the creation response to the
-        // authenticated owner. Neither the number nor the CVV is
-        // stored anywhere (the live table has no column for them),
-        // so once this response is gone they cannot be shown again.
+        // Creation reveal: the full number, CVV and expiry are
+        // returned here, in the creation response to the
+        // authenticated owner. Neither secret is stored in plaintext
+        // anywhere (the live table has no column for them); when the
+        // vault is configured they are kept only as an encrypted
+        // envelope and can be shown again via manage-virtual-card
+        // after the owner re-enters their password.
         card_number: cardNumber,
         cvv: cvv,
         expiry_date: expiryDate,

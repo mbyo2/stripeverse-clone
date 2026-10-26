@@ -32,12 +32,13 @@ const VirtualCardNew = () => {
     cardProvider: "visa",
     cardType: "debit",
   });
-  // One-time reveal: the full card number, CVV and expiry are
-  // returned exactly once, in the create-virtual-card response —
-  // they are never stored anywhere (the live table has no columns
-  // for them), so this component state is the only place they ever
-  // exist in the app. Nothing is persisted (no localStorage, no
-  // URL), and navigating away discards them for good.
+  // Creation reveal: the full card number, CVV and expiry arrive
+  // in the create-virtual-card response. They are never stored in
+  // plaintext (the live table has no columns for them) — the
+  // server keeps only an encrypted vault envelope, and this page
+  // persists nothing itself (no localStorage, no URL). The owner
+  // can view the details again from the card page after password
+  // re-auth (manage-virtual-card).
   const [createdCard, setCreatedCard] = useState<{
     id: string;
     cardNumber?: string;
@@ -119,10 +120,10 @@ const VirtualCardNew = () => {
 
       const cardId: string = data.card.id;
 
-      // Capture the one-time reveal BEFORE anything else can fail:
-      // the full card number, CVV and expiry exist only in this
-      // creation response — they are never stored, so once this
-      // response is discarded they cannot be shown again.
+      // Capture the creation reveal BEFORE anything else can fail:
+      // the full card number, CVV and expiry are shown from this
+      // response — later views go through the manage-virtual-card
+      // re-auth reveal, never through this page's state.
       reveal = {
         id: cardId,
         cardNumber: data.card.card_number,
@@ -222,13 +223,13 @@ const VirtualCardNew = () => {
                   Your New Card Details
                 </CardTitle>
                 <CardDescription>
-                  Your virtual card was created. Its full details are shown once, here only.
+                  Your virtual card was created. Here are its full details.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/30 text-sm font-medium">
-                    Save these now — for your security they are not stored and cannot be shown again.
+                    Keep these private. They're stored encrypted — you can view them again any time from the card's page after confirming your password.
                   </div>
 
                   <div className="space-y-2">

@@ -272,11 +272,17 @@ describe("Virtual-card consumers match the live columns", () => {
   const cardDetails = read("../../src/pages/VirtualCardDetails.tsx");
   const cardManager = read("../../src/components/wallet/VirtualCardManager.tsx");
 
-  it("details page has no full-number or CVV reveal (nothing stored to reveal)", () => {
+  it("details page reveals only via the checked manage-virtual-card path", () => {
+    // Updated by the card-vault workstream (CEO order 2026-10-26):
+    // a reveal now exists, but the PAN/CVV never come from a DB row
+    // the browser fetched — they arrive only from manage-virtual-card
+    // after password re-auth, for vaulted cards. The row itself
+    // still carries no full number or CVV.
     expect(cardDetails).not.toContain("row.card_number");
-    expect(cardDetails).not.toContain("card.cvv");
+    expect(cardDetails).not.toContain("row.cvv");
     expect(cardDetails).not.toContain("card.number");
-    expect(cardDetails).not.toContain("showCardDetails");
+    expect(cardDetails).toContain("action: 'reveal'");
+    expect(cardDetails).toContain("data.card.card_number");
     // Expiry arrives as a DATE and is displayed MM/YY.
     expect(cardDetails).toContain("formatCardExpiry(row.expiry_date)");
   });

@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CreditCard, Plus, Eye, EyeOff, Settings, Snowflake, Power } from "lucide-react";
+import { CreditCard, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useWallet } from "@/hooks/useWallet";
 import { formatCurrency } from "@/utils/walletUtils";
 import { formatCardExpiry } from "@/utils/cardDisplay";
@@ -17,6 +18,7 @@ interface VirtualCardManagerProps {
 }
 
 const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
+  const navigate = useNavigate();
   const { virtualCards, createVirtualCard, isCreatingCard } = useWallet();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newCardData, setNewCardData] = useState({
@@ -182,11 +184,6 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                       <span className="font-mono text-lg">
                         {getSecureCardDisplay(card)}
                       </span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs text-white border-white/20">
-                          ENCRYPTED
-                        </Badge>
-                      </div>
                     </div>
                     <div className="flex justify-between mt-2 text-sm">
                       <span>CVV: ***</span>
@@ -194,7 +191,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                     </div>
                     <div className="mt-1">
                       <p className="text-xs opacity-60">
-                        🔒 Card details are encrypted and secure
+                        Full details, where kept, are shown on the card page after you confirm your password.
                       </p>
                     </div>
                   </div>
@@ -205,11 +202,13 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
                       <p className="text-xl font-bold">{formatCurrency(card.balance)}</p>
                     </div>
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="ghost" className="text-white hover:bg-white/20">
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-white hover:bg-white/20">
-                        <Snowflake className="h-4 w-4" />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-white hover:bg-white/20"
+                        onClick={() => navigate(`/virtual-card/${card.id}`)}
+                      >
+                        Details
                       </Button>
                     </div>
                   </div>
