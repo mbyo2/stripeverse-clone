@@ -1,24 +1,22 @@
 // Server-side MTN MoMo operations (Deno) — the fetch half of the
-// direct-connection skeleton whose pure logic lives in ./mtn-momo.ts.
+// direct connection whose pure logic lives in ./mtn-momo.ts.
 //
-// STATUS: SKELETON — UNPROVEN until MTN Zambia merchant onboarding.
-// Nothing in the live money path calls this module yet: the
-// `mobile-money` edge function still answers `not_configured` for
-// every provider action (via _shared/payment-providers.ts), and it
-// keeps doing so until (a) MTN issues production credentials through
-// the merchant account, (b) the sandbox contract below is exercised
-// end-to-end with a real MoMo developer-portal account, and (c) the
-// collection/disbursement ledger integration is built and proven
-// the way the PayPal rail was. Wiring this module into a money path
-// before all three would repeat the simulated-gateway failure this
-// platform already removed once.
+// STATUS: WIRED (2026-10-27 docs-complete pass) — the `mobile-money`
+// edge function calls this client for collection / disbursement /
+// status / balance / account-holder actions, always behind the
+// platform_settings.mtn_momo_enabled kill switch and the shared
+// telco ledger (migration 20261237). UNPROVEN against a live MTN
+// account until MTN Zambia merchant onboarding issues credentials
+// and the sandbox contract is exercised end-to-end; with no secrets
+// the client refuses before any network call, so the live app's
+// truthful not_configured answer is unchanged.
 //
 // KILL SWITCH: callers resolve platform_settings.mtn_momo_enabled
 // (migration 20261236) into MtnMomoEnvValues.railEnabled. Configured
 // but switched OFF = MtnMomoDisabledError before any network call —
 // see mtnMomoRailGate in ./mtn-momo.ts.
 //
-// Money rules encoded here (for the day it is wired):
+// Money rules encoded here:
 //   - LEDGER FIRST: callers persist their row (with the reference
 //     UUID as the idempotency anchor) before requestToPay/transfer.
 //   - STATUS ONLY FROM RE-QUERY: callbacks are hints; settlement
@@ -29,6 +27,7 @@
 import {
   buildMtnMomoApiUserBody,
   classifyMtnMomoError,
+  mtnMomoAccountHolderActivePath,
   mtnMomoApiKeyPath,
   mtnMomoApiUserPath,
   mtnMomoBalancePath,
@@ -44,6 +43,7 @@ import {
   mtnMomoTransferPath,
   mtnMomoTransferStatusPath,
   mtnMomoRailGate,
+  parseMtnMomoAccountHolderActive,
   parseMtnMomoBalance,
   parseMtnMomoTransaction,
   MTN_MOMO_DISABLED_MESSAGE,
@@ -110,6 +110,10 @@ export interface MtnMomoClient {
   transfer(referenceId: string, body: Record<string, unknown>): Promise<void>;
   getTransferStatus(referenceId: string): Promise<ParsedMtnMomoTransaction>;
   getBalance(product: MtnMomoProduct): Promise<{ availableBalance: string | null; currency: string | null }>;
+  /** Collection account-holder check: is this MSISDN an active MoMo account? */
+  isAccountHolderActive(msisdn: string): Promise<boolean | null>;
+  /** Product-routed status re-query (the ONLY settlement source). */
+  getStatus(product: MtnMomoProduct, referenceId: string): Promise<ParsedMtnMomoTransaction>;
 }
 
 interface CachedToken {
@@ -279,6 +283,27 @@ export function createMtnMomoClient(
         headers: mtnMomoReadHeaders(config, product, token),
       });
       return parseMtnMomoBalance(JSON.parse(text));
+    },
+
+    async isAccountHolderActive(msisdn: string) {
+      const token = await client.getAccessToken("collection");
+      const { text } = await call(mtnMomoAccountHolderActivePath(msisdn), {
+        method: "GET",
+        headers: mtnMomoReadHeaders(config, "collection", token),
+      });
+      let body: unknown = text;
+      try {
+        body = JSON.parse(text);
+      } catch {
+        // A bare non-JSON body still parses through the string arm.
+      }
+      return parseMtnMomoAccountHolderActive(body);
+    },
+
+    async getStatus(product: MtnMomoProduct, referenceId: string) {
+      return product === "collection"
+        ? client.getRequestToPayStatus(referenceId)
+        : client.getTransferStatus(referenceId);
     },
   };
 

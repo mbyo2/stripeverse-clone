@@ -3,7 +3,10 @@
 // file Deno runs is loaded by the vitest suite in
 // tests/payments/mtnMomo.test.ts.
 //
-// STATUS: SKELETON — UNPROVEN until MTN Zambia merchant onboarding.
+// STATUS: WIRED behind the mtn_momo_enabled kill switch (mobile-
+// money edge function + telco ledger, migration 20261237) — still
+// UNPROVEN against a live account until MTN Zambia merchant
+// onboarding issues production credentials.
 // CEO decision 2026-10-26: BMaGlass Pay connects DIRECTLY to the
 // mobile money providers (MTN MoMo, Airtel Money, Zamtel) — no
 // aggregator, no Lenco (Lenco belongs to Doc'O Clock). This module
@@ -68,12 +71,15 @@ export type MtnMomoProduct = "collection" | "disbursement";
 export const MTN_MOMO_SANDBOX_BASE_URL = "https://sandbox.momodeveloper.mtn.com";
 
 /**
- * Default production APIM host. CONFIRM-AT-ONBOARDING: MTN assigns
- * the market's production host (and target environment) when the
- * merchant account is approved — MTN_MOMO_PRODUCTION_BASE_URL
- * overrides this without a code change.
+ * Default production APIM host, per MTN's official production
+ * configuration guidance (MoMo Developer Community, "MoMo API
+ * Production Configuration 101"): production API traffic goes to
+ * proxy.momoapi.mtn.com — momodeveloper.mtn.com is the developer
+ * PORTAL, not the production API host. MTN_MOMO_PRODUCTION_BASE_URL
+ * still overrides this without a code change if MTN instructs this
+ * merchant otherwise at onboarding.
  */
-export const MTN_MOMO_DEFAULT_PRODUCTION_BASE_URL = "https://momodeveloper.mtn.com";
+export const MTN_MOMO_DEFAULT_PRODUCTION_BASE_URL = "https://proxy.momoapi.mtn.com";
 
 /** Expected production target environment for Zambia. CONFIRM-AT-ONBOARDING. */
 export const MTN_MOMO_ZAMBIA_TARGET_ENVIRONMENT = "mtnzambia";
@@ -399,6 +405,14 @@ export function buildMtnMomoRequestToPayBody(
   if (!input.externalId || typeof input.externalId !== "string") {
     return { ok: false, error: "A payment reference is required." };
   }
+  // VALIDATION_ERROR (MTN's official failure-reasons list): payer
+  // messages / payee notes cannot be null and must be within 128
+  // characters — refuse here instead of at the provider.
+  const payerMessage = input.payerMessage ?? "Payment to BMaGlass Pay";
+  const payeeNote = input.payeeNote ?? "BMaGlass Pay collection";
+  if (payerMessage.length > 128 || payeeNote.length > 128) {
+    return { ok: false, error: "Keep the payment message to 128 characters or fewer." };
+  }
   return {
     ok: true,
     body: {
@@ -406,8 +420,8 @@ export function buildMtnMomoRequestToPayBody(
       currency,
       externalId: input.externalId,
       payer: { partyIdType: "MSISDN", partyId: msisdn },
-      payerMessage: input.payerMessage ?? "Payment to BMaGlass Pay",
-      payeeNote: input.payeeNote ?? "BMaGlass Pay collection",
+      payerMessage,
+      payeeNote,
     },
   };
 }
@@ -434,6 +448,11 @@ export function buildMtnMomoTransferBody(input: MtnMomoTransferInput): MtnMomoBo
   if (!input.externalId || typeof input.externalId !== "string") {
     return { ok: false, error: "A payment reference is required." };
   }
+  const payerMessage = input.payerMessage ?? "Payment from BMaGlass Pay";
+  const payeeNote = input.payeeNote ?? "BMaGlass Pay disbursement";
+  if (payerMessage.length > 128 || payeeNote.length > 128) {
+    return { ok: false, error: "Keep the payment message to 128 characters or fewer." };
+  }
   return {
     ok: true,
     body: {
@@ -441,9 +460,64 @@ export function buildMtnMomoTransferBody(input: MtnMomoTransferInput): MtnMomoBo
       currency,
       externalId: input.externalId,
       payee: { partyIdType: "MSISDN", partyId: msisdn },
-      payerMessage: input.payerMessage ?? "Payment from BMaGlass Pay",
-      payeeNote: input.payeeNote ?? "BMaGlass Pay disbursement",
+      payerMessage,
+      payeeNote,
     },
+  };
+}
+
+/**
+ * The currency a wallet payment settles in for this deployment:
+ * the sandbox settles EUR only (documented sandbox rule); the
+ * production deployment is Zambia, so ZMW. The wallet a payment
+ * targets must be in exactly this currency.
+ */
+export function mtnMomoSettlementCurrency(config: MtnMomoConfig): string {
+  return config.env === "sandbox" ? "EUR" : "ZMW";
+}
+
+/**
+ * Parse an account-holder-active response. MTN answers this GET
+ * with a bare JSON boolean (`true` / `false`); the object forms are
+ * accepted defensively so an APIM wrapper change degrades to
+ * "unknown" (null) instead of a false "not active".
+ */
+export function parseMtnMomoAccountHolderActive(body: unknown): boolean | null {
+  if (typeof body === "boolean") return body;
+  if (typeof body === "string") {
+    const v = body.trim().toLowerCase();
+    if (v === "true") return true;
+    if (v === "false") return false;
+    return null;
+  }
+  const root = asRecord(body);
+  if (!root) return null;
+  if (typeof root.active === "boolean") return root.active;
+  if (typeof root.isActive === "boolean") return root.isActive;
+  return null;
+}
+
+export interface MtnMomoCallbackHint {
+  /** OUR ledger transaction id, echoed back as the body's externalId. */
+  externalId: string | null;
+  /** The status the callback CLAIMS — never settled from, re-query only. */
+  claimedStatus: MtnMomoTxStatus | null;
+  financialTransactionId: string | null;
+}
+
+/**
+ * Extract the lookup hint from a callback body. The callback carries
+ * the same shape as a status GET; the only field trusted for
+ * IDENTIFICATION is externalId (the ledger transaction id we sent).
+ * The claimed status is surfaced for logging/comparison only — the
+ * settlement path always re-queries the status GET (house doctrine).
+ */
+export function mtnMomoCallbackHint(body: unknown): MtnMomoCallbackHint {
+  const parsed = parseMtnMomoTransaction(body);
+  return {
+    externalId: parsed.externalId,
+    claimedStatus: parsed.status,
+    financialTransactionId: parsed.financialTransactionId,
   };
 }
 

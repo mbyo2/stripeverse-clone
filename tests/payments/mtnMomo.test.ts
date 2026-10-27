@@ -33,10 +33,14 @@ import {
   mtnMomoRailEnabled,
   mtnMomoRailGate,
   mtnMomoRequestToPayStatusPath,
+  mtnMomoSettlementCurrency,
   mtnMomoTokenPath,
+  mtnMomoCallbackHint,
   normaliseMsisdn,
+  parseMtnMomoAccountHolderActive,
   parseMtnMomoBalance,
   parseMtnMomoTransaction,
+  MTN_MOMO_DEFAULT_PRODUCTION_BASE_URL,
   MTN_MOMO_DISABLED_MESSAGE,
   MTN_MOMO_NOT_CONFIGURED_MESSAGE,
   MTN_MOMO_SANDBOX_BASE_URL,
@@ -250,7 +254,7 @@ describe("server client (stubbed fetch)", () => {
 
   it("runs token → requestToPay with the documented wire shape and caches the token", async () => {
     const { calls, fetchImpl } = stubFetch((url) => {
-      if (url.endsWith("/collection/token/")) {
+      if (url.endsWith("/collection/token/") || url.endsWith("/disbursement/token/")) {
         return { status: 200, body: JSON.stringify({ access_token: "tok-1", expires_in: 3600 }) };
       }
       if (url.endsWith("/collection/v1_0/requesttopay")) return { status: 202, body: "" };
@@ -280,7 +284,7 @@ describe("server client (stubbed fetch)", () => {
 
   it("surfaces a 409 as duplicate_reference so callers re-query instead of re-minting", async () => {
     const { fetchImpl } = stubFetch((url) => {
-      if (url.endsWith("/collection/token/")) {
+      if (url.endsWith("/collection/token/") || url.endsWith("/disbursement/token/")) {
         return { status: 200, body: JSON.stringify({ access_token: "t", expires_in: 3600 }) };
       }
       return { status: 409, body: "" };
@@ -381,5 +385,94 @@ describe("kill switch (platform_settings.mtn_momo_enabled)", () => {
       MtnMomoNotConfiguredError,
     );
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe("docs-complete additions (2026-10-27)", () => {
+  it("production base URL defaults to MTN's documented production API host", () => {
+    // MTN's official production-configuration guidance: production
+    // API traffic goes to proxy.momoapi.mtn.com; momodeveloper is
+    // the portal. The env override still wins.
+    expect(MTN_MOMO_DEFAULT_PRODUCTION_BASE_URL).toBe("https://proxy.momoapi.mtn.com");
+    const cfg = mtnMomoConfig({
+      env: "production",
+      collectionSubscriptionKey: "k",
+      apiUserId: "u",
+      apiKey: "key",
+    });
+    expect(cfg.baseUrl).toBe("https://proxy.momoapi.mtn.com");
+    const overridden = mtnMomoConfig({
+      env: "production",
+      collectionSubscriptionKey: "k",
+      apiUserId: "u",
+      apiKey: "key",
+      productionBaseUrl: "https://example.test",
+    });
+    expect(overridden.baseUrl).toBe("https://example.test");
+  });
+
+  it("settlement currency is EUR in sandbox and ZMW in production", () => {
+    expect(mtnMomoSettlementCurrency(mtnMomoConfig({}))).toBe("EUR");
+    expect(
+      mtnMomoSettlementCurrency(mtnMomoConfig({ env: "production" })),
+    ).toBe("ZMW");
+  });
+
+  it("refuses payer messages / payee notes over MTN's 128-character limit", () => {
+    const long = "x".repeat(129);
+    const rtp = buildMtnMomoRequestToPayBody({
+      amount: 10, currency: "ZMW", externalId: "e",
+      payerMsisdn: "0771234567", payerMessage: long,
+    });
+    expect(rtp.ok).toBe(false);
+    const tr = buildMtnMomoTransferBody({
+      amount: 10, currency: "ZMW", externalId: "e",
+      payeeMsisdn: "0771234567", payeeNote: long,
+    });
+    expect(tr.ok).toBe(false);
+  });
+
+  it("parses the account-holder-active response (bare boolean, string, object)", () => {
+    expect(parseMtnMomoAccountHolderActive(true)).toBe(true);
+    expect(parseMtnMomoAccountHolderActive("false")).toBe(false);
+    expect(parseMtnMomoAccountHolderActive({ active: true })).toBe(true);
+    expect(parseMtnMomoAccountHolderActive({ isActive: false })).toBe(false);
+    expect(parseMtnMomoAccountHolderActive({})).toBeNull();
+    expect(parseMtnMomoAccountHolderActive("yes")).toBeNull();
+  });
+
+  it("callback hint identifies by externalId and exposes the CLAIMED status only", () => {
+    const hint = mtnMomoCallbackHint({
+      amount: "10",
+      currency: "ZMW",
+      externalId: "ledger-txn-uuid",
+      financialTransactionId: "fin-9",
+      status: "SUCCESSFUL",
+    });
+    expect(hint.externalId).toBe("ledger-txn-uuid");
+    expect(hint.claimedStatus).toBe("successful");
+    expect(hint.financialTransactionId).toBe("fin-9");
+  });
+
+  it("server client: account-holder check + product-routed status re-query", async () => {
+    const calls: Array<{ url: string }> = [];
+    const fetchImpl: FetchLike = async (url) => {
+      calls.push({ url });
+      if (url.endsWith("/collection/token/") || url.endsWith("/disbursement/token/")) {
+        return { ok: true, status: 200, text: async () => JSON.stringify({ access_token: "t", expires_in: 3600 }) };
+      }
+      if (url.includes("/accountholder/msisdn/")) {
+        return { ok: true, status: 200, text: async () => "true" };
+      }
+      if (url.includes("/disbursement/v1_0/transfer/")) {
+        return { ok: true, status: 200, text: async () => JSON.stringify({ status: "PENDING", amount: "3", currency: "EUR" }) };
+      }
+      return { ok: false, status: 404, text: async () => "" };
+    };
+    const client = createMtnMomoClient(SANDBOX_VALUES, fetchImpl);
+    await expect(client.isAccountHolderActive("260771234567")).resolves.toBe(true);
+    expect(calls.some((c) => c.url.includes("/collection/v1_0/accountholder/msisdn/260771234567/active"))).toBe(true);
+    const status = await client.getStatus("disbursement", "ref-7");
+    expect(status.status).toBe("pending");
   });
 });
