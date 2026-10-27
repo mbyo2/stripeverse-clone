@@ -212,11 +212,17 @@ describe("scan-to-send wiring — both Bitcoin send forms", () => {
       bitcoinWallet.indexOf("type TradeQuote"),
     );
     expect(sendBlock).toContain("QrScanButton");
-    expect(sendBlock).toContain("parseQrPayload");
+    // Since close-out B1 the custodial form classifies with the
+    // strict unified classifier (classifySendInput), which subsumes
+    // parseQrPayload for this form: checksum-verified, mainnet-only,
+    // and able to route invoices/LNURLs to the Lightning side
+    // instead of refusing them. parseQrPayload remains the
+    // classifier for the self-custody scan flow above.
+    expect(sendBlock).toContain("classifySendInput");
     expect(sendBlock).toContain('htmlFor="dest"');
   });
 
-  it("custodial: only address payloads are filled; scans never send", () => {
+  it("custodial: only address payloads are filled in this form; scans never send", () => {
     const handler = bitcoinWallet.slice(
       bitcoinWallet.indexOf("const handleScanned"),
       bitcoinWallet.indexOf("const send = async"),

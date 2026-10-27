@@ -460,7 +460,14 @@ export function classifySendInput(
   // checksum validation, so this can only rescue a genuinely wrapped
   // valid destination, never bless a broken one.
   const compact = raw.replace(/\s+/g, "");
-  if (compact && compact !== raw.trim()) {
+  // Only bech32/base58-shaped destinations are rescued this way:
+  // squeezing whitespace out of anything else (a Lightning address,
+  // say) could silently fuse two words into a different destination.
+  if (
+    compact &&
+    compact !== raw.trim() &&
+    /^(ln|bc1|tb1|bcrt1|spark1)/i.test(compact)
+  ) {
     const retried = classifyOnce(compact, nowSeconds, 0);
     if (retried.kind !== "invalid") return retried;
   }
