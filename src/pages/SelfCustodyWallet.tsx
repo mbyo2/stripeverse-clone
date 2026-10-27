@@ -86,6 +86,21 @@ import {
   type AutoClaimPreference,
   type UnclaimedDepositSummary,
 } from "@/lib/selfcustody/spark";
+import {
+  cancelSellIntent,
+  checkCustodialInvoice,
+  checkSellIntent,
+  createCustodialInvoice,
+  createSellIntent,
+  getCustodialDepositAddress,
+  listSellIntents,
+  previewSellQuote,
+  sellPhaseOf,
+  SELL_PHASE_COPY,
+  type SellIntent,
+  type SellQuotePreview,
+  type SellRail,
+} from "@/lib/selfcustody/sellToZmw";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useExchangeRates } from "@/hooks/useMultiCurrency";
 import { resolveExchangeRate } from "@/utils/exchangeRates";
@@ -182,6 +197,17 @@ function SelfCustodyWallet() {
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
   // Buy (MoonPay).
   const [buyAmount, setBuyAmount] = useState("");
+  // Sell to ZMW (self-custody → platform ZMW wallet; see
+  // lib/selfcustody/sellToZmw.ts). The intent + locked quote live
+  // server-side; this state only drives the panel.
+  const [sellRail, setSellRail] = useState<SellRail>("lightning");
+  const [sellMode, setSellMode] = useState<"sats" | "zmw">("sats");
+  const [sellInput, setSellInput] = useState("");
+  const [sellPreview, setSellPreview] = useState<SellQuotePreview | null>(null);
+  const [sellIntent, setSellIntent] = useState<SellIntent | null>(null);
+  const [sellBusy, setSellBusy] = useState(false);
+  const [sellPrepared, setSellPrepared] = useState<PreparedSend | null>(null);
+  const [sellSent, setSellSent] = useState(false);
   // Automatic Claims preference (device-local; default ON, fixed 500-sat limit).
   const [autoClaimPref, setAutoClaimPref] = useState<AutoClaimPreference>(() => loadAutoClaimPreference());
   const [autoClaimLimitDraft, setAutoClaimLimitDraft] = useState<string>(
@@ -776,6 +802,158 @@ function SelfCustodyWallet() {
       setSpBusy(false);
     }
   };
+
+  // ── Sell to ZMW ────────────────────────────────────────────────────────
+
+  const doSellPreview = async () => {
+    const value = Number(sellInput);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error(sellMode === "sats" ? "Enter an amount in sats" : "Enter an amount in ZMW");
+      return;
+    }
+    setSellBusy(true);
+    try {
+      const preview = await previewSellQuote(
+        sellMode === "sats" ? { amount_sats: Math.floor(value) } : { amount_zmw: value },
+      );
+      setSellPreview(preview);
+    } catch (e: any) {
+      toast.error(toUserFacingError(e, "Could not get a sell quote right now. Please try again."));
+    } finally {
+      setSellBusy(false);
+    }
+  };
+
+  const doCreateSell = async () => {
+    if (!sellPreview) return;
+    setSellBusy(true);
+    setSellPrepared(null);
+    setSellSent(false);
+    try {
+      let intent: SellIntent;
+      if (sellRail === "lightning") {
+        // The invoice comes from the platform's existing Lightning
+        // service; the intent binds to it by id.
+        const invoice = await createCustodialInvoice(sellPreview.amount_sats);
+        intent = await createSellIntent({
+          rail: "lightning",
+          amount_sats: sellPreview.amount_sats,
+          lightning_payment_id: invoice.payment_id,
+        });
+      } else {
+        // Make sure the custodial deposit address exists first (the
+        // sell function binds the intent to it, never allocates).
+        await getCustodialDepositAddress();
+        intent = await createSellIntent({ rail: "onchain", amount_sats: sellPreview.amount_sats });
+      }
+      setSellIntent(intent);
+      setSellPreview(null);
+      toast.success("Sell created — send your Bitcoin to settle it");
+    } catch (e: any) {
+      toast.error(toUserFacingError(e, "Could not create your sell. Please try again."));
+    } finally {
+      setSellBusy(false);
+    }
+  };
+
+  const sellDestination = sellIntent
+    ? sellIntent.rail === "lightning"
+      ? sellIntent.bolt11
+      : sellIntent.deposit_address
+    : null;
+
+  /** In-app send via the existing Spark plumbing: prepare (fee shown) → confirm. Nothing is sent before the user confirms. */
+  const doSellPrepareInApp = async () => {
+    if (!session.mnemonic || !sellIntent || !sellDestination) return;
+    setSellBusy(true);
+    try {
+      const prepared = await sparkPrepareSend(
+        session.mnemonic,
+        sellDestination,
+        sellIntent.rail === "onchain" ? sellIntent.expected_sats : undefined,
+      );
+      setSellPrepared(prepared);
+    } catch (e: any) {
+      toast.error(toUserFacingError(e, "Could not prepare the in-app send"));
+    } finally {
+      setSellBusy(false);
+    }
+  };
+
+  const doSellSendInApp = async () => {
+    if (!session.mnemonic || !sellPrepared) return;
+    setSellBusy(true);
+    try {
+      await sparkSendPrepared(session.mnemonic, sellPrepared);
+      setSellSent(true);
+      setSellPrepared(null);
+      toast.success("Bitcoin sent from this wallet — waiting for it to arrive");
+      refreshSpark();
+    } catch (e: any) {
+      toast.error(toUserFacingError(e, "The in-app send failed — nothing was settled. You can try again or send from another wallet."));
+    } finally {
+      setSellBusy(false);
+    }
+  };
+
+  const doCancelSell = async () => {
+    if (!sellIntent) return;
+    setSellBusy(true);
+    try {
+      const updated = await cancelSellIntent(sellIntent.intent_id);
+      setSellIntent(updated);
+      setSellPrepared(null);
+    } catch (e: any) {
+      toast.error(toUserFacingError(e, "Could not cancel this sell"));
+    } finally {
+      setSellBusy(false);
+    }
+  };
+
+  // Resume the latest open sell when the wallet opens, and poll its
+  // status while it is live: for Lightning, poll the platform invoice
+  // first (that is what settles the deposit), then ask the sell
+  // function to convert it. On-chain deposits settle via the
+  // platform's scheduled scan; the poll converts them here too.
+  useEffect(() => {
+    if (stage !== "wallet") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const intents = await listSellIntents();
+        if (cancelled) return;
+        const open = intents.find((i) => i.status === "awaiting");
+        if (open) setSellIntent((current) => current ?? open);
+      } catch {
+        // Listing is best-effort: the panel still creates new sells.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
+  const sellPhase = sellIntent ? sellPhaseOf(sellIntent) : null;
+  useEffect(() => {
+    if (!sellIntent || !sellPhase || sellPhase === "settled" || sellPhase === "expired" || sellPhase === "cancelled") return;
+    const id = setInterval(async () => {
+      try {
+        if (sellIntent.rail === "lightning" && sellIntent.lightning_payment_id) {
+          await checkCustodialInvoice(sellIntent.lightning_payment_id).catch(() => null);
+        }
+        const updated = await checkSellIntent(sellIntent.intent_id);
+        setSellIntent(updated);
+        if (sellPhaseOf(updated) === "settled") {
+          toast.success(`Settled — K${(updated.zmw_credited ?? 0).toFixed(2)} is in your ZMW wallet`);
+        }
+      } catch {
+        // A failed poll changes nothing; the next one retries.
+      }
+    }, 15_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sellIntent?.intent_id, sellIntent?.rail, sellIntent?.lightning_payment_id, sellPhase]);
 
   // The receive address is derived LOCALLY from the account key — it
   // must never wait on the network scan. The scan only refines WHICH
@@ -1566,6 +1744,191 @@ function SelfCustodyWallet() {
                       </div>
                     )}
                   </>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  Sell Bitcoin for ZMW <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY → ZMW WALLET</Badge>
+                </CardTitle>
+                <CardDescription>
+                  Sell Bitcoin from this self-custody wallet and get ZMW in your platform ZMW
+                  wallet. You send the Bitcoin to BMaGlass Pay yourself — from this wallet, in
+                  the app, or from any other wallet — and the ZMW is credited when it arrives.
+                  The fee is 1.5%, shown before you confirm.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!sellIntent ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-1 rounded-full bg-muted p-1" role="group" aria-label="Sell rail">
+                      <Button
+                        type="button" size="sm" variant={sellRail === "lightning" ? "default" : "ghost"}
+                        className="h-10 rounded-full text-xs sm:text-sm" disabled={sellBusy}
+                        aria-pressed={sellRail === "lightning"}
+                        onClick={() => { setSellRail("lightning"); setSellPreview(null); }}
+                      >
+                        <Zap className="h-4 w-4 mr-1.5 shrink-0" /> Lightning (fastest)
+                      </Button>
+                      <Button
+                        type="button" size="sm" variant={sellRail === "onchain" ? "default" : "ghost"}
+                        className="h-10 rounded-full text-xs sm:text-sm" disabled={sellBusy}
+                        aria-pressed={sellRail === "onchain"}
+                        onClick={() => { setSellRail("onchain"); setSellPreview(null); }}
+                      >
+                        <Bitcoin className="h-4 w-4 mr-1.5 shrink-0" /> On-chain
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 rounded-full bg-muted p-1" role="group" aria-label="Sell amount type">
+                      <Button
+                        type="button" size="sm" variant={sellMode === "sats" ? "default" : "ghost"}
+                        className="h-10 rounded-full text-xs sm:text-sm" disabled={sellBusy}
+                        aria-pressed={sellMode === "sats"}
+                        onClick={() => { setSellMode("sats"); setSellPreview(null); }}
+                      >
+                        Amount in sats
+                      </Button>
+                      <Button
+                        type="button" size="sm" variant={sellMode === "zmw" ? "default" : "ghost"}
+                        className="h-10 rounded-full text-xs sm:text-sm" disabled={sellBusy}
+                        aria-pressed={sellMode === "zmw"}
+                        onClick={() => { setSellMode("zmw"); setSellPreview(null); }}
+                      >
+                        Amount in ZMW
+                      </Button>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="sell-amt">{sellMode === "sats" ? "You sell (sats)" : "You want to receive (ZMW)"}</Label>
+                      <Input
+                        id="sell-amt" type="number" min="1" placeholder={sellMode === "sats" ? "e.g. 50000" : "e.g. 500"}
+                        value={sellInput}
+                        onChange={(e) => { setSellInput(e.target.value); setSellPreview(null); }}
+                      />
+                      {sellMode === "zmw" && (
+                        <p className="text-xs text-muted-foreground">
+                          We work out how many sats that takes at the current rate; the exact
+                          locked figures are shown before you confirm.
+                        </p>
+                      )}
+                    </div>
+                    {!sellPreview ? (
+                      <Button className="w-full" disabled={sellBusy || !sellInput} onClick={doSellPreview}>
+                        {sellBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                        Get sell quote
+                      </Button>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="rounded-lg bg-muted p-4 space-y-1 text-sm">
+                          <p>You sell: <strong>{sellPreview.amount_sats.toLocaleString()} sats</strong></p>
+                          <p>You receive: <strong>K{sellPreview.amount_zmw.toFixed(2)}</strong> in your platform ZMW wallet</p>
+                          <p className="text-muted-foreground">
+                            Rate: K{sellPreview.mid_rate_zmw.toLocaleString()} per BTC · Fee: K{sellPreview.fee_zmw.toFixed(2)} ({(sellPreview.fee_bps / 100).toFixed(2)}%)
+                          </p>
+                          <p className="text-muted-foreground">
+                            Locking this quote gives you 30 minutes to send. If your Bitcoin is
+                            fully received within 1 hour after that, it still settles at this
+                            locked rate.
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" className="flex-1" disabled={sellBusy} onClick={() => setSellPreview(null)}>Back</Button>
+                          <Button className="flex-1 rounded-full bg-[#F7931A] text-black font-semibold hover:bg-[#DE830A]" disabled={sellBusy} onClick={doCreateSell}>
+                            {sellBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                            Lock quote &amp; create sell
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-lg bg-muted p-4 space-y-1 text-sm">
+                      <p>Selling: <strong>{sellIntent.expected_sats.toLocaleString()} sats</strong> via {sellIntent.rail === "lightning" ? "Lightning" : "on-chain"}</p>
+                      <p>You receive: <strong>K{sellIntent.expected_zmw.toFixed(2)}</strong> · Rate locked at K{sellIntent.mid_rate_zmw.toLocaleString()} per BTC · Fee K{sellIntent.fee_zmw.toFixed(2)} (1.50%)</p>
+                      <p className="text-muted-foreground">Send by {new Date(sellIntent.expires_at).toLocaleString()} · Locked rate honoured for deposits fully received until {new Date(sellIntent.settle_deadline).toLocaleString()}</p>
+                      {sellIntent.actual_sats !== null && (
+                        <p>Received: <strong>{sellIntent.actual_sats.toLocaleString()} sats</strong>{sellIntent.zmw_credited !== null ? <> · Credited: <strong>K{sellIntent.zmw_credited.toFixed(2)}</strong></> : null}</p>
+                      )}
+                    </div>
+                    <p className="text-sm flex items-start gap-2">
+                      {sellPhase === "settled" ? <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" /> : <Loader2 className={`h-4 w-4 shrink-0 mt-0.5 ${sellPhase === "awaiting" || sellPhase === "received" ? "animate-spin" : ""}`} />}
+                      <span>{sellPhase ? SELL_PHASE_COPY[sellPhase] : ""}</span>
+                    </p>
+                    {sellIntent.settle_error && (
+                      <p className="text-sm text-amber-600 flex items-center gap-1">
+                        <AlertTriangle className="h-4 w-4 shrink-0" /> {sellIntent.settle_error}
+                      </p>
+                    )}
+                    {(sellPhase === "awaiting" || sellPhase === "received") && sellDestination && (
+                      <div className="space-y-2">
+                        <div className="flex justify-center rounded bg-white p-3">
+                          <QRCode value={sellIntent.rail === "lightning" ? sellDestination : `bitcoin:${sellDestination}`} size={180} />
+                        </div>
+                        <p className="font-mono text-[10px] break-all rounded bg-muted p-2">{sellDestination}</p>
+                        <Button variant="outline" size="sm" onClick={() => copy(sellDestination, sellIntent.rail === "lightning" ? "Invoice" : "Address")}>
+                          <Copy className="h-4 w-4 mr-1" /> Copy {sellIntent.rail === "lightning" ? "invoice" : "address"}
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          {sellIntent.rail === "onchain"
+                            ? "This is your own custodial deposit address. Send exactly the amount above to it from any wallet."
+                            : "Pay this Lightning invoice from any Lightning wallet."}{" "}
+                          If less or more Bitcoin arrives than shown, you are credited for the
+                          amount that actually arrives, at this locked rate — never more, never
+                          less. After the deadline above, this sell expires and any Bitcoin
+                          received stays in your custodial Bitcoin wallet instead.
+                        </p>
+                        {sparkEnabled() && session.mnemonic && !sellSent ? (
+                          <div className="space-y-2 rounded border p-3">
+                            <p className="text-sm font-medium">Send from this wallet now</p>
+                            {!sellPrepared ? (
+                              <Button variant="outline" className="w-full" disabled={sellBusy} onClick={doSellPrepareInApp}>
+                                Prepare in-app send — show me the fee first
+                              </Button>
+                            ) : (
+                              <div className="space-y-2 text-sm">
+                                <p>Amount: <strong>{sellPrepared.amountSats.toLocaleString()} sats</strong></p>
+                                {sellPrepared.fee.lines.map((line) => (
+                                  <p key={line.label}>{line.label}: <strong>{line.feeSats.toLocaleString()} sats</strong></p>
+                                ))}
+                                <Button className="w-full rounded-full bg-[#F7931A] text-black font-semibold hover:bg-[#DE830A]" disabled={sellBusy} onClick={doSellSendInApp}>
+                                  {sellBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                                  Confirm &amp; send from this wallet
+                                </Button>
+                              </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              The send is signed on this device with your seed phrase — it never
+                              leaves this device. Nothing is sent until you confirm.
+                            </p>
+                          </div>
+                        ) : sellSent ? (
+                          <p className="text-sm text-muted-foreground">
+                            Sent from this wallet. This page updates when the platform confirms
+                            receipt — on-chain sends need network confirmations first.
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            In-app sending from this wallet is not enabled on this deployment
+                            yet — send from any other Bitcoin wallet using the{" "}
+                            {sellIntent.rail === "lightning" ? "invoice" : "address"} above.
+                          </p>
+                        )}
+                        <Button variant="outline" size="sm" disabled={sellBusy} onClick={doCancelSell}>
+                          Cancel this sell
+                        </Button>
+                      </div>
+                    )}
+                    {(sellPhase === "settled" || sellPhase === "expired" || sellPhase === "cancelled") && (
+                      <Button
+                        variant="outline" className="w-full"
+                        onClick={() => { setSellIntent(null); setSellPreview(null); setSellInput(""); setSellPrepared(null); setSellSent(false); }}
+                      >
+                        Start a new sell
+                      </Button>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
