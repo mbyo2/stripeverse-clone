@@ -399,6 +399,23 @@ describe("paypal-payout edge function", () => {
     expect(payoutFn).toContain("provenanceRefusalMessage");
   });
 
+  it("pins the $5 payout minimum boundary (CEO decision 2026-10-28)", () => {
+    // The CEO-set minimum is USD 5.00. The shared constant is the one
+    // value every layer reads: the RPC refuses p_amount < 5 in SQL
+    // (pinned above), the function answers the below_minimum outcome
+    // with the crafted sentence composed from that same constant, and
+    // the client form disables below it while showing it as helper
+    // text — so $4.99 can never be submitted and $5.00 always reaches
+    // the provenance gate instead.
+    expect(PAYOUT_MIN_AMOUNT).toBe(5);
+    expect(payoutFn).toContain('case "below_minimum"');
+    expect(payoutFn).toContain(
+      "The minimum PayPal withdrawal is ${PAYOUT_MIN_AMOUNT.toFixed(2)}",
+    );
+    expect(withdrawComponent).toContain("parsedAmount < PAYOUT_MIN_AMOUNT");
+    expect(withdrawComponent).toContain("Minimum {PAYOUT_MIN_AMOUNT.toFixed(2)}");
+  });
+
   it("gates currencies through the shared list (ZMW never reaches a send)", () => {
     expect(payoutFn).toContain("isPayPalPayoutCurrency");
     expect(payoutFn).toContain("PayPal can't pay out in Zambian kwacha (ZMW)");
