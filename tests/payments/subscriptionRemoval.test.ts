@@ -40,13 +40,16 @@ const paypalCheckoutFn = read("../../supabase/functions/paypal-checkout/index.ts
 const manageSubscriptionFn = read("../../supabase/functions/manage-subscription/index.ts");
 
 describe("subscription removal: Pricing is the verified fee schedule, nothing else", () => {
-  it("shows the six percentage fees the platform actually charges", () => {
+  it("shows the percentage fees the platform actually charges", () => {
     for (const fee of ["2.5%", "1.5%", "0.5%", "1%"]) {
       expect(pricing).toContain(fee);
     }
     expect(pricing).toContain("minimum fee of K2");
     expect(pricing).toContain("Send Money");
     expect(pricing).toContain("Payment Links");
+    // The PayPal rail rate (1%, CEO decision 2026-10-28) is a fee
+    // card of its own — pinned in paypalPlatformFee.test.ts.
+    expect(pricing).toContain("Accept PayPal Payments");
   });
 
   it("names the live source of every fee in its header comment", () => {
@@ -55,6 +58,7 @@ describe("subscription removal: Pricing is the verified fee schedule, nothing el
       "transfer_fee_percent",
       "p2p_fee_percent",
       "split_platform_fee_percent",
+      "paypal_platform_fee_percent",
     ]) {
       expect(pricing).toContain(src);
     }

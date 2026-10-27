@@ -2,18 +2,19 @@ import React from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeftRight, Bitcoin, CreditCard, Link2, MessagesSquare, Send } from "lucide-react";
+import { ArrowLeftRight, Bitcoin, CreditCard, Link2, MessagesSquare, Send, Wallet } from "lucide-react";
 
 // Pricing is a fee schedule, not a plan catalogue: subscriptions
 // were removed entirely (CEO decision 2026-10-26 18:31 — "just
 // leave the percentage payments we had"). Every figure below is the
 // fee the platform actually charges, read from the live code and
-// settings on 2026-10-26:
+// settings on 2026-10-26 (PayPal line added 2026-10-28):
 //   - Send money 2.5%        platform_settings.send_money_fee_percent
 //   - Transfer 1.5%          platform_settings.transfer_fee_percent
 //   - P2P trades 0.5%        platform_settings.p2p_fee_percent
 //   - Instant buy/sell 1.5%  btc-trade fee (150 bps default)
 //   - Payment links 2.5%     platform_settings.split_platform_fee_percent
+//   - PayPal payments 1%     platform_settings.paypal_platform_fee_percent
 //   - Card funding 1% min K2 fund-virtual-card fee code
 // If a fee changes in settings/code, this page must change with it —
 // the removal test pins these numbers to their sources.
@@ -46,7 +47,13 @@ const FEES = [
     icon: <Link2 className="h-5 w-5" />,
     name: "Payment Links",
     fee: "2.5%",
-    detail: "Charged when a payment link is paid. The seller chooses who pays it — themselves, or the buyer on top of the price.",
+    detail: "Charged when a payment link is paid from a BMaGlass wallet or with Bitcoin. The seller chooses who pays it — themselves, or the buyer on top of the price. A link paid through PayPal carries the 1% PayPal fee instead.",
+  },
+  {
+    icon: <Wallet className="h-5 w-5" />,
+    name: "Accept PayPal Payments",
+    fee: "1%",
+    detail: "Receiving a PayPal payment through BMaGlass Pay — checkout, a payment link, or any plug-in or SDK — costs 1% of the amount. PayPal's own processing fee also applies and is charged by PayPal, not by us.",
   },
   {
     icon: <CreditCard className="h-5 w-5" />,

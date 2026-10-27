@@ -73,7 +73,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyLinkMethod } from "../_shared/payment-providers.ts";
 import { dispatchPaymentLinkPaid } from "../_shared/developer-webhooks.ts";
-import { paymentLinkAmounts, type FeePayer } from "../_shared/fee-math.ts";
+import { linkFeeRateForMethod, paymentLinkAmounts, type FeePayer } from "../_shared/fee-math.ts";
 import {
   ACCOUNT_FROZEN_MESSAGE,
   isAccountFrozen,
@@ -169,10 +169,15 @@ serve(async (req) => {
       // from fee_payer + fee_rate_percent.
       const { data: settingsRow } = await admin
         .from("platform_settings")
-        .select("split_platform_fee_percent")
+        .select("split_platform_fee_percent, paypal_platform_fee_percent")
         .eq("id", true)
         .maybeSingle();
       const feeRate = settingsRow?.split_platform_fee_percent ?? null;
+      // The PayPal rail rate (1% — CEO decision 2026-10-28),
+      // resolved with the same per-rail rule the settlement RPC
+      // charges, so a PayPal fee picture never quotes the
+      // wallet/Bitcoin link rate.
+      const paypalFeeRate = linkFeeRateForMethod("paypal", settingsRow);
       const fixed = link.amount == null || feeRate === null
         ? null
         : paymentLinkAmounts(Number(link.amount), String(feeRate), feePayer);
@@ -195,6 +200,7 @@ serve(async (req) => {
           account_id: link.account_id,
           fee_payer: feePayer,
           fee_rate_percent: feeRate === null ? null : Number(feeRate),
+          paypal_fee_rate_percent: paypalFeeRate,
           fee_amount: fixed?.fee_amount ?? null,
           buyer_total: fixed?.buyer_total ?? null,
           seller_receives: fixed?.seller_receives ?? null,

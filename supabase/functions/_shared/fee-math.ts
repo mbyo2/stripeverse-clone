@@ -53,6 +53,37 @@ export function platformFeeFor(amount: number, ratePercent: number | string): nu
   return feeNgwee / 100;
 }
 
+/** The platform_settings columns carrying the per-rail link rates. */
+export interface LinkFeeRateSettings {
+  split_platform_fee_percent?: number | string | null;
+  paypal_platform_fee_percent?: number | string | null;
+}
+
+/**
+ * The payment-link platform fee rate for a settlement method
+ * (CEO decision 2026-10-28: the PayPal platform fee is 1%).
+ * External PayPal settlements carry the PayPal rate
+ * (paypal_platform_fee_percent); wallet and Bitcoin settlements
+ * keep the payment-link rate (split_platform_fee_percent). This
+ * mirrors the rate resolution inside
+ * execute_payment_link_settlement (migration 20261241) so the
+ * quote, the pay page and the settlement never disagree. Returns
+ * null when the relevant setting is absent or unparseable —
+ * callers then show no fee picture rather than guessing one.
+ */
+export function linkFeeRateForMethod(
+  method: string | null | undefined,
+  settings: LinkFeeRateSettings | null | undefined,
+): number | null {
+  if (!settings) return null;
+  const raw = (method ?? "").toLowerCase() === "paypal"
+    ? settings.paypal_platform_fee_percent
+    : settings.split_platform_fee_percent;
+  if (raw === null || raw === undefined || raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 export type FeePayer = "seller" | "buyer";
 
 export interface PaymentLinkAmounts {

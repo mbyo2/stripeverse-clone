@@ -51,7 +51,7 @@ import {
   dispatchEvent,
   KNOWN_DEVELOPER_EVENTS,
 } from "../_shared/developer-webhooks.ts";
-import { paymentLinkAmounts, type FeePayer } from "../_shared/fee-math.ts";
+import { linkFeeRateForMethod, paymentLinkAmounts, type FeePayer } from "../_shared/fee-math.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -164,12 +164,16 @@ serve(async (req) => {
     // current payment-link fee rate, resolved together.
     const feeContext = async () => {
       const [{ data: settings }, { data: profile }] = await Promise.all([
-        db.from("platform_settings").select("split_platform_fee_percent").eq("id", true).maybeSingle(),
+        db.from("platform_settings").select("split_platform_fee_percent, paypal_platform_fee_percent").eq("id", true).maybeSingle(),
         db.from("profiles").select("payment_link_fee_payer").eq("id", userId).maybeSingle(),
       ]);
       const feePayerDefault: FeePayer =
         profile?.payment_link_fee_payer === "buyer" ? "buyer" : "seller";
-      return { feePayerDefault, rate: settings?.split_platform_fee_percent ?? null };
+      return {
+        feePayerDefault,
+        rate: settings?.split_platform_fee_percent ?? null,
+        paypalRate: linkFeeRateForMethod("paypal", settings),
+      };
     };
     // Merge the computed money picture into a link row. Amount fields
     // are null when the link has no fixed price (or the rate is
@@ -199,12 +203,13 @@ serve(async (req) => {
     // extension or SDK learns it from the merchant's key the moment
     // it connects. Plugins have no fee-bearer setting of their own.
     if (resource === "settings" && method === "GET") {
-      const { feePayerDefault, rate } = await feeContext();
+      const { feePayerDefault, rate, paypalRate } = await feeContext();
       return json(200, {
         data: {
           fee_payer_default: feePayerDefault,
           platform_fee_percent: rate === null ? null : Number(rate),
-          note: "fee_payer_default decides who funds the payment-link platform fee: 'seller' — the fee comes out of what the seller receives; 'buyer' — the fee is added on top of the price and the seller receives the full price. It is set in the BMaGlass Pay dashboard (Settings → Payment) and can be overridden per payment link at creation. Settlement always follows the link's stored fee_payer.",
+          paypal_platform_fee_percent: paypalRate,
+          note: "fee_payer_default decides who funds the payment-link platform fee: 'seller' — the fee comes out of what the seller receives; 'buyer' — the fee is added on top of the price and the seller receives the full price. It is set in the BMaGlass Pay dashboard (Settings → Payment) and can be overridden per payment link at creation. Settlement always follows the link's stored fee_payer. Payments collected through PayPal carry the PayPal platform fee (paypal_platform_fee_percent) instead of the payment-link rate, on payment links and checkout payments alike.",
         },
         mode: modeOf(key),
       });

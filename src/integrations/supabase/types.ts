@@ -1873,6 +1873,7 @@ export type Database = {
           id: boolean
           paypal_float_allowance_usd: number
           paypal_payout_fee_percent: number
+          paypal_platform_fee_percent: number
           send_money_fee_percent: number
           split_platform_fee_percent: number
           stripe_gateway_enabled: boolean
@@ -1882,6 +1883,7 @@ export type Database = {
           id?: boolean
           paypal_float_allowance_usd?: number
           paypal_payout_fee_percent?: number
+          paypal_platform_fee_percent?: number
           send_money_fee_percent?: number
           split_platform_fee_percent?: number
           stripe_gateway_enabled?: boolean
@@ -1891,6 +1893,7 @@ export type Database = {
           id?: boolean
           paypal_float_allowance_usd?: number
           paypal_payout_fee_percent?: number
+          paypal_platform_fee_percent?: number
           send_money_fee_percent?: number
           split_platform_fee_percent?: number
           stripe_gateway_enabled?: boolean
