@@ -8,6 +8,10 @@ import { useBitcoinWallet } from "@/hooks/useBitcoinWallet";
 import { useInvalidateMoneyState } from "@/utils/moneyFreshness";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { useToast } from "@/hooks/use-toast";
+import {
+  classifySendInput,
+  type LnurlIntent,
+} from "@/lib/unifiedSendInput";
 import { Zap, Loader2, Send } from "lucide-react";
 
 /**
@@ -29,6 +33,12 @@ import { Zap, Loader2, Send } from "lucide-react";
  * The idempotency key is minted once per reviewed invoice, so a
  * double-tap or a retry of the same reviewed payment can never pay
  * twice.
+ *
+ * Unified input (close-out B1): the paste/scan field accepts any
+ * Bitcoin destination and routes on classifySendInput — invoices
+ * review here; anything else is handed to the parent dialog
+ * (onRouteOnchain / onLnurlIntent) or answered in plain language.
+ * Only the entry point is unified; decode → review → pay is as it was.
  */
 
 type DecodedInvoice = {
@@ -47,7 +57,25 @@ function newIdempotencyKey(): string {
   return `lnsend-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function LightningSend({ onDone }: { onDone: () => void }) {
+export function LightningSend({
+  onDone,
+  initialInvoice,
+  onRouteOnchain,
+  onLnurlIntent,
+}: {
+  onDone: () => void;
+  /**
+   * Unified routing (close-out B1): an invoice handed over from the
+   * On-chain tab (or the send dialog's unified classification) opens
+   * straight into this review flow. Entry-point reuse only — the
+   * payment logic below is untouched.
+   */
+  initialInvoice?: string;
+  /** Called when the pasted destination is an on-chain address. */
+  onRouteOnchain?: (address: string, amountSats?: number) => void;
+  /** Called when the pasted destination is an LNURL intent. */
+  onLnurlIntent?: (intent: LnurlIntent) => void;
+}) {
   const { toast } = useToast();
   const { wallet } = useBitcoinWallet();
   const invalidateMoney = useInvalidateMoneyState();
@@ -99,11 +127,84 @@ export function LightningSend({ onDone }: { onDone: () => void }) {
     }
   };
 
-  const handleScanned = (text: string) => {
-    const bolt11 = text.trim().replace(/^lightning:/i, "");
-    setInvoice(bolt11);
-    void reviewInvoice(bolt11);
+  // Unified routing (close-out B1): this field accepts ANY Bitcoin
+  // destination, not just invoices. The shared classifier decides —
+  // an invoice reviews here, an address routes to the on-chain form,
+  // a Lightning address / LNURL surfaces as a typed intent, and
+  // anything else answers with a plain-language reason. Review and
+  // payment below are unchanged.
+  const routeInput = (raw: string) => {
+    const classified = classifySendInput(raw);
+    switch (classified.kind) {
+      case "bolt11": {
+        if (classified.expired) {
+          toast({
+            title: "This invoice has expired",
+            description:
+              "Lightning invoices are only valid for a short time — ask the sender for a new one and paste that instead. Nothing was sent.",
+            variant: "destructive",
+          });
+          return;
+        }
+        setInvoice(classified.destination);
+        void reviewInvoice(classified.destination);
+        return;
+      }
+      case "onchain": {
+        if (onRouteOnchain) {
+          onRouteOnchain(classified.destination, classified.amountSats);
+          toast({
+            title: "That's a Bitcoin address",
+            description:
+              "We've opened the On-chain tab with it filled in — a plain address can't be paid over Lightning.",
+          });
+        } else {
+          toast({
+            title: "That's a Bitcoin address",
+            description:
+              "Use the On-chain tab above to send to a plain address — Lightning needs an invoice.",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+      case "lightningAddress":
+      case "lnurl": {
+        if (onLnurlIntent) {
+          onLnurlIntent(classified.intent);
+        } else {
+          toast({
+            title: "Not available yet",
+            description:
+              "Lightning address support is being switched on — for now, ask for a Lightning invoice (lnbc…) and paste that instead.",
+          });
+        }
+        return;
+      }
+      case "invalid": {
+        toast({
+          title: "Couldn't use that destination",
+          description: classified.reason,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
   };
+
+  const handleScanned = (text: string) => {
+    routeInput(text);
+  };
+
+  // A routed-in invoice opens straight into the review flow, once.
+  const initialHandledRef = useRef(false);
+  useEffect(() => {
+    if (initialInvoice && !initialHandledRef.current) {
+      initialHandledRef.current = true;
+      routeInput(initialInvoice);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialInvoice]);
 
   const startProcessingPoll = (paymentId: string) => {
     stopPolling();
@@ -286,12 +387,12 @@ export function LightningSend({ onDone }: { onDone: () => void }) {
     <div className="space-y-4">
       <div className="grid gap-2">
         <div className="flex items-center justify-between gap-2">
-          <Label htmlFor="lnInvoice">Lightning invoice</Label>
+          <Label htmlFor="lnInvoice">Destination</Label>
           <QrScanButton onScan={handleScanned} />
         </div>
         <Textarea
           id="lnInvoice"
-          placeholder="lnbc…"
+          placeholder="lnbc… — or paste an address, LNURL, or Lightning address"
           value={invoice}
           onChange={(e) => setInvoice(e.target.value)}
           rows={4}
@@ -302,9 +403,10 @@ export function LightningSend({ onDone }: { onDone: () => void }) {
         {wallet
           ? `Available: ${wallet.available_sats.toLocaleString()} sats. `
           : ""}
-        You'll see the exact amount before anything is sent.
+        Paste any Bitcoin destination — we'll take you to the right
+        place for it. You'll see the exact amount before anything is sent.
       </p>
-      <Button onClick={() => void reviewInvoice(invoice)} disabled={!invoice.trim() || decoding} className="w-full">
+      <Button onClick={() => routeInput(invoice)} disabled={!invoice.trim() || decoding} className="w-full">
         {decoding
           ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
           : <Send className="h-4 w-4 mr-2" />}
