@@ -14,6 +14,21 @@
 //   POST { action: "reconcile_payment", payment_id, resolution } →
 //        service-role ONLY: ops resolution of a held outbound send
 //        (resolution "paid" settles, "failed" releases the hold)
+//   POST { action: "lnurl_pay_resolve", input } → resolve a Lightning
+//        address / LNURL endpoint (no money moves): returns the pay
+//        bounds + description, or the withdraw bounds, keyed by kind
+//   POST { action: "lnurl_pay", input, amount_sats, comment,
+//          idempotency_key } → LNURL-pay (LUD-06/16): resolve, fetch a
+//          bolt11 from the endpoint's callback for the chosen amount,
+//          then pay it through the SAME reserve-first doctrine as
+//          pay_invoice (settlement only on the read-back)
+//   POST { action: "lnurl_withdraw", input, amount_sats } →
+//          LNURL-withdraw (LUD-03): resolve, create a custodial
+//          invoice through the create_invoice path, submit it to the
+//          endpoint's callback; settlement arrives through the
+//          existing exactly-once check_status deposit settle
+//   LNURL-auth (LUD-04/05) is deliberately NOT offered custodially —
+//   see _shared/lnurl.ts header for the assessment.
 //
 // Auth: user JWT required; identity comes from the verified token only.
 // (reconcile_payment is the single exception: it requires the
@@ -50,6 +65,16 @@ import {
   ACCOUNT_STATUS_UNVERIFIED_MESSAGE,
   assertAccountNotFrozen,
 } from "../_shared/account-freeze.ts";
+import {
+  LnurlUpstreamError,
+  LnurlUserError,
+  fetchLnurlPayInvoice,
+  resolveLnurlParams,
+  submitLnurlWithdraw,
+  validateLnurlComment,
+  validateLnurlPayAmount,
+  validateLnurlWithdrawAmount,
+} from "../_shared/lnurl.ts";
 
 const MAX_SATS = (() => {
   const raw = Deno.env.get("BREEZ_MAX_SATS");
@@ -118,6 +143,23 @@ const PAYMENT_REFUSED =
 // must NOT be repeated, and check_status keeps resolving it.
 const PAYMENT_PROCESSING_MESSAGE =
   "Your payment is being confirmed — don't pay this invoice again. We're checking it automatically.";
+// LNURL refusals, in the same crafted voice. Endpoint-supplied text
+// (an LNURL ERROR reason, a metadata string beyond its description)
+// never reaches the caller verbatim.
+const LNURL_INPUT_REQUIRED =
+  "Enter a Lightning address or LNURL code first.";
+const LNURL_UNREACHABLE =
+  "We couldn't reach that Lightning service just now — check the address and try again in a moment.";
+const LNURL_NOT_A_PAY =
+  "That's a withdrawal code, not a payment address — use the withdraw option for it instead.";
+const LNURL_NOT_A_WITHDRAW =
+  "That's a payment address, not a withdrawal code — use the pay option for it instead.";
+const LNURL_AMOUNT_MISMATCH =
+  "The Lightning service created an invoice for a different amount, so we didn't pay it. Nothing was sent.";
+const LNURL_WITHDRAW_REFUSED =
+  "That service didn't accept the withdrawal. Nothing was taken from anywhere — try again or contact the service.";
+const LNURL_WITHDRAW_SUBMITTED_MESSAGE =
+  "Your withdrawal request was sent. When the service pays, the Bitcoin arrives in your wallet automatically.";
 
 // Returns the designed 503 refusal while the provider is not
 // configured, else null.
@@ -252,7 +294,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const {
       action, amount_sats, description, bolt11, breez_invoice_id,
-      idempotency_key, payment_id, resolution,
+      idempotency_key, payment_id, resolution, input, comment,
     } = body ?? {};
     currentAction = typeof action === "string" ? action : "";
 
@@ -565,8 +607,270 @@ serve(async (req) => {
       return json(200, { status: outcome.payment_status ?? "pending" });
     }
 
+    // ── LNURL resolve (no money moves) ──
+    // One resolve serves both flows: the endpoint's tag decides
+    // whether the input is a pay destination or a withdraw offer,
+    // and the UI drives the matching review from `kind`.
+    if (action === "lnurl_pay_resolve") {
+      const gate = lightningProviderGate(LIGHTNING_PAYMENTS_NOT_CONFIGURED);
+      if (gate) return gate;
+      if (!input || typeof input !== "string" || !input.trim()) {
+        return json(400, { error: LNURL_INPUT_REQUIRED });
+      }
+      const params = await resolveLnurlParams(input.trim());
+      if (params.kind === "pay") {
+        return json(200, {
+          kind: "pay",
+          domain: params.domain,
+          callback_domain: params.callbackDomain,
+          min_sats: params.minSats,
+          max_sats: params.maxSats,
+          fixed_amount_sats: params.fixedAmountSats,
+          description: params.description,
+          identifier: params.identifier,
+          comment_allowed: params.commentAllowed,
+        });
+      }
+      return json(200, {
+        kind: "withdraw",
+        domain: params.domain,
+        callback_domain: params.callbackDomain,
+        min_sats: params.minSats,
+        max_sats: params.maxSats,
+        fixed_amount_sats: params.fixedAmountSats,
+        description: params.defaultDescription,
+      });
+    }
+
+    // ── LNURL pay (LUD-06/16): resolve → callback bolt11 → pay ──
+    // The callback URL is NEVER taken from the client: the endpoint
+    // is re-resolved server-side from `input` on every call, the
+    // amount is re-validated against its freshly fetched bounds,
+    // and the issued invoice's decoded amount must equal the amount
+    // the user reviewed — a mismatched invoice is never reserved.
+    if (action === "lnurl_pay") {
+      const gate = lightningProviderGate(LIGHTNING_PAYMENTS_NOT_CONFIGURED);
+      if (gate) return gate;
+      try {
+        await assertAccountNotFrozen(admin, user.id);
+      } catch (e) {
+        const msg = thrownMessage(e, ACCOUNT_STATUS_UNVERIFIED_MESSAGE);
+        if (msg === ACCOUNT_FROZEN_MESSAGE) return json(403, { error: msg });
+        return json(503, { error: msg });
+      }
+      if (!input || typeof input !== "string" || !input.trim()) {
+        return json(400, { error: LNURL_INPUT_REQUIRED });
+      }
+      if (!idempotency_key || typeof idempotency_key !== "string" || !idempotency_key.trim()) {
+        return json(400, { error: "idempotency_key required" });
+      }
+      const params = await resolveLnurlParams(input.trim());
+      if (params.kind !== "pay") {
+        return json(400, { error: LNURL_NOT_A_PAY });
+      }
+      const requestedSats = amount_sats === undefined || amount_sats === null
+        ? null
+        : Number(amount_sats);
+      const { amountSats, amountMsat } = validateLnurlPayAmount(
+        params,
+        requestedSats !== null && Number.isInteger(requestedSats) ? requestedSats : null,
+      );
+      const cleanComment = validateLnurlComment(
+        params,
+        typeof comment === "string" ? comment : null,
+      );
+      const { bolt11: lnurlBolt11 } = await fetchLnurlPayInvoice(params, amountMsat, cleanComment);
+
+      // The issued invoice passes the SAME pre-reserve validation
+      // as a pasted one (decode, hash, expiry, whole sats, limit)…
+      const decoded = decodeSendInvoice(lnurlBolt11.trim());
+      if ("refusal" in decoded) return decoded.refusal;
+      const { details, sats } = decoded;
+      // …plus the LNURL-specific one: it must be for the amount the
+      // user reviewed and the endpoint was asked for.
+      if (sats !== amountSats) {
+        console.error("lightning-service: LNURL callback issued a mismatched amount", sats, amountSats);
+        return json(400, { error: LNURL_AMOUNT_MISMATCH });
+      }
+
+      // Reserve-first, exactly as pay_invoice: the hold, the
+      // provider pay, and settlement ONLY on the read-back.
+      const { data: reserveRows, error: reserveErr } = await admin.rpc(
+        "btc_reserve_lightning_send",
+        {
+          p_user_id: user.id,
+          p_bolt11: lnurlBolt11.trim(),
+          p_payment_hash: details.paymentHash,
+          p_amount_sats: sats,
+          p_idempotency_key: idempotency_key.trim(),
+          p_max_daily_sats: MAX_DAILY_SATS,
+        },
+      );
+      if (reserveErr) {
+        const msg = thrownMessage(reserveErr, "");
+        if (msg.includes("Insufficient BTC balance")) {
+          return json(400, { error: "Insufficient BTC balance" });
+        }
+        if (msg.includes("Daily Lightning payment limit exceeded")) {
+          return json(400, { error: "You've reached today's Lightning payment limit. Try again tomorrow." });
+        }
+        if (msg.includes("Idempotency key already used")) {
+          return json(409, { error: "This payment request was already used. Start a new payment." });
+        }
+        throw reserveErr;
+      }
+      const reserve = Array.isArray(reserveRows) ? reserveRows[0] : reserveRows;
+      if (!reserve?.payment_id) throw new Error("btc_reserve_lightning_send returned no row");
+      const paymentId = reserve.payment_id as string;
+
+      if (reserve.replayed) {
+        if (reserve.status === "paid") {
+          return json(200, { status: "paid", paid_sats: sats, payment_id: paymentId });
+        }
+        if (reserve.status === "failed") {
+          return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
+        }
+        return json(200, {
+          status: "processing",
+          payment_id: paymentId,
+          message: PAYMENT_PROCESSING_MESSAGE,
+        });
+      }
+
+      const payOutcome = await providerPayInvoice(lnurlBolt11.trim());
+      if (payOutcome.kind === "rejected") {
+        console.error("lightning-service: provider refused LNURL payment", paymentId, payOutcome.detail);
+        const { error: relErr } = await admin.rpc("btc_release_lightning_send", {
+          p_payment_id: paymentId,
+          p_reason: "Provider refused the payment",
+        });
+        if (relErr) {
+          console.error("CRITICAL: Lightning release after refusal failed", paymentId, relErr);
+          return json(200, {
+            status: "processing",
+            payment_id: paymentId,
+            message: PAYMENT_PROCESSING_MESSAGE,
+          });
+        }
+        return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
+      }
+      if (payOutcome.kind === "unknown") {
+        console.error("lightning-service: LNURL payment outcome unknown", paymentId, payOutcome.detail);
+        return json(200, {
+          status: "processing",
+          payment_id: paymentId,
+          message: PAYMENT_PROCESSING_MESSAGE,
+        });
+      }
+      const resolution = await resolveOutboundSend(admin, {
+        id: paymentId,
+        bolt11: lnurlBolt11.trim(),
+        payment_hash: details.paymentHash,
+      });
+      if (resolution === "paid") {
+        return json(200, { status: "paid", paid_sats: sats, payment_id: paymentId });
+      }
+      if (resolution === "failed") {
+        return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
+      }
+      return json(200, {
+        status: "processing",
+        payment_id: paymentId,
+        message: PAYMENT_PROCESSING_MESSAGE,
+      });
+    }
+
+    // ── LNURL withdraw (LUD-03): resolve → create → submit ──
+    // Receiving stays open on frozen accounts (same posture as
+    // create_invoice): no freeze guard here. The invoice is created
+    // through the provider create path and recorded as an inbound
+    // lightning_payments row BEFORE the callback is called, so if
+    // the service pays, check_status settles it exactly once —
+    // including when the callback answer itself was lost.
+    if (action === "lnurl_withdraw") {
+      const gate = lightningProviderGate(LIGHTNING_DEPOSITS_NOT_CONFIGURED);
+      if (gate) return gate;
+      if (!input || typeof input !== "string" || !input.trim()) {
+        return json(400, { error: LNURL_INPUT_REQUIRED });
+      }
+      const params = await resolveLnurlParams(input.trim());
+      if (params.kind !== "withdraw") {
+        return json(400, { error: LNURL_NOT_A_WITHDRAW });
+      }
+      const requestedSats = amount_sats === undefined || amount_sats === null
+        ? null
+        : Number(amount_sats);
+      const { amountSats } = validateLnurlWithdrawAmount(
+        params,
+        requestedSats !== null && Number.isInteger(requestedSats) ? requestedSats : null,
+      );
+      if (amountSats > MAX_SATS) {
+        return json(400, { error: `Amount exceeds the ${MAX_SATS} sat Lightning limit` });
+      }
+
+      const memo = (params.defaultDescription || `LNURL withdrawal from ${params.domain}`)
+        .slice(0, 140);
+      const invoice = await providerCreateInvoice(amountSats, memo);
+      const msat = decodeBolt11Msat(invoice.bolt11);
+      if (msat === null || msat !== BigInt(amountSats) * 1000n) {
+        throw new LightningUpstreamError(
+          "Lightning provider returned an invoice with a mismatched amount",
+        );
+      }
+      const { data: payment, error } = await admin.from("lightning_payments").insert({
+        user_id: user.id,
+        direction: "inbound",
+        amount_sats: amountSats,
+        breez_invoice_id: invoice.providerId,
+        bolt11: invoice.bolt11,
+        payment_hash: invoice.paymentHash,
+        status: "pending",
+      }).select("id").single();
+      if (error) throw error;
+
+      try {
+        await submitLnurlWithdraw(params, invoice.bolt11);
+      } catch (e) {
+        if (e instanceof LnurlUserError) {
+          // The service definitively refused the invoice (its ERROR
+          // answer). The inbound row stays pending — harmless, it
+          // can only ever settle if the service pays it anyway.
+          return json(400, { error: LNURL_WITHDRAW_REFUSED, payment_id: payment.id });
+        }
+        // Unknown submission outcome: the service may still pay the
+        // invoice it was (perhaps) handed. Report it as submitted
+        // and let check_status settle any arrival exactly once.
+        console.error("lightning-service: LNURL withdraw submission outcome unknown", payment.id, thrownMessage(e, "unknown"));
+        return json(200, {
+          status: "submitted",
+          payment_id: payment.id,
+          amount_sats: amountSats,
+          message: LNURL_WITHDRAW_SUBMITTED_MESSAGE,
+        });
+      }
+      return json(200, {
+        status: "submitted",
+        payment_id: payment.id,
+        amount_sats: amountSats,
+        message: LNURL_WITHDRAW_SUBMITTED_MESSAGE,
+      });
+    }
+
     return json(400, { error: `Unknown action: ${action}` });
   } catch (e) {
+    if (e instanceof LnurlUserError) {
+      // Crafted plain-language refusals from the LNURL layer (bad
+      // input, out-of-bounds amount, the endpoint's own ERROR
+      // answer): the message IS the user-facing copy.
+      return json(400, { error: e.message });
+    }
+    if (e instanceof LnurlUpstreamError) {
+      // The LNURL endpoint could not be reached or answered with
+      // something unusable. Detail stays in the server log; the
+      // caller gets the plain truth, never the raw endpoint text.
+      console.error("lightning-service: LNURL endpoint unavailable:", e.message);
+      return json(503, { error: LNURL_UNREACHABLE });
+    }
     if (e instanceof LightningNotConfiguredError) {
       console.error("lightning-service: Lightning provider not configured");
       return json(503, { error: "Lightning is not available yet — it is not configured on this deployment." });
