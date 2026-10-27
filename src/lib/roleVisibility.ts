@@ -95,3 +95,36 @@ export const headerMenuVisibility = (
     fraudRules: adminTier || holdsAnyRole(roles, ["business"]),
   };
 };
+
+/**
+ * The Admin Dashboard's role-owned action cards, as one model.
+ * The dashboard itself is an admin-tier surface (its route gate
+ * admits admin OR super_admin), and every action card's target
+ * route admits that same audience — with ONE exception:
+ *
+ *   - Treasury & Reports (/admin/treasury) is super_admin ONLY:
+ *     its route gate names ['super_admin'] alone and the
+ *     treasury_* RPCs enforce the same gate server-side (CEO
+ *     order 2026-10-27: the console must not even be SHOWN to
+ *     anyone who is not super_admin — least privilege). A plain
+ *     admin therefore never renders the card at all; the link
+ *     simply does not exist for them.
+ *
+ * Every other card (User Management, Transaction Oversight, P2P
+ * Disputes, Identity Review, Role Management, Role Requests,
+ * Refunds Console, Cross-Border Payouts, MoonPay, PayPal
+ * Withdrawals, Compliance Center) targets a route whose gate
+ * admits the dashboard's whole audience, so it renders for every
+ * viewer who can open the dashboard. Kept as a pure function of
+ * the held roles so the rule is pinned directly by tests.
+ */
+export interface AdminDashboardVisibility {
+  /** Treasury & Reports card — super_admin holders only. */
+  treasuryConsole: boolean;
+}
+
+export const adminDashboardVisibility = (
+  roles: readonly string[],
+): AdminDashboardVisibility => ({
+  treasuryConsole: holdsAnyRole(roles, ["super_admin"]),
+});

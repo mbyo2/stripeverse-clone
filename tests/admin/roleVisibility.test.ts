@@ -20,6 +20,7 @@ import {
   ADMIN_CONSOLE_HOME,
   DEFAULT_ROLE_HOME,
   P2P_CONSOLE_HOME,
+  adminDashboardVisibility,
   headerMenuVisibility,
   holdsAnyRole,
   isAdminTier,
@@ -112,6 +113,40 @@ describe("headerMenuVisibility — the account menus show each role its own entr
   it("roles without a stake in either surface see none of the four", () => {
     expect(headerMenuVisibility(["beta_tester"])).toEqual({ adminLinks: false, fraudRules: false });
     expect(headerMenuVisibility(["user", "p2p_admin"])).toEqual({ adminLinks: false, fraudRules: false });
+  });
+});
+
+// ---------------------------------------------------------------------
+// adminDashboardVisibility — the Admin Dashboard's one role-owned
+// action card: Treasury & Reports. Its route gate names
+// ['super_admin'] alone and the treasury_* RPCs enforce the same
+// gate server-side, so the card must not even be SHOWN to a plain
+// admin (CEO order 2026-10-27 — least privilege). Every other card
+// targets a route that admits the dashboard's whole admin-tier
+// audience, so Treasury is the only flag in the model.
+// ---------------------------------------------------------------------
+
+describe("adminDashboardVisibility — Treasury & Reports is super_admin-only", () => {
+  it("super_admin holders see the Treasury card", () => {
+    expect(adminDashboardVisibility(["super_admin"])).toEqual({ treasuryConsole: true });
+    expect(adminDashboardVisibility(["user", "super_admin"])).toEqual({ treasuryConsole: true });
+    expect(adminDashboardVisibility(["admin", "super_admin"])).toEqual({ treasuryConsole: true });
+    expect(adminDashboardVisibility(["business", "super_admin"])).toEqual({ treasuryConsole: true });
+  });
+
+  it("a plain admin does NOT see the Treasury card", () => {
+    expect(adminDashboardVisibility(["admin"])).toEqual({ treasuryConsole: false });
+    expect(adminDashboardVisibility(["user", "admin"])).toEqual({ treasuryConsole: false });
+    expect(adminDashboardVisibility(["business", "admin"])).toEqual({ treasuryConsole: false });
+  });
+
+  it("no other role sees the Treasury card", () => {
+    for (const roles of [
+      ["user"], ["business"], ["p2p_admin"], ["beta_tester"],
+      ["support_admin"], ["compliance_admin"], ["finance_admin"], [],
+    ]) {
+      expect(adminDashboardVisibility(roles)).toEqual({ treasuryConsole: false });
+    }
   });
 });
 
@@ -229,6 +264,34 @@ describe("Header — role-owned menu entries are not rendered for others", () =>
     expect(afterBackup.indexOf('to="/fraud-rules"')).toBeGreaterThan(-1);
     expect(afterBackup.indexOf('to="/fraud-rules"')).toBeLessThan(
       afterBackup.indexOf('to="/support"'),
+    );
+  });
+});
+
+describe("AdminDashboard — the Treasury card is not rendered for non-super_admin", () => {
+  const src = read("../../src/pages/AdminDashboard.tsx");
+
+  it("derives card visibility from the roleVisibility model and the roles context", () => {
+    expect(src).toContain("adminDashboardVisibility(roles)");
+    expect(src).toContain('from "@/lib/roleVisibility"');
+    expect(src).toContain("useRoles()");
+    expect(src).toContain('from "@/contexts/RoleContext"');
+  });
+
+  it("marks the Treasury & Reports card super_admin-only and renders only visible cards", () => {
+    expect(src).toContain('title: "Treasury & Reports"');
+    expect(src).toContain('link: "/admin/treasury"');
+    expect(src).toContain("superAdminOnly: true");
+    expect(src).toContain("visibleAdminActions");
+    expect(src).toContain("dashboardVisibility.treasuryConsole");
+    expect(src).toContain("{visibleAdminActions.map((action) => (");
+    expect(src).not.toContain("{adminActions.map((action) => (");
+  });
+
+  it("the /admin/treasury route gate itself stays super_admin-only", () => {
+    const routes = read("../../src/components/AnimatedRoutes.tsx");
+    expect(routes).toContain(
+      'path="/admin/treasury" element={<RoleGuardedPage roles={[\'super_admin\']}>',
     );
   });
 });

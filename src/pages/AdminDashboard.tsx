@@ -9,6 +9,8 @@ import { AdminTreasuryConfig } from "@/components/web3/AdminTreasuryConfig";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
+import { useRoles } from "@/contexts/RoleContext";
+import { adminDashboardVisibility } from "@/lib/roleVisibility";
 import { supabase } from "@/integrations/supabase/client";
 import { countActiveUsers, activityWindowStart } from "@/utils/adminStats";
 import { Link } from "react-router-dom";
@@ -27,8 +29,22 @@ interface SystemStat {
   pending_kyc: number;
 }
 
+interface AdminAction {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  link: string;
+  color: string;
+  /** super_admin-only destination: the card is not rendered at
+   *  all for any other viewer (least privilege — see
+   *  adminDashboardVisibility in src/lib/roleVisibility.ts). */
+  superAdminOnly?: boolean;
+}
+
 const AdminDashboard = () => {
   const { toast } = useToast();
+  const { roles } = useRoles();
+  const dashboardVisibility = adminDashboardVisibility(roles);
   const [userStats, setUserStats] = useState<UserStat>({
     total_users: 0,
     active_users: 0,
@@ -152,7 +168,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const adminActions = [
+  const adminActions: AdminAction[] = [
     {
       title: "User Management",
       description: "Manage users, roles, and KYC approvals",
@@ -172,7 +188,8 @@ const AdminDashboard = () => {
       description: "Platform balances, fee income and reports (super admin)",
       icon: <Landmark className="h-6 w-6" />,
       link: "/admin/treasury",
-      color: "bg-amber-500"
+      color: "bg-amber-500",
+      superAdminOnly: true
     },
     {
       title: "P2P Disputes",
@@ -238,6 +255,18 @@ const AdminDashboard = () => {
       color: "bg-orange-500"
     }
   ];
+
+  // Least privilege (CEO order 2026-10-27): a card whose target
+  // route the viewer cannot open is not rendered for them at all.
+  // Today only Treasury & Reports is narrower than the dashboard's
+  // own admin-tier audience — its route gate and its RPCs are
+  // super_admin-only — so the filter is driven by the one model in
+  // roleVisibility.ts. Roles still loading resolves to no roles,
+  // which fails closed: the card appears only once super_admin is
+  // actually held.
+  const visibleAdminActions = adminActions.filter(
+    (action) => !action.superAdminOnly || dashboardVisibility.treasuryConsole
+  );
 
   if (isLoading) {
     return (
@@ -311,7 +340,7 @@ const AdminDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {adminActions.map((action) => (
+                  {visibleAdminActions.map((action) => (
                     <Link key={action.title} to={action.link}>
                       <Card className="hover:shadow-md transition-shadow cursor-pointer">
                         <CardContent className="p-6">
