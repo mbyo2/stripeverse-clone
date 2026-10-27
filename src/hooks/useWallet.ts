@@ -197,9 +197,12 @@ export const useWallet = (accountId?: string | null) => {
   // resolves (or creates) the Main USD wallet itself — see
   // resolveDepositTarget. The dialog tells the user this up front.
   const depositMutation = useMutation({
-    mutationFn: async ({ amount, paymentMethod, walletId, currency, provider }: {
+    mutationFn: async ({ amount, paymentMethod, walletId, currency, provider, paypalFunding }: {
       amount: number; paymentMethod: string;
       walletId?: string; currency?: string; provider?: string;
+      /** For PayPal deposits: the chosen way to pay through PayPal
+       *  ("paypal_card" | "paypal_account") — steering only. */
+      paypalFunding?: string;
     }) => {
       if (!user?.id) throw new Error('User not authenticated');
 
@@ -238,6 +241,12 @@ export const useWallet = (accountId?: string | null) => {
       const { data, error } = await supabase.functions.invoke('wallet-deposit', {
         body: {
           amount, paymentMethod, provider, wallet_id: targetWalletId, currency: targetCurrency, user_id: user.id,
+          // PayPal funding intent (card via PayPal / PayPal account):
+          // sent only for PayPal deposits; the function validates it
+          // and uses it only to steer which PayPal page opens first.
+          ...(paymentMethod === 'paypal' && paypalFunding
+            ? { paypal_funding: paypalFunding }
+            : {}),
           // Where PayPal sends the user after approval / cancellation.
           // PayPal appends &token=<order id> to the return URL, which
           // usePayPalDepositReturn hands to paypal-deposit-capture.

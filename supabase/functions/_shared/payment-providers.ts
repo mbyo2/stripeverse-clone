@@ -118,6 +118,34 @@ export function paypalOrderCurrencyRefusal(currency: string): string | null {
   return `PayPal payments aren't supported in ${c} on this platform — use US dollars or another major currency instead.`;
 }
 
+/**
+ * The payer's chosen way to pay THROUGH PayPal (CEO directive
+ * 2026-10-27): "paypal_card" = a debit/credit card on PayPal's page
+ * (guest checkout), "paypal_account" = PayPal-to-PayPal from a
+ * signed-in account. Both complete through the same order; the
+ * intent only steers which PayPal page opens first, via the Orders
+ * API application_context.landing_page below. Anything that is not
+ * one of the two known intents maps to null — the raw caller value
+ * is NEVER forwarded to PayPal, and null means "no steering", which
+ * leaves order creation exactly as it was before the choice existed.
+ */
+export type PayPalFundingIntent = "paypal_card" | "paypal_account";
+
+export function paypalLandingPageForFunding(
+  funding: unknown,
+): "LOGIN" | "BILLING" | null {
+  if (funding === "paypal_card") return "BILLING";
+  if (funding === "paypal_account") return "LOGIN";
+  return null;
+}
+
+/** The validated funding intent to record on a transaction row. */
+export function paypalFundingIntent(funding: unknown): PayPalFundingIntent | null {
+  return funding === "paypal_card" || funding === "paypal_account"
+    ? funding
+    : null;
+}
+
 export type LinkPaymentMethod = "wallet" | "card" | "mobile_money" | "bank";
 
 export type LinkMethodRoute =

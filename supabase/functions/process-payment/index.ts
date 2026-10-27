@@ -41,7 +41,12 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { classifyProvider, paypalOrderCurrencyRefusal } from "../_shared/payment-providers.ts";
+import {
+  classifyProvider,
+  paypalFundingIntent,
+  paypalLandingPageForFunding,
+  paypalOrderCurrencyRefusal,
+} from "../_shared/payment-providers.ts";
 import { getPayPalAccessToken, paypalBaseUrl } from "../_shared/paypal-deposit.ts";
 import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
 import { paypalErrorTrace } from "../_shared/deposit-capture.ts";
@@ -60,6 +65,9 @@ interface PaymentRequest {
   recipientAccount?: string;
   recipientName?: string;
   description?: string;
+  /** The payer's chosen way to pay THROUGH PayPal ("paypal_card" |
+   *  "paypal_account"); validated server-side, steering only. */
+  paypal_funding?: unknown;
   metadata?: Record<string, unknown>;
 }
 
@@ -224,6 +232,9 @@ serve(async (req) => {
     // custom_id): the completion path is keyed on the order's own
     // metadata, in our records and in PayPal's.
     const transactionUuid = crypto.randomUUID();
+    // The payer's PayPal funding intent, validated against the two
+    // known values; anything else is dropped, never forwarded.
+    const fundingIntent = paypalFundingIntent(paymentData.paypal_funding);
     const order = await createPayPalOrder(accessToken, {
       amount,
       currency,
@@ -231,6 +242,7 @@ serve(async (req) => {
       referenceId: transactionUuid,
       returnUrl: terms.returnUrl,
       cancelUrl: terms.cancelUrl,
+      landingPage: paypalLandingPageForFunding(paymentData.paypal_funding),
     });
     if (!order) {
       return json({
@@ -266,6 +278,7 @@ serve(async (req) => {
           account_id: terms.accountId,
           wallet_id: settlementWallet.id,
           paypal_order_id: order.id,
+          ...(fundingIntent ? { paypal_funding: fundingIntent } : {}),
         },
       });
     if (txError) {
@@ -312,14 +325,19 @@ async function createPayPalOrder(
     referenceId?: string;
     returnUrl?: string | null;
     cancelUrl?: string | null;
+    /** Orders API landing_page steering for the chosen PayPal
+     *  funding intent (BILLING = card form first, LOGIN = PayPal
+     *  sign-in first); null = no steering, as before. */
+    landingPage?: "LOGIN" | "BILLING" | null;
   },
 ): Promise<{ id: string; approvalUrl: string | null } | null> {
   const baseUrl = paypalBaseUrl();
   try {
-    const applicationContext = input.returnUrl || input.cancelUrl
+    const applicationContext = input.returnUrl || input.cancelUrl || input.landingPage
       ? {
           ...(input.returnUrl ? { return_url: input.returnUrl } : {}),
           ...(input.cancelUrl ? { cancel_url: input.cancelUrl } : {}),
+          ...(input.landingPage ? { landing_page: input.landingPage } : {}),
         }
       : undefined;
     const response = await fetch(`${baseUrl}/v2/checkout/orders`, {
