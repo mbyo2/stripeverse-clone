@@ -37,6 +37,7 @@ import {
   moonpayDeclaredKeyEnvironment,
   moonpayEnvironmentFromKey,
   MOONPAY_BUY_HOST,
+  MOONPAY_COMING_SOON_MESSAGE,
   MOONPAY_NON_TERMINAL_STATUSES,
   MOONPAY_RECONCILE_STALE_MS,
   parseMoonpaySignatureHeader,
@@ -784,6 +785,33 @@ describe("planMoonpayEventApplication (the one application plan)", () => {
       "reconcile_poll",
     );
     expect(plan.update?.last_webhook_event).toBe("reconcile_poll");
+  });
+});
+
+// ── Wallet-mode messaging (CEO directive 2026-10-27) ────────────────
+
+describe("wallet-mode messaging (custodial available soon, self-custody live)", () => {
+  it("the custodial off-state message names both modes truthfully", () => {
+    expect(MOONPAY_COMING_SOON_MESSAGE).toContain("available soon");
+    expect(MOONPAY_COMING_SOON_MESSAGE).toContain("custodial wallet");
+    expect(MOONPAY_COMING_SOON_MESSAGE).toContain("self-custody wallet");
+    expect(MOONPAY_COMING_SOON_MESSAGE).toContain("No money has moved");
+  });
+
+  it("the self-custody kill-switch migration defaults ON (the rail is already live)", () => {
+    const migration = read("../../supabase/migrations/20261239_moonpay_selfcustody_flag.sql");
+    expect(migration).toContain("moonpay_selfcustody_enabled");
+    expect(migration).toContain("DEFAULT true");
+  });
+
+  it("moonpay-session has no self-custody mode and never takes a caller address", () => {
+    const sessionFn = read("../../supabase/functions/moonpay-session/index.ts");
+    // The delivery address always comes from the platform assignment…
+    expect(sessionFn).toContain("getOrAssignDepositAddress");
+    expect(sessionFn).toContain("walletAddress: depositAddress");
+    // …never from the request body.
+    expect(sessionFn).not.toContain("body.walletAddress");
+    expect(sessionFn).not.toContain("body.deliveryAddress");
   });
 });
 

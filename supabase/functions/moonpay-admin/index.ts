@@ -84,7 +84,7 @@ serve(async (req) => {
     if (action === "status") {
       const { data: settings } = await supabase
         .from("platform_settings")
-        .select("moonpay_enabled")
+        .select("moonpay_enabled, moonpay_selfcustody_enabled")
         .eq("id", true)
         .maybeSingle();
 
@@ -106,6 +106,10 @@ serve(async (req) => {
         secretKeyPresent: config.secretKey !== null,
         webhookKeyPresent: config.hasWebhookKey,
         moonpayEnabled: settings?.moonpay_enabled === true,
+        // The self-custody buy's kill switch (migration 20261239,
+        // default TRUE — it guards the already-live Breez-arranged
+        // checkout, a separate path from this function's rail).
+        moonpaySelfcustodyEnabled: settings?.moonpay_selfcustody_enabled === true,
         webhookUrl: MOONPAY_WEBHOOK_URL,
         counts: { total: (statusRows ?? []).length, byStatus },
       });

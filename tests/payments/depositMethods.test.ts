@@ -83,13 +83,13 @@ describe("selectDefaultDepositMethod — degenerate input", () => {
 });
 
 describe("getDepositMethodOptions — MoonPay gate", () => {
-  it("labels MoonPay as coming soon and disables it while moonpay_enabled is off", () => {
+  it("labels MoonPay as available soon and disables it while moonpay_enabled is off", () => {
     const options = getDepositMethodOptions({
       paypalAvailable: true,
       mobileMoneyAvailable: false,
         moonpayAvailable: false,
     });
-    expect(options[2].label).toBe("Card (MoonPay) — Coming soon");
+    expect(options[2].label).toBe("Card (MoonPay) — Available soon");
     expect(options[2].disabled).toBe(true);
     expect(options[2].available).toBe(false);
     // MoonPay never becomes the default while it is off.

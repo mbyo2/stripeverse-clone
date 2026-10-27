@@ -21,10 +21,14 @@ import {
   MOONPAY_COMING_SOON_LABEL,
   MOONPAY_ENABLED_SETTING,
   MOONPAY_FIAT_CURRENCY,
+  MOONPAY_SELFCUSTODY_ENABLED_SETTING,
+  MOONPAY_SELFCUSTODY_PAUSED_COPY,
+  MOONPAY_SELFCUSTODY_POINTER_COPY,
   MOONPAY_STATUS_LABELS,
   isMoonpaySandbox,
   moonpayEnvironmentLabel,
   moonpayStatusLabel,
+  resolveMoonpaySelfcustodyEnabled,
   resolveMoonpaySessionOutcome,
   shortenMoonpayValue,
 } from "../../src/config/moonpay";
@@ -32,19 +36,45 @@ import {
 describe("moonpay constants (the truthful gate)", () => {
   it("pins the platform_settings flag and the USD purchase currency", () => {
     expect(MOONPAY_ENABLED_SETTING).toBe("moonpay_enabled");
+    expect(MOONPAY_SELFCUSTODY_ENABLED_SETTING).toBe("moonpay_selfcustody_enabled");
     expect(MOONPAY_FIAT_CURRENCY).toBe("USD");
     expect(MOONPAY_CARD_TITLE).toBe("Card (MoonPay)");
-    expect(MOONPAY_COMING_SOON_LABEL).toBe("Coming soon");
+    expect(MOONPAY_COMING_SOON_LABEL).toBe("Available soon");
   });
 
-  it("builds the coming-soon copy from the card description", () => {
+  it("builds the custodial available-soon copy with the self-custody pointer", () => {
     expect(MOONPAY_CARD_DESCRIPTION).toBe(
       "Buy Bitcoin with a debit or credit card, delivered straight to your wallet.",
     );
     expect(MOONPAY_COMING_SOON_COPY).toBe(
-      "Buy Bitcoin with a debit or credit card, delivered straight to your wallet. Coming soon.",
+      "Buy Bitcoin with a debit or credit card, delivered straight to your wallet. " +
+        "For this wallet, card buying is available soon. " +
+        "You can buy Bitcoin by card now in your self-custody wallet — MoonPay delivers it straight to the wallet only you control.",
     );
+    expect(MOONPAY_SELFCUSTODY_POINTER_COPY).toContain("self-custody wallet");
     expect(MOONPAY_COMING_SOON_COPY).not.toContain("ZMW");
+  });
+});
+
+describe("resolveMoonpaySelfcustodyEnabled (the self-custody kill switch)", () => {
+  it("offers the buy only on a literal true", () => {
+    expect(resolveMoonpaySelfcustodyEnabled({ moonpay_selfcustody_enabled: true })).toBe(true);
+    expect(resolveMoonpaySelfcustodyEnabled({ moonpay_selfcustody_enabled: false })).toBe(false);
+  });
+
+  it("fails CLOSED on missing rows, missing columns and non-boolean values", () => {
+    expect(resolveMoonpaySelfcustodyEnabled(null)).toBe(false);
+    expect(resolveMoonpaySelfcustodyEnabled(undefined)).toBe(false);
+    expect(resolveMoonpaySelfcustodyEnabled({})).toBe(false);
+    expect(resolveMoonpaySelfcustodyEnabled({ moonpay_selfcustody_enabled: "true" })).toBe(false);
+    expect(resolveMoonpaySelfcustodyEnabled({ moonpay_selfcustody_enabled: 1 })).toBe(false);
+    expect(resolveMoonpaySelfcustodyEnabled("junk")).toBe(false);
+  });
+
+  it("keeps the paused copy truthful — the wallet itself keeps working", () => {
+    expect(MOONPAY_SELFCUSTODY_PAUSED_COPY).toContain("paused");
+    expect(MOONPAY_SELFCUSTODY_PAUSED_COPY).toContain("keep working");
+    expect(MOONPAY_SELFCUSTODY_PAUSED_COPY).not.toContain("ZMW");
   });
 });
 
@@ -133,7 +163,8 @@ describe("resolveMoonpaySessionOutcome", () => {
     const bare = resolveMoonpaySessionOutcome({ status: "coming_soon" });
     expect(bare.kind).toBe("coming_soon");
     if (bare.kind === "coming_soon") {
-      expect(bare.message).toContain("coming soon");
+      expect(bare.message).toContain("available soon");
+      expect(bare.message).toContain("self-custody wallet");
       expect(bare.message).toContain("No money has moved");
     }
   });

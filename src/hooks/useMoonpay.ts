@@ -5,6 +5,7 @@ import { resolveEdgeFunctionError } from '@/utils/edgeFunctionError';
 import {
   MOONPAY_FIAT_CURRENCY,
   resolveMoonpaySessionOutcome,
+  resolveMoonpaySelfcustodyEnabled,
 } from '@/config/moonpay';
 
 /**
@@ -91,7 +92,7 @@ export function useMoonpay() {
             outcome.kind === 'not_configured'
               ? 'MoonPay is not connected yet'
               : outcome.kind === 'coming_soon'
-                ? 'Card purchases are coming soon'
+                ? 'Card purchases are available soon'
                 : 'Purchase could not be started',
           description: outcome.message,
           variant: 'destructive',
@@ -125,4 +126,42 @@ export function useMoonpay() {
   };
 
   return { enabled, loading, startMoonpayBuy, isStartingMoonpayBuy: isStarting };
+}
+
+/**
+ * The SELF-CUSTODY MoonPay kill switch
+ * (`platform_settings.moonpay_selfcustody_enabled`, default ON).
+ *
+ * This gates a different path from useMoonpay above: the
+ * self-custody wallet's "Buy Bitcoin" runs in the user's browser
+ * through the Breez SDK under Breez's own MoonPay arrangement — no
+ * platform MoonPay keys, no moonpay-session call. The rail is live
+ * today, so the flag defaults ON in the database and exists to
+ * PAUSE the buy if that arrangement ever has to be stopped. The
+ * read fails CLOSED (paused) on any error, matching the custodial
+ * flag's posture.
+ */
+export function useMoonpaySelfcustody() {
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('platform_settings')
+        .select('moonpay_selfcustody_enabled')
+        .eq('id', true)
+        .maybeSingle();
+      if (cancelled) return;
+      setEnabled(!error && resolveMoonpaySelfcustodyEnabled(data));
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { selfcustodyMoonpayEnabled: enabled, selfcustodyMoonpayLoading: loading };
 }

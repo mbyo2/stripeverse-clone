@@ -146,8 +146,18 @@ export const MOONPAY_NOT_CONFIGURED_MESSAGE =
 export const MOONPAY_MISCONFIGURED_MESSAGE =
   "Card payments are paused while we fix a configuration problem on our side. No money has moved — please try again later.";
 
+/**
+ * The custodial rail's off-state message (CEO directive 2026-10-27):
+ * card buying into the CUSTODIAL wallet is "available soon", and the
+ * user is pointed at the self-custody wallet, where card buying via
+ * MoonPay (the Breez-arranged checkout in the user's own browser)
+ * already works. This session function is custodial-only by
+ * construction — it always delivers to the caller's platform deposit
+ * address and ignores any caller-supplied address.
+ */
 export const MOONPAY_COMING_SOON_MESSAGE =
-  "Buying Bitcoin by card is coming soon — MoonPay is connected but not switched on yet. No money has moved.";
+  "Buying Bitcoin by card into this wallet is available soon — MoonPay is connected but not switched on for the custodial wallet yet. " +
+  "You can buy Bitcoin by card now in your self-custody wallet, where MoonPay delivers it straight to your own wallet. No money has moved.";
 
 export const MOONPAY_ZMW_MESSAGE =
   "MoonPay can't take Zambian kwacha (ZMW) yet, so card purchases are in US dollars for now. " +

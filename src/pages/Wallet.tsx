@@ -72,7 +72,7 @@ const Wallet = () => {
     // regardless. (The gate is ON — PayPal went live 2026-10-22.)
     if (depositMethod === 'paypal' && !PAYPAL_AVAILABLE) return;
     // MoonPay gate: while moonpay_enabled is off the option is
-    // disabled as "Coming soon"; this guard keeps the flow
+    // disabled as "Available soon"; this guard keeps the flow
     // unreachable for everyone regardless of how it was set.
     if (depositMethod === 'moonpay_card' && !moonpayEnabled) return;
     const parsedAmount = parseFloat(amount);
@@ -140,6 +140,8 @@ const Wallet = () => {
             ? "PayPal deposits are coming soon — they aren't available yet."
             : depositMethod === 'paypal'
             ? "You'll be redirected to PayPal. Your wallet is credited once the payment is confirmed."
+            : depositMethod === 'moonpay_card' && !moonpayEnabled
+            ? "Buy Bitcoin with a debit or credit card, delivered straight to your wallet. Purchases are in US dollars and completed on MoonPay. For this wallet, card buying is available soon — you can buy by card now in your self-custody wallet."
             : depositMethod === 'moonpay_card'
             ? "Buy Bitcoin with a debit or credit card, delivered straight to your wallet. Purchases are in US dollars and completed on MoonPay."
             : "Mobile money deposits are not live yet — you'll be told before anything is charged."}

@@ -103,6 +103,8 @@ import {
 } from "@/lib/selfcustody/sellToZmw";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useExchangeRates } from "@/hooks/useMultiCurrency";
+import { useMoonpaySelfcustody } from "@/hooks/useMoonpay";
+import { MOONPAY_SELFCUSTODY_PAUSED_COPY } from "@/config/moonpay";
 import { resolveExchangeRate } from "@/utils/exchangeRates";
 import type { InputType } from "@breeztech/breez-sdk-spark/web";
 import QRCode from "qrcode.react";
@@ -195,8 +197,11 @@ function SelfCustodyWallet() {
   // file picker produces no clicks in this UI, so without the hold
   // the 5-minute lock fired mid-scan (rendered pass, 2026-10-25).
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
-  // Buy (MoonPay).
+  // Buy (MoonPay via Breez — live for this wallet; its own kill
+  // switch, platform_settings.moonpay_selfcustody_enabled, defaults
+  // ON and can pause just this checkout).
   const [buyAmount, setBuyAmount] = useState("");
+  const { selfcustodyMoonpayEnabled, selfcustodyMoonpayLoading } = useMoonpaySelfcustody();
   // Sell to ZMW (self-custody → platform ZMW wallet; see
   // lib/selfcustody/sellToZmw.ts). The intent + locked quote live
   // server-side; this state only drives the panel.
@@ -783,6 +788,9 @@ function SelfCustodyWallet() {
    */
   const doBuyBitcoin = async () => {
     if (!session.mnemonic) return;
+    // Kill-switch guard (the button is disabled while the gate is
+    // off; this keeps the checkout unreachable regardless).
+    if (!selfcustodyMoonpayEnabled) return;
     const tab = window.open("", "_blank");
     setSpBusy(true);
     try {
@@ -1393,7 +1401,7 @@ function SelfCustodyWallet() {
                         <Button
                           className="rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90"
                           size="sm"
-                          disabled={spBusy || !session.mnemonic}
+                          disabled={spBusy || !session.mnemonic || selfcustodyMoonpayLoading || !selfcustodyMoonpayEnabled}
                           onClick={doBuyBitcoin}
                         >
                           Buy Bitcoin
@@ -1405,14 +1413,20 @@ function SelfCustodyWallet() {
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="buy-amt">Buy amount (sats, optional — MoonPay sets the final fiat amount)</Label>
-                      <Input id="buy-amt" type="number" min="1" placeholder="Leave blank to choose on MoonPay" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} />
-                      <p className="text-xs text-muted-foreground">
-                        Buying opens MoonPay in a new tab. MoonPay handles payment and
-                        identity checks; purchases are paid in USD/EUR/GBP (ZMW is not supported by
-                        MoonPay), with a minimum of about $20. Bought Bitcoin lands on this
-                        wallet&apos;s Bitcoin deposit address and is added to the balance
-                        automatically.
-                      </p>
+                      <Input id="buy-amt" type="number" min="1" placeholder="Leave blank to choose on MoonPay" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} disabled={!selfcustodyMoonpayEnabled} />
+                      {!selfcustodyMoonpayLoading && !selfcustodyMoonpayEnabled ? (
+                        <p className="text-xs text-muted-foreground">{MOONPAY_SELFCUSTODY_PAUSED_COPY}</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Buying opens MoonPay in a new tab. MoonPay handles payment and
+                          identity checks; purchases are paid in USD/EUR/GBP (ZMW is not supported by
+                          MoonPay), with a minimum of about $20. Bought Bitcoin lands on this
+                          wallet&apos;s Bitcoin deposit address and is added to the balance
+                          automatically. This buy is live for your self-custody wallet — card
+                          buying into your custodial BMaGlass wallet is the one that is still
+                          available soon.
+                        </p>
+                      )}
                     </div>
 
                     <div className="border-t pt-4 space-y-3">

@@ -1,0 +1,36 @@
+-- MoonPay self-custody card buying: platform_settings kill switch.
+--
+-- The self-custody wallet's "Buy Bitcoin" runs through the Breez SDK
+-- in the user's own browser (sdk.buyBitcoin({ type: "moonpay" }))
+-- under BREEZ's MoonPay partner arrangement: it uses no platform
+-- MoonPay keys, never touches moonpay-session, and delivers the
+-- purchased Bitcoin to the user's own seed-derived wallet address.
+-- Unlike the platform's own (custodial) MoonPay rail — gated by
+-- moonpay_enabled (20261212) and still on TEST keys until KYB
+-- completes — the self-custody buy is already live in production.
+--
+--   platform_settings.moonpay_selfcustody_enabled — default TRUE.
+--
+-- The TRUE default is deliberate and differs from the MTN/Airtel
+-- kill switches (20261236/20261237, default FALSE): those guard
+-- rails that have never been live, while this switch is a KILL
+-- SWITCH over a rail that is already live and working. Defaulting
+-- it to false would silently switch off a working purchase path.
+--
+-- Semantics (read client-side, the same single-row platform_settings
+-- pattern as moonpay_enabled):
+--   - true  → the self-custody "Buy Bitcoin" (MoonPay via Breez) is
+--             offered, exactly as today.
+--   - false → the button is disabled with plain copy saying card
+--             buying in the self-custody wallet is paused; the
+--             wallet itself (Lightning, on-chain, Spark) is
+--             unaffected.
+--   - A failed/absent read fails CLOSED (paused) in the client,
+--     matching the moonpay_enabled reader.
+--
+-- Flipping moonpay_enabled (the custodial rail) has no effect on
+-- this switch, and vice versa: the two MoonPay paths are separate.
+
+-- ── Kill switch ──────────────────────────────────────────────────────
+ALTER TABLE public.platform_settings
+  ADD COLUMN IF NOT EXISTS moonpay_selfcustody_enabled boolean NOT NULL DEFAULT true;

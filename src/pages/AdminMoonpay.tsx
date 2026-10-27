@@ -36,6 +36,7 @@ interface MoonpayStatus {
   secretKeyPresent: boolean;
   webhookKeyPresent: boolean;
   moonpayEnabled: boolean;
+  moonpaySelfcustodyEnabled: boolean;
   webhookUrl: string;
   counts: { total: number; byStatus: Record<string, number> };
 }
@@ -130,6 +131,7 @@ const AdminMoonpay = () => {
         secretKeyPresent: Boolean(data.secretKeyPresent),
         webhookKeyPresent: Boolean(data.webhookKeyPresent),
         moonpayEnabled: Boolean(data.moonpayEnabled),
+        moonpaySelfcustodyEnabled: Boolean(data.moonpaySelfcustodyEnabled),
         webhookUrl: String(data.webhookUrl ?? ""),
         counts: {
           total: typeof counts.total === "number" ? counts.total : 0,
@@ -287,9 +289,10 @@ const AdminMoonpay = () => {
             <Globe2 className="h-4 w-4" />
             <AlertTitle>MoonPay purchases are switched off</AlertTitle>
             <AlertDescription>
-              The MoonPay rail is switched off in platform settings
-              (moonpay_enabled). Users see card purchases as coming soon until
-              it is switched back on.
+              The custodial MoonPay rail is switched off in platform settings
+              (moonpay_enabled). Users see card purchases for the custodial
+              wallet as available soon, and are pointed at the self-custody
+              wallet's card buy, until it is switched back on.
             </AlertDescription>
           </Alert>
         )}
@@ -322,10 +325,20 @@ const AdminMoonpay = () => {
                 )}
               </div>
               <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Purchases rail (moonpay_enabled)</span>
+                <span className="text-muted-foreground">Purchases rail — custodial (moonpay_enabled)</span>
                 {status ? (
                   <Badge variant={status.moonpayEnabled ? "default" : "destructive"}>
                     {status.moonpayEnabled ? "Enabled" : "Switched off"}
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Self-custody buy kill switch (moonpay_selfcustody_enabled)</span>
+                {status ? (
+                  <Badge variant={status.moonpaySelfcustodyEnabled ? "default" : "destructive"}>
+                    {status.moonpaySelfcustodyEnabled ? "On — buy offered" : "Paused"}
                   </Badge>
                 ) : (
                   <span className="text-muted-foreground">—</span>

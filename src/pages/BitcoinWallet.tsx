@@ -25,7 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import QRCode from "qrcode.react";
 import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound, ArrowUpRight, ArrowDownLeft, Bitcoin, CreditCard } from "lucide-react";
 import { useMoonpay } from "@/hooks/useMoonpay";
-import { MOONPAY_COMING_SOON_COPY } from "@/config/moonpay";
+import { MOONPAY_COMING_SOON_COPY, MOONPAY_COMING_SOON_LABEL } from "@/config/moonpay";
 import { LightningSend } from "@/components/bitcoin/LightningSend";
 import { LnurlSend } from "@/components/bitcoin/LnurlSend";
 import { QrScanButton } from "@/components/QrScanButton";
@@ -896,12 +896,14 @@ function TradePanel({ onDone }: { onDone: () => void }) {
 
 /**
  * Card (MoonPay) buy entry — sits beside the Buy & Sell panel in
- * the Bitcoin buy area.
+ * the Bitcoin buy area. This is the CUSTODIAL wallet's entry.
  *
  * Truthful gate, mirroring the card gates in Wallet: while
  * platform_settings.moonpay_enabled is off, the entry is disabled
- * as "Coming soon" with plain copy and the purchase flow is
- * unreachable; while it is on, "Buy with card" starts a purchase
+ * as "Available soon" and the copy points the user at the
+ * self-custody wallet, where card buying through MoonPay works
+ * now (CEO directive 2026-10-27 — the two paths are never
+ * blurred); while it is on, "Buy with card" starts a purchase
  * through useMoonpay (which itself surfaces MoonPay's
  * not-configured answer truthfully if the keys are not in yet).
  * Purchases are in USD — MoonPay does not support ZMW — and the
@@ -931,7 +933,7 @@ function MoonpayBuyCard() {
           <>
             <p className="text-sm text-muted-foreground">{MOONPAY_COMING_SOON_COPY}</p>
             <Button disabled className="w-full">
-              Card (MoonPay) — Coming soon
+              Card (MoonPay) — {MOONPAY_COMING_SOON_LABEL}
             </Button>
           </>
         ) : (
