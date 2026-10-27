@@ -17,8 +17,10 @@
 //     "<t>.<rawBody>" keyed with MOONPAY_WEBHOOK_KEY). Any mismatch
 //     → 401, ZERO state change.
 //   - Delivery is at-least-once and unordered: status application
-//     goes through canApplyMoonpayStatus, so a late event can never
-//     regress a terminal (completed / failed) row.
+//     goes through planMoonpayEventApplication (the shared plan in
+//     _shared/moonpay.ts, also used by the moonpay-reconcile
+//     poller), so a late event can never regress a terminal
+//     (completed / failed) row.
 //   - Dedupe / order guard (audit M-1): events are ordered by the
 //     transaction's own data.updatedAt. A row records the newest
 //     stamp it has applied (last_event_updated_at); an event
@@ -40,11 +42,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient } from "../_shared/supabase-client.ts";
 import {
-  canApplyMoonpayStatus,
   isMoonpayBuyEvent,
   moonpayConfig,
   parseMoonpayWebhookEvent,
-  shouldApplyMoonpayEvent,
+  planMoonpayEventApplication,
   verifyMoonpayWebhookSignature,
 } from "../_shared/moonpay.ts";
 
@@ -135,12 +136,23 @@ serve(async (req) => {
     }
 
     if (row) {
-      // ── Order guard: a duplicate (same stamp) or stale (older
-      // stamp) event is acknowledged but changes nothing.
+      // ── Order guard + application plan: the decision (may this
+      // event write, and exactly what) is planMoonpayEventApplication
+      // in _shared/moonpay.ts, shared verbatim with the
+      // moonpay-reconcile poller so a state learned by polling is
+      // applied exactly as if its webhook had arrived. A duplicate
+      // (same stamp) or stale (older stamp) event is acknowledged
+      // but changes nothing.
       const storedMs = row.last_event_updated_at
         ? Date.parse(row.last_event_updated_at as string)
         : null;
-      if (!shouldApplyMoonpayEvent(storedMs, parsed.updatedAtMs)) {
+      const plan = planMoonpayEventApplication(
+        { status: row.status as string | null, lastEventUpdatedAtMs: storedMs },
+        parsed,
+        event,
+        now,
+      );
+      if (!plan.apply || !plan.update) {
         logStep("Duplicate or stale event — acknowledged, not applied", {
           externalReference: parsed.externalReference,
           type: parsed.type,
@@ -148,32 +160,14 @@ serve(async (req) => {
         });
         return json({ received: true, duplicate: true });
       }
-      // deno-lint-ignore no-explicit-any
-      const update: Record<string, any> = {
-        raw_status: parsed.rawStatus,
-        last_webhook_event: parsed.type,
-        last_webhook_payload: event,
-        updated_at: now,
-      };
-      if (parsed.updatedAt) update.last_event_updated_at = parsed.updatedAt;
-      if (parsed.status && canApplyMoonpayStatus(row.status, parsed.status)) {
-        update.status = parsed.status;
-      }
-      if (parsed.moonpayTransactionId) update.moonpay_transaction_id = parsed.moonpayTransactionId;
-      if (parsed.fiatAmount !== null) update.fiat_amount = parsed.fiatAmount;
-      if (parsed.fiatCurrency) update.fiat_currency = parsed.fiatCurrency;
-      if (parsed.cryptoAmount !== null) update.crypto_amount = parsed.cryptoAmount;
-      if (parsed.feeAmount !== null) update.fee_amount = parsed.feeAmount;
-      if (parsed.cryptoTransactionId) update.crypto_transaction_id = parsed.cryptoTransactionId;
-      if (parsed.failureReason) update.failure_reason = parsed.failureReason;
       const { error: updateError } = await supabase
         .from("moonpay_transactions")
-        .update(update)
+        .update(plan.update)
         .eq("id", row.id);
       if (updateError) throw new Error(`MoonPay transaction update failed: ${updateError.message}`);
       logStep("Tracked purchase updated", {
         externalReference: parsed.externalReference,
-        status: update.status ?? row.status,
+        status: plan.update.status ?? row.status,
       });
       return json({ received: true });
     }

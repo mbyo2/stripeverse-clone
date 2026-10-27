@@ -23,17 +23,27 @@ import {
   buildMoonpayBuyUrl,
   buildSignedMoonpayBuyUrl,
   canApplyMoonpayStatus,
+  canonicaliseIpAddress,
   canUseMoonpay,
+  computeMoonpayAllowedIpAddress,
+  extractMoonpayClientIp,
   isMoonpayBuyEvent,
+  isStaleMoonpayTransaction,
   isTerminalMoonpayStatus,
   mapMoonpayStatus,
+  moonpayAmountRejection,
   moonpayBuyHost,
   moonpayConfig,
   moonpayDeclaredKeyEnvironment,
   moonpayEnvironmentFromKey,
   MOONPAY_BUY_HOST,
+  MOONPAY_NON_TERMINAL_STATUSES,
+  MOONPAY_RECONCILE_STALE_MS,
   parseMoonpaySignatureHeader,
+  parseMoonpayTransactionLookup,
   parseMoonpayWebhookEvent,
+  planMoonpayEventApplication,
+  selectStaleMoonpayTransactions,
   shouldApplyMoonpayEvent,
   signMoonpayUrl,
   verifyMoonpayWebhookSignature,
@@ -429,12 +439,18 @@ describe("source pins (audit M-1/M-2/M-4 wiring)", () => {
   });
 
   it("webhook orders events by updatedAt and links unmatched rows by customer id", () => {
-    expect(webhookFn).toContain("shouldApplyMoonpayEvent");
+    expect(webhookFn).toContain("planMoonpayEventApplication");
     expect(webhookFn).toContain("last_event_updated_at");
     expect(webhookFn).toContain("parsed.externalCustomerId");
-    // The order guard runs BEFORE the row update is built.
-    expect(webhookFn.indexOf("shouldApplyMoonpayEvent("))
-      .toBeLessThan(webhookFn.indexOf(".update(update)"));
+    // The shared plan (which runs the order guard first) is computed
+    // BEFORE the row update is written.
+    expect(webhookFn.indexOf("planMoonpayEventApplication("))
+      .toBeLessThan(webhookFn.indexOf(".update(plan.update)"));
+    // The guard itself lives in the shared module, inside the plan.
+    const shared = read("../../supabase/functions/_shared/moonpay.ts");
+    const planBody = shared.slice(shared.indexOf("export function planMoonpayEventApplication"));
+    expect(planBody.indexOf("shouldApplyMoonpayEvent("))
+      .toBeLessThan(planBody.indexOf("const update"));
     // Tracking only, still: the webhook never writes a money table.
     expect(webhookFn).not.toContain("wallets");
   });
@@ -443,5 +459,370 @@ describe("source pins (audit M-1/M-2/M-4 wiring)", () => {
     expect(sessionFn).toContain("config.keyEnvironmentMismatch");
     expect(sessionFn).toContain("MOONPAY_MISCONFIGURED_MESSAGE");
     expect(adminFn).toContain("keyEnvironmentMismatch: config.keyEnvironmentMismatch");
+  });
+});
+
+// ── Gap closure 2026-10-27 #2: whole-amount fiat ─────────────────────
+
+describe("moonpayAmountRejection (baseCurrencyAmount is a positive integer)", () => {
+  it("accepts positive whole amounts", () => {
+    expect(moonpayAmountRejection(1)).toBeNull();
+    expect(moonpayAmountRejection(50)).toBeNull();
+    expect(moonpayAmountRejection(10000)).toBeNull();
+  });
+
+  it("refuses fractional amounts as 'fractional' — never rounds them", () => {
+    expect(moonpayAmountRejection(50.5)).toBe("fractional");
+    expect(moonpayAmountRejection(0.01)).toBe("fractional");
+    expect(moonpayAmountRejection(99.999)).toBe("fractional");
+  });
+
+  it("keeps the existing invalid refusals for non-positive / non-finite amounts", () => {
+    expect(moonpayAmountRejection(0)).toBe("invalid");
+    expect(moonpayAmountRejection(-5)).toBe("invalid");
+    expect(moonpayAmountRejection(Number.NaN)).toBe("invalid");
+    expect(moonpayAmountRejection(Number.POSITIVE_INFINITY)).toBe("invalid");
+  });
+});
+
+// ── Gap closure 2026-10-27 #1: IP matching ───────────────────────────
+
+describe("canonicaliseIpAddress (MoonPay's canonicalisation rules)", () => {
+  it("passes a plain IPv4 through and strips leading zeros", () => {
+    expect(canonicaliseIpAddress("203.0.113.42")).toBe("203.0.113.42");
+    expect(canonicaliseIpAddress("203.000.113.042")).toBe("203.0.113.42");
+    expect(canonicaliseIpAddress(" 198.51.100.7 ")).toBe("198.51.100.7");
+  });
+
+  it("strips ports and brackets before hashing", () => {
+    expect(canonicaliseIpAddress("203.0.113.42:8443")).toBe("203.0.113.42");
+    expect(canonicaliseIpAddress("[2001:db8::1]:443")).toBe("2001:db8::1");
+    expect(canonicaliseIpAddress("[2001:db8::1]")).toBe("2001:db8::1");
+  });
+
+  it("canonicalises IPv6 per RFC 5952 (the docs' own example)", () => {
+    expect(canonicaliseIpAddress("2001:0DB8:0000:0000:0000:0000:0000:0001"))
+      .toBe("2001:db8::1");
+    expect(canonicaliseIpAddress("2001:0db8:0000:0000:0000:ff00:0042:8329"))
+      .toBe("2001:db8::ff00:42:8329");
+    expect(canonicaliseIpAddress("0:0:0:0:0:0:0:1")).toBe("::1");
+    expect(canonicaliseIpAddress("0:0:0:0:0:0:0:0")).toBe("::");
+  });
+
+  it("compresses the FIRST of two equal zero runs, and never a single zero group", () => {
+    expect(canonicaliseIpAddress("2001:db8:0:0:1:0:0:1")).toBe("2001:db8::1:0:0:1");
+    expect(canonicaliseIpAddress("2001:db8:0:1:1:1:1:1")).toBe("2001:db8:0:1:1:1:1:1");
+  });
+
+  it("unmaps IPv4-mapped IPv6 to plain IPv4, dotted or hex form", () => {
+    expect(canonicaliseIpAddress("::ffff:203.0.113.42")).toBe("203.0.113.42");
+    expect(canonicaliseIpAddress("::ffff:cb00:712a")).toBe("203.0.113.42");
+    expect(canonicaliseIpAddress("0:0:0:0:0:ffff:203.0.113.42")).toBe("203.0.113.42");
+  });
+
+  it("rejects anything that is not a usable address", () => {
+    expect(canonicaliseIpAddress("999.1.1.1")).toBeNull();
+    expect(canonicaliseIpAddress("1.2.3")).toBeNull();
+    expect(canonicaliseIpAddress("hello")).toBeNull();
+    expect(canonicaliseIpAddress("")).toBeNull();
+    expect(canonicaliseIpAddress(null)).toBeNull();
+    expect(canonicaliseIpAddress(undefined)).toBeNull();
+    expect(canonicaliseIpAddress("2001:db8:::1")).toBeNull();
+    expect(canonicaliseIpAddress("1::2::3")).toBeNull();
+    expect(canonicaliseIpAddress("12345::")).toBeNull();
+  });
+});
+
+describe("extractMoonpayClientIp (documented header first, gateway reality after)", () => {
+  const headersOf = (map: Record<string, string>) => ({
+    get: (name: string) => map[name.toLowerCase()] ?? null,
+  });
+
+  it("prefers True-Client-IP (MoonPay's documented source), canonicalised", () => {
+    const headers = headersOf({
+      "true-client-ip": "2001:0DB8:0000:0000:0000:0000:0000:0001",
+      "x-forwarded-for": "198.51.100.7",
+    });
+    expect(extractMoonpayClientIp(headers)).toBe("2001:db8::1");
+  });
+
+  it("falls through an unusable True-Client-IP to the first X-Forwarded-For hop", () => {
+    const headers = headersOf({
+      "true-client-ip": "not-an-ip",
+      "x-forwarded-for": "198.51.100.7, 10.0.0.1",
+    });
+    expect(extractMoonpayClientIp(headers)).toBe("198.51.100.7");
+  });
+
+  it("uses CF-Connecting-IP when present, honouring the pseudo-IPv4 rule", () => {
+    expect(extractMoonpayClientIp(headersOf({
+      "cf-connecting-ip": "198.51.100.9",
+      "x-forwarded-for": "203.0.113.1",
+    }))).toBe("198.51.100.9");
+    // 240.0.0.0/4 placeholder → the real address is CF-Connecting-IPv6.
+    expect(extractMoonpayClientIp(headersOf({
+      "cf-connecting-ip": "240.0.0.9",
+      "cf-connecting-ipv6": "2001:db8::5",
+      "x-forwarded-for": "203.0.113.1",
+    }))).toBe("2001:db8::5");
+  });
+
+  it("returns null when no header carries a usable address", () => {
+    expect(extractMoonpayClientIp(headersOf({}))).toBeNull();
+    expect(extractMoonpayClientIp(headersOf({ "x-forwarded-for": "unknown" }))).toBeNull();
+  });
+});
+
+describe("computeMoonpayAllowedIpAddress + URL wiring", () => {
+  it("matches independently computed HMAC-SHA256 vectors (node crypto)", async () => {
+    // Expected values computed with node:crypto createHmac over the
+    // canonical IP strings — never via the module under test.
+    expect(await computeMoonpayAllowedIpAddress("203.0.113.42", "sk_test_example123"))
+      .toBe("EILpZqnQwh3KV+WM/6fj05CfYomr7l+wiiUrJzMy6QE=");
+    expect(await computeMoonpayAllowedIpAddress("2001:db8::1", "sk_test_example123"))
+      .toBe("K5BuCD0X6Rzmi1uEzuUXbLDXoO6xLTLK8OldvcvdZhA=");
+    const ip = "198.51.100.7";
+    const expected = createHmac("sha256", "sk_test_example123").update(ip).digest("base64");
+    expect(await computeMoonpayAllowedIpAddress(ip, "sk_test_example123")).toBe(expected);
+  });
+
+  it("places allowedIpAddress inside the signed query when given, omits it otherwise", async () => {
+    const hash = "EILpZqnQwh3KV+WM/6fj05CfYomr7l+wiiUrJzMy6QE=";
+    const url = buildMoonpayBuyUrl(SANDBOX, {
+      walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      externalTransactionId: "ref-ip",
+      externalCustomerId: "user-1",
+      allowedIpAddress: hash,
+    });
+    expect(url).toContain(`&allowedIpAddress=${encodeURIComponent(hash)}`);
+    expect(url.indexOf("&allowedIpAddress=")).toBeLessThan(url.indexOf("&baseCurrencyCode="));
+
+    const bare = buildMoonpayBuyUrl(SANDBOX, {
+      walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      externalTransactionId: "ref-ip",
+    });
+    expect(bare).not.toContain("allowedIpAddress");
+
+    // The signature covers the query INCLUDING allowedIpAddress.
+    const signed = await buildSignedMoonpayBuyUrl(SANDBOX, {
+      walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      externalTransactionId: "ref-ip",
+      externalCustomerId: "user-1",
+      allowedIpAddress: hash,
+    });
+    const unsigned = signed.slice(0, signed.indexOf("&signature="));
+    const query = unsigned.slice(unsigned.indexOf("?"));
+    const expectedSig = createHmac("sha256", "sk_test_example123").update(query).digest("base64");
+    expect(signed).toBe(`${unsigned}&signature=${encodeURIComponent(expectedSig)}`);
+  });
+});
+
+// ── Gap closure 2026-10-27 #3: reconciliation poller ─────────────────
+
+describe("moonpay reconcile staleness (the poller's candidate rule)", () => {
+  const now = 1_800_000_000_000;
+  const staleRow = {
+    status: "pending",
+    moonpayTransactionId: "mp_tx_1",
+    updatedAtMs: now - MOONPAY_RECONCILE_STALE_MS,
+  };
+
+  it("sets the staleness threshold at 15 minutes", () => {
+    expect(MOONPAY_RECONCILE_STALE_MS).toBe(15 * 60 * 1000);
+    expect(MOONPAY_NON_TERMINAL_STATUSES).toEqual([
+      "initiated",
+      "waiting_payment",
+      "pending",
+      "waiting_authorization",
+    ]);
+  });
+
+  it("selects stale non-terminal rows that carry a MoonPay id", () => {
+    expect(isStaleMoonpayTransaction(staleRow, now)).toBe(true);
+    expect(isStaleMoonpayTransaction(
+      { ...staleRow, status: "initiated", updatedAtMs: null }, now,
+    )).toBe(true);
+    expect(isStaleMoonpayTransaction(
+      { ...staleRow, updatedAtMs: now - MOONPAY_RECONCILE_STALE_MS + 1 }, now,
+    )).toBe(false);
+  });
+
+  it("never selects terminal rows or rows MoonPay cannot be asked about", () => {
+    expect(isStaleMoonpayTransaction({ ...staleRow, status: "completed" }, now)).toBe(false);
+    expect(isStaleMoonpayTransaction({ ...staleRow, status: "failed" }, now)).toBe(false);
+    expect(isStaleMoonpayTransaction(
+      { ...staleRow, moonpayTransactionId: null }, now,
+    )).toBe(false);
+  });
+
+  it("selectStaleMoonpayTransactions filters a mixed batch", () => {
+    const rows = [
+      staleRow,
+      { ...staleRow, status: "completed" },
+      { ...staleRow, updatedAtMs: now },
+      { status: "waiting_payment", moonpayTransactionId: "mp_tx_2", updatedAtMs: now - 60 * 60 * 1000 },
+    ];
+    expect(selectStaleMoonpayTransactions(rows, now)).toEqual([rows[0], rows[3]]);
+  });
+});
+
+describe("parseMoonpayTransactionLookup (GET /v1/transactions/{id} shape)", () => {
+  const lookupPayload = {
+    id: "defb7c52-7bd3-422b-9052-374df50cc51a",
+    createdAt: "2026-10-27T10:00:00.000Z",
+    updatedAt: "2026-10-27T10:20:00.000Z",
+    baseCurrencyAmount: 50,
+    quoteCurrencyAmount: 0.0008,
+    feeAmount: 2.25,
+    status: "completed",
+    failureReason: null,
+    walletAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    cryptoTransactionId: "onchain-tx-9",
+    baseCurrency: { code: "usd" },
+    externalCustomerId: "user-uuid-1",
+    externalTransactionId: "our-ref-9",
+  };
+
+  it("parses the bare transaction object through the one webhook parser", () => {
+    const parsed = parseMoonpayTransactionLookup(lookupPayload);
+    expect(parsed.type).toBe("transaction_updated");
+    expect(parsed.moonpayTransactionId).toBe("defb7c52-7bd3-422b-9052-374df50cc51a");
+    expect(parsed.externalReference).toBe("our-ref-9");
+    expect(parsed.externalCustomerId).toBe("user-uuid-1");
+    expect(parsed.status).toBe("completed");
+    expect(parsed.updatedAt).toBe("2026-10-27T10:20:00.000Z");
+    expect(parsed.updatedAtMs).toBe(Date.parse("2026-10-27T10:20:00.000Z"));
+    expect(parsed.fiatAmount).toBe(50);
+    expect(parsed.fiatCurrency).toBe("USD");
+    expect(parsed.cryptoAmount).toBe(0.0008);
+    expect(parsed.feeAmount).toBe(2.25);
+    expect(parsed.cryptoTransactionId).toBe("onchain-tx-9");
+  });
+
+  it("tolerates junk payloads like the webhook parser does", () => {
+    expect(parseMoonpayTransactionLookup(null).status).toBeNull();
+    expect(parseMoonpayTransactionLookup("junk").moonpayTransactionId).toBeNull();
+  });
+});
+
+describe("planMoonpayEventApplication (the one application plan)", () => {
+  const t0 = Date.parse("2026-10-27T10:00:00.000Z");
+  const t1 = Date.parse("2026-10-27T10:20:00.000Z");
+  const nowIso = "2026-10-27T10:35:00.000Z";
+  const completedEvent = parseMoonpayTransactionLookup({
+    id: "mp_tx_1",
+    updatedAt: "2026-10-27T10:20:00.000Z",
+    status: "completed",
+    baseCurrencyAmount: 50,
+    baseCurrency: { code: "usd" },
+    externalTransactionId: "our-ref-1",
+  });
+
+  it("applies a newer event with the same update the webhook writes", () => {
+    const plan = planMoonpayEventApplication(
+      { status: "pending", lastEventUpdatedAtMs: t0 },
+      completedEvent,
+      { id: "mp_tx_1" },
+      nowIso,
+    );
+    expect(plan.apply).toBe(true);
+    expect(plan.update).toMatchObject({
+      raw_status: "completed",
+      last_webhook_event: "transaction_updated",
+      last_event_updated_at: "2026-10-27T10:20:00.000Z",
+      status: "completed",
+      moonpay_transaction_id: "mp_tx_1",
+      fiat_amount: 50,
+      fiat_currency: "USD",
+      updated_at: nowIso,
+    });
+  });
+
+  it("refuses a duplicate or stale event (the order guard)", () => {
+    expect(planMoonpayEventApplication(
+      { status: "completed", lastEventUpdatedAtMs: t1 }, completedEvent, {}, nowIso,
+    ).apply).toBe(false);
+    expect(planMoonpayEventApplication(
+      { status: "completed", lastEventUpdatedAtMs: t1 + 1000 }, completedEvent, {}, nowIso,
+    ).apply).toBe(false);
+  });
+
+  it("never moves a terminal row's status, even for a newer event", () => {
+    const latePending = parseMoonpayTransactionLookup({
+      id: "mp_tx_1",
+      updatedAt: "2026-10-27T10:25:00.000Z",
+      status: "pending",
+    });
+    const plan = planMoonpayEventApplication(
+      { status: "completed", lastEventUpdatedAtMs: t1 }, latePending, {}, nowIso,
+    );
+    expect(plan.apply).toBe(true);
+    expect(plan.update?.status).toBeUndefined();
+  });
+
+  it("makes an idempotent re-poll a no-op (second application refused)", () => {
+    const first = planMoonpayEventApplication(
+      { status: "pending", lastEventUpdatedAtMs: t0 }, completedEvent, {}, nowIso,
+    );
+    expect(first.apply).toBe(true);
+    // The row as the first application left it:
+    const rowAfter = {
+      status: (first.update?.status as string) ?? "pending",
+      lastEventUpdatedAtMs: Date.parse(first.update?.last_event_updated_at as string),
+    };
+    const second = planMoonpayEventApplication(rowAfter, completedEvent, {}, nowIso);
+    expect(second.apply).toBe(false);
+    expect(second.update).toBeNull();
+  });
+
+  it("labels poller applications so the audit trail can tell them apart", () => {
+    const plan = planMoonpayEventApplication(
+      { status: "pending", lastEventUpdatedAtMs: t0 },
+      completedEvent,
+      { id: "mp_tx_1" },
+      nowIso,
+      "reconcile_poll",
+    );
+    expect(plan.update?.last_webhook_event).toBe("reconcile_poll");
+  });
+});
+
+// ── Source pins: the gap-closure wiring ──────────────────────────────
+
+describe("source pins (gap closure 2026-10-27 wiring)", () => {
+  const sessionFn = read("../../supabase/functions/moonpay-session/index.ts");
+  const reconcileFn = read("../../supabase/functions/moonpay-reconcile/index.ts");
+  const cronMigration = read("../../supabase/migrations/20261238_moonpay_reconcile_cron.sql");
+  const configToml = read("../../supabase/config.toml");
+
+  it("session validates whole amounts and binds the caller IP into the signed URL", () => {
+    expect(sessionFn).toContain("moonpayAmountRejection");
+    expect(sessionFn).toContain("MOONPAY_WHOLE_AMOUNT_MESSAGE");
+    expect(sessionFn).toContain("extractMoonpayClientIp(req.headers)");
+    expect(sessionFn).toContain("computeMoonpayAllowedIpAddress");
+    expect(sessionFn).toContain("MOONPAY_IP_UNVERIFIED_MESSAGE");
+    expect(sessionFn).toContain("allowedIpAddress");
+  });
+
+  it("reconcile is scheduler-gated and reuses the shared plan, parser and selector", () => {
+    expect(reconcileFn).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(reconcileFn).toContain("selectStaleMoonpayTransactions");
+    expect(reconcileFn).toContain("parseMoonpayTransactionLookup");
+    expect(reconcileFn).toContain("planMoonpayEventApplication");
+    expect(reconcileFn).toContain("api.moonpay.com/v1/transactions");
+    // Tracking only, like the webhook: never a money table.
+    expect(reconcileFn).not.toContain("wallets");
+  });
+
+  it("the cron migration schedules the poller with the Vault service key", () => {
+    expect(cronMigration).toContain("cron.schedule(");
+    expect(cronMigration).toContain("'moonpay-reconcile'");
+    expect(cronMigration).toContain("'*/15 * * * *'");
+    expect(cronMigration).toContain("functions/v1/moonpay-reconcile");
+    expect(cronMigration).toContain("service_role_key");
+  });
+
+  it("the reconcile function keeps gateway JWT verification on", () => {
+    expect(configToml).toContain("[functions.moonpay-reconcile]\nverify_jwt = true");
   });
 });

@@ -26,8 +26,15 @@
 //
 // Then: the fiat is validated server-side (default USD; ZMW refused
 // plainly — MoonPay has no kwacha; USD / EUR / GBP only; a positive
-// amount when given), the caller's BTC deposit address is got-or-
-// assigned via the EXISTING btc-onchain mechanism
+// WHOLE amount when given — MoonPay's baseCurrencyAmount is a
+// positive integer per its current docs, gap closure 2026-10-27),
+// the caller's IP is bound into the signed URL as allowedIpAddress
+// (MoonPay IP matching, mandatory for going live — the IP is
+// derived server-side from the request headers and canonicalised
+// per MoonPay's rules; in production a session whose IP cannot be
+// derived refuses rather than minting an unbound live URL), the
+// caller's BTC deposit address is got-or-assigned via the EXISTING
+// btc-onchain mechanism
 // (btc_address_assignments + btc_next_derivation_index +
 // deriveAddress from the account zpub — no second derivation), one
 // 'initiated' tracking row is written with a fresh
@@ -47,12 +54,17 @@ import {
 import { deriveAddress, receiveStatus } from "../_shared/btc-core.ts";
 import {
   buildSignedMoonpayBuyUrl,
+  computeMoonpayAllowedIpAddress,
+  extractMoonpayClientIp,
+  moonpayAmountRejection,
   moonpayConfig,
   MOONPAY_COMING_SOON_MESSAGE,
   MOONPAY_INVALID_AMOUNT_MESSAGE,
+  MOONPAY_IP_UNVERIFIED_MESSAGE,
   MOONPAY_MISCONFIGURED_MESSAGE,
   MOONPAY_NOT_CONFIGURED_MESSAGE,
   MOONPAY_UNSUPPORTED_CURRENCY_MESSAGE,
+  MOONPAY_WHOLE_AMOUNT_MESSAGE,
   MOONPAY_ZMW_MESSAGE,
 } from "../_shared/moonpay.ts";
 
@@ -213,10 +225,37 @@ serve(async (req) => {
     const rawAmount = body.fiatAmount ?? body.fiat_amount;
     if (rawAmount !== undefined && rawAmount !== null) {
       const n = typeof rawAmount === "number" ? rawAmount : Number(rawAmount);
-      if (!Number.isFinite(n) || n <= 0) {
+      const rejection = moonpayAmountRejection(n);
+      if (rejection === "invalid") {
         return json({ success: false, status: "invalid", error: MOONPAY_INVALID_AMOUNT_MESSAGE }, 400);
       }
+      if (rejection === "fractional") {
+        // Never silently rounded: the customer pays the amount they
+        // entered, or a whole amount they choose — not our rounding.
+        return json({ success: false, status: "invalid", error: MOONPAY_WHOLE_AMOUNT_MESSAGE }, 400);
+      }
       fiatAmount = n;
+    }
+
+    // ── IP matching (gap closure 2026-10-27, P0): bind the signed
+    // URL to this caller's IP. Derived HERE, from the very request
+    // that mints the URL (MoonPay: a stale capture is a mismatch
+    // cause), canonicalised per MoonPay's rules. Sandbox URLs carry
+    // it too — sandbox enforces IP matching by default, so this is
+    // exercised end to end before production. In PRODUCTION an
+    // underivable IP refuses the session (no row is written): a
+    // live URL without the binding would be blocked by MoonPay the
+    // moment it enforces, and minting it anyway would quietly drop
+    // the protection the parameter exists for.
+    const clientIp = extractMoonpayClientIp(req.headers);
+    let allowedIpAddress: string | null = null;
+    if (clientIp && config.secretKey) {
+      allowedIpAddress = await computeMoonpayAllowedIpAddress(clientIp, config.secretKey);
+    } else if (config.environment === "production") {
+      logStep("Client IP could not be derived — refusing production session");
+      return json({ success: false, status: "ip_unverified", error: MOONPAY_IP_UNVERIFIED_MESSAGE }, 503);
+    } else {
+      logStep("Client IP could not be derived — sandbox session minted without IP binding");
     }
 
     // ── The caller's own BTC deposit address (existing mechanism) ──
@@ -256,6 +295,7 @@ serve(async (req) => {
       baseCurrencyCode: fiatCurrency,
       baseCurrencyAmount: fiatAmount,
       redirectUrl: `${origin}/bitcoin`,
+      allowedIpAddress,
     });
 
     logStep("MoonPay session created", {

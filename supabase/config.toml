@@ -117,7 +117,13 @@ verify_jwt = true
 # MoonPay card on-ramp: session + admin are called by signed-in
 # users/admins (JWT on); the webhook is called by MoonPay itself and
 # authenticates with the Moonpay-Signature-V2 HMAC header instead.
+# Reconcile is scheduler-only (pg_cron with the service-role key —
+# a valid JWT, so the gateway check stays on; the function itself
+# then refuses user JWTs with 403).
 [functions.moonpay-session]
+verify_jwt = true
+
+[functions.moonpay-reconcile]
 verify_jwt = true
 
 [functions.moonpay-admin]
