@@ -42,6 +42,8 @@ import {
   payoutSenderItemIdFromWebhookResource,
   planPayoutFinalization,
   planProvenance,
+  PAYOUTS_NOT_AVAILABLE_MESSAGE,
+  payoutsEnabled,
   provenanceAvailable,
   provenanceRefusalMessage,
 } from "../../supabase/functions/_shared/paypal-payout";
@@ -378,7 +380,7 @@ describe("withdrawal migration (structure)", () => {
 
 describe("paypal-payout edge function", () => {
   it("reserves BEFORE sending anything to PayPal", () => {
-    const reserveAt = payoutFn.indexOf("reserve_paypal_withdrawal");
+    const reserveAt = payoutFn.indexOf('rpc("reserve_paypal_withdrawal"');
     const sendAt = payoutFn.indexOf("createPayPalPayout(row)");
     expect(reserveAt).toBeGreaterThan(-1);
     expect(sendAt).toBeGreaterThan(reserveAt);
@@ -465,5 +467,57 @@ describe("client mirror + UI", () => {
     expect(withdrawComponent).toContain('action: "status"');
     expect(withdrawComponent).toContain('action: "list"');
     expect(withdrawComponent).toContain("payoutStatusLabel");
+  });
+});
+
+describe("payouts rail gate (20261242 — activation honesty)", () => {
+  const gateMigration = read(
+    "../../supabase/migrations/20261242_paypal_payouts_kill_switch.sql",
+  );
+  const paypalConfig = read("../../src/config/paypal.ts");
+
+  it("the kill switch ships default OFF", () => {
+    expect(gateMigration).toContain("paypal_payouts_enabled");
+    expect(gateMigration).toContain("DEFAULT false");
+  });
+
+  it("only a literal true opens the rail — the gate fails closed", () => {
+    expect(payoutsEnabled({ paypal_payouts_enabled: true })).toBe(true);
+    expect(payoutsEnabled({ paypal_payouts_enabled: false })).toBe(false);
+    expect(payoutsEnabled({})).toBe(false);
+    expect(payoutsEnabled(null)).toBe(false);
+    expect(payoutsEnabled(undefined)).toBe(false);
+    expect(payoutsEnabled({ paypal_payouts_enabled: "true" })).toBe(false);
+    expect(payoutsEnabled({ paypal_payouts_enabled: 1 })).toBe(false);
+  });
+
+  it("the refusal copy says activating, unavailable, and that nothing was reserved or sent", () => {
+    expect(PAYOUTS_NOT_AVAILABLE_MESSAGE).toContain("being activated");
+    expect(PAYOUTS_NOT_AVAILABLE_MESSAGE).toContain("aren't available yet");
+    expect(PAYOUTS_NOT_AVAILABLE_MESSAGE).toContain(
+      "No money has been reserved or sent",
+    );
+  });
+
+  it("the function refuses create BEFORE the reserve RPC is called", () => {
+    const gateAt = payoutFn.indexOf("payoutsEnabled(gateSettings)");
+    const reserveAt = payoutFn.indexOf('rpc("reserve_paypal_withdrawal"');
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(reserveAt).toBeGreaterThan(-1);
+    expect(gateAt).toBeLessThan(reserveAt);
+    expect(payoutFn).toContain('status: "not_configured"');
+    expect(payoutFn).toContain("PAYOUTS_NOT_AVAILABLE_MESSAGE");
+  });
+
+  it("the float action carries the gate so form and function cannot disagree", () => {
+    expect(payoutFn).toContain("payouts_enabled: payoutsEnabled(settings)");
+  });
+
+  it("the withdraw form presents the activating state and cannot submit while the rail is off", () => {
+    expect(paypalConfig).toContain("PAYPAL_PAYOUTS_ACTIVATING_MESSAGE");
+    expect(paypalConfig).toContain("being activated");
+    expect(withdrawComponent).toContain("PAYPAL_PAYOUTS_ACTIVATING_MESSAGE");
+    expect(withdrawComponent).toContain("data?.payouts_enabled === true");
+    expect(withdrawComponent).toContain("!payoutsEnabled ||");
   });
 });

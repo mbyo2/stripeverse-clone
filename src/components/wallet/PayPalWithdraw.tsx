@@ -12,7 +12,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePlatformSettings } from "@/hooks/useSubaccounts";
 import { useToast } from "@/hooks/use-toast";
 import { invalidateMoneyState } from "@/utils/moneyFreshness";
-import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from "@/config/paypal";
+import {
+  PAYPAL_AVAILABLE,
+  PAYPAL_COMING_SOON_LABEL,
+  PAYPAL_PAYOUTS_ACTIVATING_MESSAGE,
+} from "@/config/paypal";
 import {
   computePayoutFee,
   isPayPalPayoutCurrency,
@@ -126,21 +130,37 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
   // number for the user; the split stays internal. The reserve RPC
   // re-derives both sides under lock, so this preview can race but
   // can never over-promise at settlement.
+  //
+  // The same float response also carries the Payouts rail gate
+  // (payouts_enabled, migration 20261242), so this query now runs
+  // for every payout currency — the form and the function's create
+  // refusal read the flag from the one response and cannot disagree.
   const floatQuery = useQuery({
     queryKey: ["paypal-float"],
-    enabled: !!user?.id && supported && currency === "USD",
+    enabled: !!user?.id && supported,
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("paypal-payout", {
         body: { action: "float" },
       });
       if (error) throw error;
-      return Number(data?.remaining_usd ?? 0);
+      return {
+        remainingUsd: Number(data?.remaining_usd ?? 0),
+        payoutsEnabled: data?.payouts_enabled === true,
+      };
     },
   });
 
+  // Fail closed while the gate state is unknown: the form only
+  // becomes submittable once the float response has positively said
+  // the rail is on. (The function enforces the same gate before any
+  // reservation, so even a raced click is refused with the crafted
+  // not_configured copy — never a reservation.)
+  const payoutsEnabled = floatQuery.data?.payoutsEnabled === true;
+
   const availableToWithdraw =
     provenanceQuery.data !== undefined
-      ? provenanceQuery.data + (currency === "USD" ? (floatQuery.data ?? 0) : 0)
+      ? provenanceQuery.data +
+        (currency === "USD" ? (floatQuery.data?.remainingUsd ?? 0) : 0)
       : undefined;
 
   const refreshHistory = () => {
@@ -246,6 +266,27 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
     );
   }
 
+  // Rail gate (migration 20261242): while PayPal Payouts activation
+  // is incomplete the rail cannot settle ANY withdrawal, so the form
+  // is replaced by the honest activating state BEFORE the user can
+  // enter an amount — nobody walks into a reservation that is
+  // guaranteed to fail. History stays visible below.
+  if (floatQuery.isSuccess && !payoutsEnabled) {
+    return (
+      <div className="space-y-5 p-4">
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>{PAYPAL_PAYOUTS_ACTIVATING_MESSAGE}</AlertDescription>
+        </Alert>
+        <WithdrawalHistory
+          rows={historyQuery.data ?? []}
+          onRefresh={(id) => statusMutation.mutate(id)}
+          refreshing={statusMutation.isPending}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 p-4">
       <div className="space-y-2">
@@ -318,6 +359,7 @@ const PayPalWithdraw = ({ wallet }: { wallet: WalletLike | null }) => {
         onClick={() => createMutation.mutate()}
         className="w-full h-12 rounded-full text-base font-semibold"
         disabled={
+          !payoutsEnabled ||
           !email.trim() ||
           isNaN(parsedAmount) ||
           parsedAmount < PAYOUT_MIN_AMOUNT ||

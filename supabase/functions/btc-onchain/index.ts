@@ -705,7 +705,17 @@ async function estimateSend(supabase: any, userId: string, body: any) {
     batch_max_wait_hours: policy.maxWaitHours,
   };
 
-  const utxos = await gatherUtxos(supabase, accountPub);
+  // The UTXO gather hits the upstream explorer: its failures (rate
+  // limits, outages) must surface as this function's own crafted
+  // fee-estimation refusal — never as the raw upstream error text
+  // (which names the custody address and the provider's status).
+  let utxos;
+  try {
+    utxos = await gatherUtxos(supabase, accountPub);
+  } catch (e) {
+    console.error("btc-onchain estimate_send: UTXO gather failed:", e);
+    return json(502, { error: "Fee estimation unavailable" });
+  }
   const changeScript = deriveScript(accountPub, 1, 0);
   const selection = selectCoins(utxos, amountSats, feeRate, recipient.script, changeScript);
   if (!selection) {

@@ -131,6 +131,13 @@ describe("payment-link-checkout describe contract (source pin)", () => {
   it("the link query selects the stored fee_payer column", () => {
     expect(checkoutFnSource).toContain("account_id, fee_payer,");
   });
+
+  it("describe refuses expired and limit-reached links before rendering a pay form (sweep A, 2026-10-28)", () => {
+    expect(describeBlock).toContain('status: "expired"');
+    expect(describeBlock).toContain("This payment link has expired.");
+    expect(describeBlock).toContain('status: "limit_reached"');
+    expect(describeBlock).toContain("This payment link has reached its payment limit.");
+  });
 });
 
 describe("PublicCheckout render wiring (source pin)", () => {

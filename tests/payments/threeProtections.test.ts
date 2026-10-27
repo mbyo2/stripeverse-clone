@@ -127,4 +127,13 @@ describe("P3 — withdrawal fee estimate before confirming", () => {
       "the exact fee is confirmed when your withdrawal broadcasts",
     );
   });
+  it("an upstream explorer failure surfaces as the crafted fee-estimation refusal, never raw provider text (sweep A, 2026-10-28)", () => {
+    const estimateBody = onchain.slice(
+      onchain.indexOf("async function estimateSend("),
+      onchain.indexOf("async function consolidate("),
+    );
+    expect(estimateBody).toContain("try {");
+    expect(estimateBody).toContain("await gatherUtxos(supabase, accountPub)");
+    expect(estimateBody).toContain('json(502, { error: "Fee estimation unavailable" })');
+  });
 });

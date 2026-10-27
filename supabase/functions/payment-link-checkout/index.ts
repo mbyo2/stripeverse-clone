@@ -153,6 +153,32 @@ serve(async (req) => {
 
     // ── describe: the public link payload + where its money settles ──
     if (body.action === "describe") {
+      // Link-state honesty: an expired or payment-limit-reached link
+      // is NOT payable, and the guest page must learn that HERE —
+      // before it renders the pay form — not after entering an
+      // amount and attempting payment. (The settlement RPC and the
+      // BTC attempt path already refuse both states server-side;
+      // this surfaces the same truth at describe time, in the same
+      // words, so the page renders its "not payable" state.)
+      if (link.expires_at && new Date(link.expires_at).getTime() <= Date.now()) {
+        return json(
+          { success: false, status: "expired", error: "This payment link has expired." },
+          410,
+        );
+      }
+      if (
+        link.max_payments != null &&
+        Number(link.payment_count ?? 0) >= Number(link.max_payments)
+      ) {
+        return json(
+          {
+            success: false,
+            status: "limit_reached",
+            error: "This payment link has reached its payment limit.",
+          },
+          410,
+        );
+      }
       let settlementAccountName = "Main account";
       if (link.account_id) {
         const { data: account } = await admin

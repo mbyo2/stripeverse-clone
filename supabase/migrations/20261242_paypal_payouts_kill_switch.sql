@@ -1,0 +1,36 @@
+-- PayPal Payouts rail: platform_settings kill switch.
+--
+-- PayPal Payouts needs a SEPARATE account-level permission
+-- (application + PayPal approval) on top of the developer-dashboard
+-- payouts tick, and it settles from the platform's own PayPal
+-- balance. Until that permission is granted and the balance is
+-- funded, NO withdrawal can settle — yet the withdraw surface let a
+-- user walk through confirm into a reserve + a guaranteed provider
+-- refusal (refunded in the same request on a synchronous refusal,
+-- but a doomed walk, and provider wording in the failure copy).
+--
+-- This adds the missing switch in the style of mtn_momo_enabled
+-- (20261236) / moonpay_enabled (20261212):
+--
+--   platform_settings.paypal_payouts_enabled — default FALSE.
+--
+-- Semantics (enforced in the paypal-payout edge function's create
+-- action, BEFORE the freeze guard and BEFORE any reservation, via
+-- the pure gate in _shared/paypal-payout.ts):
+--   - Flag OFF (or the settings row unreadable) → create answers
+--     503 { status: "not_configured" } with crafted copy. Nothing
+--     is reserved, nothing is sent, no withdrawal row is written.
+--     status / list / float keep working — history stays visible.
+--   - Flag ON → the existing reserve → send → settle/refund flow,
+--     unchanged. The reserve/refund RPCs (20261213 float versions)
+--     are untouched.
+--
+-- The withdraw form mirrors the same flag (it already loads
+-- platform_settings) and presents the activating state instead of
+-- the form while the flag is off.
+--
+-- Flip ON only when PayPal has granted the Payouts permission on
+-- the platform account AND the platform PayPal balance is funded.
+
+ALTER TABLE public.platform_settings
+  ADD COLUMN IF NOT EXISTS paypal_payouts_enabled boolean NOT NULL DEFAULT false;

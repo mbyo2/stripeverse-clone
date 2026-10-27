@@ -57,6 +57,8 @@ import {
   normalizeCurrency,
   PAYOUT_DAILY_LIMIT,
   PAYOUT_MIN_AMOUNT,
+  PAYOUTS_NOT_AVAILABLE_MESSAGE,
+  payoutsEnabled,
   provenanceAvailable,
   provenanceRefusalMessage,
   withdrawalRefusalMessage,
@@ -149,6 +151,27 @@ serve(async (req) => {
 
 // deno-lint-ignore no-explicit-any
 async function handleCreate(admin: any, userId: string, body: any) {
+  // ── Rail gate FIRST (migration 20261242): PayPal Payouts needs a
+  // separate account-level PayPal permission and settles from the
+  // platform's own PayPal balance. Until both are in place no
+  // withdrawal can settle, so while the flag is off the refusal
+  // happens HERE — before the freeze guard, before any validation
+  // that implies the form was viable, and above all before the
+  // reserve RPC: nothing is reserved, nothing is sent, no row is
+  // written. The gate fails closed: an unreadable settings row
+  // counts as off.
+  const { data: gateSettings } = await admin
+    .from("platform_settings")
+    .select("paypal_payouts_enabled")
+    .eq("id", true)
+    .maybeSingle();
+  if (!payoutsEnabled(gateSettings)) {
+    return json(
+      { success: false, status: "not_configured", error: PAYOUTS_NOT_AVAILABLE_MESSAGE },
+      503,
+    );
+  }
+
   // ── Freeze guard: a frozen account cannot withdraw ──
   // (status/list stay available to a frozen user; only new money-out
   // is refused.)
@@ -365,7 +388,7 @@ async function handleStatus(admin: any, userId: string, body: any) {
 async function handleFloat(admin: any) {
   const { data: settings, error: settingsError } = await admin
     .from("platform_settings")
-    .select("paypal_float_allowance_usd")
+    .select("paypal_float_allowance_usd, paypal_payouts_enabled")
     .eq("id", true)
     .maybeSingle();
   if (settingsError) throw new Error(`Float settings read failed: ${settingsError.message}`);
@@ -379,6 +402,10 @@ async function handleFloat(admin: any) {
     allowance_usd: allowance,
     used_usd: usedUsd,
     remaining_usd: floatAvailable(allowance, usedUsd),
+    // The rail gate rides along so the withdraw form's preview and
+    // the create refusal can never disagree about whether the rail
+    // is on (migration 20261242).
+    payouts_enabled: payoutsEnabled(settings),
   });
 }
 

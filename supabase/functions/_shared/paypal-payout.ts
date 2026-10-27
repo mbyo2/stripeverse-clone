@@ -73,6 +73,32 @@ export const PAYPAL_PAYOUT_CURRENCIES: readonly string[] = [
   "CZK",
 ];
 
+/**
+ * Crafted copy for a withdrawal refused because the Payouts rail
+ * itself is off (platform_settings.paypal_payouts_enabled, migration
+ * 20261242). PayPal Payouts needs a separate account-level PayPal
+ * permission and settles from the platform's own PayPal balance;
+ * until both are in place NO withdrawal can settle, so the refusal
+ * happens BEFORE any reservation — the copy says exactly that, and
+ * never claims money was reserved, sent, or returned.
+ */
+export const PAYOUTS_NOT_AVAILABLE_MESSAGE =
+  "PayPal withdrawals are being activated and aren't available yet. No money has been reserved or sent — your balance stays in your wallet, and you can still add money by PayPal.";
+
+/**
+ * The Payouts rail gate, resolved from a platform_settings row.
+ * Only a literal `true` enables the rail (the moonpay gate's rule):
+ * a missing row, a missing column, or any other value is OFF — the
+ * gate fails closed, so a settings read failure can never open a
+ * rail that cannot settle.
+ */
+export function payoutsEnabled(
+  settingsRow: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!settingsRow) return false;
+  return settingsRow.paypal_payouts_enabled === true;
+}
+
 /** Per-payout minimum, in the payout currency's major units. */
 export const PAYOUT_MIN_AMOUNT = 5;
 /** Per-user, per-currency daily cap, in major units. */

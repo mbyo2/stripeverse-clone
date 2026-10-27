@@ -24,3 +24,18 @@ export const PAYPAL_AVAILABLE = true;
 
 /** Label shown wherever PayPal is offered while the gate is off. */
 export const PAYPAL_COMING_SOON_LABEL = "Coming soon";
+
+/**
+ * Withdraw-side gate copy (migration 20261242): PayPal PAYOUTS is a
+ * separate rail from PayPal deposits — it needs its own account-level
+ * PayPal permission and settles from the platform's PayPal balance.
+ * While platform_settings.paypal_payouts_enabled is off, the withdraw
+ * form presents this activating state instead of the form, and the
+ * paypal-payout function refuses create before any reservation with
+ * its own matching copy (PAYOUTS_NOT_AVAILABLE_MESSAGE in
+ * supabase/functions/_shared/paypal-payout.ts). Deposits are NOT
+ * affected by this gate — PAYPAL_AVAILABLE above stays the deposit
+ * gate.
+ */
+export const PAYPAL_PAYOUTS_ACTIVATING_MESSAGE =
+  "PayPal withdrawals are being activated and aren't available yet. Your balance stays safely in your wallet — you can still add money by PayPal, and withdrawals will open here as soon as activation completes.";
