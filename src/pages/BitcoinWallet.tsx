@@ -28,7 +28,11 @@ import { useMoonpay } from "@/hooks/useMoonpay";
 import { MOONPAY_COMING_SOON_COPY } from "@/config/moonpay";
 import { LightningSend } from "@/components/bitcoin/LightningSend";
 import { QrScanButton } from "@/components/QrScanButton";
-import { parseQrPayload } from "@/lib/qrScan";
+import {
+  classifySendInput,
+  type LnurlIntent,
+  type UnifiedSendInput,
+} from "@/lib/unifiedSendInput";
 
 const satsToBtc = (sats?: number) => (sats ? sats / 100_000_000 : 0);
 
@@ -272,7 +276,54 @@ function LightningDeposit({ onDone, onUseOnchain }: { onDone: () => void; onUseO
   );
 }
 
-function SendOnchain({ onDone }: { onDone: () => void }) {
+/**
+ * Unified routing (close-out B1): a pasted or scanned Lightning
+ * address / LNURL classifies as a typed LNURL intent, surfaced here
+ * through the onLnurlIntent callback the send forms call. The LNURL
+ * send actions are a separate workstream — until they land, this
+ * panel says so truthfully and points at the working paths. It never
+ * offers a send of its own.
+ */
+function LnurlIntentPanel({ intent, onBack }: { intent: LnurlIntent; onBack: () => void }) {
+  const isAddress = intent.type === "lightningAddress";
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border p-3 space-y-2">
+        <p className="text-sm font-medium">
+          {isAddress ? "Lightning address recognised" : "LNURL recognised"}
+        </p>
+        <p className="font-mono text-xs break-all text-muted-foreground">
+          {isAddress ? intent.address : intent.url}
+        </p>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {isAddress
+          ? "Lightning address support is being switched on — you can't send to a Lightning address from this wallet just yet."
+          : "LNURL support is being switched on — you can't send to an LNURL from this wallet just yet."}{" "}
+        For now, ask the person you're paying for a Lightning invoice
+        (lnbc…) and paste that instead — or send to a Bitcoin address on-chain.
+      </p>
+      <Button variant="outline" className="w-full" onClick={onBack}>
+        Back to send
+      </Button>
+    </div>
+  );
+}
+
+function SendOnchain({
+  onDone,
+  initialDestination,
+  onRouteBolt11,
+  onLnurlIntent,
+}: {
+  onDone: () => void;
+  /** Unified routing: an address handed over from the Lightning tab. */
+  initialDestination?: { address: string; amountSats?: number; key: number } | null;
+  /** Called when the entered destination is a Lightning invoice. */
+  onRouteBolt11?: (invoice: string) => void;
+  /** Called when the entered destination is an LNURL intent. */
+  onLnurlIntent?: (intent: LnurlIntent) => void;
+}) {
   const { toast } = useToast();
   const invalidateMoney = useInvalidateMoneyState();
   const [address, setAddress] = useState("");
@@ -305,6 +356,17 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
   const batchAvailable = batchInfo?.enabled !== false;
   const effectiveMethod = batchAvailable ? sendMethod : "instant";
   const maxWaitHours = batchInfo?.maxWaitHours ?? 6;
+
+  // Unified routing: a destination handed over from the Lightning
+  // tab (or a BIP21 link's address) pre-fills this form — the user
+  // still checks it and taps Send themselves.
+  useEffect(() => {
+    if (!initialDestination) return;
+    setAddress(initialDestination.address);
+    if (initialDestination.amountSats !== undefined) {
+      setSats(String(initialDestination.amountSats));
+    }
+  }, [initialDestination]);
 
   useEffect(() => {
     const addr = address.trim();
@@ -350,17 +412,20 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
   }, [address, sats]);
 
   /**
-   * Scan-to-send: a scanned code only FILLS the address (plus the
-   * amount for a BIP21 code) — the user still checks it and taps
-   * Send themselves. This form sends on-chain only, so Lightning
-   * codes get a plain-language explanation instead of being filled
-   * into an address field they can never work in.
+   * Unified routing (close-out B1): this form accepts ANY Bitcoin
+   * destination — typed, pasted, or scanned. The shared classifier
+   * decides what it is: an on-chain address (or a BIP21 link) fills
+   * this form; a Lightning invoice routes to the Lightning tab with
+   * the invoice filled in; a Lightning address / LNURL surfaces as
+   * a typed intent; anything else answers with the classifier's
+   * plain-language reason. Nothing here ever sends on its own — the
+   * user still checks the filled form and taps Send.
    */
   const handleScanned = (raw: string) => {
-    const payload = parseQrPayload(raw);
-    if (payload.kind === "address" || payload.kind === "bip21") {
+    const payload = classifySendInput(raw);
+    if (payload.kind === "onchain") {
       setAddress(payload.destination);
-      if (payload.kind === "bip21" && payload.amountSats !== undefined) {
+      if (payload.amountSats !== undefined) {
         setSats(String(payload.amountSats));
       }
       toast({
@@ -369,23 +434,92 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
       });
       return;
     }
-    if (payload.kind === "unknown") {
+    routeOtherDestination(payload);
+  };
+
+  /** Route a non-on-chain classification to where it belongs. */
+  const routeOtherDestination = (payload: UnifiedSendInput) => {
+    if (payload.kind === "bolt11") {
+      if (payload.expired) {
+        toast({
+          title: "This invoice has expired",
+          description:
+            "Lightning invoices are only valid for a short time — ask the sender for a new one and paste that instead. Nothing was sent.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (onRouteBolt11) {
+        onRouteBolt11(payload.destination);
+        toast({
+          title: "That's a Lightning invoice",
+          description:
+            "We've opened the Lightning tab with it filled in — check the amount there before paying.",
+        });
+      }
+      return;
+    }
+    if (payload.kind === "lightningAddress" || payload.kind === "lnurl") {
+      if (onLnurlIntent) onLnurlIntent(payload.intent);
+      return;
+    }
+    if (payload.kind === "invalid") {
       toast({
-        title: "That QR code could not be recognised",
-        description: "It doesn't look like a Bitcoin address. Try again, or paste the address instead.",
+        title: "Couldn't use that destination",
+        description: payload.reason,
         variant: "destructive",
+      });
+    }
+  };
+
+  /**
+   * Paste routing: a plain address pastes as-is, but a BIP21 link,
+   * an invoice, or an LNURL landing in this field is classified and
+   * routed instead of being pasted into a field it can never work in.
+   */
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData("text");
+    if (!text.trim()) return;
+    const payload = classifySendInput(text);
+    if (payload.kind === "onchain" && !payload.viaBip21) return;
+    e.preventDefault();
+    if (payload.kind === "onchain") {
+      setAddress(payload.destination);
+      if (payload.amountSats !== undefined) {
+        setSats(String(payload.amountSats));
+      }
+      toast({
+        title: "Bitcoin payment link read",
+        description:
+          "We filled in the address from the link — check it carefully before sending.",
       });
       return;
     }
-    toast({
-      title: "That code isn't a Bitcoin address",
-      description:
-        "This tab sends Bitcoin on-chain, so it can't pay a Lightning invoice, LNURL, or Spark address. Scan a Bitcoin address (bc1…) here, or open the Lightning tab above to pay a Lightning invoice.",
-      variant: "destructive",
-    });
+    routeOtherDestination(payload);
+  };
+
+  /**
+   * Send guard: whatever sits in the destination field when Send is
+   * tapped is classified first — a destination that belongs
+   * somewhere else routes there instead of being sent on-chain.
+   */
+  const destinationReady = (): boolean => {
+    const payload = classifySendInput(address);
+    if (payload.kind === "onchain") {
+      if (payload.viaBip21) {
+        setAddress(payload.destination);
+        if (payload.amountSats !== undefined && !sats) {
+          setSats(String(payload.amountSats));
+        }
+      }
+      return true;
+    }
+    routeOtherDestination(payload);
+    return false;
   };
 
   const send = async () => {
+    if (!destinationReady()) return;
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke("btc-onchain", {
@@ -442,6 +576,7 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
    * cost; whatever the batch doesn't use comes back at broadcast.
    */
   const queue = async () => {
+    if (!destinationReady()) return;
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke("btc-onchain", {
@@ -522,10 +657,14 @@ function SendOnchain({ onDone }: { onDone: () => void }) {
     <div className="space-y-4">
       <div className="grid gap-2">
         <div className="flex items-center justify-between gap-2">
-          <Label htmlFor="dest">Destination address (mainnet)</Label>
+          <Label htmlFor="dest">Destination (mainnet)</Label>
           <QrScanButton onScan={handleScanned} />
         </div>
-        <Input id="dest" placeholder="bc1…" value={address} onChange={(e) => setAddress(e.target.value)} />
+        <Input id="dest" placeholder="bc1… — or paste an invoice, LNURL, or Lightning address" value={address} onChange={(e) => setAddress(e.target.value)} onPaste={handlePaste} />
+        <p className="text-xs text-muted-foreground">
+          Paste any Bitcoin destination — we'll take you to the right
+          place for it.
+        </p>
       </div>
       <div className="grid gap-2">
         <Label htmlFor="sendSats">Amount (sats)</Label>
@@ -969,6 +1108,22 @@ export default function BitcoinWallet() {
   // On-chain tab (custodial Lightning deposits are unavailable).
   const [depositTab, setDepositTab] = useState("onchain");
   const [sendTab, setSendTab] = useState("onchain");
+  // Unified routing (close-out B1): destinations handed between the
+  // send tabs by the classifier, plus the LNURL intent panel state.
+  // The key bumps remount the receiving form so a routed destination
+  // always lands in a fresh form, never a half-used one.
+  const [routedInvoice, setRoutedInvoice] = useState<{ invoice: string; key: number } | null>(null);
+  const [routedAddress, setRoutedAddress] = useState<{ address: string; amountSats?: number; key: number } | null>(null);
+  const [lnurlIntent, setLnurlIntent] = useState<LnurlIntent | null>(null);
+
+  const routeBolt11 = (invoice: string) => {
+    setRoutedInvoice({ invoice, key: Date.now() });
+    setSendTab("lightning");
+  };
+  const routeOnchain = (address: string, amountSats?: number) => {
+    setRoutedAddress({ address, amountSats, key: Date.now() });
+    setSendTab("onchain");
+  };
 
   useEffect(() => {
     document.title = "Bitcoin Wallet | BTC balance & deposits";
@@ -1081,7 +1236,10 @@ export default function BitcoinWallet() {
                   setSendOpen(next);
                   // Reopening Send always lands on the On-chain tab,
                   // mirroring the Deposit dialog's behaviour.
-                  if (!next) setSendTab("onchain");
+                  if (!next) {
+                    setSendTab("onchain");
+                    setLnurlIntent(null);
+                  }
                 }}
               >
                 <DialogTrigger asChild>
@@ -1092,18 +1250,33 @@ export default function BitcoinWallet() {
                     <DialogTitle>Send Bitcoin</DialogTitle>
                   </DialogHeader>
 
-                  <Tabs value={sendTab} onValueChange={setSendTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="onchain">On-chain</TabsTrigger>
-                      <TabsTrigger value="lightning">Lightning</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="onchain" className="pt-4">
-                      <SendOnchain onDone={handleDone} />
-                    </TabsContent>
-                    <TabsContent value="lightning" className="pt-4">
-                      <LightningSend onDone={handleDone} />
-                    </TabsContent>
-                  </Tabs>
+                  {lnurlIntent ? (
+                    <LnurlIntentPanel intent={lnurlIntent} onBack={() => setLnurlIntent(null)} />
+                  ) : (
+                    <Tabs value={sendTab} onValueChange={setSendTab} className="w-full">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="onchain">On-chain</TabsTrigger>
+                        <TabsTrigger value="lightning">Lightning</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="onchain" className="pt-4">
+                        <SendOnchain
+                          onDone={handleDone}
+                          initialDestination={routedAddress}
+                          onRouteBolt11={routeBolt11}
+                          onLnurlIntent={setLnurlIntent}
+                        />
+                      </TabsContent>
+                      <TabsContent value="lightning" className="pt-4">
+                        <LightningSend
+                          key={routedInvoice?.key ?? "plain"}
+                          onDone={handleDone}
+                          initialInvoice={routedInvoice?.invoice}
+                          onRouteOnchain={routeOnchain}
+                          onLnurlIntent={setLnurlIntent}
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  )}
                 </DialogContent>
               </Dialog>
               </div>
