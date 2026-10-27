@@ -35,6 +35,9 @@ enabled = true
 [functions.mobile-money]
 verify_jwt = true
 
+[functions.mobile-money-callback]
+verify_jwt = false
+
 [functions.btc-payment]
 verify_jwt = true
 

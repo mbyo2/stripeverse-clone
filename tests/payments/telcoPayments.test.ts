@@ -36,6 +36,14 @@ const mobileMoneyFn = readFileSync(
   resolve(__dirname, "../../supabase/functions/mobile-money/index.ts"),
   "utf8",
 );
+const callbackFn = readFileSync(
+  resolve(__dirname, "../../supabase/functions/mobile-money-callback/index.ts"),
+  "utf8",
+);
+const configToml = readFileSync(
+  resolve(__dirname, "../../supabase/config.toml"),
+  "utf8",
+);
 
 describe("provider / action normalisation", () => {
   it("maps aliases to exactly one rail", () => {
@@ -197,5 +205,30 @@ describe("mobile-money function wiring", () => {
 
   it("Zamtel still answers through the truthful not-configured route", () => {
     expect(mobileMoneyFn).toContain('if (provider === "zamtel") return notConfigured("zamtel");');
+  });
+});
+
+describe("mobile-money-callback function (public hint receiver)", () => {
+  it("is verify_jwt=false while mobile-money keeps verify_jwt=true", () => {
+    expect(configToml).toContain("[functions.mobile-money-callback]\nverify_jwt = false");
+    expect(configToml).toContain("[functions.mobile-money]\nverify_jwt = true");
+  });
+
+  it("identifies via the hint RPC and settles only after a status re-query", () => {
+    expect(callbackFn).toContain('"record_mobile_money_callback_hint"');
+    expect(callbackFn).toContain('"settle_mobile_money_payment"');
+    expect(callbackFn).toContain("client.getStatus(");
+    // The settle call consumes the RE-QUERIED status object, never
+    // a status field read from the callback body.
+    const settleAt = callbackFn.indexOf('"settle_mobile_money_payment"');
+    const requeryAt = callbackFn.indexOf("client.getStatus(");
+    expect(requeryAt).toBeGreaterThan(-1);
+    expect(requeryAt).toBeLessThan(settleAt);
+    expect(callbackFn).toContain("p_provider_status: parsed.status");
+  });
+
+  it("always answers 200 shapes (received) rather than erroring providers", () => {
+    expect(callbackFn).toContain("json({ received: true, identified: false })");
+    expect(callbackFn).toContain("json({ received: true, identified: true })");
   });
 });
