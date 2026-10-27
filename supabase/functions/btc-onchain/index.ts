@@ -393,7 +393,16 @@ async function checkDeposits(supabase: any) {
           });
           if (rpcErr) throw rpcErr;
           seen++;
-          if (result === "credited") credited++;
+          if (result === "credited") {
+            credited++;
+            // Self-custody sell-to-ZMW (migration 20261235): if this
+            // user has an awaiting on-chain sell intent, convert the
+            // just-credited deposit via btc_settle_selfcustody_sell.
+            // Isolated: a conversion failure never breaks the scan —
+            // the BTC stays a normal custodial credit and the sell
+            // function's `check` action retries the conversion.
+            await trySettleSellIntents(admin, assignment.user_id, tx.txid, voutIndex);
+          }
         }
       }
     } catch (e) {
@@ -424,6 +433,42 @@ async function checkDeposits(supabase: any) {
     errors,
     link_attempts: linkAttempts,
   });
+}
+
+/**
+ * Self-custody sell-to-ZMW conversion attempt for one just-credited
+ * deposit: try the user's awaiting on-chain sell intents oldest-first
+ * (a deposit settles at most one intent — the settle RPC enforces it
+ * and stops mattering once this deposit is bound). Never throws.
+ */
+async function trySettleSellIntents(supabase: any, userId: string, txid: string, vout: number): Promise<void> {
+  try {
+    const { data: intents } = await supabase
+      .from("btc_selfcustody_sell_intents")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("rail", "onchain")
+      .eq("status", "awaiting")
+      .order("created_at", { ascending: true })
+      .limit(5);
+    for (const intent of intents ?? []) {
+      const { data, error } = await supabase.rpc("btc_settle_selfcustody_sell", {
+        p_intent_id: intent.id,
+        p_deposit_kind: "onchain",
+        p_txid: txid,
+        p_vout: vout,
+        p_lightning_payment_id: null,
+      });
+      if (error) {
+        console.error("check_deposits: sell-intent conversion failed (deposit unaffected):", error.message);
+        return;
+      }
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row?.outcome === "settled" || row?.outcome === "already_settled") return;
+    }
+  } catch (e) {
+    console.error("check_deposits: sell-intent conversion failed (deposit unaffected):", e);
+  }
 }
 
 /** "Pay with Bitcoin" attempts: scan each OPEN attempt's dedicated

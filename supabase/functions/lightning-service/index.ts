@@ -237,6 +237,41 @@ async function resolveOutboundSend(
   return "processing";
 }
 
+/**
+ * Self-custody sell-to-ZMW (migration 20261235): if this inbound
+ * payment is bound to a sell intent, convert its just-settled BTC
+ * credit to ZMW via btc_settle_selfcustody_sell. Isolated by design:
+ * a failure here NEVER affects the deposit settlement above — the
+ * BTC stays as a normal custodial credit and the sell function's
+ * `check` action retries the conversion.
+ */
+async function trySettleSellIntent(
+  admin: ReturnType<typeof getServiceRoleClient>,
+  paymentId: string,
+): Promise<void> {
+  try {
+    const { data: intent } = await admin
+      .from("btc_selfcustody_sell_intents")
+      .select("id")
+      .eq("lightning_payment_id", paymentId)
+      .eq("status", "awaiting")
+      .maybeSingle();
+    if (!intent) return;
+    const { error } = await admin.rpc("btc_settle_selfcustody_sell", {
+      p_intent_id: intent.id,
+      p_deposit_kind: "lightning",
+      p_txid: null,
+      p_vout: null,
+      p_lightning_payment_id: paymentId,
+    });
+    if (error) {
+      console.error("lightning-service: sell-intent conversion failed (deposit unaffected):", error.message);
+    }
+  } catch (e) {
+    console.error("lightning-service: sell-intent conversion failed (deposit unaffected):", e);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -521,7 +556,12 @@ serve(async (req) => {
         return json(200, { status: resolution });
       }
 
-      if (payment.status === "paid") return json(200, { status: "paid" });
+      if (payment.status === "paid") {
+        // Retry hook: if a sell-intent conversion was missed when
+        // this invoice settled, a later poll still completes it.
+        await trySettleSellIntent(admin, payment.id);
+        return json(200, { status: "paid" });
+      }
       if (payment.status === "expired" || payment.status === "failed") {
         return json(200, { status: payment.status });
       }
@@ -554,6 +594,10 @@ serve(async (req) => {
       const outcome = Array.isArray(settleRows) ? settleRows[0] : settleRows;
       if (!outcome) throw new Error("btc_settle_lightning_deposit returned no row");
       if (outcome.outcome === "credited" || outcome.outcome === "already_settled") {
+        // Self-custody sell-to-ZMW: convert the credit if this
+        // invoice was created for a sell intent (isolated; a failure
+        // leaves the BTC credit untouched for a later retry).
+        await trySettleSellIntent(admin, payment.id);
         return json(200, { status: "paid" });
       }
       // The row changed state under us (e.g. expired concurrently) —
