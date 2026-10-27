@@ -92,6 +92,14 @@ export interface MtnMomoEnvValues {
   /** Public callback host/URL MTN posts status hints to. */
   callbackUrl?: string | null;
   productionBaseUrl?: string | null;
+  /**
+   * Kill switch, resolved by the caller from
+   * platform_settings.mtn_momo_enabled (migration 20261236) — this
+   * module reads no database, so the caller passes the resolved
+   * value in. Anything other than literal `true` means the rail is
+   * OFF (default: off).
+   */
+  railEnabled?: boolean | null;
 }
 
 export interface MtnMomoConfig {
@@ -163,6 +171,57 @@ export function mtnMomoConfig(values: MtnMomoEnvValues): MtnMomoConfig {
 
 export const MTN_MOMO_NOT_CONFIGURED_MESSAGE =
   "MTN MoMo isn't connected yet — BMaGlass connects directly to MTN, and the merchant account with MTN Zambia is still being set up. No money has moved.";
+
+export const MTN_MOMO_DISABLED_MESSAGE =
+  "MTN MoMo is switched off on this platform right now. No money has moved — please try again later.";
+
+// ── Kill switch (platform_settings.mtn_momo_enabled) ────────────────
+
+/**
+ * The kill-switch read, exactly as the edge functions resolve it
+ * (same shape as the moonpay_enabled check in moonpay-session):
+ * only an explicit `true` on the settings row means ON. A missing
+ * row, a missing column value or `false` all mean OFF.
+ */
+export function mtnMomoRailEnabled(
+  settings: { mtn_momo_enabled?: boolean | null } | null | undefined,
+): boolean {
+  return settings?.mtn_momo_enabled === true;
+}
+
+export interface MtnMomoRailGate {
+  allowed: boolean;
+  status: "ready" | "not_configured" | "disabled";
+  /** Plain-language refusal when not allowed; null when allowed. */
+  error: string | null;
+}
+
+/**
+ * The rail gate every MTN MoMo money path must pass BEFORE any
+ * network call. Precedence mirrors moonpay-session:
+ *   1. Secrets absent → `not_configured` (the unchanged answer —
+ *      the flag is irrelevant until the rail is connected).
+ *   2. Secrets present + kill switch OFF → `disabled` refusal, so
+ *      the rail can be stopped without unsetting secrets.
+ *   3. Secrets present + switch ON → allowed; the existing
+ *      secret-presence/config logic has already decided the rest.
+ */
+export function mtnMomoRailGate(
+  config: MtnMomoConfig,
+  railEnabled: boolean,
+): MtnMomoRailGate {
+  if (!config.configured) {
+    return {
+      allowed: false,
+      status: "not_configured",
+      error: MTN_MOMO_NOT_CONFIGURED_MESSAGE,
+    };
+  }
+  if (!railEnabled) {
+    return { allowed: false, status: "disabled", error: MTN_MOMO_DISABLED_MESSAGE };
+  }
+  return { allowed: true, status: "ready", error: null };
+}
 
 export const MTN_MOMO_INVALID_PHONE_MESSAGE =
   "Enter the MTN number in international format (for example 2607XXXXXXXX).";

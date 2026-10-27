@@ -13,6 +13,11 @@
 // before all three would repeat the simulated-gateway failure this
 // platform already removed once.
 //
+// KILL SWITCH: callers resolve platform_settings.mtn_momo_enabled
+// (migration 20261236) into MtnMomoEnvValues.railEnabled. Configured
+// but switched OFF = MtnMomoDisabledError before any network call —
+// see mtnMomoRailGate in ./mtn-momo.ts.
+//
 // Money rules encoded here (for the day it is wired):
 //   - LEDGER FIRST: callers persist their row (with the reference
 //     UUID as the idempotency anchor) before requestToPay/transfer.
@@ -38,8 +43,10 @@ import {
   mtnMomoTokenPath,
   mtnMomoTransferPath,
   mtnMomoTransferStatusPath,
+  mtnMomoRailGate,
   parseMtnMomoBalance,
   parseMtnMomoTransaction,
+  MTN_MOMO_DISABLED_MESSAGE,
   MTN_MOMO_NOT_CONFIGURED_MESSAGE,
   type MtnMomoConfig,
   type MtnMomoEnvValues,
@@ -65,6 +72,18 @@ export class MtnMomoNotConfiguredError extends Error {
   constructor() {
     super(MTN_MOMO_NOT_CONFIGURED_MESSAGE);
     this.name = "MtnMomoNotConfiguredError";
+  }
+}
+
+/**
+ * The kill switch (platform_settings.mtn_momo_enabled) is OFF while
+ * the rail IS configured — thrown before any network call, so the
+ * rail can be stopped without unsetting secrets.
+ */
+export class MtnMomoDisabledError extends Error {
+  constructor() {
+    super(MTN_MOMO_DISABLED_MESSAGE);
+    this.name = "MtnMomoDisabledError";
   }
 }
 
@@ -113,12 +132,26 @@ export function createMtnMomoClient(
   const config = mtnMomoConfig(values);
   const tokens = new Map<MtnMomoProduct, CachedToken>();
 
+  // Kill switch (platform_settings.mtn_momo_enabled, resolved by the
+  // caller into values.railEnabled): when the rail is configured but
+  // switched OFF, every operation refuses with MtnMomoDisabledError
+  // BEFORE any network call. When the rail is not configured at all,
+  // the not-configured refusal keeps precedence (unchanged answer).
+  const gate = mtnMomoRailGate(config, values.railEnabled === true);
+
+  function requireRailEnabled(): void {
+    if (gate.status === "disabled") {
+      throw new MtnMomoDisabledError();
+    }
+  }
+
   function requireProduct(product: MtnMomoProduct): void {
     const ready =
       product === "collection" ? config.collectionConfigured : config.disbursementConfigured;
     if (!ready || !mtnMomoSubscriptionKey(config, product)) {
       throw new MtnMomoNotConfiguredError();
     }
+    requireRailEnabled();
   }
 
   async function call(
@@ -138,6 +171,7 @@ export function createMtnMomoClient(
       if (config.env !== "sandbox" || !config.collectionSubscriptionKey) {
         throw new MtnMomoNotConfiguredError();
       }
+      requireRailEnabled();
       await call(mtnMomoApiUserPath(), {
         method: "POST",
         headers: {
@@ -155,6 +189,7 @@ export function createMtnMomoClient(
       if (config.env !== "sandbox" || !config.collectionSubscriptionKey) {
         throw new MtnMomoNotConfiguredError();
       }
+      requireRailEnabled();
       const { text } = await call(mtnMomoApiKeyPath(apiUserId), {
         method: "POST",
         headers: {

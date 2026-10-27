@@ -27,6 +27,12 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { classifyProvider } from "../_shared/payment-providers.ts";
 import {
+  mtnMomoConfig,
+  mtnMomoRailEnabled,
+  mtnMomoRailGate,
+  MTN_MOMO_DISABLED_MESSAGE,
+} from "../_shared/mtn-momo.ts";
+import {
   buildKycDocumentInsertFields,
   buildKycDocumentUpdateFields,
 } from "../_shared/kyc-submission.ts";
@@ -220,6 +226,41 @@ async function checkKycLevel(
 
 // ── Provider actions (truthful refusal) ─────────────────────────────
 
+// MTN MoMo kill switch (platform_settings.mtn_momo_enabled,
+// migration 20261236 — same pattern as moonpay_enabled): when the
+// MTN secrets ARE present but the switch is OFF, MTN actions refuse
+// as `disabled` so the rail can be stopped without unsetting
+// secrets. While the secrets are absent the answer stays the
+// unchanged `not_configured` below, whatever the switch says — and
+// with secrets present + switch ON this function still has no MTN
+// ledger integration, so the truthful not_configured answer stands
+// until that wiring lands (pack §B5).
+async function mtnMomoDisabledRefusal(supabase: SupabaseClient) {
+  const config = mtnMomoConfig({
+    env: Deno.env.get("MTN_MOMO_ENV"),
+    collectionSubscriptionKey: Deno.env.get("MTN_MOMO_COLLECTION_SUBSCRIPTION_KEY"),
+    disbursementSubscriptionKey: Deno.env.get("MTN_MOMO_DISBURSEMENT_SUBSCRIPTION_KEY"),
+    apiUserId: Deno.env.get("MTN_MOMO_API_USER_ID"),
+    apiKey: <redacted>
+    targetEnvironment: Deno.env.get("MTN_MOMO_TARGET_ENVIRONMENT"),
+    callbackUrl: Deno.env.get("MTN_MOMO_CALLBACK_URL"),
+    productionBaseUrl: Deno.env.get("MTN_MOMO_PRODUCTION_BASE_URL"),
+  });
+  if (!config.configured) return null;
+  const { data: settings } = await supabase
+    .from("platform_settings")
+    .select("mtn_momo_enabled")
+    .eq("id", true)
+    .maybeSingle();
+  const gate = mtnMomoRailGate(config, mtnMomoRailEnabled(settings));
+  if (gate.status !== "disabled") return null;
+  return json({
+    success: false,
+    status: "disabled",
+    error: MTN_MOMO_DISABLED_MESSAGE,
+  });
+}
+
 function notConfigured(providerKey: string) {
   const route = classifyProvider(providerKey, {
     paypalConfigured: Boolean(
@@ -370,6 +411,10 @@ serve(async (req) => {
     // ── Provider actions: no live gateway is connected ──
     if (paymentMethod === "mobile-money") {
       const provider = String(requestData.provider || "mobile_money").toLowerCase();
+      if (provider === "mtn" || provider === "mtn_momo" || provider === "mtn-momo") {
+        const refusal = await mtnMomoDisabledRefusal(supabase);
+        if (refusal) return refusal;
+      }
       return notConfigured(provider);
     }
     if (paymentMethod === "bank-transfer") return notConfigured("bank_transfer");

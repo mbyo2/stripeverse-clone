@@ -30,16 +30,21 @@ import {
   mtnMomoBasicAuthHeader,
   mtnMomoConfig,
   mtnMomoMoneyCallHeaders,
+  mtnMomoRailEnabled,
+  mtnMomoRailGate,
   mtnMomoRequestToPayStatusPath,
   mtnMomoTokenPath,
   normaliseMsisdn,
   parseMtnMomoBalance,
   parseMtnMomoTransaction,
+  MTN_MOMO_DISABLED_MESSAGE,
+  MTN_MOMO_NOT_CONFIGURED_MESSAGE,
   MTN_MOMO_SANDBOX_BASE_URL,
 } from "../../supabase/functions/_shared/mtn-momo";
 import {
   createMtnMomoClient,
   MtnMomoApiError,
+  MtnMomoDisabledError,
   MtnMomoNotConfiguredError,
   type FetchLike,
 } from "../../supabase/functions/_shared/mtn-momo-server";
@@ -51,6 +56,9 @@ const SANDBOX_VALUES = {
   apiUserId: "api-user-uuid",
   apiKey: "api-key-123",
   callbackUrl: "https://example.test/callback",
+  // The fully-wired fixture: kill switch ON (platform_settings
+  // .mtn_momo_enabled resolved by the caller). Absent/false = OFF.
+  railEnabled: true,
 };
 
 describe("mtnMomoConfig", () => {
@@ -281,5 +289,97 @@ describe("server client (stubbed fetch)", () => {
     const err = await client.requestToPay("ref", {}).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(MtnMomoApiError);
     expect((err as MtnMomoApiError).kind).toBe("duplicate_reference");
+  });
+});
+
+describe("kill switch (platform_settings.mtn_momo_enabled)", () => {
+  const configured = mtnMomoConfig(SANDBOX_VALUES);
+  const unconfigured = mtnMomoConfig({});
+
+  it("resolves the settings row exactly like moonpay_enabled: only literal true is ON", () => {
+    expect(mtnMomoRailEnabled({ mtn_momo_enabled: true })).toBe(true);
+    expect(mtnMomoRailEnabled({ mtn_momo_enabled: false })).toBe(false);
+    expect(mtnMomoRailEnabled({ mtn_momo_enabled: null })).toBe(false);
+    expect(mtnMomoRailEnabled({})).toBe(false);
+    expect(mtnMomoRailEnabled(null)).toBe(false);
+    expect(mtnMomoRailEnabled(undefined)).toBe(false);
+  });
+
+  it("flag OFF + secrets present → refused as disabled (rail stoppable without unsetting secrets)", () => {
+    const gate = mtnMomoRailGate(configured, false);
+    expect(gate.allowed).toBe(false);
+    expect(gate.status).toBe("disabled");
+    expect(gate.error).toBe(MTN_MOMO_DISABLED_MESSAGE);
+  });
+
+  it("flag OFF + no secrets → refused with the UNCHANGED not_configured copy", () => {
+    const gate = mtnMomoRailGate(unconfigured, false);
+    expect(gate.allowed).toBe(false);
+    expect(gate.status).toBe("not_configured");
+    expect(gate.error).toBe(MTN_MOMO_NOT_CONFIGURED_MESSAGE);
+  });
+
+  it("flag ON + no secrets → not_configured, as before the switch existed", () => {
+    const gate = mtnMomoRailGate(unconfigured, true);
+    expect(gate.allowed).toBe(false);
+    expect(gate.status).toBe("not_configured");
+    expect(gate.error).toBe(MTN_MOMO_NOT_CONFIGURED_MESSAGE);
+  });
+
+  it("flag ON + secrets present → allowed (existing secret-presence logic decides the rest)", () => {
+    const gate = mtnMomoRailGate(configured, true);
+    expect(gate.allowed).toBe(true);
+    expect(gate.status).toBe("ready");
+    expect(gate.error).toBe(null);
+  });
+
+  it("server client: configured but switched OFF refuses before ANY network call", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("must not be called");
+    }) as unknown as FetchLike;
+    const client = createMtnMomoClient(
+      { ...SANDBOX_VALUES, railEnabled: false },
+      fetchImpl,
+    );
+    await expect(client.requestToPay("ref", {})).rejects.toBeInstanceOf(
+      MtnMomoDisabledError,
+    );
+    await expect(client.transfer("ref", {})).rejects.toBeInstanceOf(
+      MtnMomoDisabledError,
+    );
+    await expect(client.getBalance("collection")).rejects.toBeInstanceOf(
+      MtnMomoDisabledError,
+    );
+    await expect(
+      client.provisionSandboxApiUser("api-user-uuid"),
+    ).rejects.toBeInstanceOf(MtnMomoDisabledError);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("server client: flag value absent is OFF (fail-closed default)", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("must not be called");
+    }) as unknown as FetchLike;
+    const { railEnabled: _omit, ...noFlag } = SANDBOX_VALUES;
+    const client = createMtnMomoClient(noFlag, fetchImpl);
+    await expect(client.requestToPay("ref", {})).rejects.toBeInstanceOf(
+      MtnMomoDisabledError,
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("server client: no secrets keeps the not-configured refusal whatever the flag says", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("must not be called");
+    }) as unknown as FetchLike;
+    const offClient = createMtnMomoClient({ railEnabled: false }, fetchImpl);
+    await expect(offClient.requestToPay("ref", {})).rejects.toBeInstanceOf(
+      MtnMomoNotConfiguredError,
+    );
+    const onClient = createMtnMomoClient({ railEnabled: true }, fetchImpl);
+    await expect(onClient.requestToPay("ref", {})).rejects.toBeInstanceOf(
+      MtnMomoNotConfiguredError,
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
