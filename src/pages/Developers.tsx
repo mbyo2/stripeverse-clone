@@ -20,7 +20,7 @@ const ENDPOINTS = [
   { method: "GET", path: "/payment-links", scope: "payment_links:read", desc: "List your payment links — each carries its fee_payer plus the computed fee_amount, buyer_total and seller_receives" },
   { method: "POST", path: "/payment-links", scope: "payment_links:write", desc: "Create a payment link — live keys only; optional fee_payer ('seller' | 'buyer') overrides your account default for this link" },
   { method: "GET", path: "/payment-links/{id}/attempts", scope: "payment_links:read", desc: "A link's Bitcoin payment attempts — quote, sats received and status per attempt" },
-  { method: "GET", path: "/settings", scope: "any valid key", desc: "Your account's fee-bearer default (fee_payer_default) and the platform fee rate — set in your BMaGlass dashboard, read here" },
+  { method: "GET", path: "/settings", scope: "any valid key", desc: "Your account's fee-bearer default (fee_payer_default) and the platform fee rates (platform_fee_percent for wallet/Bitcoin link settlements, paypal_platform_fee_percent for PayPal collection) — set in your BMaGlass dashboard, read here" },
   { method: "GET", path: "/bitcoin/balance", scope: "bitcoin:read", desc: "Custodial Bitcoin balance (sats)" },
   { method: "GET", path: "/bitcoin/deposit-address", scope: "bitcoin:read", desc: "The custodial deposit address already issued to your account in the app" },
   { method: "POST", path: "/bitcoin/quote", scope: "bitcoin:read", desc: "60-second BTC buy/sell quote at the app's 1.5% fee — quote only, execution stays in the app" },
@@ -134,7 +134,7 @@ export default function Developers() {
             <p>Typed clients live in the public BMaGlass Pay connectors repository —
               <code>github.com/mbyo2/bmaglasspay-connectors</code> — under <code>sdk/</code> (they are not yet
               published to npm, PyPI, Packagist or pub.dev — install from that repo): TypeScript/JavaScript,
-              Python, PHP and React Native:</p>
+              Python, PHP, React Native and Flutter (Dart):</p>
             <pre className="bg-muted p-4 rounded-lg overflow-x-auto">{`# TypeScript / JavaScript — sdk/typescript (@bmaglass/sdk)
 import { BMaGlass } from "@bmaglass/sdk";
 const client = new BMaGlass({ apiKey: "bmp_test_…" });
@@ -151,7 +151,12 @@ $client = new Client(getenv("BMAGLASS_API_KEY"));
 $wallets = $client->wallets();
 
 # React Native / Expo — sdk/react-native (@bmaglass/sdk-react-native)
-import { BMaGlass } from "@bmaglass/sdk-react-native";`}</pre>
+import { BMaGlass } from "@bmaglass/sdk-react-native";
+
+# Flutter (Dart) — sdk/flutter (bmaglass_sdk)
+import 'package:bmaglass_sdk/bmaglass_sdk.dart';
+final client = BMaGlass(apiKey: "bmp_test_…");
+final wallets = await client.wallets();`}</pre>
             <Button asChild variant="outline"><Link to="/sdk-docs">SDK documentation</Link></Button>
           </CardContent>
         </Card>

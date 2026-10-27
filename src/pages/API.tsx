@@ -403,6 +403,8 @@ const API = () => {
                         { fn: "POST /transfers", desc: "Wallet-to-wallet transfer, 1.5% fee — live keys only, scope transfers:write" },
                         { fn: "GET /payment-links", desc: "List payment links — scope payment_links:read" },
                         { fn: "POST /payment-links", desc: "Create a payment link — live keys only, scope payment_links:write" },
+                        { fn: "GET /payment-links/{id}/attempts", desc: "A link's Bitcoin payment attempts — scope payment_links:read" },
+                        { fn: "GET /settings", desc: "Your fee-bearer default and the platform fee rates (link rate + PayPal rate) — any valid key" },
                         { fn: "GET /bitcoin/balance", desc: "Custodial Bitcoin balance — scope bitcoin:read" },
                         { fn: "GET /bitcoin/deposit-address", desc: "Your issued custodial deposit address — scope bitcoin:read" },
                         { fn: "POST /bitcoin/quote", desc: "60-second BTC buy/sell quote (execution stays in the app) — scope bitcoin:read" },

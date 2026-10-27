@@ -16,6 +16,7 @@ const ROUTES = [
   { id: "wallets", label: "GET /wallets", method: "GET", path: "wallets" },
   { id: "transactions", label: "GET /transactions?limit=10", method: "GET", path: "transactions?limit=10" },
   { id: "payment-links", label: "GET /payment-links", method: "GET", path: "payment-links" },
+  { id: "settings", label: "GET /settings", method: "GET", path: "settings" },
   { id: "bitcoin-balance", label: "GET /bitcoin/balance", method: "GET", path: "bitcoin/balance" },
   { id: "bitcoin-address", label: "GET /bitcoin/deposit-address", method: "GET", path: "bitcoin/deposit-address" },
   { id: "webhooks", label: "GET /webhooks", method: "GET", path: "webhooks" },

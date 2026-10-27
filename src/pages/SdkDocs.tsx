@@ -71,6 +71,24 @@ try {
 // Webhook verification (exact raw body + X-BMaGlass-Signature header):
 $ok = Client::verifyWebhookSignature($rawBody, $signatureHeader, $webhookSecret);`;
 
+const FLUTTER_EXAMPLE = `import 'package:bmaglass_sdk/bmaglass_sdk.dart';
+
+final client = BMaGlass(apiKey: 'bmp_test_…'); // test keys are read-only
+
+final wallets = await client.wallets();
+final settings = await client.settings(); // fee_payer_default + the platform's fee rates
+
+// Live keys only — a test key throws BMaGlassException with code "test_mode_read_only":
+try {
+  final link = await client.createPaymentLink(title: 'Order #7', amount: 250, currency: 'ZMW');
+  final url = BMaGlass.paymentLinkUrl(link.linkCode); // hosted page for the buyer
+} on BMaGlassException catch (e) {
+  showMessage(e.userMessage()); // plain language, safe to show
+}
+
+// Webhook verification (exact raw body + X-BMaGlass-Signature header):
+final event = parseWebhookEvent(rawBody, signatureHeader, webhookSecret);`;
+
 const RN_EXAMPLE = `import { BMaGlass, BMaGlassError, paymentLinkUrl, verifyWebhookSignature } from "@bmaglass/sdk-react-native";
 
 const client = new BMaGlass({ apiKey: "bmp_test_…" }); // test keys are read-only
@@ -95,9 +113,9 @@ export default function SdkDocs() {
         <div>
           <h1 className="text-3xl font-bold mb-2 flex items-center gap-2"><Code2 className="h-7 w-7" /> SDK Documentation</h1>
           <p className="text-muted-foreground">
-            Four SDKs ship in the public BMaGlass Pay connectors repository
-            (<code>github.com/mbyo2/bmaglasspay-connectors</code>) under <code>sdk/</code>: TypeScript, Python, PHP
-            and React Native. They are not yet published to npm, PyPI or Packagist — install them from that
+            Five SDKs ship in the public BMaGlass Pay connectors repository
+            (<code>github.com/mbyo2/bmaglasspay-connectors</code>) under <code>sdk/</code>: TypeScript, Python, PHP,
+            React Native and Flutter (Dart). They are not yet published to npm, PyPI, Packagist or pub.dev — install them from that
             repository. Each covers every endpoint of the shipped developer-api, uses API-key auth, raises
             typed errors, and includes a webhook signature verification helper. Contract tests for each
             live beside it (the shared HMAC known-answer vector is identical across all of them).
@@ -110,6 +128,7 @@ export default function SdkDocs() {
             <TabsTrigger value="py">Python</TabsTrigger>
             <TabsTrigger value="php">PHP</TabsTrigger>
             <TabsTrigger value="rn">React Native</TabsTrigger>
+            <TabsTrigger value="flutter">Flutter</TabsTrigger>
           </TabsList>
           <TabsContent value="ts">
             <Card>
@@ -156,6 +175,19 @@ php sdk/php/tests/run-tests.php   # the test suite`}</pre>
                 <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`# React Native / Expo. Add from the repo, e.g.
 # "dependencies": { "@bmaglass/sdk-react-native": "file:../sdk/react-native" }`}</pre>
                 <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{RN_EXAMPLE}</pre>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="flutter">
+            <Card>
+              <CardHeader>
+                <CardTitle>bmaglass_sdk <Badge variant="outline">v1.0.0 · sdk/flutter</Badge></CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`# Pure-Dart package (no Flutter engine needed for the client itself). Not published on pub.dev —
+# depend on it from the connectors repo, e.g. a path/git dependency on sdk/flutter.
+cd sdk/flutter && dart test   # the test suite (dart analyze is clean)`}</pre>
+                <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{FLUTTER_EXAMPLE}</pre>
               </CardContent>
             </Card>
           </TabsContent>

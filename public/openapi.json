@@ -201,7 +201,7 @@
     "/settings": {
       "get": {
         "summary": "The merchant's account settings that connected clients inherit",
-        "description": "Returns the merchant's payment-link fee-bearer default (fee_payer_default: 'seller' \u2014 the platform fee comes out of what the seller receives; 'buyer' \u2014 the fee is added on top of the price and the seller receives the full price) and the platform's current payment-link fee rate (platform_fee_percent). The default is set by the merchant in the BMaGlass Pay dashboard (Settings > Payment) \u2014 plugins, extensions and SDKs have no fee-bearer setting of their own; they read it here and inherit it. Read-only; available to any valid API key (test keys included).",
+        "description": "Returns the merchant's payment-link fee-bearer default (fee_payer_default: 'seller' \u2014 the platform fee comes out of what the seller receives; 'buyer' \u2014 the fee is added on top of the price and the seller receives the full price) the platform's current payment-link fee rate (platform_fee_percent — the wallet/Bitcoin settlement rate) and the PayPal collection rate (paypal_platform_fee_percent — charged instead of the link rate when a payment is collected through PayPal). The default is set by the merchant in the BMaGlass Pay dashboard (Settings > Payment) \u2014 plugins, extensions and SDKs have no fee-bearer setting of their own; they read it here and inherit it. Read-only; available to any valid API key (test keys included).",
         "responses": {
           "200": {
             "description": "The merchant's effective fee-bearer default and the platform fee rate."
