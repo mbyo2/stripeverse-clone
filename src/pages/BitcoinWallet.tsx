@@ -27,6 +27,7 @@ import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound, ArrowUpRigh
 import { useMoonpay } from "@/hooks/useMoonpay";
 import { MOONPAY_COMING_SOON_COPY } from "@/config/moonpay";
 import { LightningSend } from "@/components/bitcoin/LightningSend";
+import { LnurlSend } from "@/components/bitcoin/LnurlSend";
 import { QrScanButton } from "@/components/QrScanButton";
 import {
   classifySendInput,
@@ -277,32 +278,31 @@ function LightningDeposit({ onDone, onUseOnchain }: { onDone: () => void; onUseO
 }
 
 /**
- * Unified routing (close-out B1): a pasted or scanned Lightning
- * address / LNURL classifies as a typed LNURL intent, surfaced here
- * through the onLnurlIntent callback the send forms call. The LNURL
- * send actions are a separate workstream — until they land, this
- * panel says so truthfully and points at the working paths. It never
- * offers a send of its own.
+ * Unified routing (close-out B1) + LNURL actions (close-out B2): a
+ * pasted or scanned Lightning address / LNURL classifies as a typed
+ * LNURL intent, surfaced here through the onLnurlIntent callback the
+ * send forms call, and handed to the LnurlSend flow — which resolves
+ * the destination and pays (or claims a withdraw) through the
+ * lightning-service lnurl_* actions: reserve-first, settlement only
+ * by read-back, exactly the reviewed amount.
  */
-function LnurlIntentPanel({ intent, onBack }: { intent: LnurlIntent; onBack: () => void }) {
-  const isAddress = intent.type === "lightningAddress";
+function LnurlIntentPanel({
+  intent,
+  onBack,
+  onDone,
+}: {
+  intent: LnurlIntent;
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const destination =
+    intent.type === "lightningAddress" ? intent.address : intent.lnurl;
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border p-3 space-y-2">
-        <p className="text-sm font-medium">
-          {isAddress ? "Lightning address recognised" : "LNURL recognised"}
-        </p>
-        <p className="font-mono text-xs break-all text-muted-foreground">
-          {isAddress ? intent.address : intent.url}
-        </p>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        {isAddress
-          ? "Lightning address support is being switched on — you can't send to a Lightning address from this wallet just yet."
-          : "LNURL support is being switched on — you can't send to an LNURL from this wallet just yet."}{" "}
-        For now, ask the person you're paying for a Lightning invoice
-        (lnbc…) and paste that instead — or send to a Bitcoin address on-chain.
-      </p>
+      <LnurlSend
+        intent={{ kind: intent.type, destination }}
+        onDone={onDone}
+      />
       <Button variant="outline" className="w-full" onClick={onBack}>
         Back to send
       </Button>
@@ -1251,7 +1251,7 @@ export default function BitcoinWallet() {
                   </DialogHeader>
 
                   {lnurlIntent ? (
-                    <LnurlIntentPanel intent={lnurlIntent} onBack={() => setLnurlIntent(null)} />
+                    <LnurlIntentPanel intent={lnurlIntent} onBack={() => setLnurlIntent(null)} onDone={handleDone} />
                   ) : (
                     <Tabs value={sendTab} onValueChange={setSendTab} className="w-full">
                       <TabsList className="grid w-full grid-cols-2">

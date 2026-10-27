@@ -16,10 +16,11 @@
  *   lnurl             → a typed LNURL intent (see LnurlIntent)
  *   invalid           → shown to the user as-is; plain language only
  *
- * LNURL intents are SURFACED, not executed: the LNURL send actions
- * are a separate workstream. Until they land, the UI says so
- * truthfully ("Lightning address support is being switched on") —
- * this module never pretends an intent is a send path.
+ * LNURL intents are SURFACED by this module, not executed: the
+ * wallet hands them to the LnurlSend flow (close-out B2), which
+ * resolves and pays/claims through the lightning-service lnurl_*
+ * actions. This module stays a pure classifier — it never pretends
+ * an intent is itself a send path.
  *
  * Validation is checksum-real, not structural:
  *   - BOLT11 is decoded with the bech32 checksum verified, mirroring

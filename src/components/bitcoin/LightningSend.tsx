@@ -174,9 +174,9 @@ export function LightningSend({
           onLnurlIntent(classified.intent);
         } else {
           toast({
-            title: "Not available yet",
+            title: "That's a Lightning address",
             description:
-              "Lightning address support is being switched on — for now, ask for a Lightning invoice (lnbc…) and paste that instead.",
+              "Lightning addresses and LNURL open in the wallet's Send flow — use Send BTC on your Bitcoin wallet to pay it.",
           });
         }
         return;

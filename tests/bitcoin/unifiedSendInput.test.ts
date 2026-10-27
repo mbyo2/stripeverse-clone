@@ -18,8 +18,8 @@
 //   4. The wiring: both custodial send tabs classify before they
 //      fill or review, route bolt11 → LightningSend and on-chain →
 //      the on-chain form, and surface LNURL intents through the
-//      onLnurlIntent callback with truthful "being switched on"
-//      copy — never a fake send path.
+//      onLnurlIntent callback into the LnurlSend flow (B2) —
+//      the classifier itself never pretends to be a send path.
 
 import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "node:fs";
@@ -432,17 +432,20 @@ describe("unified routing wiring — the custodial send tabs", () => {
     expect(walletPage).toContain("routedAddress");
   });
 
-  it("LNURL intents surface truthfully — being switched on, never a fake send", () => {
-    expect(walletPage).toContain("Lightning address support is being switched on");
+  it("LNURL intents hand off to the real LnurlSend flow (B2 integration)", () => {
     expect(walletPage).toContain("lnurlIntent");
-    // The intent panel offers no send/pay action of its own.
+    expect(walletPage).toContain("LnurlSend");
+    // The intent panel mounts the LnurlSend component with the classified
+    // destination — the placeholder copy from before the LNURL actions
+    // landed must never come back.
     const panel = walletPage.slice(
       walletPage.indexOf("function LnurlIntentPanel"),
       walletPage.indexOf("function SendOnchain"),
     );
-    expect(panel).toContain("being switched on");
-    expect(panel).not.toContain("pay_invoice");
-    expect(panel).not.toContain("supabase.functions.invoke");
+    expect(panel).toContain("LnurlSend");
+    expect(panel).toContain("intent.type");
+    expect(panel).not.toContain("being switched on");
+    expect(walletPage).not.toContain("being switched on");
   });
 
   it("the classifier library itself is pure — no network, no storage, no sends", () => {
