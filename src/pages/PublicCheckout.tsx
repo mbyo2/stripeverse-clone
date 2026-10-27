@@ -304,12 +304,14 @@ const PublicCheckout = () => {
   // the expectation honestly and can never be clicked through to the
   // server's not_configured failure. The BMaGlass Wallet tile is the
   // one internal rail and stays fully live for signed-in payers.
+  // Bitcoin is listed FIRST (standing CEO rule, reaffirmed
+  // 2026-10-28) — ahead of the wallet tile even for signed-in payers.
   const methods = [
-    ...(payerId ? [{ id: 'wallet' as const, icon: Wallet, label: 'BMaGlass Wallet', available: true }] : []),
     ...(bitcoinAvailable ? [
       { id: 'bitcoin' as const, icon: Bitcoin, label: 'Bitcoin', available: true },
       { id: 'lightning' as const, icon: Zap, label: 'Lightning', available: true },
     ] : []),
+    ...(payerId ? [{ id: 'wallet' as const, icon: Wallet, label: 'BMaGlass Wallet', available: true }] : []),
     { id: 'card' as const, icon: CreditCard, label: 'Card', available: false },
     { id: 'mobile_money' as const, icon: Smartphone, label: 'Mobile Money', available: false },
     { id: 'bank' as const, icon: Building2, label: 'Bank', available: false },

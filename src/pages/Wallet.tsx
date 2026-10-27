@@ -15,7 +15,7 @@ import QuickActions from "@/components/wallet/QuickActions";
 import VirtualCardManager from "@/components/wallet/VirtualCardManager";
 import PaymentMethodList from "@/components/wallet/PaymentMethodList";
 import TransactionHistory from "@/components/wallet/TransactionHistory";
-import { PlusCircle, MinusCircle, Wallet as WalletIcon, CreditCard, Clock, ArrowRight, ChevronRight, Info } from "lucide-react";
+import { PlusCircle, MinusCircle, Wallet as WalletIcon, CreditCard, Clock, ArrowRight, ChevronRight, Info, Bitcoin } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useState } from "react";
@@ -29,6 +29,8 @@ import { useMoonpay } from "@/hooks/useMoonpay";
 import { PAYPAL_AVAILABLE } from "@/config/paypal";
 import { MOBILE_MONEY_AVAILABLE } from "@/config/mobileMoney";
 import { getDepositMethodOptions, selectDefaultDepositMethod } from "@/utils/depositMethods";
+import PayPalFundingOptions from "@/components/payments/PayPalFundingOptions";
+import { DEFAULT_PAYPAL_FUNDING, type PayPalFunding } from "@/utils/paypalFunding";
 import PayPalWithdraw from "@/components/wallet/PayPalWithdraw";
 import { PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE } from "@/utils/paypalPayout";
 import { useAccount } from "@/contexts/AccountContext";
@@ -56,6 +58,12 @@ const Wallet = () => {
   });
   const [depositMethod, setDepositMethod] = useState(() =>
     selectDefaultDepositMethod(depositOptions),
+  );
+  // When PayPal is the method, HOW the user pays through PayPal
+  // (card via PayPal, or their PayPal account) — steering only; the
+  // deposit itself is the same PayPal order either way.
+  const [paypalFunding, setPaypalFunding] = useState<PayPalFunding>(
+    DEFAULT_PAYPAL_FUNDING,
   );
 
   // Completes a PayPal deposit when the user returns from approval
@@ -93,6 +101,7 @@ const Wallet = () => {
         paymentMethod: depositMethod,
         walletId: wallet?.id,
         currency: wallet?.currency,
+        paypalFunding: depositMethod === 'paypal' ? paypalFunding : undefined,
       });
       setAmount("");
     }
@@ -119,6 +128,24 @@ const Wallet = () => {
         <Label htmlFor="deposit-method" className="text-sm font-medium">
           Deposit method
         </Label>
+        {/* Bitcoin first (standing CEO rule): Bitcoin is added in the
+            Bitcoin wallet, not into this cash wallet — this entry is
+            the first method shown and takes the user to where a
+            Bitcoin deposit actually completes. */}
+        <button
+          type="button"
+          onClick={() => navigate('/bitcoin-wallet')}
+          className="w-full flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left hover:border-primary/50 transition-colors"
+        >
+          <Bitcoin className="h-5 w-5 shrink-0 text-primary" />
+          <span className="flex-1">
+            <span className="block text-sm font-medium">Bitcoin</span>
+            <span className="block text-xs text-muted-foreground">
+              Add Bitcoin in your Bitcoin wallet — on-chain or Lightning.
+            </span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
         <Select value={depositMethod} onValueChange={setDepositMethod}>
           <SelectTrigger id="deposit-method">
             <SelectValue placeholder="Select deposit method" />
@@ -160,6 +187,9 @@ const Wallet = () => {
           <p className="text-xs text-muted-foreground text-center">
             {PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE}
           </p>
+        )}
+        {depositMethod === 'paypal' && PAYPAL_AVAILABLE && (
+          <PayPalFundingOptions value={paypalFunding} onChange={setPaypalFunding} />
         )}
       </div>
       <Button

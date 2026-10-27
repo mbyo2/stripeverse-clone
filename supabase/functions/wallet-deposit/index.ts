@@ -41,7 +41,12 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { classifyProvider, paypalDepositCurrencyRefusal } from "../_shared/payment-providers.ts";
+import {
+  classifyProvider,
+  paypalDepositCurrencyRefusal,
+  paypalFundingIntent,
+  paypalLandingPageForFunding,
+} from "../_shared/payment-providers.ts";
 import { getPayPalAccessToken, paypalBaseUrl } from "../_shared/paypal-deposit.ts";
 import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 import { paypalErrorTrace } from "../_shared/deposit-capture.ts";
@@ -99,6 +104,11 @@ serve(async (req) => {
     // caller cannot steer PayPal's redirect to an arbitrary scheme.
     const returnUrl = sanitizeRedirectUrl(body.return_url);
     const cancelUrl = sanitizeRedirectUrl(body.cancel_url);
+    // The depositor's chosen way to pay THROUGH PayPal (card via
+    // PayPal, or PayPal account): validated against the two known
+    // intents; anything else is dropped, never forwarded to PayPal.
+    const fundingIntent = paypalFundingIntent(body.paypal_funding);
+    const landingPage = paypalLandingPageForFunding(body.paypal_funding);
     if (body.return_url && !returnUrl) logStep("Ignored non-https return_url");
     if (body.cancel_url && !cancelUrl) logStep("Ignored non-https cancel_url");
     logStep("Deposit request", { amount, paymentMethod, userId: user.id });
@@ -202,6 +212,7 @@ serve(async (req) => {
       description: "BMaGlass Pay wallet deposit",
       returnUrl,
       cancelUrl,
+      landingPage,
       requestId: `wallet-deposit-order-${transactionUuid}`,
     });
     if (!order) {
@@ -230,7 +241,12 @@ serve(async (req) => {
         reference: order.id,
         description: "Wallet deposit via PayPal (awaiting confirmation)",
         category: "deposit",
-        metadata: { kind: "wallet_deposit", wallet_id: wallet.id, paypal_order_id: order.id },
+        metadata: {
+          kind: "wallet_deposit",
+          wallet_id: wallet.id,
+          paypal_order_id: order.id,
+          ...(fundingIntent ? { paypal_funding: fundingIntent } : {}),
+        },
       })
       .select("uuid_id")
       .single();
@@ -292,18 +308,24 @@ async function createPayPalOrder(
     description?: string;
     returnUrl?: string | null;
     cancelUrl?: string | null;
+    /** Orders API landing_page steering for the chosen PayPal
+     *  funding intent (BILLING = card form first, LOGIN = PayPal
+     *  sign-in first); null = no steering, as before. */
+    landingPage?: "LOGIN" | "BILLING" | null;
     requestId: string;
   },
 ): Promise<{ id: string; approvalUrl: string | null } | null> {
   const baseUrl = paypalBaseUrl();
   // PayPal sends the user back to these URLs after approval/cancel;
   // without them the deposit-capture return flow can never fire.
-  // Included only when at least one valid URL was supplied, so order
-  // creation is byte-identical to before when they are absent.
-  const applicationContext = input.returnUrl || input.cancelUrl
+  // Included only when at least one valid URL (or a landing page)
+  // was supplied, so order creation is byte-identical to before
+  // when they are all absent.
+  const applicationContext = input.returnUrl || input.cancelUrl || input.landingPage
     ? {
         ...(input.returnUrl ? { return_url: input.returnUrl } : {}),
         ...(input.cancelUrl ? { cancel_url: input.cancelUrl } : {}),
+        ...(input.landingPage ? { landing_page: input.landingPage } : {}),
       }
     : undefined;
   try {

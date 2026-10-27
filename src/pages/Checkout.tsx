@@ -13,6 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { usePayPalCheckoutReturn } from "@/hooks/usePayPalCheckoutReturn";
 import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from "@/config/paypal";
+import PayPalFundingOptions from "@/components/payments/PayPalFundingOptions";
+import { DEFAULT_PAYPAL_FUNDING, type PayPalFunding } from "@/utils/paypalFunding";
 import MobileMoneyPayment from "@/components/payments/MobileMoneyPayment";
 import UssdPayment from "@/components/payments/UssdPayment";
 import BitcoinPayment from "@/components/payments/BitcoinPayment";
@@ -73,6 +75,12 @@ const Checkout = () => {
   const [paymentComplete, setPaymentComplete] = useState<CheckoutResponse | null>(null);
   const [startingPaypal, setStartingPaypal] = useState(false);
   const [paypalError, setPaypalError] = useState<string | null>(null);
+  // When PayPal is the method, HOW the buyer pays through PayPal
+  // (card via PayPal, or their PayPal account) — steering only; the
+  // payment itself is the same PayPal order either way.
+  const [paypalFunding, setPaypalFunding] = useState<PayPalFunding>(
+    DEFAULT_PAYPAL_FUNDING,
+  );
 
   const handlePaymentComplete = (response: CheckoutResponse) => {
     setPaymentComplete(response);
@@ -97,6 +105,7 @@ const Checkout = () => {
           currency,
           paymentMethod: "paypal",
           provider: "paypal",
+          paypal_funding: paypalFunding,
           description: productName,
           metadata: {
             merchant_user_id: merchantUserId,
@@ -267,6 +276,16 @@ const Checkout = () => {
         <div className="max-w-md mx-auto mb-8">
           <h2 className="text-2xl font-bold mb-4">Select Payment Method</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Bitcoin first (standing CEO rule: Bitcoin features
+                lead every method picker). The direct Card button is
+                its own top-level method — it is NOT card-via-PayPal,
+                which lives inside the PayPal method's options. */}
+            <Button
+              variant={selectedPaymentMethod === "bitcoin" ? "default" : "outline"}
+              onClick={() => setSelectedPaymentMethod("bitcoin")}
+            >
+              Bitcoin
+            </Button>
             <Button
               variant={selectedPaymentMethod === "mobile" ? "default" : "outline"}
               onClick={() => setSelectedPaymentMethod("mobile")}
@@ -284,12 +303,6 @@ const Checkout = () => {
               onClick={() => setSelectedPaymentMethod("ussd")}
             >
               USSD
-            </Button>
-            <Button
-              variant={selectedPaymentMethod === "bitcoin" ? "default" : "outline"}
-              onClick={() => setSelectedPaymentMethod("bitcoin")}
-            >
-              Bitcoin
             </Button>
             <Button
               variant={selectedPaymentMethod === "paypal" ? "default" : "outline"}
@@ -344,6 +357,7 @@ const Checkout = () => {
             <div className="bg-card rounded-lg shadow p-4 mb-4 border border-border space-y-4">
               {merchantUserId ? (
                 <>
+                  <PayPalFundingOptions value={paypalFunding} onChange={setPaypalFunding} />
                   <p className="text-sm text-muted-foreground">
                     You'll be redirected to PayPal to approve {formatCurrency(amount)}. The
                     payment completes only after PayPal confirms it — the merchant is settled
@@ -360,7 +374,11 @@ const Checkout = () => {
                       Cancel
                     </Button>
                     <Button onClick={startPayPal} disabled={startingPaypal}>
-                      {startingPaypal ? "Starting…" : `Pay with PayPal`}
+                      {startingPaypal
+                        ? "Starting…"
+                        : paypalFunding === "paypal_card"
+                          ? "Pay by card via PayPal"
+                          : "Pay with PayPal account"}
                     </Button>
                   </div>
                 </>
