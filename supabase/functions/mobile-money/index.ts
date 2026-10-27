@@ -241,7 +241,7 @@ async function mtnMomoDisabledRefusal(supabase: SupabaseClient) {
     collectionSubscriptionKey: Deno.env.get("MTN_MOMO_COLLECTION_SUBSCRIPTION_KEY"),
     disbursementSubscriptionKey: Deno.env.get("MTN_MOMO_DISBURSEMENT_SUBSCRIPTION_KEY"),
     apiUserId: Deno.env.get("MTN_MOMO_API_USER_ID"),
-    apiKey: <redacted>
+    apiKey: <redacted>"MTN_MOMO_API_KEY")
     targetEnvironment: Deno.env.get("MTN_MOMO_TARGET_ENVIRONMENT"),
     callbackUrl: Deno.env.get("MTN_MOMO_CALLBACK_URL"),
     productionBaseUrl: Deno.env.get("MTN_MOMO_PRODUCTION_BASE_URL"),
