@@ -181,13 +181,21 @@ describe("LightningSend UI (source proof)", () => {
 
 describe("BitcoinWallet send dialog (source proof)", () => {
   it("Send is a two-tab dialog: On-chain + Lightning", () => {
-    expect(walletPage).toContain("<LightningSend onDone={handleDone} />");
+    // Close-out B1: LightningSend additionally receives the unified
+    // routing props (a routed-in invoice + the route-back callbacks);
+    // it is still mounted by the send dialog with onDone={handleDone}.
+    expect(walletPage).toContain("<LightningSend");
+    expect(walletPage).toContain("onDone={handleDone}");
+    expect(walletPage).toContain("initialInvoice={routedInvoice?.invoice}");
     expect(walletPage).toContain("<DialogTitle>Send Bitcoin</DialogTitle>");
     expect(walletPage).not.toContain("<DialogTitle>Send Bitcoin (on-chain)</DialogTitle>");
   });
 
   it("the on-chain scan toast no longer claims Lightning lives only in self-custody", () => {
     expect(walletPage).not.toContain("pay Lightning codes from your self-custody wallet");
-    expect(walletPage).toContain("open the Lightning tab above to pay a Lightning invoice");
+    // Close-out B1: a scanned invoice no longer needs the manual
+    // "open the Lightning tab" instruction — the form routes it
+    // there itself, and the toast says so.
+    expect(walletPage).toContain("We've opened the Lightning tab with it filled in");
   });
 });
