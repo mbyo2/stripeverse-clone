@@ -11,7 +11,7 @@ export interface Transaction {
   amount: number;
   currency: string;
   direction: 'incoming' | 'outgoing';
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
   description?: string;
   reference?: string;
   recipient_name?: string;
@@ -50,7 +50,7 @@ export const useTransactions = (limit?: number, walletIds?: string[]) => {
       return (data || []).map(tx => ({
         ...tx,
         direction: tx.direction as 'incoming' | 'outgoing',
-        status: tx.status as 'pending' | 'completed' | 'failed'
+        status: tx.status as 'pending' | 'completed' | 'failed' | 'cancelled'
       }));
     },
     enabled: !!user?.id,

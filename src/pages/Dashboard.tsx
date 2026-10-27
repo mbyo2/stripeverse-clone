@@ -43,7 +43,7 @@ import PageErrorState from "@/components/PageErrorState";
 import { useProfile, resolveFirstName } from "@/hooks/useProfile";
 import FrozenAccountBanner from "@/components/FrozenAccountBanner";
 import { shouldShowFrozenBanner } from "@/utils/frozenBanner";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { useCurrency, toSupportedCurrency } from "@/contexts/CurrencyContext";
 import { useAccount } from "@/contexts/AccountContext";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { groupWalletsByAccount } from "@/utils/accountGrouping";
@@ -255,7 +255,9 @@ const Dashboard = () => {
                         transaction.direction === "outgoing" ? "text-destructive" : "text-success"
                       }`}>
                         {transaction.direction === "outgoing" ? "-" : "+"}
-                        {formatAmount(transaction.amount)}
+                        {/* The row's own currency (a USD row reads
+                            $5.00, not K5.00). */}
+                        {formatAmount(transaction.amount, toSupportedCurrency(transaction.currency))}
                       </span>
                     </div>
                   ))}

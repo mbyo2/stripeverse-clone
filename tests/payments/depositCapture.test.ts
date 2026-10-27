@@ -17,6 +17,7 @@ import {
   parseMoney,
   paypalErrorTrace,
   paypalOrderStatus,
+  planCancellation,
   planCompletion,
   verifyCapture,
   type CapturedPayment,
@@ -242,5 +243,58 @@ describe("paypalErrorTrace (audit L1: logs carry trace fields, never raw bodies)
     expect(paypalErrorTrace(403, JSON.stringify({ error: "forbidden" }))).toEqual({
       status: 403, name: null, debugId: null,
     });
+  });
+});
+
+describe("planCancellation (payer-cancel return: flip only on PayPal's verified word)", () => {
+  const neverApproved = { orderStatus: "CREATED", hasCompletedCapture: false };
+
+  it("flips a still-pending row when PayPal shows the order was never approved", () => {
+    expect(planCancellation("pending", neverApproved)).toBe("mark_cancelled");
+    expect(
+      planCancellation("pending", { orderStatus: "PAYER_ACTION_REQUIRED", hasCompletedCapture: false }),
+    ).toBe("mark_cancelled");
+    expect(
+      planCancellation("pending", { orderStatus: "SAVED", hasCompletedCapture: false }),
+    ).toBe("mark_cancelled");
+    expect(
+      planCancellation("pending", { orderStatus: "VOIDED", hasCompletedCapture: false }),
+    ).toBe("mark_cancelled");
+  });
+
+  it("never flips when a completed capture exists — the confirmation path governs", () => {
+    expect(
+      planCancellation("pending", { orderStatus: "CREATED", hasCompletedCapture: true }),
+    ).toBe("confirm_instead");
+    expect(
+      planCancellation("pending", { orderStatus: "COMPLETED", hasCompletedCapture: true }),
+    ).toBe("confirm_instead");
+  });
+
+  it("never flips an approved order — approval means money is in flight", () => {
+    expect(
+      planCancellation("pending", { orderStatus: "APPROVED", hasCompletedCapture: false }),
+    ).toBe("confirm_instead");
+    expect(
+      planCancellation("pending", { orderStatus: "COMPLETED", hasCompletedCapture: false }),
+    ).toBe("confirm_instead");
+  });
+
+  it("fails closed on an unknown or missing PayPal status", () => {
+    expect(
+      planCancellation("pending", { orderStatus: "SOMETHING_NEW", hasCompletedCapture: false }),
+    ).toBe("confirm_instead");
+    expect(
+      planCancellation("pending", { orderStatus: null, hasCompletedCapture: false }),
+    ).toBe("confirm_instead");
+  });
+
+  it("never touches a completed row, and reports replays truthfully", () => {
+    expect(planCancellation("completed", neverApproved)).toBe("already_completed");
+    expect(
+      planCancellation("completed", { orderStatus: "COMPLETED", hasCompletedCapture: true }),
+    ).toBe("already_completed");
+    expect(planCancellation("cancelled", neverApproved)).toBe("already_cancelled");
+    expect(planCancellation("failed", neverApproved)).toBe("not_pending");
   });
 });

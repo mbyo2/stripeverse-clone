@@ -20,16 +20,29 @@
 //
 // Auth: user JWT required, and the deposit must belong to the caller.
 //
-// Input:  { order_id }
+// Input:  { order_id, action?: "confirm" | "cancel" }
+//   - "confirm" (default): the return-from-approval flow above.
+//   - "cancel": the payer returned via PayPal's cancel URL. The claim
+//     is verified against PayPal's own order state before anything is
+//     recorded (see cancelPayPalDeposit): a deposit whose order was
+//     never approved flips to 'cancelled' so activity stops showing
+//     it as awaiting confirmation; an order that was approved or
+//     captured is handed to the confirmation path instead — money
+//     the payer approved is never buried as "cancelled".
 // Response shape mirrors wallet-deposit:
 //   { success, status, transaction_id?, capture_id?, amount?,
 //     currency?, new_balance?, already_completed?, message?, error? }
 // `success` is true only when the deposit is in its completed state —
-// credited by this call, or verifiably credited already.
+// credited by this call, or verifiably credited already — or, for the
+// cancel action, verifiably cancelled.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { confirmPayPalDeposit } from "../_shared/paypal-deposit.ts";
+import {
+  cancelPayPalDeposit,
+  confirmPayPalDeposit,
+  type ConfirmDepositResult,
+} from "../_shared/paypal-deposit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -78,11 +91,54 @@ serve(async (req) => {
     const body = await req.json();
     const orderId = String(body.order_id ?? body.token ?? "").trim();
     if (!orderId || orderId.length < 6) throw new Error("A PayPal order_id is required");
-    logStep("Capture requested", { orderId, userId: user.id });
+    // Unknown actions fail closed to the confirmation flow — the
+    // original, money-deciding behaviour of this function.
+    const action = body.action === "cancel" ? "cancel" : "confirm";
+    logStep("Capture requested", { orderId, userId: user.id, action });
+
+    if (action === "cancel") {
+      const cancelResult = await cancelPayPalDeposit(supabase, orderId, {
+        expectUserId: user.id,
+      });
+      logStep("Cancellation result", { kind: cancelResult.kind, orderId });
+      if (cancelResult.kind === "cancelled") {
+        return json({
+          success: true,
+          status: "cancelled",
+          already_cancelled: cancelResult.alreadyCancelled,
+          transaction_id: cancelResult.transactionId,
+          message: cancelResult.alreadyCancelled
+            ? "This deposit was already cancelled. Nothing was charged."
+            : "Deposit cancelled. Nothing was charged.",
+        });
+      }
+      if (cancelResult.kind === "unverified") {
+        return json({
+          success: false,
+          status: "pending",
+          transaction_id: cancelResult.transactionId,
+          message:
+            "We could not check this deposit with PayPal just now, so it has not been marked cancelled. Nothing has been charged.",
+        });
+      }
+      // Every other cancel outcome IS a confirmation outcome (the
+      // order was approved or captured, or the row already settled):
+      // answer with the confirmation mapping below.
+      return confirmResponse(cancelResult);
+    }
 
     const result = await confirmPayPalDeposit(supabase, orderId, { expectUserId: user.id });
     logStep("Confirmation result", { kind: result.kind, orderId });
 
+    return confirmResponse(result);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logStep("ERROR in paypal-deposit-capture", { message: errorMessage });
+    return json({ success: false, status: "error", error: errorMessage }, 500);
+  }
+});
+
+function confirmResponse(result: ConfirmDepositResult): Response {
     switch (result.kind) {
       case "completed":
         return json({
@@ -150,9 +206,4 @@ serve(async (req) => {
           404,
         );
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in paypal-deposit-capture", { message: errorMessage });
-    return json({ success: false, status: "error", error: errorMessage }, 500);
-  }
-});
+}

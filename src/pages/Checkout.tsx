@@ -14,7 +14,7 @@ import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { usePayPalCheckoutReturn } from "@/hooks/usePayPalCheckoutReturn";
 import { PAYPAL_AVAILABLE, PAYPAL_COMING_SOON_LABEL } from "@/config/paypal";
 import PayPalFundingOptions from "@/components/payments/PayPalFundingOptions";
-import { DEFAULT_PAYPAL_FUNDING, type PayPalFunding } from "@/utils/paypalFunding";
+import { DEFAULT_PAYPAL_FUNDING, paypalFundingActionLabel, type PayPalFunding } from "@/utils/paypalFunding";
 import MobileMoneyPayment from "@/components/payments/MobileMoneyPayment";
 import UssdPayment from "@/components/payments/UssdPayment";
 import BitcoinPayment from "@/components/payments/BitcoinPayment";
@@ -376,9 +376,7 @@ const Checkout = () => {
                     <Button onClick={startPayPal} disabled={startingPaypal}>
                       {startingPaypal
                         ? "Starting…"
-                        : paypalFunding === "paypal_card"
-                          ? "Pay by card via PayPal"
-                          : "Pay with PayPal account"}
+                        : paypalFundingActionLabel(paypalFunding)}
                     </Button>
                   </div>
                 </>

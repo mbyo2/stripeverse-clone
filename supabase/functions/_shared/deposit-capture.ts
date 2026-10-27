@@ -170,6 +170,67 @@ export function planCompletion(pending: PendingDeposit, captureId: string): Comp
   return "credit";
 }
 
+export type CancellationPlan =
+  | "mark_cancelled"
+  | "confirm_instead"
+  | "already_cancelled"
+  | "already_completed"
+  | "not_pending";
+
+/**
+ * Decide what a payer-cancel report (the PayPal cancel-URL return) may
+ * do with the deposit row. The cancel return is a CLAIM by the payer,
+ * never proof: the flip is allowed only from PayPal's own order state,
+ * fetched server-side with our credentials —
+ *
+ *   - mark_cancelled:  the row is still pending AND PayPal shows the
+ *     order was never approved (CREATED / PAYER_ACTION_REQUIRED /
+ *     SAVED) or was voided, with NO completed capture. Nothing was
+ *     charged, so the row may flip pending → cancelled.
+ *   - confirm_instead: PayPal shows a completed capture, or the order
+ *     is APPROVED / COMPLETED — money is in flight or has moved. The
+ *     cancellation claim must NOT bury it: the ordinary confirmation
+ *     path decides (capture + verify + credit exactly once, or a
+ *     truthful pending), exactly as if the payer had returned
+ *     normally.
+ *   - already_cancelled / already_completed / not_pending: replay and
+ *     race outcomes — report the row's truth, touch nothing. A
+ *     completed row is NEVER modified by a cancel report.
+ *
+ * An unrecognised PayPal status fails closed to confirm_instead: when
+ * in doubt, the confirmation path — which re-reads PayPal itself —
+ * governs, and nothing is flipped on a guess.
+ *
+ * Race note: the flip itself is a guarded UPDATE … WHERE status =
+ * 'pending' in the edge layer, and the complete_wallet_deposit RPC
+ * locks the row FOR UPDATE and refuses non-pending rows — so a
+ * completion racing a cancel resolves exactly once, and a row that
+ * flipped to cancelled first can never be credited afterwards (the
+ * RPC answers not_pending; support reconciles from the order
+ * reference if a payer ever pays through a stale approval link after
+ * cancelling).
+ */
+export function planCancellation(
+  rowStatus: string,
+  paypal: { orderStatus: string | null; hasCompletedCapture: boolean },
+): CancellationPlan {
+  if (rowStatus === "completed") return "already_completed";
+  if (rowStatus === "cancelled") return "already_cancelled";
+  if (rowStatus !== "pending") return "not_pending";
+  if (paypal.hasCompletedCapture) return "confirm_instead";
+  switch (paypal.orderStatus) {
+    case "CREATED":
+    case "PAYER_ACTION_REQUIRED":
+    case "SAVED":
+    case "VOIDED":
+      return "mark_cancelled";
+    default:
+      // APPROVED / COMPLETED / anything unrecognised: money may be
+      // in flight — the confirmation path governs.
+      return "confirm_instead";
+  }
+}
+
 /** Trace fields for a failed PayPal API call, safe to write to logs. */
 export interface PayPalErrorTrace {
   status: number;

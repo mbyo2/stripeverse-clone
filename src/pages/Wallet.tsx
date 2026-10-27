@@ -30,7 +30,7 @@ import { PAYPAL_AVAILABLE } from "@/config/paypal";
 import { MOBILE_MONEY_AVAILABLE } from "@/config/mobileMoney";
 import { getDepositMethodOptions, selectDefaultDepositMethod } from "@/utils/depositMethods";
 import PayPalFundingOptions from "@/components/payments/PayPalFundingOptions";
-import { DEFAULT_PAYPAL_FUNDING, type PayPalFunding } from "@/utils/paypalFunding";
+import { DEFAULT_PAYPAL_FUNDING, paypalFundingActionLabel, type PayPalFunding } from "@/utils/paypalFunding";
 import PayPalWithdraw from "@/components/wallet/PayPalWithdraw";
 import { PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE } from "@/utils/paypalPayout";
 import { useAccount } from "@/contexts/AccountContext";
@@ -197,7 +197,14 @@ const Wallet = () => {
         className="w-full h-12 rounded-full text-base font-semibold"
         disabled={!amount || parseFloat(amount) <= 0 || isDepositing || isStartingMoonpayBuy}
       >
-        {isDepositing || isStartingMoonpayBuy ? "Processing..." : "Add Money"}
+        {isDepositing || isStartingMoonpayBuy
+          ? "Processing..."
+          : depositMethod === 'paypal' && PAYPAL_AVAILABLE
+            // The button names the chosen way to pay through PayPal —
+            // the same label /checkout shows for the same choice, from
+            // the shared funding model, so the two can never drift.
+            ? paypalFundingActionLabel(paypalFunding)
+            : "Add Money"}
       </Button>
     </div>
   );

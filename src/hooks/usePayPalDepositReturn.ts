@@ -19,6 +19,15 @@ import { invalidateMoneyState } from '@/utils/moneyFreshness';
  * The outcome shown here is whatever the server reports — a deposit is
  * only ever announced as confirmed when the wallet was actually
  * credited (by this call, or verifiably already).
+ *
+ * The cancel return (/wallet?paypal_return=cancelled&token=<order id>)
+ * reports the cancellation to the same function (action: 'cancel'),
+ * which verifies the claim against PayPal's own order state and only
+ * then flips the still-pending deposit row to 'cancelled' — so Recent
+ * Activity stops showing a deposit the payer abandoned as "awaiting
+ * confirmation". If PayPal shows the order was in fact approved or
+ * captured, the server answers with the confirmation outcome instead
+ * and this hook announces that.
  */
 export function usePayPalDepositReturn() {
   const [searchParams] = useSearchParams();
@@ -33,8 +42,10 @@ export function usePayPalDepositReturn() {
     if (!marker) return;
 
     // Wait for the session before claiming the return, so the capture
-    // call carries the user's JWT.
+    // call carries the user's JWT. The cancel return waits too when it
+    // carries an order id — the cancellation is recorded server-side.
     if (marker === 'deposit' && !user) return;
+    if (marker === 'cancelled' && searchParams.get('token') && !user) return;
 
     const key = `${marker}:${searchParams.get('token') ?? ''}`;
     if (handledRef.current === key) return;
@@ -43,11 +54,45 @@ export function usePayPalDepositReturn() {
     const clearParams = () => navigate('/wallet', { replace: true });
 
     if (marker === 'cancelled') {
-      toast({
-        title: 'Deposit cancelled',
-        description: 'You cancelled the PayPal deposit. Nothing was charged.',
-      });
-      clearParams();
+      const cancelledOrderId = searchParams.get('token');
+      if (!cancelledOrderId || !user) {
+        // No order reference to record the cancellation against:
+        // today's behaviour — the payer did cancel at PayPal, and
+        // nothing was charged.
+        toast({
+          title: 'Deposit cancelled',
+          description: 'You cancelled the PayPal deposit. Nothing was charged.',
+        });
+        clearParams();
+        return;
+      }
+      (async () => {
+        const { data } = await supabase.functions.invoke('paypal-deposit-capture', {
+          body: { order_id: cancelledOrderId, action: 'cancel' },
+        });
+        clearParams();
+        if (data?.status === 'cancelled' || data?.status === 'completed') {
+          // The row's state changed (cancelled) or money actually
+          // arrived (completed): refresh every balance/activity
+          // surface so the list tells the new truth.
+          invalidateMoneyState(queryClient);
+        }
+        if (data?.status === 'completed') {
+          toast({
+            title: 'Deposit confirmed',
+            description:
+              'Good news — PayPal shows this payment was completed after all, and the money is in your wallet.',
+          });
+        } else {
+          // 'cancelled', an unverifiable-for-now 'pending', or a call
+          // failure: the payer cancelled at PayPal and nothing was
+          // charged — the toast stays exactly that truth.
+          toast({
+            title: 'Deposit cancelled',
+            description: 'You cancelled the PayPal deposit. Nothing was charged.',
+          });
+        }
+      })();
       return;
     }
 

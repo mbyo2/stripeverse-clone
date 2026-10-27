@@ -20,6 +20,7 @@ import {
   PAYPAL_FUNDING_OPTIONS,
   DEFAULT_PAYPAL_FUNDING,
   isPayPalFunding,
+  paypalFundingActionLabel,
   paypalFundingOption,
   paypalLandingPageForFunding,
   type PayPalFunding,
@@ -70,6 +71,17 @@ describe("PAYPAL_FUNDING_OPTIONS — PayPal expands to exactly two sub-options",
   it("pre-selects a real option (the account route)", () => {
     expect(isPayPalFunding(DEFAULT_PAYPAL_FUNDING)).toBe(true);
     expect(DEFAULT_PAYPAL_FUNDING).toBe("paypal_account");
+  });
+
+  it("gives each option the action-button label every surface shows", () => {
+    expect(paypalFundingActionLabel("paypal_card")).toBe("Pay by card via PayPal");
+    expect(paypalFundingActionLabel("paypal_account")).toBe("Pay with PayPal account");
+    for (const option of PAYPAL_FUNDING_OPTIONS) {
+      expect(option.actionLabel).toBe(paypalFundingActionLabel(option.value));
+      // The label always names PayPal — never a bare "Pay by card"
+      // that could be mistaken for the future direct card rail.
+      expect(option.actionLabel).toContain("PayPal");
+    }
   });
 });
 
@@ -151,6 +163,14 @@ describe("Wallet Add Money — Bitcoin first, PayPal expands (source pins)", () 
     expect(wallet).toContain("depositMethod === 'paypal' ? paypalFunding : undefined");
   });
 
+  it("makes the Add Money button follow the chosen funding option", () => {
+    // The button names the selected way to pay through PayPal, from
+    // the shared model — the same label /checkout shows — instead of
+    // a static "Add Money" that ignores the choice.
+    expect(wallet).toContain("paypalFundingActionLabel(paypalFunding)");
+    expect(wallet).toContain("depositMethod === 'paypal' && PAYPAL_AVAILABLE");
+  });
+
   it("sends the funding intent only for PayPal deposits", () => {
     expect(useWallet).toContain("paypal_funding: paypalFunding");
     expect(useWallet).toContain("paymentMethod === 'paypal' && paypalFunding");
@@ -172,8 +192,10 @@ describe("Checkout — Bitcoin first, PayPal expands (source pins)", () => {
   it("expands PayPal into its funding options inside the PayPal panel", () => {
     expect(checkout).toContain("<PayPalFundingOptions");
     expect(checkout).toContain("paypal_funding: paypalFunding");
-    expect(checkout).toContain("Pay by card via PayPal");
-    expect(checkout).toContain("Pay with PayPal account");
+    // The button label comes from the shared funding model — the
+    // strings themselves are pinned on the model above, so checkout
+    // and the wallet dialog can never drift apart.
+    expect(checkout).toContain("paypalFundingActionLabel(paypalFunding)");
   });
 });
 

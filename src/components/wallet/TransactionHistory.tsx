@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ArrowUpRight, ArrowDownLeft, Search, Filter, CalendarIcon, Receipt, AlertTriangle } from "lucide-react";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { useCurrency, toSupportedCurrency } from "@/contexts/CurrencyContext";
 import { useAccount } from "@/contexts/AccountContext";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { format } from "date-fns";
@@ -27,7 +27,7 @@ interface Transaction {
   amount: number;
   currency: string;
   direction: 'incoming' | 'outgoing';
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
   description: string;
   reference?: string;
   recipient?: string;
@@ -97,6 +97,8 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
         return 'bg-yellow-100 text-yellow-800';
       case 'failed':
         return 'bg-red-100 text-red-800';
+      case 'cancelled':
+        return 'bg-gray-200 text-gray-700';
       default:
         return 'bg-muted text-muted-foreground';
     }
@@ -167,6 +169,7 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={directionFilter} onValueChange={setDirectionFilter}>
@@ -262,7 +265,10 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
                       transaction.direction === 'incoming' ? 'text-green-600' : 'text-red-600'
                     )}>
                       {transaction.direction === 'incoming' ? '+' : '-'}
-                      {formatAmount(transaction.amount)}
+                      {/* The row's OWN currency — a USD PayPal deposit
+                          must read $5.00, never K5.00 in the viewer's
+                          display currency. */}
+                      {formatAmount(transaction.amount, toSupportedCurrency(transaction.currency))}
                     </p>
                     <Badge variant="secondary" className={getStatusColor(transaction.status)}>
                       {transaction.status}

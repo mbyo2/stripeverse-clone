@@ -27,6 +27,7 @@ import {
   extractCompletedCapture,
   paypalErrorTrace,
   paypalOrderStatus,
+  planCancellation,
   planCompletion,
   verifyCapture,
   type CapturedPayment,
@@ -239,6 +240,156 @@ export async function confirmPayPalDeposit(
         error: `Deposit could not be completed (${result.outcome}). No money has moved.`,
       };
   }
+}
+
+export type CancelDepositResult =
+  | ConfirmDepositResult
+  | {
+      kind: "cancelled";
+      transactionId: string;
+      paypalStatus: string | null;
+      alreadyCancelled: boolean;
+    }
+  | { kind: "unverified"; transactionId: string };
+
+/**
+ * Record a payer's cancellation of a PayPal wallet deposit (the
+ * cancel-URL return). Before this, a cancelled deposit stayed
+ * 'pending' forever and Recent Activity showed it "awaiting
+ * confirmation" indefinitely.
+ *
+ * The flip is decided by planCancellation from PayPal's AUTHORITATIVE
+ * order state — never from the return URL's say-so:
+ *   - order never approved and no completed capture → the pending row
+ *     flips to 'cancelled' (guarded UPDATE … WHERE status='pending',
+ *     so a completion that lands first wins the race and is reported
+ *     instead). Description and metadata record the cancellation so
+ *     activity lists read truthfully.
+ *   - order approved or captured → the result of the ordinary
+ *     confirmation path, untouched: money the payer approved is
+ *     captured and credited exactly once, never buried as
+ *     "cancelled".
+ *   - row already completed → reported, never modified.
+ *   - PayPal unreachable / unconfigured → 'unverified': NO flip
+ *     happens on an unverified claim; the row stays pending and the
+ *     confirmation path remains the only thing that can settle it.
+ */
+export async function cancelPayPalDeposit(
+  admin: AdminClient,
+  orderId: string,
+  opts?: { expectUserId?: string },
+): Promise<CancelDepositResult> {
+  const row = await findDepositTransaction(admin, orderId);
+  if (!row) return { kind: "not_found" };
+  if (opts?.expectUserId && row.user_id !== opts.expectUserId) {
+    return { kind: "forbidden", transactionId: row.uuid_id };
+  }
+
+  if (row.status === "completed") {
+    const pending = rowToPending(row);
+    return {
+      kind: "completed",
+      transactionId: row.uuid_id,
+      captureId: pending.captureId ?? "",
+      amount: Number(row.amount),
+      currency: row.currency,
+      newBalance: await walletBalance(admin, row.wallet_id),
+      alreadyCredited: true,
+    };
+  }
+  if (row.status === "cancelled") {
+    return {
+      kind: "cancelled",
+      transactionId: row.uuid_id,
+      paypalStatus:
+        typeof row.metadata?.paypal_status === "string" ? row.metadata.paypal_status : null,
+      alreadyCancelled: true,
+    };
+  }
+  if (row.status !== "pending") {
+    return { kind: "not_pending", transactionId: row.uuid_id, status: row.status };
+  }
+
+  const accessToken = await getPayPalAccessToken();
+  if (!accessToken) return { kind: "not_configured" };
+
+  const order = await fetchPayPalOrder(accessToken, orderId);
+  if (!order) return { kind: "unverified", transactionId: row.uuid_id };
+
+  const orderStatus = paypalOrderStatus(order);
+  const plan = planCancellation(row.status, {
+    orderStatus,
+    hasCompletedCapture: extractCompletedCapture(order) !== null,
+  });
+
+  if (plan === "confirm_instead") {
+    // Money is in flight at PayPal: the confirmation path governs.
+    return confirmPayPalDeposit(admin, orderId, opts);
+  }
+  if (plan !== "mark_cancelled") {
+    // Unreachable given the status checks above (the plan for a
+    // pending row with a fetched order is mark_cancelled or
+    // confirm_instead) — fail closed to the row's current truth.
+    return { kind: "not_pending", transactionId: row.uuid_id, status: row.status };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: updated, error } = await admin
+    .from("transactions")
+    .update({
+      status: "cancelled",
+      description: "Wallet deposit via PayPal (cancelled)",
+      metadata: {
+        ...(row.metadata ?? {}),
+        payer_cancelled: true,
+        cancelled_at: nowIso,
+        cancel_reason: "payer_cancelled_at_paypal",
+        paypal_status: orderStatus,
+      },
+      updated_at: nowIso,
+    })
+    .eq("uuid_id", row.uuid_id)
+    .eq("status", "pending")
+    .select("uuid_id");
+  if (error) throw new Error(`Deposit cancellation failed: ${error.message}`);
+
+  if (!updated || updated.length === 0) {
+    // Lost the race: the row settled (or was cancelled) between the
+    // read and the guarded update. Report its fresh truth.
+    const fresh = await findDepositTransaction(admin, orderId);
+    if (fresh?.status === "completed") {
+      const pending = rowToPending(fresh);
+      return {
+        kind: "completed",
+        transactionId: fresh.uuid_id,
+        captureId: pending.captureId ?? "",
+        amount: Number(fresh.amount),
+        currency: fresh.currency,
+        newBalance: await walletBalance(admin, fresh.wallet_id),
+        alreadyCredited: true,
+      };
+    }
+    if (fresh?.status === "cancelled") {
+      return {
+        kind: "cancelled",
+        transactionId: fresh.uuid_id,
+        paypalStatus: orderStatus,
+        alreadyCancelled: true,
+      };
+    }
+    return {
+      kind: "not_pending",
+      transactionId: row.uuid_id,
+      status: fresh?.status ?? "unknown",
+    };
+  }
+
+  return {
+    kind: "cancelled",
+    transactionId: row.uuid_id,
+    paypalStatus: orderStatus,
+    alreadyCancelled: false,
+  };
 }
 
 // ── PayPal REST (mirrors wallet-deposit / paypal-checkout patterns) ────

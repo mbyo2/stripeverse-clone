@@ -97,6 +97,22 @@ export const useCurrency = (): CurrencyContextType => {
   return context;
 };
 
+/**
+ * Narrow an arbitrary currency code (e.g. a transaction row's
+ * `currency` column) to a supported one, or undefined when it is not
+ * one we format — callers pass the result as formatAmount's override
+ * so a row always renders in ITS OWN currency, and an unrecognised
+ * code falls back to the viewer's display currency instead of
+ * throwing inside Intl.NumberFormat.
+ */
+export function toSupportedCurrency(
+  code: string | null | undefined,
+): SupportedCurrency | undefined {
+  return SUPPORTED_CURRENCIES.some((c) => c.code === code)
+    ? (code as SupportedCurrency)
+    : undefined;
+}
+
 // Standalone format function for use outside of React components
 export const formatCurrencyStandalone = (
   amount: number, 

@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Receipt, Download, Printer } from "lucide-react";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { useCurrency, toSupportedCurrency } from "@/contexts/CurrencyContext";
 import { format } from "date-fns";
 import { useRef } from "react";
 
@@ -48,12 +48,12 @@ const TransactionReceipt = ({ transaction, trigger }: TransactionReceiptProps) =
         @media print { body { margin: 0; } }
       </style></head><body>
         <div class="header"><div class="logo">BMaGlass Pay</div><p>Transaction Receipt</p></div>
-        <div class="total">${transaction.direction === 'outgoing' ? '-' : '+'}${formatAmount(transaction.amount)}</div>
+        <div class="total">${transaction.direction === 'outgoing' ? '-' : '+'}${formatAmount(transaction.amount, toSupportedCurrency(transaction.currency))}</div>
         <div class="row"><span class="label">Status</span><span class="value">${transaction.status}</span></div>
         <div class="row"><span class="label">Recipient</span><span class="value">${transaction.recipient_name || 'N/A'}</span></div>
         <div class="row"><span class="label">Date</span><span class="value">${format(new Date(transaction.created_at), 'MMM d, yyyy HH:mm')}</span></div>
         ${transaction.reference ? `<div class="row"><span class="label">Reference</span><span class="value">${transaction.reference}</span></div>` : ''}
-        ${transaction.fee_amount ? `<div class="row"><span class="label">Fee</span><span class="value">${formatAmount(transaction.fee_amount)}</span></div>` : ''}
+        ${transaction.fee_amount ? `<div class="row"><span class="label">Fee</span><span class="value">${formatAmount(transaction.fee_amount, toSupportedCurrency(transaction.currency))}</span></div>` : ''}
         ${transaction.category ? `<div class="row"><span class="label">Category</span><span class="value">${transaction.category}</span></div>` : ''}
         ${transaction.payment_method ? `<div class="row"><span class="label">Method</span><span class="value">${transaction.payment_method}</span></div>` : ''}
         <div class="row"><span class="label">ID</span><span class="value" style="font-family:monospace;font-size:11px">${(transaction.uuid_id || transaction.id || '').substring(0, 12)}...</span></div>
@@ -83,7 +83,7 @@ const TransactionReceipt = ({ transaction, trigger }: TransactionReceiptProps) =
           <div className="text-center py-4">
             <p className="text-3xl font-bold">
               {transaction.direction === "outgoing" ? "-" : "+"}
-              {formatAmount(transaction.amount)}
+              {formatAmount(transaction.amount, toSupportedCurrency(transaction.currency))}
             </p>
             <p className="text-sm text-muted-foreground mt-1 capitalize">{transaction.status}</p>
           </div>
@@ -93,7 +93,7 @@ const TransactionReceipt = ({ transaction, trigger }: TransactionReceiptProps) =
               ["Recipient", transaction.recipient_name],
               ["Date", format(new Date(transaction.created_at), "MMM d, yyyy HH:mm")],
               ["Reference", transaction.reference],
-              ["Fee", transaction.fee_amount ? formatAmount(transaction.fee_amount) : null],
+              ["Fee", transaction.fee_amount ? formatAmount(transaction.fee_amount, toSupportedCurrency(transaction.currency)) : null],
               ["Category", transaction.category],
               ["Method", transaction.payment_method],
               ["ID", (transaction.uuid_id || transaction.id || "").substring(0, 12) + "..."],

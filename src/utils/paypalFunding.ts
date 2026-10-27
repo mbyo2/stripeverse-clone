@@ -40,6 +40,14 @@ export interface PayPalFundingOption {
   description: string;
   /** Which PayPal page the order asks to open first. */
   landingPage: PayPalLandingPage;
+  /**
+   * Label for the action button once this option is chosen. Every
+   * surface that starts a PayPal payment (checkout, the wallet
+   * Add Money dialog) shows THIS label, so the button always names
+   * the chosen way to pay and the copy can never drift between
+   * surfaces.
+   */
+  actionLabel: string;
 }
 
 export const PAYPAL_FUNDING_OPTIONS: readonly PayPalFundingOption[] = [
@@ -49,6 +57,7 @@ export const PAYPAL_FUNDING_OPTIONS: readonly PayPalFundingOption[] = [
     description:
       "Pay with a debit or credit card on PayPal's secure page — no PayPal account needed. PayPal processes the card payment.",
     landingPage: "BILLING",
+    actionLabel: "Pay by card via PayPal",
   },
   {
     value: "paypal_account",
@@ -56,6 +65,7 @@ export const PAYPAL_FUNDING_OPTIONS: readonly PayPalFundingOption[] = [
     description:
       "Sign in to PayPal and pay from your PayPal balance, or a bank account or card linked to it.",
     landingPage: "LOGIN",
+    actionLabel: "Pay with PayPal account",
   },
 ];
 
@@ -83,4 +93,9 @@ export function paypalLandingPageForFunding(
   value: PayPalFunding,
 ): PayPalLandingPage {
   return paypalFundingOption(value).landingPage;
+}
+
+/** The action-button label for a funding choice (shared by every surface). */
+export function paypalFundingActionLabel(value: PayPalFunding): string {
+  return paypalFundingOption(value).actionLabel;
 }
