@@ -258,11 +258,13 @@ const AdminDashboard = () => {
 
   // Least privilege (CEO order 2026-10-27): a card whose target
   // route the viewer cannot open is not rendered for them at all.
-  // Today only Treasury & Reports is narrower than the dashboard's
-  // own admin-tier audience — its route gate and its RPCs are
-  // super_admin-only — so the filter is driven by the one model in
+  // Treasury & Reports is narrower than the dashboard's own
+  // admin-tier audience — its route gate and its RPCs are
+  // super_admin-only — and the Treasury TAB below is gated by the
+  // same model (its table's RLS is super_admin since migration
+  // 20261240), so both are driven by the one model in
   // roleVisibility.ts. Roles still loading resolves to no roles,
-  // which fails closed: the card appears only once super_admin is
+  // which fails closed: each appears only once super_admin is
   // actually held.
   const visibleAdminActions = adminActions.filter(
     (action) => !action.superAdminOnly || dashboardVisibility.treasuryConsole
@@ -286,13 +288,23 @@ const AdminDashboard = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+          {/* The Treasury tab is super_admin-only (CEO decision
+              2026-10-27): its data gate (crypto_treasury_config RLS,
+              migration 20261240) is super_admin, so the tab is not
+              rendered at all for anyone else — same fail-closed
+              model as the Treasury & Reports card above (roles
+              loading → no roles → no tab). */}
+          <TabsList
+            className={`grid w-full grid-cols-3 ${dashboardVisibility.treasuryTab ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}
+          >
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="system">System</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="crypto">Crypto Payouts</TabsTrigger>
-            <TabsTrigger value="treasury">Treasury</TabsTrigger>
+            {dashboardVisibility.treasuryTab && (
+              <TabsTrigger value="treasury">Treasury</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="overview">
@@ -474,9 +486,11 @@ const AdminDashboard = () => {
             <AdminCryptoPayouts />
           </TabsContent>
 
-          <TabsContent value="treasury">
-            <AdminTreasuryConfig />
-          </TabsContent>
+          {dashboardVisibility.treasuryTab && (
+            <TabsContent value="treasury">
+              <AdminTreasuryConfig />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
       <Footer />

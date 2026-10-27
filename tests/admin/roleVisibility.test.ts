@@ -117,36 +117,48 @@ describe("headerMenuVisibility — the account menus show each role its own entr
 });
 
 // ---------------------------------------------------------------------
-// adminDashboardVisibility — the Admin Dashboard's one role-owned
-// action card: Treasury & Reports. Its route gate names
-// ['super_admin'] alone and the treasury_* RPCs enforce the same
-// gate server-side, so the card must not even be SHOWN to a plain
-// admin (CEO order 2026-10-27 — least privilege). Every other card
-// targets a route that admits the dashboard's whole admin-tier
-// audience, so Treasury is the only flag in the model.
+// adminDashboardVisibility — the Admin Dashboard's two role-owned
+// treasury surfaces: the Treasury & Reports action card and the
+// "Treasury" TAB (AdminTreasuryConfig, the payout-treasury Safe
+// configuration). The card's route gate names ['super_admin']
+// alone and the treasury_* RPCs enforce the same gate server-side;
+// the tab's table (crypto_treasury_config) RLS was raised to
+// super_admin by migration 20261240. Neither surface may even be
+// SHOWN to a plain admin (CEO orders 2026-10-27 — least
+// privilege). Every other card and tab targets a route that
+// admits the dashboard's whole admin-tier audience. The two flags
+// are pinned separately so each surface's rule stands on its own.
 // ---------------------------------------------------------------------
 
-describe("adminDashboardVisibility — Treasury & Reports is super_admin-only", () => {
-  it("super_admin holders see the Treasury card", () => {
-    expect(adminDashboardVisibility(["super_admin"])).toEqual({ treasuryConsole: true });
-    expect(adminDashboardVisibility(["user", "super_admin"])).toEqual({ treasuryConsole: true });
-    expect(adminDashboardVisibility(["admin", "super_admin"])).toEqual({ treasuryConsole: true });
-    expect(adminDashboardVisibility(["business", "super_admin"])).toEqual({ treasuryConsole: true });
+describe("adminDashboardVisibility — both Treasury surfaces are super_admin-only", () => {
+  it("super_admin holders see the Treasury card AND the Treasury tab", () => {
+    expect(adminDashboardVisibility(["super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true });
+    expect(adminDashboardVisibility(["user", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true });
+    expect(adminDashboardVisibility(["admin", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true });
+    expect(adminDashboardVisibility(["business", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true });
   });
 
-  it("a plain admin does NOT see the Treasury card", () => {
-    expect(adminDashboardVisibility(["admin"])).toEqual({ treasuryConsole: false });
-    expect(adminDashboardVisibility(["user", "admin"])).toEqual({ treasuryConsole: false });
-    expect(adminDashboardVisibility(["business", "admin"])).toEqual({ treasuryConsole: false });
+  it("a plain admin sees NEITHER the Treasury card NOR the Treasury tab", () => {
+    expect(adminDashboardVisibility(["admin"])).toEqual({ treasuryConsole: false, treasuryTab: false });
+    expect(adminDashboardVisibility(["user", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false });
+    expect(adminDashboardVisibility(["business", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false });
   });
 
-  it("no other role sees the Treasury card", () => {
+  it("no other role sees either Treasury surface", () => {
     for (const roles of [
       ["user"], ["business"], ["p2p_admin"], ["beta_tester"],
       ["support_admin"], ["compliance_admin"], ["finance_admin"], [],
     ]) {
-      expect(adminDashboardVisibility(roles)).toEqual({ treasuryConsole: false });
+      expect(adminDashboardVisibility(roles)).toEqual({ treasuryConsole: false, treasuryTab: false });
     }
+  });
+
+  it("the tab flag follows super_admin alone, never the admin tier", () => {
+    // The pre-20261240 data gate admitted the whole admin tier;
+    // the visibility flag must not quietly keep that wider rule.
+    expect(adminDashboardVisibility(["admin"]).treasuryTab).toBe(false);
+    expect(adminDashboardVisibility(["admin", "business"]).treasuryTab).toBe(false);
+    expect(adminDashboardVisibility(["super_admin"]).treasuryTab).toBe(true);
   });
 });
 
@@ -293,6 +305,47 @@ describe("AdminDashboard — the Treasury card is not rendered for non-super_adm
     expect(routes).toContain(
       'path="/admin/treasury" element={<RoleGuardedPage roles={[\'super_admin\']}>',
     );
+  });
+});
+
+describe("AdminDashboard — the Treasury TAB is not rendered for non-super_admin", () => {
+  const src = read("../../src/pages/AdminDashboard.tsx");
+
+  it("gates BOTH the tab trigger and the tab content on the model's tab flag", () => {
+    expect(src).toContain("dashboardVisibility.treasuryTab");
+    const gates = src.match(/dashboardVisibility\.treasuryTab &&/g) ?? [];
+    // TabsTrigger + TabsContent are each behind the flag.
+    expect(gates.length).toBe(2);
+    expect(src).toContain('<TabsTrigger value="treasury">Treasury</TabsTrigger>');
+    expect(src).toContain('<TabsContent value="treasury">');
+    expect(src).toContain("<AdminTreasuryConfig />");
+  });
+
+  it("the other five tabs stay ungated (dashboard-wide audience)", () => {
+    for (const tab of ["overview", "users", "system", "notifications", "crypto"]) {
+      expect(src).toContain(`<TabsTrigger value="${tab}">`);
+    }
+  });
+
+  it("the tab's data gate migration raises crypto_treasury_config to super_admin", () => {
+    const migration = read(
+      "../../supabase/migrations/20261240_treasury_config_superadmin.sql",
+    );
+    // The one admin-tier policy is dropped, not supplemented —
+    // permissive policies OR, so a leftover would silently keep
+    // admin access alive.
+    expect(migration).toContain(
+      'DROP POLICY IF EXISTS "Admins manage treasury config" ON public.crypto_treasury_config;',
+    );
+    expect(migration).toContain(
+      'CREATE POLICY "Super admins manage treasury config"',
+    );
+    const gates =
+      migration.match(/has_role\(\(SELECT auth\.uid\(\)\), 'super_admin'::app_role\)/g) ?? [];
+    // USING + WITH CHECK — reads and writes both gated.
+    expect(gates.length).toBe(2);
+    // The new gate never names the wider admin role as sufficient.
+    expect(migration).not.toContain("'admin'::app_role");
   });
 });
 

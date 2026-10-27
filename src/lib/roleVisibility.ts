@@ -97,10 +97,10 @@ export const headerMenuVisibility = (
 };
 
 /**
- * The Admin Dashboard's role-owned action cards, as one model.
+ * The Admin Dashboard's role-owned surfaces, as one model.
  * The dashboard itself is an admin-tier surface (its route gate
  * admits admin OR super_admin), and every action card's target
- * route admits that same audience — with ONE exception:
+ * route admits that same audience — with these exceptions:
  *
  *   - Treasury & Reports (/admin/treasury) is super_admin ONLY:
  *     its route gate names ['super_admin'] alone and the
@@ -109,22 +109,34 @@ export const headerMenuVisibility = (
  *     anyone who is not super_admin — least privilege). A plain
  *     admin therefore never renders the card at all; the link
  *     simply does not exist for them.
+ *   - The in-dashboard "Treasury" TAB (AdminTreasuryConfig — the
+ *     crypto payout-treasury Safe configuration over
+ *     crypto_treasury_config) is super_admin ONLY too (CEO
+ *     decision 2026-10-27, the follow-on ruling): migration
+ *     20261240 raised the table's RLS from the admin tier to
+ *     super_admin, and the tab trigger + content follow the data
+ *     gate, so a plain admin never renders the tab at all.
  *
  * Every other card (User Management, Transaction Oversight, P2P
  * Disputes, Identity Review, Role Management, Role Requests,
  * Refunds Console, Cross-Border Payouts, MoonPay, PayPal
- * Withdrawals, Compliance Center) targets a route whose gate
- * admits the dashboard's whole audience, so it renders for every
- * viewer who can open the dashboard. Kept as a pure function of
- * the held roles so the rule is pinned directly by tests.
+ * Withdrawals, Compliance Center) and every other tab targets a
+ * route that admits the dashboard's whole audience, so it renders
+ * for every viewer who can open the dashboard. The two treasury
+ * flags are kept separate so each surface's rule is pinned on its
+ * own. Kept as a pure function of the held roles so the rule is
+ * pinned directly by tests.
  */
 export interface AdminDashboardVisibility {
   /** Treasury & Reports card — super_admin holders only. */
   treasuryConsole: boolean;
+  /** "Treasury" tab (payout-treasury Safe config) — super_admin only. */
+  treasuryTab: boolean;
 }
 
 export const adminDashboardVisibility = (
   roles: readonly string[],
 ): AdminDashboardVisibility => ({
   treasuryConsole: holdsAnyRole(roles, ["super_admin"]),
+  treasuryTab: holdsAnyRole(roles, ["super_admin"]),
 });
