@@ -5,9 +5,11 @@
 //    live; virtual-card fee rows must carry their limited-release
 //    status; the FAQ KYC answer must state the live-camera rule.
 //  - Developer API: an idempotent transfer REPLAY returns the
-//    original row (already_existed=true) and moves no money, so it
-//    must not re-dispatch transaction.completed — the event fires
-//    exactly once, when the money actually moved.
+//    original transaction_id and moves no money, so it must not
+//    re-dispatch transaction.completed. The handler claims the
+//    announcement in developer_event_dispatches (migration
+//    20261244, the payment_link.paid pattern) before dispatching —
+//    the event fires exactly once, when the money actually moved.
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -40,12 +42,21 @@ describe("part 3 relabels (faq / footer / pricing / billing)", () => {
 });
 
 describe("developer-api transfer webhook fires exactly once", () => {
-  it("dispatch is gated on the RPC's already_existed flag", () => {
+  it("dispatch is claimed in developer_event_dispatches before dispatching", () => {
     const api = read("../../supabase/functions/developer-api/index.ts");
-    expect(api).toContain("row?.already_existed !== true");
-    const gate = api.indexOf("row?.already_existed !== true");
+    expect(api).toContain("developer_event_dispatches");
+    expect(api).toContain("`transaction.completed:${txId}`");
+    const claim = api.indexOf("developer_event_dispatches");
+    const gate = api.indexOf("if (claimed)", claim);
     const dispatch = api.indexOf("dispatchEvent", gate);
-    expect(gate).toBeGreaterThan(-1);
+    expect(claim).toBeGreaterThan(-1);
+    expect(gate).toBeGreaterThan(claim);
     expect(dispatch).toBeGreaterThan(gate);
+  });
+  it("migration 20261244 creates the claim table, service-role only", () => {
+    const mig = read("../../supabase/migrations/20261244_developer_event_dispatches.sql");
+    expect(mig).toContain("developer_event_dispatches");
+    expect(mig).toContain("ENABLE ROW LEVEL SECURITY");
+    expect(mig).toContain("REVOKE ALL ON public.developer_event_dispatches FROM anon, authenticated");
   });
 });

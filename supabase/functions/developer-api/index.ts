@@ -255,13 +255,29 @@ serve(async (req) => {
       });
       if (error) return err(422, "transfer_failed", error.message);
       const row = Array.isArray(data) ? data[0] : data;
-      // Idempotent replays return the original row with
-      // already_existed=true and move NO money — they must not
-      // re-announce the transfer: transaction.completed fires
-      // exactly once, when the money actually moved.
-      if (row?.already_existed !== true) {
+      // Announce exactly once. The transfer RPC is idempotent: a
+      // replayed request returns the SAME transaction_id and moves
+      // no money, so the announcement is claimed against that id
+      // (developer_event_dispatches, the payment_link.paid pattern)
+      // before dispatching — a 23505 conflict means this transfer
+      // was already announced and the replay stays silent.
+      const txId = row?.transaction_id ?? null;
+      let claimed = true;
+      if (txId) {
+        const { error: claimError } = await db
+          .from("developer_event_dispatches")
+          .insert({ event_key: `transaction.completed:${txId}`, user_id: userId });
+        if (claimError) {
+          if ((claimError as { code?: string }).code === "23505") {
+            claimed = false;
+          } else {
+            console.error("transfer dispatch claim failed:", claimError.message ?? claimError);
+          }
+        }
+      }
+      if (claimed) {
         await dispatchEvent(db, userId, "transaction.completed", {
-          transaction_id: row?.transaction_id ?? null, amount: amt,
+          transaction_id: txId, amount: amt,
           currency: typeof currency === "string" ? currency : "ZMW", to_user_id,
         }).catch(() => []);
       }
