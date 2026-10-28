@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { CreditCard, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@/hooks/useWallet";
+import { useRoles } from "@/contexts/RoleContext";
+import VirtualCardsComingSoon from "@/components/VirtualCardsComingSoon";
 import { formatCurrency } from "@/utils/walletUtils";
 import { formatCardExpiry } from "@/utils/cardDisplay";
 
@@ -18,6 +20,7 @@ interface VirtualCardManagerProps {
 }
 
 const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
+  const { hasRole, isLoading: rolesLoading } = useRoles();
   const navigate = useNavigate();
   const { virtualCards, createVirtualCard, isCreatingCard } = useWallet();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -64,6 +67,17 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
   const getSecureCardDisplay = (card: any) => {
     return card.masked_number;
   };
+
+  // Virtual cards are "Coming soon" for the public (CEO decision,
+  // 2026-10-22) — the dedicated card pages show the Coming Soon panel
+  // to everyone but admins, and this Wallet-embedded manager must
+  // honour the same rule: without the gate it offered a working
+  // Create Card dialog whose submission the (admin-only) edge
+  // function then refused. super_admin is additive over admin.
+  if (rolesLoading) return null;
+  if (!hasRole("admin") && !hasRole("super_admin")) {
+    return <VirtualCardsComingSoon />;
+  }
 
   return (
     <Card>

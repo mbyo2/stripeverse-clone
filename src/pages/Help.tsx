@@ -28,13 +28,13 @@ const Help = () => {
   const { toast } = useToast();
 
   const faqs = [
-    { id: '1', question: 'How do I create a virtual card?', answer: 'Go to your Wallet page and click "Create Card" in the Virtual Cards section. Choose a name, set your initial balance, and your card is ready instantly for online purchases.' },
+    { id: '1', question: 'How do I create a virtual card?', answer: 'Virtual cards are coming soon. When they launch, you will create and manage them from your Wallet page. BMaGlass virtual cards are internal wallet cards — a separate balance inside BMaGlass Pay — not card-network cards, so they cannot be used for purchases outside BMaGlass Pay.' },
     { id: '2', question: 'What are the transaction limits?', answer: 'Limits depend on your verification (KYC) status — completing verification raises your limits. BMaGlass Pay has no paid plans or upgrades: everyone uses the same account, and you only pay the percentage fee on each transaction.' },
     { id: '3', question: 'How do I add money to my wallet?', answer: 'Click "Add Money" on your Wallet page. Today you can deposit Bitcoin, or add US dollars with PayPal. Mobile Money (MTN, Airtel, Zamtel) is coming soon through direct connections to each provider.' },
-    { id: '4', question: 'Are international transactions supported?', answer: 'Yes, through virtual cards and Bitcoin. International transfers may carry additional fees and require completed KYC verification.' },
+    { id: '4', question: 'Are international transactions supported?', answer: 'Yes, through Bitcoin and PayPal. Virtual cards are coming soon and will work inside BMaGlass Pay only. International transfers may require completed KYC verification.' },
     { id: '5', question: 'How secure are my transactions?', answer: 'We use AES-256 encryption, tokenised card storage, two-factor authentication, and fraud monitoring. Card numbers are never stored in raw form.' },
-    { id: '6', question: 'What should I do if my virtual card is compromised?', answer: 'Immediately freeze the card from your Wallet page, then contact support. You can create a replacement card instantly.' },
-    { id: '7', question: 'How do I complete KYC verification?', answer: 'Navigate to Settings → KYC or go to /kyc directly. Upload your government ID (front & back), a selfie, and proof of address. Verification completes within 24 hours.' },
+    { id: '6', question: 'What should I do if my virtual card is compromised?', answer: 'Virtual cards are coming soon, so there is no live card to compromise yet. When they launch, you will be able to freeze a card instantly from your Wallet page and contact support about a replacement.' },
+    { id: '7', question: 'How do I complete KYC verification?', answer: 'Navigate to Settings → KYC or go to /kyc directly. Upload your government ID (front & back) and proof of address as files. Your selfie is different: it must be captured live with your camera inside the wizard — file uploads are not accepted for your face, for your security. Verification typically completes within 24 hours.' },
     { id: '8', question: 'How do refunds and disputes work?', answer: 'Go to Transactions, find the transaction, and click "Dispute". Provide details and any evidence. Our team reviews within 3-5 business days and you\'ll receive a notification with the outcome.' },
     { id: '9', question: 'Can I use BMaGlass Pay for my business?', answer: 'Yes! Apply for a Business account through Role Management. You\'ll get access to the merchant dashboard, API keys, webhook management, and settlement tools.' },
     { id: '10', question: 'What mobile money providers do you support?', answer: 'Mobile money is coming soon: we are connecting directly to MTN Mobile Money, Airtel Money, and Zamtel Money for deposits and withdrawals. Bitcoin deposits and withdrawals are live today.' },
@@ -43,7 +43,7 @@ const Help = () => {
   const guides = [
     { title: 'Getting Started', description: 'Create your account and make your first transaction', icon: BookOpen, link: '/dashboard' },
     { title: 'KYC Verification', description: 'For the specific features that ask for it — like higher P2P tiers and bigger limits', icon: Users, link: '/kyc' },
-    { title: 'Virtual Cards', description: 'Create and manage virtual cards for online payments', icon: CreditCard, link: '/wallet' },
+    { title: 'Virtual Cards', description: 'Coming soon: internal wallet cards, managed from your Wallet', icon: CreditCard, link: '/wallet' },
     { title: 'Mobile Money', description: 'Coming soon: deposits and withdrawals via direct MTN, Airtel and Zamtel connections', icon: Smartphone, link: '/payment-services' },
     { title: 'Security Settings', description: 'Enable 2FA and review your security dashboard', icon: Shield, link: '/security-settings' },
     { title: 'Business API', description: 'Integrate payments into your website or app', icon: ExternalLink, link: '/api' },

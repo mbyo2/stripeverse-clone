@@ -39,23 +39,23 @@ const Support = () => {
     },
     {
       question: "What payment methods are supported?",
-      answer: "We support Mobile Money (MTN, Airtel, Zamtel), Card payments (Visa, Mastercard), Bank transfers, USSD payments, and Bitcoin."
+      answer: "Today you can pay with Bitcoin, or with PayPal in US dollars. Mobile Money (MTN, Airtel, Zamtel) is coming soon through direct connections to each provider — it is not live yet. Card payments and USSD are not live yet either."
     },
     {
       question: "How long do transactions take to process?",
-      answer: "Mobile Money transactions are processed instantly. Card payments settle within minutes. Bank transfers may take 1-3 business days depending on your bank."
+      answer: "Bitcoin deposits are credited after network confirmation. PayPal deposits are credited once PayPal confirms the payment. Timings for bank and mobile-money transfers will be published when those connections launch."
     },
     {
       question: "How do I verify my identity (KYC)?",
-      answer: "Go to Settings → KYC Verification, or navigate directly to /kyc. You'll need a valid government ID (front and back), a selfie, and proof of address. Verification typically completes within 24 hours."
+      answer: "Go to Settings → KYC Verification, or navigate directly to /kyc. You'll need a valid government ID (front and back, uploaded as files), a selfie captured live with your camera inside the wizard — file uploads are not accepted for your face — and proof of address. Verification typically completes within 24 hours."
     },
     {
       question: "What are the transaction limits?",
-      answer: "Limits depend on your subscription tier. Free accounts: K5,000/day. Starter: K20,000/day. Professional: K100,000/day. Enterprise: Custom limits. Upgrade your tier in Pricing."
+      answer: "Limits depend on your verification (KYC) status — completing verification raises your limits. BMaGlass Pay has no subscription tiers or paid plans: everyone uses the same account, and you only pay the percentage fee on each transaction."
     },
     {
       question: "How do I freeze or cancel a virtual card?",
-      answer: "Open your Wallet, find the card under Virtual Cards, click on it, and use the Freeze or Cancel button. Frozen cards can be reactivated; cancelled cards are permanent."
+      answer: "Virtual cards are coming soon — there are no live cards to freeze yet. When they launch, you will freeze or cancel a card from your Wallet page; frozen cards can be reactivated and cancelled cards are permanent."
     },
     {
       question: "Can I get a refund for a failed transaction?",

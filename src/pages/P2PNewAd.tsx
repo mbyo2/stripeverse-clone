@@ -172,11 +172,13 @@ export default function P2PNewAd() {
           {sellBlocked && (
             <Alert className="border-amber-500/40 bg-amber-500/5">
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <AlertTitle>Selling ads need a track record</AlertTitle>
+              <AlertTitle>Selling ads need full verification</AlertTitle>
               <AlertDescription>
                 Posting a <strong>sell</strong> ad requires a fully verified
-                (T2+) account that is at least 14 days old with at least 5
-                completed trades as a buyer. You can still post a{" "}
+                (T2+) account. Complete your identity verification — ID
+                documents, a live-camera selfie and the checks that come
+                with them — and you can post sell ads straight away. You can
+                still post a{" "}
                 <strong>buy</strong> ad, and trade on other people's ads to
                 build your record.
               </AlertDescription>
