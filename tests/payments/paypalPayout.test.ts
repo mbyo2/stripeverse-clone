@@ -53,6 +53,7 @@ import {
   PAYPAL_PAYOUT_CURRENCIES as CLIENT_CURRENCIES,
   PAYOUT_DAILY_LIMIT as CLIENT_DAILY_LIMIT,
   PAYOUT_MIN_AMOUNT as CLIENT_MIN_AMOUNT,
+  selectPayPalWithdrawalWallet,
 } from "../../src/utils/paypalPayout";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -519,5 +520,70 @@ describe("payouts rail gate (20261242 — activation honesty)", () => {
     expect(withdrawComponent).toContain("PAYPAL_PAYOUTS_ACTIVATING_MESSAGE");
     expect(withdrawComponent).toContain("data?.payouts_enabled === true");
     expect(withdrawComponent).toContain("!payoutsEnabled ||");
+  });
+});
+
+describe("withdrawal wallet selection (the dialog keys on the payout wallet)", () => {
+  // Regression (launch morning 2026-10-28): the Wallet page fed the
+  // dialog its primary wallet, which useWallet ALWAYS resolves to
+  // the account's ZMW wallet — so a user holding ZMW + USD was shown
+  // only the convert-to-USD panel even with the USD wallet in hand,
+  // and following the panel's own instruction looped back to it.
+  const zmw = { id: "w-zmw", currency: "ZMW" };
+  const usd = { id: "w-usd", currency: "USD" };
+  const eur = { id: "w-eur", currency: "EUR" };
+
+  it("selects the USD wallet when the account holds ZMW + USD, in either list order", () => {
+    expect(selectPayPalWithdrawalWallet([zmw, usd], zmw)?.id).toBe("w-usd");
+    expect(selectPayPalWithdrawalWallet([usd, zmw], zmw)?.id).toBe("w-usd");
+  });
+
+  it("prefers USD over other payout currencies, and uses a payout currency when USD is absent", () => {
+    expect(selectPayPalWithdrawalWallet([eur, usd], zmw)?.id).toBe("w-usd");
+    expect(selectPayPalWithdrawalWallet([zmw, eur], zmw)?.id).toBe("w-eur");
+  });
+
+  it("is case-insensitive about currency codes", () => {
+    expect(
+      selectPayPalWithdrawalWallet([{ id: "w-usd-lc", currency: "usd" }], zmw)?.id,
+    ).toBe("w-usd-lc");
+  });
+
+  it("falls back to the primary wallet only when the account holds NO payout wallet (ZMW-only → convert guidance)", () => {
+    expect(selectPayPalWithdrawalWallet([zmw], zmw)?.id).toBe("w-zmw");
+    expect(selectPayPalWithdrawalWallet([], zmw)?.id).toBe("w-zmw");
+    expect(selectPayPalWithdrawalWallet(undefined, zmw)?.id).toBe("w-zmw");
+    expect(selectPayPalWithdrawalWallet(null, zmw)?.id).toBe("w-zmw");
+  });
+
+  it("returns null when there is no wallet to act on", () => {
+    expect(selectPayPalWithdrawalWallet([], null)).toBeNull();
+    expect(selectPayPalWithdrawalWallet(undefined, undefined)).toBeNull();
+  });
+
+  it("wallet page passes the selected withdrawal wallet to BOTH withdraw surfaces, never the raw primary", () => {
+    expect(walletPage).toContain("useMultiCurrencyWallets(selectedAccountId)");
+    expect(walletPage).toContain(
+      "selectPayPalWithdrawalWallet(accountWallets, wallet ?? null)",
+    );
+    const renders =
+      walletPage.match(/<PayPalWithdraw wallet=\{withdrawWallet\} \/>/g) ?? [];
+    expect(renders.length).toBe(2);
+    expect(walletPage).not.toContain("<PayPalWithdraw wallet={wallet ?? null}");
+  });
+
+  it("component branch order: currency guidance precedes the rail gate, which precedes the form", () => {
+    const guidanceAt = withdrawComponent.indexOf("if (!supported)");
+    const gateAt = withdrawComponent.indexOf("floatQuery.isSuccess && !payoutsEnabled");
+    const formAt = withdrawComponent.indexOf('htmlFor="payout-email"');
+    expect(guidanceAt).toBeGreaterThan(-1);
+    expect(gateAt).toBeGreaterThan(guidanceAt);
+    expect(formAt).toBeGreaterThan(gateAt);
+    // A payout-currency wallet therefore can never reach the ZMW
+    // guidance, and no wallet reaches the form while the gate is off:
+    // the activating branch replaces it wholesale.
+    expect(withdrawComponent).toContain("PAYPAL_PAYOUTS_ACTIVATING_MESSAGE");
+    expect(withdrawComponent).toContain('currency === "ZMW"');
+    expect(withdrawComponent).toContain("ZMW_PAYOUT_MESSAGE");
   });
 });

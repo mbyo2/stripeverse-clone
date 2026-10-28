@@ -32,7 +32,11 @@ import { getDepositMethodOptions, selectDefaultDepositMethod } from "@/utils/dep
 import PayPalFundingOptions from "@/components/payments/PayPalFundingOptions";
 import { DEFAULT_PAYPAL_FUNDING, paypalFundingActionLabel, type PayPalFunding } from "@/utils/paypalFunding";
 import PayPalWithdraw from "@/components/wallet/PayPalWithdraw";
-import { PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE } from "@/utils/paypalPayout";
+import {
+  PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE,
+  selectPayPalWithdrawalWallet,
+} from "@/utils/paypalPayout";
+import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { useAccount } from "@/contexts/AccountContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -40,6 +44,17 @@ const Wallet = () => {
   const navigate = useNavigate();
   const { selectedAccountId, selectedAccountName } = useAccount();
   const { wallet, isLoading, walletError, refetchWallet, deposit, isDepositing } = useWallet(selectedAccountId);
+  // The Withdraw surface must act on the account's PayPal-payout
+  // wallet when one exists — NOT on `wallet` above: useWallet always
+  // resolves the primary ZMW wallet, which used to send users who
+  // hold a USD wallet in this very account to the convert-to-USD
+  // panel, in a loop (convert, reopen Withdraw, same panel). The
+  // selector prefers the payout wallet (USD first) and only falls
+  // back to the primary wallet when the account holds no
+  // payout-currency wallet at all — the one case where the convert
+  // guidance is the truthful surface.
+  const { data: accountWallets } = useMultiCurrencyWallets(selectedAccountId);
+  const withdrawWallet = selectPayPalWithdrawalWallet(accountWallets, wallet ?? null);
   const retryWithRecovery = useRecoveringRetry();
   const { paymentMethods } = usePaymentMethods();
   const [amount, setAmount] = useState("");
@@ -304,7 +319,7 @@ const Wallet = () => {
                 <DrawerHeader className="text-center">
                   <DrawerTitle>Withdraw to PayPal</DrawerTitle>
                 </DrawerHeader>
-                <PayPalWithdraw wallet={wallet ?? null} />
+                <PayPalWithdraw wallet={withdrawWallet} />
               </DrawerContent>
             </Drawer>
           ) : (
@@ -318,7 +333,7 @@ const Wallet = () => {
                 <DialogHeader>
                   <DialogTitle>Withdraw to PayPal</DialogTitle>
                 </DialogHeader>
-                <PayPalWithdraw wallet={wallet ?? null} />
+                <PayPalWithdraw wallet={withdrawWallet} />
               </DialogContent>
             </Dialog>
           )}

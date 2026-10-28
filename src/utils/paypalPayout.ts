@@ -53,6 +53,45 @@ export function isPayPalPayoutCurrency(currency: string | null | undefined): boo
   return PAYPAL_PAYOUT_CURRENCIES.includes(currency.trim().toUpperCase());
 }
 
+export interface WithdrawalWalletLike {
+  id: string;
+  currency: string;
+}
+
+/**
+ * Which wallet a "Withdraw to PayPal" surface acts on.
+ *
+ * The Wallet page's primary wallet is ALWAYS the account's ZMW
+ * wallet (ensureWalletExists resolves currency = 'ZMW'), so keying
+ * the withdraw dialog on it sent every user — including users
+ * holding a funded USD wallet in the same account — to the
+ * convert-to-USD panel, whose own instruction (convert, then
+ * withdraw) looped straight back to the same panel. The ACTIVE
+ * wallet for a withdrawal is instead: the account's PayPal-payout
+ * wallet when one exists (USD preferred — the payout list is
+ * USD-first and the float/provenance rails are USD-centric — then
+ * the remaining payout currencies in list order), and only when the
+ * account holds NO payout-currency wallet does the surface fall
+ * back to the primary wallet, where the convert guidance is the
+ * truthful answer. List order alone never decides: an account whose
+ * first wallet happens to be a payout currency is not treated
+ * differently from one whose is not.
+ */
+export function selectPayPalWithdrawalWallet<T extends WithdrawalWalletLike>(
+  wallets: readonly T[] | null | undefined,
+  primaryWallet: T | null | undefined,
+): T | null {
+  const payoutWallets = (wallets ?? []).filter((w) =>
+    isPayPalPayoutCurrency(w.currency),
+  );
+  if (payoutWallets.length > 0) {
+    const rank = (currency: string) =>
+      PAYPAL_PAYOUT_CURRENCIES.indexOf(currency.trim().toUpperCase());
+    return [...payoutWallets].sort((a, b) => rank(a.currency) - rank(b.currency))[0];
+  }
+  return primaryWallet ?? null;
+}
+
 /**
  * The withdrawal fee on `amount` at `ratePercent`:
  * round(amount * rate / 100, 2), charged ON TOP — the recipient
