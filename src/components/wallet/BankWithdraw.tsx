@@ -471,38 +471,35 @@ const BankWithdrawalHistory = ({ rows }: { rows: BankWithdrawalView[] }) => {
       <h3 className="text-sm font-medium">Bank withdrawals</h3>
       <div className="space-y-2">
         {rows.map((row) => (
-          <div
-            key={row.id}
-            className="flex items-center justify-between gap-2 rounded-lg border p-3"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-medium">
-                K{row.amount.toFixed(2)} → {row.bank_name}{" "}
-                {row.account_number_masked}
-              </p>
-              <p className="text-xs text-muted-foreground">
+          <div key={row.id} className="space-y-1 rounded-lg border p-3">
+            <p className="text-sm font-medium">
+              K{row.amount.toFixed(2)} → {row.bank_name}{" "}
+              {row.account_number_masked}
+            </p>
+            <div className="flex items-end justify-between gap-2">
+              <p className="min-w-0 text-xs text-muted-foreground">
                 {new Date(row.created_at).toLocaleString()}
                 {row.status === "paid_out" && row.external_reference
                   ? ` · Bank ref: ${row.external_reference}`
                   : ""}
               </p>
-              {(row.status === "rejected" || row.status === "failed") &&
-                row.failure_reason && (
-                  <p className="text-xs text-destructive">{row.failure_reason}</p>
-                )}
+              <Badge
+                variant={
+                  row.status === "paid_out"
+                    ? "default"
+                    : row.status === "rejected" || row.status === "failed"
+                      ? "destructive"
+                      : "secondary"
+                }
+                className="max-w-[55%] shrink-0 text-right leading-tight whitespace-normal"
+              >
+                {bankWithdrawalStatusLabel(row.status)}
+              </Badge>
             </div>
-            <Badge
-              variant={
-                row.status === "paid_out"
-                  ? "default"
-                  : row.status === "rejected" || row.status === "failed"
-                    ? "destructive"
-                    : "secondary"
-              }
-              className="shrink-0"
-            >
-              {bankWithdrawalStatusLabel(row.status)}
-            </Badge>
+            {(row.status === "rejected" || row.status === "failed") &&
+              row.failure_reason && (
+                <p className="text-xs text-destructive">{row.failure_reason}</p>
+              )}
           </div>
         ))}
       </div>
