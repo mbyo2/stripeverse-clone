@@ -87,6 +87,8 @@ const BitcoinPos = lazy(() => import('@/pages/BitcoinPos'));
 const SubAccounts = lazy(() => import('@/pages/SubAccounts'));
 const SplitPayments = lazy(() => import('@/pages/SplitPayments'));
 const MultiCurrencyWallet = lazy(() => import('@/pages/MultiCurrencyWallet'));
+const ReceivingAccounts = lazy(() => import('@/pages/ReceivingAccounts'));
+const AdminReceivingAccounts = lazy(() => import('@/pages/AdminReceivingAccounts'));
 const BulkPayments = lazy(() => import('@/pages/BulkPayments'));
 const Refunds = lazy(() => import('@/pages/Refunds'));
 const PublicCheckout = lazy(() => import('@/pages/PublicCheckout'));
@@ -301,6 +303,8 @@ const AnimatedRoutes = () => {
         <Route path="/splits" element={<Navigate to="/split-payments" replace />} />
         <Route path="/split-payments" element={<ProtectedPage><SplitPayments /></ProtectedPage>} />
         <Route path="/multi-currency" element={<ProtectedPage><MultiCurrencyWallet /></ProtectedPage>} />
+        <Route path="/receiving-accounts" element={<ProtectedPage><ReceivingAccounts /></ProtectedPage>} />
+        <Route path="/admin/receiving-accounts" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminReceivingAccounts /></RoleGuardedPage>} />
         <Route path="/bulk-payments" element={<ProtectedPage><BulkPayments /></ProtectedPage>} />
         <Route path="/refunds" element={<ProtectedPage><Refunds /></ProtectedPage>} />
         <Route path="/settlements" element={<ProtectedPage><Settlements /></ProtectedPage>} />

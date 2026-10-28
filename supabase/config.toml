@@ -135,5 +135,8 @@ verify_jwt = true
 [functions.bank-payout]
 verify_jwt = true
 
+[functions.receiving-admin]
+verify_jwt = true
+
 [functions.moonpay-webhook]
 verify_jwt = false

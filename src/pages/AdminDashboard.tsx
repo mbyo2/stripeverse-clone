@@ -255,6 +255,13 @@ const AdminDashboard = () => {
       color: "bg-emerald-600"
     },
     {
+      title: "Receiving Accounts",
+      description: "Banking partners, issued account details and inbound credits",
+      icon: <Landmark className="h-6 w-6" />,
+      link: "/admin/receiving-accounts",
+      color: "bg-teal-600"
+    },
+    {
       title: "Compliance Center",
       description: "Manage compliance and KYC",
       icon: <AlertTriangle className="h-6 w-6" />,

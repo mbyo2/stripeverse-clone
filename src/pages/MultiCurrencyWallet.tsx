@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import { Skeleton } from "@/components/ui/skeleton";
 import Footer from '@/components/Footer';
@@ -218,6 +219,22 @@ const MultiCurrencyWallet = () => {
             </div>
           </TabsContent>
         </Tabs>
+
+        <Card className="mt-6">
+          <CardContent className="pt-6 flex flex-wrap items-center gap-3">
+            <Globe className="h-5 w-5 text-primary shrink-0" />
+            <div className="flex-1 min-w-[220px]">
+              <p className="font-medium">Receiving accounts</p>
+              <p className="text-sm text-muted-foreground">
+                Get USD, EUR and GBP account details in your own name so
+                clients abroad can pay you like a local transfer.
+              </p>
+            </div>
+            <Button asChild variant="outline">
+              <Link to="/receiving-accounts">View receiving accounts</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </main>
       <Footer />
     </div>
