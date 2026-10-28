@@ -321,6 +321,36 @@ export async function fetchTreasuryOverview(range: TreasuryRange): Promise<Treas
   return (data as TreasuryOverview) ?? EMPTY_OVERVIEW;
 }
 
+/**
+ * Pending bank-payout liabilities (migration 20261245): user money
+ * that has been reserved for a bank withdrawal but not yet paid
+ * out to a bank — a liability of the platform until it is paid or
+ * refunded. Served by the super_admin-gated
+ * treasury_bank_payout_liabilities RPC; the RPC is newer than the
+ * generated types, hence the untyped call.
+ */
+export interface BankPayoutLiabilities {
+  pending_review_count: number;
+  pending_review_zmw: number;
+  approved_count: number;
+  approved_zmw: number;
+  total_outstanding_zmw: number;
+}
+
+export async function fetchBankPayoutLiabilities(): Promise<BankPayoutLiabilities> {
+  // deno-lint-ignore no-explicit-any
+  const { data, error } = await (supabase as any).rpc("treasury_bank_payout_liabilities");
+  if (error) throw error;
+  const row = (data ?? {}) as Record<string, unknown>;
+  return {
+    pending_review_count: Number(row.pending_review_count ?? 0),
+    pending_review_zmw: Number(row.pending_review_zmw ?? 0),
+    approved_count: Number(row.approved_count ?? 0),
+    approved_zmw: Number(row.approved_zmw ?? 0),
+    total_outstanding_zmw: Number(row.total_outstanding_zmw ?? 0),
+  };
+}
+
 export interface TreasuryReportFilters {
   currency: string | null;
   category: string | null;

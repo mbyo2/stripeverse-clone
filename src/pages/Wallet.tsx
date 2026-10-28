@@ -32,6 +32,7 @@ import { getDepositMethodOptions, selectDefaultDepositMethod } from "@/utils/dep
 import PayPalFundingOptions from "@/components/payments/PayPalFundingOptions";
 import { DEFAULT_PAYPAL_FUNDING, paypalFundingActionLabel, type PayPalFunding } from "@/utils/paypalFunding";
 import PayPalWithdraw from "@/components/wallet/PayPalWithdraw";
+import BankWithdraw from "@/components/wallet/BankWithdraw";
 import {
   PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE,
   selectPayPalWithdrawalWallet,
@@ -84,6 +85,43 @@ const Wallet = () => {
   // Completes a PayPal deposit when the user returns from approval
   // (/wallet?paypal_return=deposit&token=<order id>).
   usePayPalDepositReturn();
+
+  // Withdraw destination: PayPal (from the account's payout wallet,
+  // above) or a Zambian bank account (from the primary ZMW wallet —
+  // bank payouts are ZMW-only, migration 20261245). Both surfaces
+  // (mobile Drawer, desktop Dialog) render this one content block.
+  const [withdrawMethod, setWithdrawMethod] = useState<"paypal" | "bank">("paypal");
+  const WithdrawContent = () => (
+    <div>
+      <div className="px-4 pt-4 grid grid-cols-2 gap-2" role="tablist" aria-label="Withdraw to">
+        <Button
+          type="button"
+          role="tab"
+          aria-selected={withdrawMethod === "paypal"}
+          variant={withdrawMethod === "paypal" ? "default" : "outline"}
+          className="h-11 rounded-full font-semibold"
+          onClick={() => setWithdrawMethod("paypal")}
+        >
+          PayPal
+        </Button>
+        <Button
+          type="button"
+          role="tab"
+          aria-selected={withdrawMethod === "bank"}
+          variant={withdrawMethod === "bank" ? "default" : "outline"}
+          className="h-11 rounded-full font-semibold"
+          onClick={() => setWithdrawMethod("bank")}
+        >
+          Bank Account
+        </Button>
+      </div>
+      {withdrawMethod === "paypal" ? (
+        <PayPalWithdraw wallet={withdrawWallet} />
+      ) : (
+        <BankWithdraw wallet={wallet ?? null} />
+      )}
+    </div>
+  );
 
   const handleSendMoney = () => {
     navigate("/transfer");
@@ -317,9 +355,9 @@ const Wallet = () => {
               </DrawerTrigger>
               <DrawerContent>
                 <DrawerHeader className="text-center">
-                  <DrawerTitle>Withdraw to PayPal</DrawerTitle>
+                  <DrawerTitle>Withdraw</DrawerTitle>
                 </DrawerHeader>
-                <PayPalWithdraw wallet={withdrawWallet} />
+                <WithdrawContent />
               </DrawerContent>
             </Drawer>
           ) : (
@@ -331,9 +369,9 @@ const Wallet = () => {
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Withdraw to PayPal</DialogTitle>
+                  <DialogTitle>Withdraw</DialogTitle>
                 </DialogHeader>
-                <PayPalWithdraw wallet={withdrawWallet} />
+                <WithdrawContent />
               </DialogContent>
             </Dialog>
           )}

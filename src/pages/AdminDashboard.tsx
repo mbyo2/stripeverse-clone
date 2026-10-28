@@ -14,7 +14,7 @@ import { adminDashboardVisibility } from "@/lib/roleVisibility";
 import { supabase } from "@/integrations/supabase/client";
 import { countActiveUsers, activityWindowStart } from "@/utils/adminStats";
 import { Link } from "react-router-dom";
-import { Users, Shield, Activity, AlertTriangle, Settings, Database, ScanFace, Globe2, Inbox, ReceiptText, CreditCard, Landmark } from "lucide-react";
+import { Users, Shield, Activity, AlertTriangle, Settings, Database, ScanFace, Globe2, Inbox, ReceiptText, CreditCard, Landmark, Building2 } from "lucide-react";
 
 interface UserStat {
   total_users: number;
@@ -246,6 +246,13 @@ const AdminDashboard = () => {
       icon: <Landmark className="h-6 w-6" />,
       link: "/admin/paypal",
       color: "bg-sky-600"
+    },
+    {
+      title: "Bank Payouts",
+      description: "Withdrawals to Zambian bank accounts — review, approve, mark paid",
+      icon: <Building2 className="h-6 w-6" />,
+      link: "/admin/bank-payouts",
+      color: "bg-emerald-600"
     },
     {
       title: "Compliance Center",

@@ -42,7 +42,9 @@ import {
   buildTreasuryCsv,
   fetchTreasuryOverview,
   fetchTreasuryReport,
+  fetchBankPayoutLiabilities,
   CSV_EXPORT_LIMIT,
+  type BankPayoutLiabilities,
   type TreasuryOverview,
   type TreasuryPreset,
   type TreasuryReport,
@@ -95,6 +97,24 @@ const AdminTreasury = () => {
   useEffect(() => {
     loadOverview();
   }, [loadOverview, refreshTick]);
+
+  // Bank-payout liabilities (migration 20261245): reserved user
+  // money owed out to banks. A failure here never blocks the rest
+  // of the console — the card simply doesn't render.
+  const [bankLiabilities, setBankLiabilities] = useState<BankPayoutLiabilities | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchBankPayoutLiabilities()
+      .then((data) => {
+        if (!cancelled) setBankLiabilities(data);
+      })
+      .catch(() => {
+        if (!cancelled) setBankLiabilities(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick]);
 
   // ---- Report -------------------------------------------------------
   const [searchInput, setSearchInput] = useState("");
@@ -418,6 +438,27 @@ const AdminTreasury = () => {
                 </p>
               </CardContent>
             </Card>
+            {bankLiabilities && (
+              <Card className="border-dashed">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Bank payouts owed
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-[26px] font-display font-semibold tabular-nums">
+                    {formatMoney(bankLiabilities.total_outstanding_zmw, "ZMW")}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Reserved for bank withdrawals:{" "}
+                    {bankLiabilities.pending_review_count} in review (
+                    {formatMoney(bankLiabilities.pending_review_zmw, "ZMW")}),{" "}
+                    {bankLiabilities.approved_count} approved to pay (
+                    {formatMoney(bankLiabilities.approved_zmw, "ZMW")})
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </section>
 

@@ -566,9 +566,16 @@ describe("withdrawal wallet selection (the dialog keys on the payout wallet)", (
     expect(walletPage).toContain(
       "selectPayPalWithdrawalWallet(accountWallets, wallet ?? null)",
     );
+    // Since the bank-withdrawal option landed (20261245), both
+    // surfaces (mobile Drawer, desktop Dialog) render ONE shared
+    // WithdrawContent block; the PayPal surface inside it still
+    // receives the selected withdrawal wallet — never the raw
+    // primary — and the block itself is rendered exactly twice.
     const renders =
       walletPage.match(/<PayPalWithdraw wallet=\{withdrawWallet\} \/>/g) ?? [];
-    expect(renders.length).toBe(2);
+    expect(renders.length).toBe(1);
+    const surfaces = walletPage.match(/<WithdrawContent \/>/g) ?? [];
+    expect(surfaces.length).toBe(2);
     expect(walletPage).not.toContain("<PayPalWithdraw wallet={wallet ?? null}");
   });
 
