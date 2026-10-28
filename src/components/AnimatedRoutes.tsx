@@ -7,6 +7,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import type { Role } from '@/contexts/RoleContext';
 import BusinessRouteGuard from '@/components/business/BusinessRouteGuard';
 import PageTransition from '@/components/PageTransition';
+import ScrollManager from '@/components/ScrollManager';
 
 // Pages are route-level code-split with React.lazy (only the landing
 // page, Index, stays eager so `/` paints without an extra round-trip).
@@ -163,6 +164,8 @@ const AnimatedRoutes = () => {
   }, [location.pathname]);
 
   return (
+    <>
+    <ScrollManager />
     <AnimatePresence mode="wait">
       <Suspense fallback={<RouteFallback />}>
       <Routes location={location} key={location.pathname}>
@@ -332,6 +335,7 @@ const AnimatedRoutes = () => {
       </Routes>
       </Suspense>
     </AnimatePresence>
+    </>
   );
 };
 
