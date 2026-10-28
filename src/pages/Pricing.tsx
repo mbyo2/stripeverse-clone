@@ -59,7 +59,7 @@ const FEES = [
     icon: <CreditCard className="h-5 w-5" />,
     name: "Fund a Virtual Card",
     fee: "1%",
-    detail: "Funding a virtual card costs 1% of the amount, with a minimum fee of K2.",
+    detail: "Funding a virtual card costs 1% of the amount, with a minimum fee of K2. Virtual cards are in limited release — if they don't appear in your wallet yet, they're coming soon.",
   },
 ];
 

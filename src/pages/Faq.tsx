@@ -34,7 +34,7 @@ const Faq = () => {
     {
       title: "Payments & Cards",
       faqs: [
-        { question: "Which payment methods are supported?", answer: "Bitcoin is live today. Mobile Money (MTN, Airtel, Zamtel) is coming soon, through direct connections to each provider. Visa, Mastercard, USSD, and bank transfers are also supported." },
+        { question: "Which payment methods are supported?", answer: "Bitcoin is live today, and PayPal is live for receiving payments and adding money. Mobile Money (MTN, Airtel, Zamtel) is coming soon, through direct connections to each provider. Card payments (Visa, Mastercard) are coming soon through our card connection — they aren't live yet, and neither are USSD or bank transfers." },
         { question: "Are international payments supported?", answer: "Yes, through Bitcoin. Some international transfers ask for identity verification — if one does, we'll ask at the time and explain why." },
         { question: "How do virtual cards work?", answer: "Create a BMaGlass virtual card from your Wallet and load funds to keep a separate balance inside BMaGlass Pay, like a named pocket for a purpose. Virtual cards aren't card-network cards, so they can't be used for purchases outside BMaGlass Pay. Cards can be frozen or cancelled instantly." },
         { question: "What happens if a payment fails?", answer: "You'll receive an instant notification with the failure reason. Retry or choose a different payment method. Failed transactions are never charged." },
@@ -45,7 +45,7 @@ const Faq = () => {
       faqs: [
         { question: "How do I enable two-factor authentication?", answer: "Go to Settings → Security → Two-Factor Authentication. Scan the QR code with an authenticator app and enter the verification code." },
         { question: "How do I reset my password?", answer: "Click 'Forgot Password' on the login page, enter your email, and follow the reset link sent to your inbox." },
-        { question: "How do I complete KYC verification?", answer: "Navigate to /kyc or Settings → KYC. Upload government ID (front & back), a selfie, and proof of address. Verification completes within 24 hours." },
+        { question: "How do I complete KYC verification?", answer: "Navigate to /kyc or Settings → KYC. Upload your government ID (front & back) as files, capture your face live with your camera inside the wizard — photo uploads aren't accepted for your face — and add proof of address. Verification completes within 24 hours." },
         { question: "Can I delete my account?", answer: "Contact support to request account deletion. All personal data will be removed within 30 days, subject to regulatory data retention requirements." },
       ]
     }

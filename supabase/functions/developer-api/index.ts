@@ -255,10 +255,16 @@ serve(async (req) => {
       });
       if (error) return err(422, "transfer_failed", error.message);
       const row = Array.isArray(data) ? data[0] : data;
-      await dispatchEvent(db, userId, "transaction.completed", {
-        transaction_id: row?.transaction_id ?? null, amount: amt,
-        currency: typeof currency === "string" ? currency : "ZMW", to_user_id,
-      }).catch(() => []);
+      // Idempotent replays return the original row with
+      // already_existed=true and move NO money — they must not
+      // re-announce the transfer: transaction.completed fires
+      // exactly once, when the money actually moved.
+      if (row?.already_existed !== true) {
+        await dispatchEvent(db, userId, "transaction.completed", {
+          transaction_id: row?.transaction_id ?? null, amount: amt,
+          currency: typeof currency === "string" ? currency : "ZMW", to_user_id,
+        }).catch(() => []);
+      }
       return json(201, { data: row, mode: "live" });
     }
 

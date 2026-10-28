@@ -20,7 +20,7 @@ const FEES: Array<{ name: string; fee: string }> = [
   { name: "Buy or sell Bitcoin instantly", fee: "1.5%" },
   { name: "Payment links (when paid)", fee: "2.5%" },
   { name: "PayPal payments (when received)", fee: "1%" },
-  { name: "Fund a virtual card", fee: "1% (minimum K2)" },
+  { name: "Fund a virtual card (limited release)", fee: "1% (minimum K2)" },
 ];
 
 const Billing = () => {
