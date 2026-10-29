@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TradeRoomSkeleton } from "@/components/ui/skeletons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShieldAlert } from "lucide-react";
 import P2pShell from "@/components/p2p/P2pShell";
@@ -73,10 +73,7 @@ export default function P2PTradeRoom() {
   if (orderQuery.isLoading) {
     return (
       <P2pShell title="Trade">
-        <div className="space-y-4">
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
+        <TradeRoomSkeleton />
       </P2pShell>
     );
   }

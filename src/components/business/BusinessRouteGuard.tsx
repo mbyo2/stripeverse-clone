@@ -2,6 +2,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles } from "@/contexts/RoleContext";
 import { isAdminTier, roleHomePath } from "@/lib/roleVisibility";
+import { BusinessDashboardSkeleton, SkeletonHeaderBar } from "@/components/ui/skeletons";
 
 interface BusinessRouteGuardProps {
   children: React.ReactNode;
@@ -11,11 +12,21 @@ const BusinessRouteGuard = ({ children }: BusinessRouteGuardProps) => {
   const { user } = useAuth();
   const { hasRole, roles, isLoading } = useRoles();
 
-  // Show loading state while checking role
+  // Show loading state while checking role: the business
+  // dashboard's own skeleton twin behind the shell header twin —
+  // never a bare spinner on a blank screen.
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div
+        className="min-h-screen flex flex-col bg-background"
+        role="status"
+        aria-label="Loading"
+        aria-busy="true"
+      >
+        <SkeletonHeaderBar variant="authed" />
+        <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 pt-6 pb-16">
+          <BusinessDashboardSkeleton />
+        </main>
       </div>
     );
   }

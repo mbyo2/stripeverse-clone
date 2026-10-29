@@ -732,3 +732,581 @@ export const SettingsSkeleton = () => (
     </div>
   </div>
 );
+
+/* ------------------------------------------------------------------ */
+/* Sweep twins (2026-10-29 crash-proof + skeleton-fidelity sweep):     */
+/* every remaining async surface gets an element-for-element twin so   */
+/* the route fallback and in-page loading states match the loaded      */
+/* page the way YouTube's do — grey blocks exactly where content       */
+/* lands, no plausible-looking fake numbers anywhere.                  */
+/* ------------------------------------------------------------------ */
+
+/** A row of stat cards (label, big value, sub-line, icon circle). */
+export const SkeletonStatCardsRow = ({
+  count = 4,
+  className,
+}: {
+  count?: number;
+  className?: string;
+}) => (
+  <div
+    className={cn("grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4", className)}
+    aria-hidden="true"
+  >
+    {Array.from({ length: count }).map((_, i) => (
+      <SkeletonStatCard key={i} />
+    ))}
+  </div>
+);
+
+/** Page title block shared by the app-page twins: title + subtitle. */
+const SkeletonPageTitle = ({
+  titleWidth = "w-48",
+  subWidth = "w-72",
+}: {
+  titleWidth?: string;
+  subWidth?: string;
+}) => (
+  <div aria-hidden="true" className="mb-6">
+    <Skeleton className={cn("h-8", titleWidth)} />
+    <Skeleton className={cn("h-4 mt-2 max-w-full", subWidth)} />
+  </div>
+);
+
+/**
+ * Form-page twin (Transfer, Send Money, card funding, KYC steps…):
+ * title block, then the centered form card the real pages use —
+ * label/field pairs and the full-width submit pill at the bottom.
+ */
+export const FormPageSkeleton = ({
+  fields = 3,
+  titleWidth = "w-44",
+}: {
+  fields?: number;
+  titleWidth?: string;
+}) => (
+  <div role="status" aria-label="Loading">
+    <div className="max-w-xl mx-auto">
+      <SkeletonPageTitle titleWidth={titleWidth} />
+      <div className="rounded-xl border border-border bg-card p-6" aria-hidden="true">
+        <div className="space-y-5">
+          {Array.from({ length: fields }).map((_, i) => (
+            <div key={i}>
+              <Skeleton className="h-3 w-24 mb-2" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+            </div>
+          ))}
+        </div>
+        <Skeleton className="h-11 w-full rounded-full mt-6" />
+        <Skeleton className="h-3 w-56 max-w-full mx-auto mt-4" />
+      </div>
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * Auth-card twin (login/register/password flows once their chunk is
+ * loading): the centered card — logo row, title, two fields, the
+ * submit pill, and the switch-account line underneath.
+ */
+export const AuthFormSkeleton = () => (
+  <div role="status" aria-label="Loading">
+    <div className="max-w-md mx-auto pt-6">
+      <div className="rounded-xl border border-border bg-card p-6 sm:p-8" aria-hidden="true">
+        <Skeleton className="h-6 w-40 mb-2" />
+        <Skeleton className="h-4 w-64 max-w-full mb-6" />
+        <div className="space-y-5">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i}>
+              <Skeleton className="h-3 w-20 mb-2" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+            </div>
+          ))}
+        </div>
+        <Skeleton className="h-11 w-full rounded-full mt-6" />
+        <Skeleton className="h-4 w-48 max-w-full mx-auto mt-5" />
+      </div>
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * Table-page twin (admin consoles, POS, statements…): title row
+ * with the primary action button, a filter field, then the table
+ * card at the real table's column rhythm.
+ */
+export const TablePageSkeleton = ({ stats = false }: { stats?: boolean }) => (
+  <div role="status" aria-label="Loading">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6" aria-hidden="true">
+      <div>
+        <Skeleton className="h-8 w-52" />
+        <Skeleton className="h-4 w-72 max-w-full mt-2" />
+      </div>
+      <Skeleton className="h-10 w-36 rounded-full shrink-0" />
+    </div>
+    {stats && (
+      <div aria-hidden="true">
+        <SkeletonStatCardsRow className="mb-6" />
+      </div>
+    )}
+    <div className="rounded-xl border border-border bg-card p-6" aria-hidden="true">
+      <Skeleton className="h-10 w-full max-w-sm rounded-md mb-4" />
+      <SkeletonTableRows rows={6} />
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * List-page twin (invoices, notifications, disputes, settlements…):
+ * title row with action button, then the rows card.
+ */
+export const ListPageSkeleton = ({ rows = 6 }: { rows?: number }) => (
+  <div role="status" aria-label="Loading">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6" aria-hidden="true">
+      <div>
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-64 max-w-full mt-2" />
+      </div>
+      <Skeleton className="h-10 w-32 rounded-full shrink-0" />
+    </div>
+    <div className="rounded-xl border border-border bg-card px-6 py-2" aria-hidden="true">
+      <SkeletonListRows rows={rows} />
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * Stat-grid twin (admin dashboard, analytics, insights…): title,
+ * four stat cards, the chart card and a table card under it.
+ */
+export const StatGridPageSkeleton = () => (
+  <div role="status" aria-label="Loading">
+    <SkeletonPageTitle titleWidth="w-56" />
+    <div aria-hidden="true">
+      <SkeletonStatCardsRow className="mb-6" />
+    </div>
+    <div className="rounded-xl border border-border bg-card p-6 mb-6" aria-hidden="true">
+      <Skeleton className="h-5 w-40 mb-4" />
+      <Skeleton className="h-[260px] w-full rounded-lg" />
+    </div>
+    <div className="rounded-xl border border-border bg-card p-6" aria-hidden="true">
+      <Skeleton className="h-5 w-44 mb-4" />
+      <SkeletonTableRows rows={4} />
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * Card-grid twin (bank accounts, split recipients, wallets grid…):
+ * title row, then tiles at the loaded grid's rhythm — used in-page
+ * by grid regions and by the route fallback for grid pages.
+ */
+export const CardGridSkeleton = ({ tiles = 3 }: { tiles?: number }) => (
+  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+    {Array.from({ length: tiles }).map((_, i) => (
+      <div key={i} className="rounded-xl border border-border bg-card p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+          <div>
+            <Skeleton className="h-4 w-28 mb-1.5" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        </div>
+        <Skeleton className="h-4 w-40 max-w-full mb-2" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+    ))}
+  </div>
+);
+
+/** List-rows region twin for in-page list regions (batches, refunds…). */
+export const ListRegionSkeleton = ({ rows = 3 }: { rows?: number }) => (
+  <div className="space-y-4" role="status" aria-label="Loading">
+    {Array.from({ length: rows }).map((_, i) => (
+      <div key={i} className="rounded-xl border border-border bg-card p-6" aria-hidden="true">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+            <div>
+              <Skeleton className="h-4 w-40 max-w-full mb-1.5" />
+              <Skeleton className="h-3 w-28" />
+            </div>
+          </div>
+          <Skeleton className="h-5 w-20 shrink-0" />
+        </div>
+      </div>
+    ))}
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * Bitcoin Wallet twin — the main product gets the closest twin:
+ * the page title, the Balance card (header row with the account
+ * badge, the description lines, the big amount block and its asset
+ * line, the action-button row), then the two cards that follow it
+ * (activity list + the self-custody panel).
+ */
+export const BitcoinWalletSkeleton = () => (
+  <div role="status" aria-label="Loading Bitcoin wallet">
+    <Skeleton className="h-8 w-48 mb-6" aria-hidden="true" />
+    <div className="rounded-xl border border-border bg-card mb-6" aria-hidden="true">
+      <div className="px-6 pt-6 pb-3">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-6 w-24" />
+          <Skeleton className="h-5 w-36 rounded-full" />
+        </div>
+        <Skeleton className="h-4 w-[420px] max-w-full mt-2" />
+        <Skeleton className="h-4 w-72 max-w-full mt-1.5" />
+      </div>
+      <div className="px-6 pb-6">
+        <Skeleton className="h-11 w-48" />
+        <Skeleton className="h-4 w-56 max-w-full mt-2" />
+        <div className="flex flex-wrap gap-3 mt-6">
+          <Skeleton className="h-11 w-32 rounded-md" />
+          <Skeleton className="h-11 w-32 rounded-md" />
+          <Skeleton className="h-11 w-28 rounded-md" />
+          <Skeleton className="h-11 w-28 rounded-md" />
+        </div>
+      </div>
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div aria-hidden="true">
+        <SkeletonCardShell titleWidth="w-36" linkWidth="w-16">
+          <SkeletonListRows rows={4} />
+        </SkeletonCardShell>
+      </div>
+      <div className="rounded-xl border border-border bg-card p-6" aria-hidden="true">
+        <div className="flex items-start gap-4">
+          <Skeleton className="w-12 h-12 rounded-full shrink-0" />
+          <div className="min-w-0">
+            <Skeleton className="h-5 w-44" />
+            <Skeleton className="h-4 w-72 max-w-full mt-2" />
+            <Skeleton className="h-4 w-56 max-w-full mt-1.5" />
+          </div>
+        </div>
+        <Skeleton className="h-10 w-36 rounded-full mt-5" />
+      </div>
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * Self-custody twin: title, the vault card (status rows + the
+ * action buttons) and the receive panel beside it.
+ */
+export const SelfCustodyWalletSkeleton = () => (
+  <div role="status" aria-label="Loading wallet">
+    <SkeletonPageTitle titleWidth="w-56" />
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="rounded-xl border border-border bg-card p-6" aria-hidden="true">
+        <div className="flex items-center gap-3 mb-5">
+          <Skeleton className="h-11 w-11 rounded-full shrink-0" />
+          <div>
+            <Skeleton className="h-5 w-40 mb-1.5" />
+            <Skeleton className="h-3 w-28" />
+          </div>
+        </div>
+        <Skeleton className="h-10 w-44 mb-2" />
+        <Skeleton className="h-4 w-52 max-w-full mb-6" />
+        <div className="flex flex-wrap gap-3">
+          <Skeleton className="h-10 w-28 rounded-full" />
+          <Skeleton className="h-10 w-28 rounded-full" />
+          <Skeleton className="h-10 w-24 rounded-full" />
+        </div>
+      </div>
+      <div aria-hidden="true">
+        <SkeletonCardShell titleWidth="w-32">
+          <div className="flex flex-col items-center py-2">
+            <Skeleton className="h-40 w-40 rounded-lg mb-4" />
+            <Skeleton className="h-4 w-64 max-w-full" />
+          </div>
+        </SkeletonCardShell>
+      </div>
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * Business Dashboard twin: title, the hero stat card beside the
+ * stat-rows card, then the two chart cards.
+ */
+export const BusinessDashboardSkeleton = () => (
+  <div role="status" aria-label="Loading business dashboard">
+    <Skeleton className="h-10 w-64 max-w-full mb-6" aria-hidden="true" />
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6" aria-hidden="true">
+      <div className="rounded-xl border border-border bg-card p-6 md:p-8">
+        <Skeleton className="h-4 w-32 mb-2" />
+        <Skeleton className="h-11 w-48" />
+        <Skeleton className="h-4 w-40 mt-2" />
+      </div>
+      <div className="rounded-xl border border-border bg-card px-6 py-2">
+        <div className="divide-y divide-border">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-9 w-9 rounded-full shrink-0" />
+                <Skeleton className="h-4 w-28" />
+              </div>
+              <Skeleton className="h-5 w-20" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" aria-hidden="true">
+      {Array.from({ length: 2 }).map((_, i) => (
+        <div key={i} className="rounded-xl border border-border bg-card p-6">
+          <Skeleton className="h-5 w-40 mb-4" />
+          <Skeleton className="h-[240px] w-full rounded-lg" />
+        </div>
+      ))}
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * P2P list twin: the search/filter bar, the side filter pills and
+ * ad cards at the real AdCard rhythm (SkeletonCardRow).
+ */
+export const P2PListSkeleton = () => (
+  <div role="status" aria-label="Loading marketplace">
+    <SkeletonPageTitle titleWidth="w-52" />
+    <div className="flex flex-col md:flex-row gap-4 mb-5" aria-hidden="true">
+      <Skeleton className="h-10 flex-1 rounded-md" />
+      <Skeleton className="h-10 w-36 rounded-md" />
+      <Skeleton className="h-10 w-32 rounded-md" />
+    </div>
+    <div className="space-y-4" aria-hidden="true">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <SkeletonCardRow key={i} />
+      ))}
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * Trade-room twin: the order header row, then the two columns the
+ * room really has — order/payment detail card and the chat card
+ * (message bubbles + composer bar).
+ */
+export const TradeRoomSkeleton = () => (
+  <div role="status" aria-label="Loading trade">
+    <div className="flex items-center gap-3 mb-6" aria-hidden="true">
+      <Skeleton className="h-9 w-9 rounded-md shrink-0" />
+      <div>
+        <Skeleton className="h-6 w-48 mb-1.5" />
+        <Skeleton className="h-3 w-32" />
+      </div>
+      <Skeleton className="h-6 w-20 rounded-full ml-auto shrink-0" />
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
+      <div className="rounded-xl border border-border bg-card p-6" aria-hidden="true">
+        <Skeleton className="h-5 w-40 mb-5" />
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center justify-between gap-3">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-4 w-36" />
+            </div>
+          ))}
+        </div>
+        <Skeleton className="h-11 w-full rounded-full mt-6" />
+      </div>
+      <div className="rounded-xl border border-border bg-card p-6" aria-hidden="true">
+        <Skeleton className="h-5 w-28 mb-5" />
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-3/4 rounded-2xl" />
+          <Skeleton className="h-10 w-2/3 rounded-2xl ml-auto" />
+          <Skeleton className="h-10 w-3/5 rounded-2xl" />
+        </div>
+        <div className="flex gap-2 mt-6">
+          <Skeleton className="h-10 flex-1 rounded-full" />
+          <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+        </div>
+      </div>
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * Detail-page twin (profiles, disputes, receiving accounts…):
+ * title + status badge, then detail-row cards in two columns.
+ */
+export const DetailPageSkeleton = () => (
+  <div role="status" aria-label="Loading">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6" aria-hidden="true">
+      <div>
+        <Skeleton className="h-8 w-52" />
+        <Skeleton className="h-4 w-64 max-w-full mt-2" />
+      </div>
+      <Skeleton className="h-6 w-20 rounded-full shrink-0" />
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      {Array.from({ length: 2 }).map((_, c) => (
+        <div key={c} className="rounded-xl border border-border bg-card p-6" aria-hidden="true">
+          <Skeleton className="h-5 w-36 mb-5" />
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between gap-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * Public-checkout twin (/pay, /invoice, /request, hosted checkout):
+ * the centered payment panel — merchant row, amount block, the
+ * payment-method rows and the pay button.
+ */
+export const CheckoutSkeleton = () => (
+  <div role="status" aria-label="Loading checkout">
+    <div className="max-w-lg mx-auto pt-4">
+      <div className="rounded-xl border border-border bg-card p-6 sm:p-8" aria-hidden="true">
+        <div className="flex items-center gap-3 mb-6">
+          <Skeleton className="h-11 w-11 rounded-full shrink-0" />
+          <div>
+            <Skeleton className="h-5 w-40 mb-1.5" />
+            <Skeleton className="h-3 w-28" />
+          </div>
+        </div>
+        <Skeleton className="h-4 w-24 mb-2" />
+        <Skeleton className="h-11 w-44 mb-6" />
+        <div className="space-y-3 mb-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
+              <Skeleton className="h-5 w-5 rounded-full shrink-0" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          ))}
+        </div>
+        <Skeleton className="h-11 w-full rounded-full" />
+        <Skeleton className="h-3 w-52 max-w-full mx-auto mt-4" />
+      </div>
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * Content-page twin (public marketing/legal/help pages): heading
+ * block, paragraph bars and two section blocks — the shape those
+ * pages share, without the app balance band the old generic shell
+ * wrongly showed on them.
+ */
+export const ContentPageSkeleton = () => (
+  <div role="status" aria-label="Loading">
+    <div className="max-w-3xl">
+      <Skeleton className="h-10 w-80 max-w-full mb-3" aria-hidden="true" />
+      <Skeleton className="h-5 w-[520px] max-w-full mb-10" aria-hidden="true" />
+      <div aria-hidden="true" className="space-y-10">
+        {Array.from({ length: 2 }).map((_, s) => (
+          <div key={s}>
+            <Skeleton className="h-6 w-56 mb-4" />
+            <div className="space-y-2.5">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);
+
+/**
+ * The generic app-page body (the shape RouteShellSkeleton has
+ * always shown), exported separately so the route-aware fallback
+ * can reuse it as the default for any route without a closer twin.
+ */
+export const GenericPageSkeleton = () => (
+  <div aria-hidden="true">
+    <Skeleton className="h-8 w-56 mb-2" />
+    <Skeleton className="h-4 w-80 max-w-full mb-8" />
+    <div className="rounded-[24px] border border-border bg-card px-6 py-8 md:px-8 mb-6">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+        <div>
+          <Skeleton className="h-4 w-36 mb-2" />
+          <Skeleton className="h-11 w-64 max-w-full mb-2" />
+          <Skeleton className="h-4 w-28" />
+        </div>
+        <div className="flex gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex flex-col items-center gap-1.5">
+              <Skeleton className="w-12 h-12 rounded-full" />
+              <Skeleton className="h-3 w-10" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <SkeletonStatCard />
+      <SkeletonStatCard />
+      <SkeletonStatCard />
+    </div>
+    <SkeletonCardShell titleWidth="w-36" linkWidth="w-16">
+      <SkeletonListRows rows={4} />
+    </SkeletonCardShell>
+  </div>
+);
+
+/**
+ * Card-create twin (VirtualCardNew): the two columns the create
+ * page really has — the form card (name/type/limits fields + the
+ * create button) beside the live card preview panel.
+ */
+export const CardCreateSkeleton = () => (
+  <div role="status" aria-label="Loading">
+    <SkeletonPageTitle titleWidth="w-52" />
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="rounded-xl border border-border bg-card p-6" aria-hidden="true">
+        <div className="space-y-5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i}>
+              <Skeleton className="h-3 w-24 mb-2" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+            </div>
+          ))}
+        </div>
+        <Skeleton className="h-11 w-full rounded-full mt-6" />
+      </div>
+      <div className="rounded-xl bg-[#44464A] p-6" aria-hidden="true">
+        <div className="flex justify-end">
+          <Skeleton className="h-4 w-28 bg-white/25" />
+        </div>
+        <div className="pt-8">
+          <div className="flex items-center mb-4">
+            <Skeleton className="w-10 h-6 rounded bg-white/25 mr-2" />
+            <Skeleton className="w-6 h-6 rounded-full bg-white/20" />
+          </div>
+          <Skeleton className="h-6 w-72 max-w-full mt-8 mb-6 bg-white/25" />
+          <div className="flex justify-between gap-3">
+            <Skeleton className="h-4 w-20 bg-white/25" />
+            <Skeleton className="h-4 w-14 bg-white/25" />
+          </div>
+        </div>
+      </div>
+    </div>
+    <span className="sr-only">Loading…</span>
+  </div>
+);

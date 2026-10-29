@@ -187,8 +187,12 @@ export default function P2PProfile() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge className="text-sm px-3 py-1">Tier {tierQuery.data ?? limits.tier}</Badge>
                   {kycQuery.data && (
-                    <Badge variant={KYC_LABELS[kycQuery.data.status].tone}>
-                      {KYC_LABELS[kycQuery.data.status].label}
+                    <Badge
+                      variant={
+                        (KYC_LABELS[kycQuery.data.status] ?? KYC_LABELS.not_started).tone
+                      }
+                    >
+                      {(KYC_LABELS[kycQuery.data.status] ?? KYC_LABELS.not_started).label}
                     </Badge>
                   )}
                   <span className="text-sm font-medium">

@@ -2,7 +2,8 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { noteChunkLoadSuccess } from '@/lib/chunkRecovery';
 import { AnimatePresence } from 'framer-motion';
-import { RouteShellSkeleton } from '@/components/ui/skeletons';
+import { RouteSkeleton } from '@/lib/routeSkeleton';
+import PageErrorBoundary from '@/components/PageErrorBoundary';
 import { useAuth } from '@/contexts/AuthContext';
 import { shellSkeletonVariant } from '@/lib/sessionHint';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -135,19 +136,22 @@ const AdminRoleRequests = lazy(() => import('@/pages/AdminRoleRequests'));
 const AdminRefunds = lazy(() => import('@/pages/AdminRefunds'));
 const AdminTreasury = lazy(() => import('@/pages/AdminTreasury'));
 
-// Route-loading fallback: a YouTube-style shell skeleton (header bar +
-// a generic page shape) from the tiny ui/skeletons kit, so a lazy route
-// swaps skeleton → content with no blank flash. Deliberately NOT
-// PageSkeleton — that imports Header/Footer and would drag the heavy
-// shell into the entry chunk / duplicate chrome.
+// Route-loading fallback: a YouTube-style skeleton twin OF THE
+// ROUTE BEING LOADED (lib/routeSkeleton) — header twin + the page's
+// own content twin — so a lazy route swaps skeleton → content with
+// no blank flash and no shape change. Deliberately NOT PageSkeleton
+// — that imports Header/Footer and would drag the heavy shell into
+// the entry chunk / duplicate chrome.
 const RouteFallback = () => {
   const { user, isAuthReady, hasStoredSession } = useAuth();
+  const location = useLocation();
   // Variant follows the shared gate arithmetic (lib/sessionHint):
   // while a stored session is still resolving, the fallback already
   // wears the signed-in header twin, so the shell never flips
   // guest → authed mid-load.
   return (
-    <RouteShellSkeleton
+    <RouteSkeleton
+      pathname={location.pathname}
       variant={shellSkeletonVariant({ user, isAuthReady, hasStoredSession })}
     />
   );
@@ -181,6 +185,7 @@ const AnimatedRoutes = () => {
     <ScrollManager />
     <AnimatePresence mode="wait">
       <Suspense fallback={<RouteFallback />}>
+      <PageErrorBoundary resetKey={location.pathname}>
       <Routes location={location} key={location.pathname}>
         {/* Public routes */}
         <Route path="/" element={<PageTransition><Index /></PageTransition>} />
@@ -346,6 +351,7 @@ const AnimatedRoutes = () => {
         {/* Catch-all 404 route */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
+      </PageErrorBoundary>
       </Suspense>
     </AnimatePresence>
     </>

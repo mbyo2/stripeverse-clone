@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SkeletonListRows } from '@/components/ui/skeletons';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -121,7 +122,7 @@ const Settlements = () => {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
+              <SkeletonListRows rows={4} />
             ) : settlements.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />

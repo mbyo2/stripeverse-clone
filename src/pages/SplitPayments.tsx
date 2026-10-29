@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Plus, Percent, DollarSign, GitBranch, Info } from 'lucide-react';
 import { useSubaccounts, useCreateSubaccount, useSplitRules, useCreateSplitRule, usePlatformSettings } from '@/hooks/useSubaccounts';
 import { committedPercentage, splitRulesWarning, computeSplitPreview } from '@/utils/splitPayments';
+import { CardGridSkeleton } from '@/components/ui/skeletons';
 
 const SplitPayments = () => {
   const { data: subaccounts, isLoading } = useSubaccounts();
@@ -124,7 +125,7 @@ const SplitPayments = () => {
               </Dialog>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {isLoading ? <p className="text-muted-foreground">Loading...</p> : subaccounts?.length === 0 ? (
+              {isLoading ? <div className="col-span-full"><CardGridSkeleton tiles={3} /></div> : subaccounts?.length === 0 ? (
                 <Card className="col-span-full"><CardContent className="py-12 text-center"><Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" /><p className="text-muted-foreground">No split recipients yet.</p></CardContent></Card>
               ) : subaccounts?.map(sub => (
                 <Card key={sub.id}>

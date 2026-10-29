@@ -3,7 +3,7 @@ import { toUserFacingError } from "@/utils/userFacingError";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import { CardPageSkeleton } from "@/components/ui/skeletons";
+import { CardCreateSkeleton } from "@/components/ui/skeletons";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -180,7 +180,7 @@ const VirtualCardNew = () => {
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
-          <CardPageSkeleton />
+          <CardCreateSkeleton />
         </main>
         <Footer />
       </div>

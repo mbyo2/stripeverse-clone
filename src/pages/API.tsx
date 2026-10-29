@@ -1,5 +1,6 @@
 import { toUserFacingError } from "@/utils/userFacingError";
 import React, { useState, useEffect, useCallback } from "react";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -316,7 +317,7 @@ const API = () => {
                 </CardHeader>
                 <CardContent>
                   {loadingKeys ? (
-                    <p className="text-sm text-muted-foreground">Loading keys…</p>
+                    <SkeletonListRows rows={2} />
                   ) : apiKeys.length === 0 ? (
                     <div className="text-center py-8">
                       <Key className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
@@ -477,7 +478,7 @@ const API = () => {
                     </div>
                   )}
                   {loadingWebhooks ? (
-                    <p className="text-sm text-muted-foreground">Loading webhooks…</p>
+                    <SkeletonListRows rows={2} />
                   ) : webhooks.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-6">
                       No webhook endpoints yet.

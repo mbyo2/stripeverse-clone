@@ -20,6 +20,16 @@ const statusConfig: Record<DisputeStatus, { label: string; variant: 'default' | 
   escalated: { label: 'Escalated', variant: 'default', icon: <ArrowUpCircle className="h-4 w-4" />, description: 'This dispute has been escalated for further review.' },
 };
 
+// Legacy rows can carry statuses outside the DisputeStatus union;
+// an unmapped lookup crashed the detail view — use a neutral
+// fallback (2026-10-29 crash-proofing sweep).
+const FALLBACK_STATUS: { label: string; variant: 'secondary'; icon: React.ReactNode; description: string } = {
+  label: 'Unknown',
+  variant: 'secondary',
+  icon: <AlertCircle className="h-4 w-4" />,
+  description: 'We are reviewing this dispute.',
+};
+
 const disputeTypeLabels: Record<string, string> = {
   unauthorized: 'Unauthorized Transaction',
   duplicate: 'Duplicate Charge',
@@ -31,7 +41,7 @@ const disputeTypeLabels: Record<string, string> = {
 export const DisputeDetail = ({ dispute, onBack }: DisputeDetailProps) => {
   const [newMessage, setNewMessage] = useState('');
   const { messages, isLoading, sendMessage, isSending } = useDisputeMessages(dispute.id);
-  const config = statusConfig[dispute.status];
+  const config = statusConfig[dispute.status] ?? FALLBACK_STATUS;
 
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
@@ -52,7 +62,7 @@ export const DisputeDetail = ({ dispute, onBack }: DisputeDetailProps) => {
         <CardHeader>
           <div className="flex items-start justify-between">
             <div>
-              <CardTitle className="text-lg">{disputeTypeLabels[dispute.dispute_type]}</CardTitle>
+              <CardTitle className="text-lg">{disputeTypeLabels[dispute.dispute_type] ?? 'Other'}</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Created {format(new Date(dispute.created_at), 'PPP')}
               </p>

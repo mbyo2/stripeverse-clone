@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Building2, Plus, Send, Trash2, Globe, ArrowRight, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useBankAccounts, useAddBankAccount, useDeleteBankAccount } from '@/hooks/useBankTransfers';
+import { CardGridSkeleton } from '@/components/ui/skeletons';
 
 const ZAMBIAN_BANKS = [
   { code: 'ZANACO', name: 'Zanaco' },
@@ -116,7 +117,7 @@ const BankTransfers = () => {
           <TabsList><TabsTrigger value="accounts">Saved Accounts</TabsTrigger><TabsTrigger value="local">Local Transfer</TabsTrigger><TabsTrigger value="international">International</TabsTrigger></TabsList>
           <TabsContent value="accounts" className="mt-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {isLoading ? <p className="text-muted-foreground">Loading...</p> : accounts?.length === 0 ? (
+              {isLoading ? <div className="col-span-full"><CardGridSkeleton tiles={3} /></div> : accounts?.length === 0 ? (
                 <Card className="col-span-full"><CardContent className="pt-6 text-center text-muted-foreground">No bank accounts saved. Add one to get started.</CardContent></Card>
               ) : accounts?.map(acc => (
                 <Card key={acc.id}>

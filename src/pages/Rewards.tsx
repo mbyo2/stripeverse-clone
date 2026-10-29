@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import RewardsCard from '@/components/rewards/RewardsCard';
+import { SkeletonListRows } from '@/components/ui/skeletons';
 import { useRewards } from '@/hooks/useRewards';
 import { formatDate } from '@/lib/utils';
 import { Plus, Minus } from 'lucide-react';
@@ -60,9 +61,7 @@ const Rewards = () => {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
+              <SkeletonListRows rows={4} />
             ) : rewardTransactions && rewardTransactions.length > 0 ? (
               <div className="divide-y divide-border">
                 {rewardTransactions.map((transaction) => (

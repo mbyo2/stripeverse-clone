@@ -21,6 +21,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonStatCardsRow, SkeletonTableRows } from "@/components/ui/skeletons";
 import {
   Landmark,
   ShieldAlert,
@@ -229,15 +231,14 @@ const AdminTreasury = () => {
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
-          <div className="animate-pulse space-y-4">
-            <div className="h-9 w-64 rounded bg-muted" />
-            <div className="h-5 w-96 max-w-full rounded bg-muted" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-28 rounded-xl bg-muted" />
-              ))}
+          <div role="status" aria-label="Loading treasury">
+            <Skeleton className="h-9 w-64 mb-2" />
+            <Skeleton className="h-5 w-96 max-w-full mb-6" />
+            <SkeletonStatCardsRow className="mb-6" />
+            <div className="rounded-xl border border-border bg-card p-6">
+              <Skeleton className="h-5 w-40 mb-4" />
+              <Skeleton className="h-[220px] w-full rounded-lg" />
             </div>
-            <div className="h-64 rounded-xl bg-muted" />
           </div>
         </main>
         <Footer />
@@ -708,10 +709,8 @@ const AdminTreasury = () => {
             </CardHeader>
             <CardContent>
               {reportLoading && !report ? (
-                <div className="animate-pulse space-y-3 py-4">
-                  {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className="h-10 rounded bg-muted" />
-                  ))}
+                <div className="py-4">
+                  <SkeletonTableRows rows={4} />
                 </div>
               ) : !report || report.rows.length === 0 ? (
                 <p className="py-8 text-center text-muted-foreground">

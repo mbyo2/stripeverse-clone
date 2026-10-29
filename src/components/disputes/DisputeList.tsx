@@ -15,6 +15,16 @@ const statusConfig: Record<DisputeStatus, { label: string; variant: 'default' | 
   escalated: { label: 'Escalated', variant: 'default', icon: <ArrowUpCircle className="h-3 w-3" /> },
 };
 
+// A dispute row can carry a status written before this map existed
+// (legacy values outside the DisputeStatus union). Dereferencing an
+// unmapped status crashed the whole list — fall back to a neutral
+// badge instead (2026-10-29 crash-proofing sweep).
+const FALLBACK_STATUS: { label: string; variant: 'secondary'; icon: React.ReactNode } = {
+  label: 'Unknown',
+  variant: 'secondary',
+  icon: <AlertCircle className="h-3 w-3" />,
+};
+
 const disputeTypeLabels: Record<string, string> = {
   unauthorized: 'Unauthorized Transaction',
   duplicate: 'Duplicate Charge',
@@ -78,7 +88,7 @@ export const DisputeList = () => {
       <CardContent className="p-0">
         <div className="divide-y">
           {disputes.map((dispute) => {
-            const config = statusConfig[dispute.status];
+            const config = statusConfig[dispute.status] ?? FALLBACK_STATUS;
             return (
               <button
                 key={dispute.id}
@@ -95,7 +105,7 @@ export const DisputeList = () => {
                       {formatDistanceToNow(new Date(dispute.created_at), { addSuffix: true })}
                     </span>
                   </div>
-                  <p className="font-medium truncate">{disputeTypeLabels[dispute.dispute_type]}</p>
+                  <p className="font-medium truncate">{disputeTypeLabels[dispute.dispute_type] ?? 'Other'}</p>
                   <p className="text-sm text-muted-foreground truncate">{dispute.description}</p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0 ml-4" />

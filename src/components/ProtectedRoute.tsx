@@ -4,7 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRoles, Feature, Role } from "@/contexts/RoleContext";
 import { roleHomePath } from "@/lib/roleVisibility";
 import { shellSkeletonVariant } from "@/lib/sessionHint";
-import { DashboardSkeleton, SkeletonHeaderBar } from "@/components/ui/skeletons";
+import { SkeletonHeaderBar } from "@/components/ui/skeletons";
+import { skeletonForRoute } from "@/lib/routeSkeleton";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -29,10 +30,12 @@ const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedR
   // a brief flash of "Your role: user" before the real role loads.
   const rolesNotReady = !!user && roles.length === 0;
   if (!isAuthReady || rolesLoading || rolesNotReady) {
-    // While access resolves, show the shape of what's coming — most
-    // users land on the dashboard, so the bootstrap is a dashboard
-    // skeleton behind the shell header bar, not a spinner on a blank
-    // screen. The verifying copy stays for screen readers only.
+    // While access resolves, show the shape of what's coming: the
+    // skeleton twin OF THE DESTINATION ROUTE (lib/routeSkeleton),
+    // not a one-shape-fits-all dashboard — a deep link to Settings
+    // or the Bitcoin wallet bootstraps into its own page's shape
+    // behind the shell header bar. The verifying copy stays for
+    // screen readers only.
     return (
       <div
         className="min-h-screen flex flex-col bg-muted"
@@ -42,7 +45,7 @@ const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedR
       >
         <SkeletonHeaderBar variant={shellSkeletonVariant({ user, isAuthReady, hasStoredSession })} />
         <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 pt-6 pb-16">
-          <DashboardSkeleton />
+          {skeletonForRoute(location.pathname)}
         </main>
         <span className="sr-only">Verifying your access — loading authentication and permissions</span>
       </div>

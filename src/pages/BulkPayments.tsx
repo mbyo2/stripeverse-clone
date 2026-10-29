@@ -15,6 +15,7 @@ import { useBulkPayments, useCreateBulkPayment, useProcessBulkPayment, useBulkPa
 import { format } from 'date-fns';
 import { useRef } from 'react';
 import { toast } from 'sonner';
+import { ListRegionSkeleton } from '@/components/ui/skeletons';
 
 const BulkPayments = () => {
   const { data: batches, isLoading } = useBulkPayments();
@@ -161,7 +162,7 @@ const BulkPayments = () => {
         </div>
 
         <div className="space-y-4">
-          {isLoading ? <p className="text-muted-foreground">Loading...</p> : batches?.length === 0 ? (
+          {isLoading ? <ListRegionSkeleton rows={3} /> : batches?.length === 0 ? (
             <Card><CardContent className="py-12 text-center"><FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" /><p className="text-muted-foreground">No bulk payments yet.</p></CardContent></Card>
           ) : batches?.map(batch => (
             <Card key={batch.id} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => setSelectedBatch(selectedBatch === batch.id ? null : batch.id)}>

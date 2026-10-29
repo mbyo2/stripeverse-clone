@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, AUTH_RATE_LIMIT_ATTEMPTS, AUTH_RATE_LIMIT_WINDOW_MINUTES } from "@/contexts/AuthContext";
 import { Gauge, Clock, AlertTriangle, Shield } from "lucide-react";
-import PageSkeleton from "@/components/PageSkeleton";
+import { ListPageSkeleton } from "@/components/ui/skeletons";
 import PageErrorState from "@/components/PageErrorState";
 import EmptyState from "@/components/ui/empty-state";
 import { format } from "date-fns";
@@ -60,7 +60,16 @@ const ApiRateLimits = () => {
     AUTH_RATE_LIMIT_ATTEMPTS[action] ??
     (action === "api_call" ? apiCallLimit ?? undefined : undefined);
 
-  if (isLoading) return <PageSkeleton cards={3} />;
+  if (isLoading)
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 pt-6 pb-16 px-4 max-w-6xl mx-auto w-full">
+          <ListPageSkeleton />
+        </main>
+        <Footer />
+      </div>
+    );
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

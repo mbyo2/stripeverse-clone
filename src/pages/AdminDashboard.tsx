@@ -8,6 +8,7 @@ import { AdminCryptoPayouts } from "@/components/web3/AdminCryptoPayouts";
 import { AdminTreasuryConfig } from "@/components/web3/AdminTreasuryConfig";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { StatGridPageSkeleton } from "@/components/ui/skeletons";
 import { useToast } from "@/hooks/use-toast";
 import { useRoles } from "@/contexts/RoleContext";
 import { adminDashboardVisibility } from "@/lib/roleVisibility";
@@ -286,8 +287,12 @@ const AdminDashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+          <StatGridPageSkeleton />
+        </main>
+        <Footer />
       </div>
     );
   }

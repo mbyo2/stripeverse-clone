@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SkeletonTableRows } from '@/components/ui/skeletons';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -166,9 +167,7 @@ const AmlScreening = () => {
               </CardHeader>
               <CardContent>
                 {screenings.isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
+                  <SkeletonTableRows rows={4} />
                 ) : screenings.data && screenings.data.length > 0 ? (
                   <div className="space-y-3">
                     {screenings.data.map((s: any) => (

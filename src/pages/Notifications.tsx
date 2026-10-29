@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from "react";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -230,9 +231,7 @@ const Notifications = () => {
             <Card>
               <CardContent className="pt-6">
                 {loading ? (
-                  <div className="flex justify-center items-center h-40">
-                    <p>Loading notifications...</p>
-                  </div>
+                  <SkeletonListRows rows={4} />
                 ) : getFilteredNotifications().length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-40">
                     <Bell className="h-12 w-12 text-muted-foreground mb-4" />

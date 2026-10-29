@@ -9,7 +9,7 @@ import { useAuditLogs } from "@/hooks/useAuditLogs";
 import { auditRowActorLabel } from "@/utils/auditLogProfiles";
 import { ScrollText, Download, Filter, RefreshCw, Shield } from "lucide-react";
 import { format } from "date-fns";
-import PageSkeleton from "@/components/PageSkeleton";
+import { TablePageSkeleton } from "@/components/ui/skeletons";
 import PageErrorState from "@/components/PageErrorState";
 import EmptyState from "@/components/ui/empty-state";
 
@@ -30,7 +30,16 @@ const AuditLogs = () => {
     }
   };
 
-  if (isLoading) return <PageSkeleton cards={4} showChart={false} />;
+  if (isLoading)
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 pt-6 pb-16 px-4 max-w-6xl mx-auto w-full">
+          <TablePageSkeleton />
+        </main>
+        <Footer />
+      </div>
+    );
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

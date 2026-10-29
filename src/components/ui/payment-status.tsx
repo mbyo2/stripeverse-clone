@@ -36,8 +36,17 @@ const statusConfig = {
   },
 };
 
+// Payment rows can carry statuses written before this map existed;
+// an unmapped lookup crashed every list rendering this badge —
+// fall back to a neutral "Unknown" (2026-10-29 crash-proofing).
+const FALLBACK_STATUS = {
+  label: 'Unknown',
+  icon: AlertCircle,
+  className: 'bg-muted text-muted-foreground border-border',
+};
+
 export const PaymentStatus: React.FC<PaymentStatusProps> = ({ status, className }) => {
-  const config = statusConfig[status];
+  const config = statusConfig[status as keyof typeof statusConfig] ?? FALLBACK_STATUS;
   const Icon = config.icon;
 
   return (

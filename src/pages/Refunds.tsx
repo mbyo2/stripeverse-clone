@@ -13,6 +13,7 @@ import { RotateCcw, Plus, Clock, CheckCircle, XCircle, AlertCircle } from 'lucid
 import { useRefunds, useCreateRefund, useApproveRefund, useRejectRefund } from '@/hooks/useRefunds';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
+import { ListRegionSkeleton } from '@/components/ui/skeletons';
 
 const Refunds = () => {
   const { user } = useAuth();
@@ -99,7 +100,7 @@ const Refunds = () => {
         </div>
 
         <div className="space-y-4">
-          {isLoading ? <p className="text-muted-foreground">Loading...</p> : refunds?.length === 0 ? (
+          {isLoading ? <ListRegionSkeleton rows={3} /> : refunds?.length === 0 ? (
             <Card><CardContent className="py-12 text-center"><RotateCcw className="h-12 w-12 mx-auto mb-4 text-muted-foreground" /><p className="text-muted-foreground">No refunds yet.</p></CardContent></Card>
           ) : refunds?.map(refund => (
             <Card key={refund.id}>

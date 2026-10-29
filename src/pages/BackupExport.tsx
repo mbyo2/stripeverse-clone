@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useBackupManager } from "@/hooks/useBackupManager";
 import { Database, Download, RefreshCw, Shield, Clock, HardDrive } from "lucide-react";
 import { useState } from "react";
-import PageSkeleton from "@/components/PageSkeleton";
+import { ListPageSkeleton } from "@/components/ui/skeletons";
 import EmptyState from "@/components/ui/empty-state";
 
 const BackupExport = () => {
@@ -25,7 +25,16 @@ const BackupExport = () => {
     );
   };
 
-  if (isLoadingBackups) return <PageSkeleton cards={3} />;
+  if (isLoadingBackups)
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 pt-6 pb-16 px-4 max-w-6xl mx-auto w-full">
+          <ListPageSkeleton />
+        </main>
+        <Footer />
+      </div>
+    );
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

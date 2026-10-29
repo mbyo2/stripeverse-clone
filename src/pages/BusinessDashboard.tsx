@@ -9,7 +9,7 @@ import { useBusinessData } from "@/hooks/useBusinessData";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Skeleton } from "@/components/ui/skeleton";
+import { BusinessDashboardSkeleton } from "@/components/ui/skeletons";
 import { motion } from "framer-motion";
 
 const BusinessDashboard = () => {
@@ -21,13 +21,8 @@ const BusinessDashboard = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full space-y-6">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-40 rounded-[24px]" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Skeleton className="h-80 rounded-[24px]" />
-            <Skeleton className="h-80 rounded-[24px]" />
-          </div>
+        <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
+          <BusinessDashboardSkeleton />
         </main>
       </div>
     );
