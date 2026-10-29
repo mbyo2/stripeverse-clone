@@ -39,7 +39,7 @@ const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedR
         aria-live="polite"
         aria-busy="true"
       >
-        <SkeletonHeaderBar />
+        <SkeletonHeaderBar variant={user ? "authed" : "guest"} />
         <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 pt-6 pb-16">
           <DashboardSkeleton />
         </main>

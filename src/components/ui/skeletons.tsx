@@ -134,28 +134,87 @@ export const SkeletonTableRows = ({
   </div>
 );
 
+export type SkeletonHeaderVariant = "authed" | "guest";
+
 /**
  * Header placeholder at the real header's exact height (72px) and
  * container width, so the shell is in place before a page (which
  * renders the real Header itself) has loaded its chunk.
+ *
+ * Element-for-element twin of src/components/Header.tsx — the old
+ * version was one logo slab + three text bars + a pill and a circle,
+ * which is NOT what the header contains (CEO complaint 2026-10-29):
+ *  - logo: the 32px "B" mark + the "BMaGlass Pay" wordmark bar;
+ *  - signed-in nav (xl): Dashboard, the Bitcoin Wallet pill twin
+ *    (pill-shaped, second position — the wallet is the product),
+ *    P2P Trading, and the Send & Request / Wallet / Business
+ *    dropdown buttons, all at the real h-9 button geometry;
+ *  - signed-out nav (xl): Personal / Business / Developers bars;
+ *  - signed-in right cluster (xl): search (icon, widening to the
+ *    ⌘K field at 2xl), bell, theme toggle, account-menu pill;
+ *  - signed-out right cluster: Help bar, theme toggle, and the
+ *    h-12 Log In / Sign Up pills at their real sizes;
+ *  - below xl (both variants): bell (signed-in) + hamburger button —
+ *    the real header's mobile cluster, not a stray avatar circle.
  */
-export const SkeletonHeaderBar = () => (
+export const SkeletonHeaderBar = ({
+  variant = "authed",
+}: {
+  variant?: SkeletonHeaderVariant;
+}) => (
   <div
     className="bg-white dark:bg-[#0A0F1A] border-b border-[#CFD3D8]/70 dark:border-white/10"
     aria-hidden="true"
   >
     <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
-      <div className="flex items-center gap-8 min-w-0">
-        <Skeleton className="h-9 w-36 rounded-lg shrink-0" />
-        <div className="hidden xl:flex items-center gap-8">
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-4 w-24" />
+      <div className="flex items-center gap-3 xl:gap-6 min-w-0">
+        {/* Logo: mark + wordmark, at Logo.tsx's sizes */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <Skeleton className="h-8 w-8 rounded-md" />
+          <Skeleton className="h-5 w-[118px]" />
         </div>
+
+        {variant === "guest" ? (
+          <nav className="hidden xl:flex items-center gap-8">
+            <Skeleton className="h-4 w-[62px]" />
+            <Skeleton className="h-4 w-[68px]" />
+            <Skeleton className="h-4 w-[86px]" />
+          </nav>
+        ) : (
+          <nav className="hidden xl:flex items-center gap-1 min-w-0">
+            <Skeleton className="h-9 w-[102px] rounded-md shrink-0" />
+            {/* Bitcoin Wallet — the orange pill's shape, second in nav */}
+            <Skeleton className="h-9 w-[146px] rounded-full shrink-0" />
+            <Skeleton className="h-9 w-[104px] rounded-md shrink-0" />
+            <Skeleton className="h-9 w-[134px] rounded-md shrink-0" />
+            <Skeleton className="h-9 w-[82px] rounded-md shrink-0" />
+            <Skeleton className="h-9 w-[94px] rounded-md shrink-0" />
+          </nav>
+        )}
       </div>
-      <div className="flex items-center gap-3 shrink-0">
-        <Skeleton className="h-10 w-24 rounded-full hidden sm:block" />
-        <Skeleton className="h-10 w-10 rounded-full" />
+
+      {/* Desktop right cluster (xl and up, like the real header) */}
+      {variant === "authed" ? (
+        <div className="hidden xl:flex items-center gap-2 shrink-0">
+          <Skeleton className="h-9 w-9 rounded-md 2xl:hidden" />
+          <Skeleton className="h-9 w-32 rounded-md hidden 2xl:block" />
+          <Skeleton className="h-9 w-9 rounded-full" />
+          <Skeleton className="h-9 w-9 rounded-full" />
+          <Skeleton className="h-9 w-[54px] rounded-full" />
+        </div>
+      ) : (
+        <div className="hidden xl:flex items-center gap-3 shrink-0">
+          <Skeleton className="h-4 w-[34px] mr-1" />
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <Skeleton className="h-12 w-[106px] rounded-full" />
+          <Skeleton className="h-12 w-[112px] rounded-full" />
+        </div>
+      )}
+
+      {/* Mobile right cluster (below xl): bell + hamburger */}
+      <div className="xl:hidden flex items-center gap-2 shrink-0">
+        {variant === "authed" && <Skeleton className="h-9 w-9 rounded-full" />}
+        <Skeleton className="h-9 w-9 rounded-md" />
       </div>
     </div>
   </div>
@@ -204,14 +263,18 @@ const SkeletonCardShell = ({
  * rows), so a lazy route swaps skeleton → content without a blank
  * flash or a shape change.
  */
-export const RouteShellSkeleton = () => (
+export const RouteShellSkeleton = ({
+  variant = "authed",
+}: {
+  variant?: SkeletonHeaderVariant;
+}) => (
   <div
     className="min-h-screen flex flex-col bg-background"
     role="status"
     aria-label="Loading"
     aria-busy="true"
   >
-    <SkeletonHeaderBar />
+    <SkeletonHeaderBar variant={variant} />
     <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 pt-6 pb-16">
       <div aria-hidden="true">
         <Skeleton className="h-8 w-56 mb-2" />
