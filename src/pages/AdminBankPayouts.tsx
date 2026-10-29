@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Header from "@/components/Header";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -343,7 +344,7 @@ const AdminBankPayouts = () => {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <SkeletonListRows rows={3} />
             ) : actionable.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No bank withdrawals are waiting. New requests appear here as

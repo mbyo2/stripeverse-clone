@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
@@ -175,9 +176,7 @@ const FeedbackDashboard = () => {
           
           <TabsContent value={activeTab} className="mt-0">
             {isLoading ? (
-              <div className="text-center py-10">
-                <p>Loading feedback items...</p>
-              </div>
+              <SkeletonListRows rows={4} />
             ) : filteredItems.length === 0 ? (
               <div className="text-center py-10 border rounded-md bg-secondary/5">
                 <p className="text-muted-foreground">No feedback items found.</p>

@@ -1,4 +1,5 @@
 import { toUserFacingError } from "@/utils/userFacingError";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -590,7 +591,7 @@ const QrPayments = () => {
               </CardHeader>
               <CardContent>
                 {historyLoading ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">Loading history…</p>
+                  <SkeletonListRows rows={3} />
                 ) : historyError ? (
                   <p className="text-sm text-muted-foreground text-center py-6">
                     We couldn't load your QR payment history. Check your connection and reload the page to try again.

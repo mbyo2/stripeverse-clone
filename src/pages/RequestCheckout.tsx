@@ -2,6 +2,7 @@ import { toUserFacingError } from "@/utils/userFacingError";
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { CheckoutSkeleton } from '@/components/ui/skeletons';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Lock, CheckCircle, AlertCircle, Loader2, Receipt, Wallet, HandCoins } from 'lucide-react';
@@ -116,8 +117,8 @@ const RequestCheckout = () => {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <div className="min-h-screen bg-background px-4 py-10">
+      <CheckoutSkeleton />
     </div>
   );
 

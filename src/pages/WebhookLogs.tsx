@@ -1,4 +1,5 @@
 import Header from '@/components/Header';
+import { SkeletonListRows } from "@/components/ui/skeletons";
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -67,7 +68,7 @@ const WebhookLogs = () => {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
+              <SkeletonListRows rows={5} />
             ) : logs.length === 0 ? (
               <div className="text-center py-12">
                 <Zap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />

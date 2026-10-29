@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Header from "@/components/Header";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -214,7 +215,7 @@ const AdminPaypal = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <SkeletonListRows rows={2} />
             ) : float ? (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

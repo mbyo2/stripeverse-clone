@@ -186,6 +186,29 @@ describe("removed anti-patterns stay removed", () => {
     }
   });
 
+  it("no bare full-screen spinner remains on the checkout pages", () => {
+    for (const f of ["PublicCheckout", "InvoiceCheckout", "RequestCheckout"]) {
+      expect(read(`../../src/pages/${f}.tsx`)).not.toContain(
+        'Loader2 className="h-8 w-8 animate-spin',
+      );
+    }
+  });
+
+  it("no bare list-area spinner/text remains on the swept admin pages", () => {
+    expect(read("../../src/pages/WebhookLogs.tsx")).not.toContain(
+      "animate-spin rounded-full h-8 w-8",
+    );
+    for (const f of ["AdminBankPayouts", "AdminPaypal"]) {
+      expect(read(`../../src/pages/${f}.tsx`)).not.toContain(">Loading…</p>");
+    }
+    expect(read("../../src/pages/FeedbackDashboard.tsx")).not.toContain(
+      "Loading feedback items...",
+    );
+    expect(read("../../src/pages/QrPayments.tsx")).not.toContain(
+      "Loading history…",
+    );
+  });
+
   it("the skeleton kit carries no plausible fake amounts", () => {
     const src = read("../../src/components/ui/skeletons.tsx");
     expect(src).not.toMatch(/\$[0-9]/);
