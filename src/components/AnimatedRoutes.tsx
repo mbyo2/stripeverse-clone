@@ -4,6 +4,7 @@ import { noteChunkLoadSuccess } from '@/lib/chunkRecovery';
 import { AnimatePresence } from 'framer-motion';
 import { RouteShellSkeleton } from '@/components/ui/skeletons';
 import { useAuth } from '@/contexts/AuthContext';
+import { shellSkeletonVariant } from '@/lib/sessionHint';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import type { Role } from '@/contexts/RoleContext';
 import BusinessRouteGuard from '@/components/business/BusinessRouteGuard';
@@ -140,8 +141,16 @@ const AdminTreasury = lazy(() => import('@/pages/AdminTreasury'));
 // PageSkeleton — that imports Header/Footer and would drag the heavy
 // shell into the entry chunk / duplicate chrome.
 const RouteFallback = () => {
-  const { user } = useAuth();
-  return <RouteShellSkeleton variant={user ? "authed" : "guest"} />;
+  const { user, isAuthReady, hasStoredSession } = useAuth();
+  // Variant follows the shared gate arithmetic (lib/sessionHint):
+  // while a stored session is still resolving, the fallback already
+  // wears the signed-in header twin, so the shell never flips
+  // guest → authed mid-load.
+  return (
+    <RouteShellSkeleton
+      variant={shellSkeletonVariant({ user, isAuthReady, hasStoredSession })}
+    />
+  );
 };
 
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (

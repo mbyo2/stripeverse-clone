@@ -1,5 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { isAuthPending } from "@/lib/sessionHint";
+import { RouteShellSkeleton } from "@/components/ui/skeletons";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import Footer from "@/components/Footer";
@@ -15,11 +17,21 @@ import {
 } from "@/components/LandingSections";
 
 const Index = () => {
-  const { user } = useAuth();
+  const { user, isAuthReady, hasStoredSession } = useAuth();
 
   // Redirect authenticated users to dashboard
   if (user) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // A stored session is still resolving: hold the signed-in shell
+  // skeleton instead of painting the landing page the session is
+  // about to redirect away from (the 2026-10-29 flash — "trying to
+  // show another page, then it realizes I'm logged in"). Guests
+  // have no stored session, so they are never held here: the
+  // landing paints immediately for them, exactly as before.
+  if (isAuthPending({ user, isAuthReady, hasStoredSession })) {
+    return <RouteShellSkeleton variant="authed" />;
   }
 
   return (

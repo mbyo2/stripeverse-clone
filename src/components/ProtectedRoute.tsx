@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles, Feature, Role } from "@/contexts/RoleContext";
 import { roleHomePath } from "@/lib/roleVisibility";
+import { shellSkeletonVariant } from "@/lib/sessionHint";
 import { DashboardSkeleton, SkeletonHeaderBar } from "@/components/ui/skeletons";
 
 interface ProtectedRouteProps {
@@ -12,7 +13,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedRouteProps) => {
-  const { user, isAuthReady } = useAuth();
+  const { user, isAuthReady, hasStoredSession } = useAuth();
   const { hasAccess, hasRole, roles, isLoading: rolesLoading } = useRoles();
   const location = useLocation();
 
@@ -39,7 +40,7 @@ const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedR
         aria-live="polite"
         aria-busy="true"
       >
-        <SkeletonHeaderBar variant={user ? "authed" : "guest"} />
+        <SkeletonHeaderBar variant={shellSkeletonVariant({ user, isAuthReady, hasStoredSession })} />
         <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 pt-6 pb-16">
           <DashboardSkeleton />
         </main>

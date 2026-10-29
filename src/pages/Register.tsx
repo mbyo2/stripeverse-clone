@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { isAuthPending } from "@/lib/sessionHint";
+import { RouteShellSkeleton } from "@/components/ui/skeletons";
 import { useToast } from "@/hooks/use-toast";
 import { createSubmitGuard } from "@/lib/submitGuard";
 import { UserPlus, Mail, Lock, Phone, User, CheckCircle2, XCircle, MailCheck, CircleAlert } from "lucide-react";
@@ -19,7 +21,7 @@ const Register = () => {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const { signUp, isLoading, user } = useAuth();
+  const { signUp, isLoading, user, isAuthReady, hasStoredSession } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   // Set when sign-up reports the email is already registered: the
@@ -96,6 +98,14 @@ const Register = () => {
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // A stored session is still resolving: hold the shell skeleton
+  // instead of painting the sign-up form the session is about to
+  // redirect away from. Signed-out visitors have no stored session
+  // and see the form immediately, as before.
+  if (isAuthPending({ user, isAuthReady, hasStoredSession })) {
+    return <RouteShellSkeleton variant="authed" />;
   }
 
   // Duplicate-email state: the address already has an account, so

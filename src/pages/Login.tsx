@@ -19,6 +19,8 @@ import {
   consumeSessionEndedNotice,
   SESSION_ENDED_MESSAGE,
 } from "@/lib/authFailure";
+import { isAuthPending } from "@/lib/sessionHint";
+import { RouteShellSkeleton } from "@/components/ui/skeletons";
 
 type ResendState = "idle" | "sending" | ResendConfirmationOutcome;
 
@@ -50,7 +52,7 @@ const Login = () => {
   // user lands here instead of on a dashboard error wall, and this
   // notice — consumed once — explains why in plain language.
   const [sessionEndedNotice] = useState(() => consumeSessionEndedNotice());
-  const { signIn, resendConfirmationEmail, isLoading, user } = useAuth();
+  const { signIn, resendConfirmationEmail, isLoading, user, isAuthReady, hasStoredSession } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,6 +88,15 @@ const Login = () => {
         ? `${from.pathname}${from.search ?? ""}${from.hash ?? ""}`
         : "/dashboard";
     return <Navigate to={destination} replace />;
+  }
+
+  // A stored session is still resolving (this page is where email
+  // confirmation links land, often WITH a live session): hold the
+  // shell skeleton instead of painting the login form the session
+  // is about to forward past. Signed-out visitors have no stored
+  // session and see the form immediately, as before.
+  if (isAuthPending({ user, isAuthReady, hasStoredSession })) {
+    return <RouteShellSkeleton variant="authed" />;
   }
 
   return (

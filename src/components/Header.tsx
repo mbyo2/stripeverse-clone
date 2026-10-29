@@ -71,13 +71,15 @@ import {
   Store,
   Bitcoin
 } from "lucide-react";
+import { isAuthPending } from "@/lib/sessionHint";
+import { SkeletonHeaderBar } from "@/components/ui/skeletons";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { AccountSwitcherList } from "@/components/AccountSwitcher";
 import Logo from "@/components/Logo";
 
 const Header = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAuthReady, hasStoredSession } = useAuth();
   const { roles } = useRoles();
   // Role visibility (CEO directive 2026-10-25): menu entries that
   // belong to a role the user doesn't hold are not rendered at all —
@@ -115,6 +117,20 @@ const Header = () => {
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
+
+  // While a stored session is still resolving, hold the signed-in
+  // header twin instead of painting the guest chrome (Log In / Sign
+  // Up pills, public nav) the session would flip a few frames later
+  // — the visible half of the 2026-10-29 wrong-page flash on public
+  // pages that don't redirect (pricing, about, …). Resolved guests
+  // and resolved users render the real header exactly as before.
+  if (isAuthPending({ user, isAuthReady, hasStoredSession })) {
+    return (
+      <div className="fixed top-0 left-0 right-0 z-50">
+        <SkeletonHeaderBar variant="authed" />
+      </div>
+    );
+  }
 
   const MobileNavLink = ({ to, icon: Icon, children }: { to: string; icon: React.ElementType; children: React.ReactNode }) => (
     <Link 

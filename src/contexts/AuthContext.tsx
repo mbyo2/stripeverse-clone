@@ -19,6 +19,7 @@ import {
   type RecoveryOutcome,
 } from "@/lib/authFailure";
 import { setAuthFailureHandler } from "@/lib/authFailureHandler";
+import { hasPersistedSession } from "@/lib/sessionHint";
 
 export type { RecoveryOutcome };
 
@@ -65,6 +66,15 @@ type AuthContextType = {
    */
   isAuthReady: boolean;
   /**
+   * First-paint hint, read SYNCHRONOUSLY from the persisted session
+   * blob before the bootstrap's first await (lib/sessionHint): true
+   * when a stored session exists and is probably about to resolve.
+   * NOT an auth decision — it only lets surfaces hold a skeleton
+   * instead of painting guest content the session would contradict
+   * a few frames later. Guests (no stored session) are never held.
+   */
+  hasStoredSession: boolean;
+  /**
    * Run session recovery now (validate → refresh → sign out only on
    * a genuine refusal). Used by data-layer retries and the app-wide
    * auth-failure net; concurrent calls share one in-flight run.
@@ -110,6 +120,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  // Synchronous first-paint hint (see the type comment): computed
+  // once, in the initialiser, so it is already true on the very
+  // first render — before getSession() has resolved anything.
+  const [hasStoredSession] = useState<boolean>(() => hasPersistedSession());
   const [sessionTimeoutWarning, setSessionTimeoutWarning] = useState(false);
 
   const { toast } = useToast();
@@ -756,6 +770,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       session,
       isLoading,
       isAuthReady,
+      hasStoredSession,
       recoverSession,
       signIn, 
       signUp, 

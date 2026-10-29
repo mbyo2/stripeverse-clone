@@ -90,15 +90,22 @@ describe("SkeletonHeaderBar — signed-out variant mirrors the guest Header", ()
 });
 
 describe("variant wiring — the twin follows the auth session", () => {
-  it("ProtectedRoute passes its known user state to the header twin", () => {
+  // Amended 2026-10-29 (wrong-page flash fix): the variant no longer
+  // reads the raw user alone — while a stored session is still
+  // resolving, `user` is null and the old ternary picked "guest",
+  // flipping to "authed" a few frames later. Both call sites now use
+  // the shared gate arithmetic (lib/sessionHint.shellSkeletonVariant),
+  // which already counts a resolving session as authed. The unit
+  // truth table lives in tests/accounts/authBootstrapGate.test.ts.
+  it("ProtectedRoute passes its auth gate state to the header twin", () => {
     expect(protectedRoute).toContain(
-      '<SkeletonHeaderBar variant={user ? "authed" : "guest"} />'
+      '<SkeletonHeaderBar variant={shellSkeletonVariant({ user, isAuthReady, hasStoredSession })} />'
     );
   });
 
-  it("the route fallback passes its known user state to the shell twin", () => {
+  it("the route fallback passes its auth gate state to the shell twin", () => {
     expect(animatedRoutes).toContain(
-      '<RouteShellSkeleton variant={user ? "authed" : "guest"} />'
+      "variant={shellSkeletonVariant({ user, isAuthReady, hasStoredSession })}"
     );
     expect(animatedRoutes).toContain("useAuth");
   });
