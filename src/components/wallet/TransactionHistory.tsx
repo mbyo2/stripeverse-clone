@@ -20,7 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import TransactionReceipt from '@/components/TransactionReceipt';
-import { SkeletonListRow } from "@/components/ui/skeletons";
+import { SkeletonTransactionRow } from "@/components/ui/skeletons";
 
 interface Transaction {
   id: string;
@@ -190,7 +190,7 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
           {isLoading ? (
             // Loading skeleton — kit rows mirror the real rows below
             Array.from({ length: 3 }).map((_, index) => (
-              <SkeletonListRow key={index} />
+              <SkeletonTransactionRow key={index} />
             ))
           ) : error ? (
             <div className="text-center py-8">

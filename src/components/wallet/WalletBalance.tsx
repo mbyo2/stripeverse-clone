@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ArrowUpRight, ArrowDownLeft, Wallet, Copy, Check, Eye, EyeOff } from "lucide-react";
@@ -38,14 +39,17 @@ const WalletBalance = ({ onSendMoney, accountId }: WalletBalanceProps) => {
   if (isLoading) {
     return (
       <Card className="mb-8 overflow-hidden rounded-[24px]">
-        <div className="bg-primary p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 w-24 bg-primary-foreground/20 rounded" />
-            <div className="h-12 w-48 bg-primary-foreground/20 rounded" />
-            <div className="flex gap-3">
-              <div className="h-11 w-28 bg-primary-foreground/20 rounded-full" />
-              <div className="h-11 w-28 bg-primary-foreground/20 rounded-full" />
+        <div className="bg-primary p-6 md:p-8" role="status" aria-label="Loading balance">
+          <div className="flex items-start justify-between mb-6" aria-hidden="true">
+            <div>
+              <Skeleton className="h-4 w-36 bg-primary-foreground/20 mb-2" />
+              <Skeleton className="h-12 w-56 max-w-full bg-primary-foreground/25" />
             </div>
+            <Skeleton className="h-8 w-8 rounded-lg bg-primary-foreground/15 shrink-0" />
+          </div>
+          <div className="flex flex-wrap gap-3" aria-hidden="true">
+            <Skeleton className="h-11 w-32 rounded-full bg-primary-foreground/25" />
+            <Skeleton className="h-11 w-28 rounded-full bg-primary-foreground/20" />
           </div>
         </div>
       </Card>

@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { SkeletonListRows } from "@/components/ui/skeletons";
+import { WalletPageSkeleton } from "@/components/ui/skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -267,18 +266,7 @@ const Wallet = () => {
       <div className="min-h-screen flex flex-col bg-muted/30">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
-          <div className="flex justify-between items-center mb-8">
-            <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-11 w-32 rounded-full" />
-          </div>
-          <Skeleton className="h-48 rounded-[24px] mb-8" />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8" aria-hidden="true">
-            <Skeleton className="h-64 rounded-xl lg:col-span-2" />
-            <Skeleton className="h-64 rounded-xl" />
-          </div>
-          <div className="rounded-xl border border-border bg-card px-6 py-2" role="status" aria-label="Loading wallet">
-            <SkeletonListRows rows={4} />
-          </div>
+          <WalletPageSkeleton />
         </main>
         <Footer />
       </div>

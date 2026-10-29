@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
-import { Skeleton } from "@/components/ui/skeleton";
+import { CurrencyWalletSkeleton } from "@/components/ui/skeletons";
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -161,7 +161,7 @@ const MultiCurrencyWallet = () => {
               {isLoading ? (
                 <>
                   {[0, 1, 2].map((i) => (
-                    <Skeleton key={i} className="h-40 rounded-xl" />
+                    <CurrencyWalletSkeleton key={i} />
                   ))}
                 </>
               ) : wallets?.map(w => {

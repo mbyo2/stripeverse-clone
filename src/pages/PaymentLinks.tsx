@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link2, Plus, Copy, ExternalLink, XCircle, DollarSign, Eye, Pencil, Wallet } from 'lucide-react';
 import { usePaymentLinks, useCreatePaymentLink, useUpdatePaymentLink, useDeactivatePaymentLink, useFeePayerDefault } from '@/hooks/usePaymentLinks';
+import { PaymentLinksSkeleton } from '@/components/ui/skeletons';
 import { useAccounts } from '@/hooks/useAccounts';
 import { usePlatformSettings } from '@/hooks/useSubaccounts';
 import { computePaymentLinkBreakdown, type FeePayer } from '@/utils/splitPayments';
@@ -235,6 +236,10 @@ const PaymentLinks = () => {
           </Dialog>
         </div>
 
+        {isLoading ? (
+          <PaymentLinksSkeleton />
+        ) : (
+        <>
         {/* Summary + Stats */}
         <div className="space-y-6 mb-8">
           <Card>
@@ -270,7 +275,7 @@ const PaymentLinks = () => {
           </Card>
         </div>
 
-        {isLoading ? <p className="text-muted-foreground">Loading...</p> : links?.length === 0 ? (
+        {links?.length === 0 ? (
           <Card><CardContent className="py-12 text-center">
             <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
               <Link2 className="h-6 w-6 text-muted-foreground" />
@@ -324,6 +329,8 @@ const PaymentLinks = () => {
               </div>
             </CardContent>
           </Card>
+        )}
+        </>
         )}
       </main>
       <Footer />

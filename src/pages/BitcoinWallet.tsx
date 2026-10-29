@@ -1187,16 +1187,21 @@ export default function BitcoinWallet() {
             <CardContent>
               <div>
                 {isLoading || authRecovering ? (
-                  <Skeleton className="h-10 w-44" aria-label="Loading balance" />
+                  <>
+                    <Skeleton className="h-10 w-44" aria-label="Loading balance" />
+                    <Skeleton className="h-4 w-52 max-w-full mt-2" aria-hidden="true" />
+                  </>
                 ) : (
-                  <p className="text-[40px] md:text-[44px] leading-none font-display font-semibold">{btcBalance}</p>
+                  <>
+                    <p className="text-[40px] md:text-[44px] leading-none font-display font-semibold">{btcBalance}</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Asset: BTC · {(wallet?.balance_sats ?? 0).toLocaleString()} sats
+                      {wallet && wallet.available_sats !== wallet.balance_sats
+                        ? ` · ${wallet.available_sats.toLocaleString()} available`
+                        : ""}
+                    </p>
+                  </>
                 )}
-                <p className="text-sm text-muted-foreground mt-2">
-                  Asset: BTC · {(wallet?.balance_sats ?? 0).toLocaleString()} sats
-                  {wallet && wallet.available_sats !== wallet.balance_sats
-                    ? ` · ${wallet.available_sats.toLocaleString()} available`
-                    : ""}
-                </p>
               </div>
 
               <div className="flex flex-wrap gap-3 mt-6">

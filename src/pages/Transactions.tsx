@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import EnhancedTransactionManager from "@/components/wallet/EnhancedTransactionManager";
 import { Suspense } from "react";
 import { ArrowDownLeft, ArrowUpRight, Filter } from "lucide-react";
-import { SkeletonListRows } from "@/components/ui/skeletons";
+import { TransactionsManagerSkeleton } from "@/components/ui/skeletons";
 import { useAccount } from "@/contexts/AccountContext";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 
@@ -81,7 +81,7 @@ const Transactions = () => {
             Real-time sync
           </Badge>
         </div>
-        <Suspense fallback={<SkeletonListRows rows={6} />}>
+        <Suspense fallback={<TransactionsManagerSkeleton />}>
           <EnhancedTransactionManager
             showFilters={true}
             showExport={true}

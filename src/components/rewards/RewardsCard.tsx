@@ -5,15 +5,45 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Star, Trophy, Award, Medal } from 'lucide-react';
 import { useRewards } from '@/hooks/useRewards';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const RewardsCard = () => {
   const { rewards, isLoading } = useRewards();
 
   if (isLoading) {
+    // Layout twin of the loaded card (header + tier badge, centred
+    // points, progress row, lifetime/redeemed pair) — never a lone
+    // spinner standing in for the whole card.
     return (
-      <Card>
-        <CardContent className="p-6 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <Card role="status" aria-label="Loading rewards">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between" aria-hidden="true">
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4" aria-hidden="true">
+          <div className="text-center">
+            <Skeleton className="h-9 w-24 mx-auto mb-1.5" />
+            <Skeleton className="h-4 w-28 mx-auto" />
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+            <Skeleton className="h-2 w-full rounded-full" />
+          </div>
+          <div className="grid grid-cols-2 gap-4 pt-2">
+            <div className="text-center">
+              <Skeleton className="h-6 w-16 mx-auto mb-1" />
+              <Skeleton className="h-3 w-20 mx-auto" />
+            </div>
+            <div className="text-center">
+              <Skeleton className="h-6 w-16 mx-auto mb-1" />
+              <Skeleton className="h-3 w-20 mx-auto" />
+            </div>
+          </div>
         </CardContent>
       </Card>
     );

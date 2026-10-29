@@ -81,7 +81,7 @@ const Dashboard = () => {
       <div className="min-h-screen flex flex-col bg-muted">
         <Header />
         <main className="flex-1 pt-2 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
-          <div className="mt-6" role="status" aria-label="Loading dashboard">
+          <div role="status" aria-label="Loading dashboard">
             <DashboardSkeleton />
           </div>
         </main>
