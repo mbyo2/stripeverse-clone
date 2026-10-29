@@ -104,7 +104,7 @@ export default function P2PMyAds() {
       ) : (
         <div className="space-y-3">
           {ads.map((ad) => {
-            const meta = AD_STATUS_META[ad.status];
+            const meta = AD_STATUS_META[ad.status] ?? { label: ad.status.replace(/_/g, " "), variant: "outline" as const };
             const price = adEffectivePriceZmw(ad, indexZmw);
             return (
               <Card key={ad.id}>

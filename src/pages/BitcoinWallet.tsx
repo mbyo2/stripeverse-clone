@@ -789,7 +789,12 @@ function TradePanel({ onDone }: { onDone: () => void }) {
         : { action: "quote", side, amount_sats: Number(satsInput) };
       const { data, error } = await supabase.functions.invoke("btc-trade", { body });
       if (error) throw error;
-      setQuote(data as TradeQuote);
+      const q = data as Partial<TradeQuote> | null;
+      const nums = [q?.amount_sats, q?.amount_zmw, q?.fee_zmw, q?.fee_bps, q?.mid_rate_zmw].map(Number);
+      if (!q || typeof q.quote_id !== "string" || typeof q.expires_at !== "string" || nums.some((n) => !Number.isFinite(n))) {
+        throw new Error("Malformed quote response");
+      }
+      setQuote({ ...q, amount_sats: nums[0], amount_zmw: nums[1], fee_zmw: nums[2], fee_bps: nums[3], mid_rate_zmw: nums[4] } as TradeQuote);
       setIdemKey(crypto.randomUUID());
     } catch (e: any) {
       toast({ title: "Could not get a quote", description: await resolveEdgeFunctionError(e, "Could not get a quote right now. Please try again."), variant: "destructive" });

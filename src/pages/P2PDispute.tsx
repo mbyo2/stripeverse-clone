@@ -45,6 +45,7 @@ import {
   formatZmw,
   isTerminalP2pDisputeStatus,
   ORDER_STATUS_META,
+  orderStatusMeta,
   paymentMethodTypeLabel,
   traderDisplayName,
   type P2pOrderStatus,
@@ -199,7 +200,7 @@ export default function P2PDispute() {
   const receiptData: P2pReceiptData | null = order
     ? {
         orderId: order.id,
-        statusLabel: ORDER_STATUS_META[order.status as P2pOrderStatus].headline,
+        statusLabel: orderStatusMeta(order.status).headline,
         asset: order.asset,
         cryptoAmountBtc: formatBtcFromSats(order.crypto_amount_minor),
         fiatAmountZmw: Number(order.fiat_amount_zmw),

@@ -161,7 +161,7 @@ const InvoiceCheckout = () => {
           <CheckCircle className="h-14 w-14 mx-auto text-green-500" />
           <h2 className="text-xl font-semibold">{success ? 'Invoice Paid!' : 'Invoice Already Paid'}</h2>
           <div className="bg-muted rounded-lg p-4 space-y-2">
-            <p className="text-2xl font-bold">{invoice?.currency} {invoice?.total_amount.toFixed(2)}</p>
+            <p className="text-2xl font-bold">{invoice?.currency} {Number(invoice?.total_amount ?? 0).toFixed(2)}</p>
             <p className="text-sm text-muted-foreground">Invoice {invoice?.invoice_number}</p>
           </div>
           {receiptRef && (
@@ -199,9 +199,9 @@ const InvoiceCheckout = () => {
             )}
           </CardHeader>
           <CardContent className="space-y-6">
-            {invoice && invoice.items.length > 0 && (
+            {invoice && (invoice.items ?? []).length > 0 && (
               <div className="space-y-2">
-                {invoice.items.map((item, i) => (
+                {(invoice.items ?? []).map((item, i) => (
                   <div key={i} className="flex items-center justify-between text-sm">
                     <span>{item.description} × {item.quantity}</span>
                     <span className="tabular-nums font-medium">{invoice.currency} {Number(item.total).toFixed(2)}</span>
@@ -210,12 +210,12 @@ const InvoiceCheckout = () => {
                 <Separator />
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span>Subtotal</span>
-                  <span className="tabular-nums">{invoice.currency} {invoice.subtotal.toFixed(2)}</span>
+                  <span className="tabular-nums">{invoice.currency} {Number(invoice.subtotal ?? 0).toFixed(2)}</span>
                 </div>
                 {invoice.tax_amount > 0 && (
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>Tax</span>
-                    <span className="tabular-nums">{invoice.currency} {invoice.tax_amount.toFixed(2)}</span>
+                    <span className="tabular-nums">{invoice.currency} {Number(invoice.tax_amount ?? 0).toFixed(2)}</span>
                   </div>
                 )}
               </div>
@@ -223,7 +223,7 @@ const InvoiceCheckout = () => {
 
             <div className="text-center p-4 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">Amount Due</p>
-              <p className="text-3xl font-bold text-foreground">{invoice?.currency} {invoice?.total_amount.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-foreground">{invoice?.currency} {Number(invoice?.total_amount ?? 0).toFixed(2)}</p>
             </div>
 
             {invoice?.notes && <p className="text-sm text-muted-foreground">{invoice.notes}</p>}
@@ -249,7 +249,7 @@ const InvoiceCheckout = () => {
                 </div>
                 <Button onClick={handlePay} disabled={processing} className="w-full h-12 text-base">
                   {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
-                  {processing ? 'Processing...' : `Pay ${invoice?.currency} ${invoice?.total_amount.toFixed(2)}`}
+                  {processing ? 'Processing...' : `Pay ${invoice?.currency} ${Number(invoice?.total_amount ?? 0).toFixed(2)}`}
                 </Button>
               </>
             )}

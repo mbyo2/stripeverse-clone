@@ -16,6 +16,7 @@ import {
   formatBtcFromSats,
   formatZmw,
   ORDER_STATUS_META,
+  orderStatusMeta,
   traderDisplayName,
   type P2pOrderStatus,
 } from "@/utils/p2pUi";
@@ -63,7 +64,7 @@ export default function P2POrders() {
       ) : (
         <div className="space-y-3">
           {orders.map((order) => {
-            const meta = ORDER_STATUS_META[order.status as P2pOrderStatus];
+            const meta = orderStatusMeta(order.status);
             const buying = order.fiat_buyer_id === user?.id;
             const cpId =
               order.advertiser_id === user?.id ? order.taker_id : order.advertiser_id;

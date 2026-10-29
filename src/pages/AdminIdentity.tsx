@@ -180,7 +180,7 @@ export default function AdminIdentity() {
                           {item.user_email ?? item.user_id}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {item.document_type.replace("_", " ")} · submitted{" "}
+                          {(item.document_type ?? "Document").replace("_", " ")} · submitted{" "}
                           {format(new Date(item.created_at), "d MMM yyyy, HH:mm")} ·
                           match {formatMatchScore(item.match_score)}
                         </div>
@@ -246,9 +246,9 @@ export default function AdminIdentity() {
                   <div className="space-y-1">
                     <Label>Duplicate-face check</Label>
                     <p>{dedupeSummary(selected.dedupe) ?? "No duplicate face found."}</p>
-                    {selected.dedupe?.hits.map((h) => (
+                    {(Array.isArray(selected.dedupe?.hits) ? selected.dedupe.hits : []).map((h) => (
                       <p key={h.user_id} className="text-xs text-muted-foreground">
-                        Account {h.user_id} — similarity {h.score.toFixed(2)}
+                        Account {h.user_id} — similarity {Number(h.score ?? 0).toFixed(2)}
                       </p>
                     ))}
                   </div>
@@ -267,7 +267,7 @@ export default function AdminIdentity() {
                         : "not recorded"}
                     </p>
                     <p>
-                      Document: {selected.document_type.replace("_", " ")}
+                      Document: {(selected.document_type ?? "Document").replace("_", " ")}
                     </p>
                   </div>
                 </div>

@@ -160,6 +160,30 @@ describe("crash-fix pins (unknown status values)", () => {
       "?? KYC_LABELS.not_started",
     );
   });
+  it("P2P order/ad status lookups go through the fallback accessor", () => {
+    expect(read("../../src/utils/p2pUi.ts")).toContain("ORDER_STATUS_FALLBACK");
+    expect(read("../../src/utils/p2pUi.ts")).toContain("export function orderStatusMeta");
+    expect(read("../../src/pages/P2PTradeRoom.tsx")).toContain("orderStatusMeta(status)");
+    expect(read("../../src/pages/P2POrders.tsx")).toContain("orderStatusMeta(order.status)");
+    expect(read("../../src/pages/P2PDispute.tsx")).toContain("orderStatusMeta(order.status)");
+    expect(read("../../src/pages/P2PMyAds.tsx")).toContain('?? { label: ad.status.replace');
+  });
+  it("AdminIdentity tolerates nullable document_type and malformed dedupe jsonb", () => {
+    const src = read("../../src/pages/AdminIdentity.tsx");
+    expect(src).toContain('document_type ?? "Document"');
+    expect(src).toContain("Array.isArray(selected.dedupe?.hits)");
+    expect(src).not.toContain("{item.document_type.replace(");
+  });
+  it("money surfaces validate/coerce response shapes before rendering them", () => {
+    expect(read("../../src/pages/BitcoinWallet.tsx")).toContain("Malformed quote response");
+    expect(read("../../src/pages/VirtualCardDetails.tsx")).toContain("if (!data.card)");
+    expect(read("../../src/pages/InvoiceCheckout.tsx")).toContain(
+      "Number(invoice?.total_amount ?? 0).toFixed(2)",
+    );
+    expect(read("../../src/pages/RequestCheckout.tsx")).toContain(
+      "Number(request?.amount ?? 0).toFixed(2)",
+    );
+  });
 });
 
 describe("removed anti-patterns stay removed", () => {

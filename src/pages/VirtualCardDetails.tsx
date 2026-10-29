@@ -361,6 +361,10 @@ const VirtualCardDetails = () => {
         setRevealError(data.message || "This card's full details can't be displayed again.");
         return;
       }
+      if (!data.card) {
+        setRevealError("These card details couldn't be shown right now. Please try again.");
+        return;
+      }
       setRevealError(null);
       setRevealPassword("");
       setRevealed({

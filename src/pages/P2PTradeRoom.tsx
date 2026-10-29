@@ -34,6 +34,7 @@ import {
   formatZmw,
   isTerminalP2pOrderStatus,
   ORDER_STATUS_META,
+  orderStatusMeta,
   paymentMethodTypeLabel,
   traderDisplayName,
   type P2pOrderStatus,
@@ -90,7 +91,7 @@ export default function P2PTradeRoom() {
   }
 
   const status = order.status as P2pOrderStatus;
-  const meta = ORDER_STATUS_META[status];
+  const meta = orderStatusMeta(status);
   const isBuyer = user?.id === order.fiat_buyer_id;
   const isSeller = user?.id === order.crypto_seller_id;
   const role = isBuyer ? "buyer" : "seller";

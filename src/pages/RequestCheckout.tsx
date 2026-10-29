@@ -155,7 +155,7 @@ const RequestCheckout = () => {
           <CheckCircle className="h-14 w-14 mx-auto text-green-500" />
           <h2 className="text-xl font-semibold">{success ? 'Payment Sent!' : 'Request Already Paid'}</h2>
           <div className="bg-muted rounded-lg p-4 space-y-2">
-            <p className="text-2xl font-bold">{request?.currency} {request?.amount.toFixed(2)}</p>
+            <p className="text-2xl font-bold">{request?.currency} {Number(request?.amount ?? 0).toFixed(2)}</p>
             {request?.requester_email && <p className="text-sm text-muted-foreground">to {request.requester_email}</p>}
           </div>
           {receiptRef && (
@@ -193,7 +193,7 @@ const RequestCheckout = () => {
           <CardContent className="space-y-6">
             <div className="text-center p-4 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">Amount Requested</p>
-              <p className="text-3xl font-bold text-foreground">{request?.currency} {request?.amount.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-foreground">{request?.currency} {Number(request?.amount ?? 0).toFixed(2)}</p>
             </div>
 
             {request?.description && <p className="text-sm text-muted-foreground">{request.description}</p>}
@@ -224,7 +224,7 @@ const RequestCheckout = () => {
                 </div>
                 <Button onClick={handlePay} disabled={processing} className="w-full h-12 text-base">
                   {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
-                  {processing ? 'Processing...' : `Pay ${request?.currency} ${request?.amount.toFixed(2)}`}
+                  {processing ? 'Processing...' : `Pay ${request?.currency} ${Number(request?.amount ?? 0).toFixed(2)}`}
                 </Button>
               </>
             )}

@@ -188,6 +188,27 @@ export const ORDER_STATUS_META: Record<P2pOrderStatus, OrderStatusMeta> = {
   },
 };
 
+/**
+ * Neutral fallback for a status the client map doesn't know yet
+ * (schema evolution can add an order status server-side before the
+ * client ships). Rendering must never deref an empty lookup.
+ */
+export const ORDER_STATUS_FALLBACK: OrderStatusMeta = {
+  headline: "Unknown status",
+  description: "",
+  tone: "neutral",
+  terminal: false,
+};
+
+export function orderStatusMeta(status: string): OrderStatusMeta {
+  return (
+    ORDER_STATUS_META[status as P2pOrderStatus] ?? {
+      ...ORDER_STATUS_FALLBACK,
+      headline: status.replace(/_/g, " "),
+    }
+  );
+}
+
 // ---------------------------------------------------------------------
 // Countdowns
 // ---------------------------------------------------------------------
