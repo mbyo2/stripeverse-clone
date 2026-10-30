@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Code2 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 // Truth pass (2026-10-26): documents only the SDKs that actually
 // ship — in the public bmaglasspay-connectors repository, under sdk/.
@@ -202,7 +203,7 @@ cd sdk/flutter && dart test   # the test suite (dart analyze is clean)`}</pre>
             <p>Shop integrations (WooCommerce 7.0 – 11.2, Odoo 16 – 20, Magento 2.4.6 – 2.4.9, PrestaShop 1.7 / 8 / 9, OpenCart 3 &amp; 4), a universal pay-button
               embed and Zapier/Make recipes live under <code>integrations/</code> in the connectors repository
               (<code>github.com/mbyo2/bmaglasspay-connectors</code>) — see the
-              Developers page. Shopify checkout is gated by Shopify's payments partner programme, so no
+              <Link className="underline" to="/developers/connectors">connectors directory</Link>. Shopify checkout is gated by Shopify's payments partner programme, so no
               checkout plugin exists; payment links work there today.</p>
             <p>Webhooks: when a payment link is paid, the <code>payment_link.paid</code> event fires at
               settlement (exactly once per payment) — verify it with the same signature helper shown in

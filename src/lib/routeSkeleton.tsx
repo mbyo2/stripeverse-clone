@@ -172,6 +172,7 @@ const EXACT: Record<string, ReactNode> = {
   "/business": <ContentPageSkeleton />,
   "/api": <ContentPageSkeleton />,
   "/developers": <ContentPageSkeleton />,
+  "/developers/connectors": <ContentPageSkeleton />,
   "/sdk-docs": <ContentPageSkeleton />,
   "/support": <ContentPageSkeleton />,
   "/help": <ContentPageSkeleton />,

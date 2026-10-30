@@ -103,6 +103,7 @@ const InvoiceCheckout = lazy(() => import('@/pages/InvoiceCheckout'));
 const RequestCheckout = lazy(() => import('@/pages/RequestCheckout'));
 const Settlements = lazy(() => import('@/pages/Settlements'));
 const SdkDocs = lazy(() => import('@/pages/SdkDocs'));
+const DevelopersConnectors = lazy(() => import('@/pages/DevelopersConnectors'));
 const WebhookLogs = lazy(() => import('@/pages/WebhookLogs'));
 const CardVault = lazy(() => import('@/pages/CardVault'));
 const CryptoWallet = lazy(() => import('@/pages/CryptoWallet'));
@@ -243,6 +244,7 @@ const AnimatedRoutes = () => {
         <Route path="/support" element={<PageTransition><Support /></PageTransition>} />
         <Route path="/help" element={<PageTransition><Help /></PageTransition>} />
         <Route path="/developers" element={<PageTransition><Developers /></PageTransition>} />
+        <Route path="/developers/connectors" element={<PageTransition><DevelopersConnectors /></PageTransition>} />
         <Route path="/pay/:code" element={<PageTransition><PublicCheckout /></PageTransition>} />
         <Route path="/invoice/:code" element={<PageTransition><InvoiceCheckout /></PageTransition>} />
         <Route path="/request/:code" element={<PageTransition><RequestCheckout /></PageTransition>} />

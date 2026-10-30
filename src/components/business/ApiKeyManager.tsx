@@ -17,6 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ApiKey {
@@ -276,6 +277,14 @@ export function ApiKeyManager() {
 
       {renderKeySection('live')}
       {renderKeySection('test')}
+
+      <p className="text-sm text-muted-foreground">
+        Connecting a shop or an app with these keys? The{" "}
+        <Link className="underline" to="/developers/connectors">connectors directory</Link>{" "}
+        lists the WooCommerce, Odoo, Magento, PrestaShop and OpenCart plugins, the
+        embed button and the SDKs — all in the public BMaGlass Pay connectors
+        repository on GitHub.
+      </p>
     </div>
   );
 }

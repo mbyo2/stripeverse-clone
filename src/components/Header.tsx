@@ -70,7 +70,8 @@ import {
   MapPin,
   Search,
   Store,
-  Bitcoin
+  Bitcoin,
+  Blocks
 } from "lucide-react";
 import { isAuthPending } from "@/lib/sessionHint";
 import { SkeletonHeaderBar } from "@/components/ui/skeletons";
@@ -450,6 +451,11 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/developers" className="flex items-center gap-2">
                       <Code2 className="h-4 w-4" /> Developers
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/developers/connectors" className="flex items-center gap-2">
+                      <Blocks className="h-4 w-4" /> Connectors &amp; SDKs
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>

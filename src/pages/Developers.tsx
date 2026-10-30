@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Code2, Key, Shield, Webhook, AlertTriangle, Store } from "lucide-react";
 import { Link } from "react-router-dom";
 import ApiPlayground from "@/components/developers/ApiPlayground";
+import { CONNECTORS_REPO_URL } from "@/lib/connectors";
 
 // Truth pass (2026-10-26): this page previously documented an API that
 // did not exist. Everything below is the shipped developer-api surface —
@@ -46,6 +47,10 @@ export default function Developers() {
             actually shipped — the machine-readable contract is the{" "}
             <a className="underline" href="/openapi.json" target="_blank" rel="noreferrer">OpenAPI spec</a>.
           </p>
+          <div className="flex flex-wrap gap-2 mt-5">
+            <Button asChild><Link to="/developers/connectors">Browse the connectors &amp; SDKs</Link></Button>
+            <Button asChild variant="outline"><a href={CONNECTORS_REPO_URL} target="_blank" rel="noreferrer">Connectors repository on GitHub</a></Button>
+          </div>
         </div>
       </div>
       <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full space-y-8">
@@ -178,6 +183,10 @@ final wallets = await client.wallets();`}</pre>
               <li><strong>Zapier / Make</strong> — <code>integrations/automation</code>: recipes using their native webhook/HTTP modules (no app-store listing exists or is claimed).</li>
               <li><strong>Shopify</strong> — checkout payments are gated by Shopify's payments partner programme, so there is no BMaGlass checkout plugin. Payment links and the embed button work in Shopify pages and emails today; see <code>integrations/shopify/ASSESSMENT.md</code>.</li>
             </ul>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild><Link to="/developers/connectors">Open the connectors directory</Link></Button>
+              <Button asChild variant="outline"><a href={CONNECTORS_REPO_URL} target="_blank" rel="noreferrer">Open the GitHub repository</a></Button>
+            </div>
           </CardContent>
         </Card>
 
