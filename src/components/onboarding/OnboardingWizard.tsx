@@ -33,7 +33,7 @@ const OnboardingWizard = ({ kycLevel, walletBalance, hasProfile, onDismiss }: On
     {
       id: "profile",
       title: "Complete Your Profile",
-      description: "Add your name and phone number for a personalized experience.",
+      description: "Add your name and profile details for a personalized experience. Your phone number is collected later, when you verify your identity.",
       icon: <User className="h-6 w-6" />,
       action: "Go to Settings",
       route: "/settings",

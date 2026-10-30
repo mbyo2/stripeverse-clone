@@ -22,6 +22,10 @@ interface KycFormState {
   idType: string;
   idNumber: string;
   dateOfBirth: string;
+  // Phone is collected here, during identity verification — never
+  // at sign-up (CEO directive, 2026-10-30). Required to submit;
+  // the edge function validates it and stores it on profiles.phone.
+  phone: string;
   address: string;
   selfieImage?: File | null;
   idFrontUrl?: string | null;
@@ -64,6 +68,7 @@ const KycVerification = () => {
     idType: '',
     idNumber: '',
     dateOfBirth: '',
+    phone: '',
     address: '',
     selfieImage: null,
     idFrontUrl: null,
@@ -170,7 +175,7 @@ const KycVerification = () => {
                 (next as Record<string, unknown>)[key] = v;
               }
             };
-            (['firstName', 'lastName', 'idType', 'idNumber', 'dateOfBirth', 'address', 'idFrontUrl', 'idBackUrl', 'addressDocUrl'] as const).forEach(applyDraft);
+            (['firstName', 'lastName', 'idType', 'idNumber', 'dateOfBirth', 'phone', 'address', 'idFrontUrl', 'idBackUrl', 'addressDocUrl'] as const).forEach(applyDraft);
             return next;
           });
           if (savedDraft.activeTab === 'documents' || savedDraft.activeTab === 'address') {
@@ -230,17 +235,18 @@ const KycVerification = () => {
         // Fetch user profile info to pre-fill the form
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('first_name, last_name')
+          .select('first_name, last_name, phone')
           .eq('id', userData.user.id)
           .single();
-          
+
         if (profileData) {
           // Prefill only fields that are still empty and untouched —
           // never replace something the user has typed.
           setFormData(prev => ({
             ...prev,
             firstName: dirtyFieldsRef.current.has('firstName') ? prev.firstName : (prev.firstName || profileData.first_name || ''),
-            lastName: dirtyFieldsRef.current.has('lastName') ? prev.lastName : (prev.lastName || profileData.last_name || '')
+            lastName: dirtyFieldsRef.current.has('lastName') ? prev.lastName : (prev.lastName || profileData.last_name || ''),
+            phone: dirtyFieldsRef.current.has('phone') ? prev.phone : (prev.phone || profileData.phone || '')
           }));
         }
         
@@ -271,7 +277,8 @@ const KycVerification = () => {
       formData.lastName,
       formData.idType,
       formData.idNumber,
-      formData.dateOfBirth
+      formData.dateOfBirth,
+      formData.phone
     ];
     
     basicFields.forEach(field => {
@@ -351,7 +358,21 @@ const KycVerification = () => {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Phone is required for a KYC submission (it lives here, not at
+    // sign-up). Defence in depth: the submit button is already
+    // disabled without a valid number, and the edge function
+    // refuses phoneless submissions server-side.
+    if (!/^\+?\d{9,15}$/.test(formData.phone.replace(/[\s()-]/g, ""))) {
+      setActiveTab("personal");
+      toast({
+        title: "Phone number needed",
+        description: "Add your phone number to submit your verification — we collect it here, during identity verification, not when you sign up.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
       
@@ -595,6 +616,22 @@ const KycVerification = () => {
                       onChange={handleInputChange}
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="+260 XX XXX XXXX"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      We collect your phone number here, as part of identity
+                      verification — we don't ask for it when you sign up.
+                    </p>
+                  </div>
                   
                   <div className="flex justify-end mt-6">
                     <Button 
@@ -752,7 +789,7 @@ const KycVerification = () => {
                         submission in some browsers. Completeness is
                         enforced here instead — plus server-side in
                         verifyKyc, which refuses incomplete submissions. */}
-                    <Button type="submit" disabled={submitting || !formData.idFrontUrl || !selfiePreview || !formData.firstName || !formData.lastName || !formData.idType || !formData.idNumber || !formData.dateOfBirth}>
+                    <Button type="submit" disabled={submitting || !formData.idFrontUrl || !selfiePreview || !formData.firstName || !formData.lastName || !formData.idType || !formData.idNumber || !formData.dateOfBirth || !/^\+?\d{9,15}$/.test(formData.phone.replace(/[\s()-]/g, ""))}>
                       {submitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

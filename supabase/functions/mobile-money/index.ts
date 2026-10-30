@@ -97,6 +97,10 @@ import {
   isKycWriteLostError,
 } from "../_shared/kyc-write.ts";
 import {
+  KYC_PHONE_REQUIRED_MESSAGE,
+  extractKycPhone,
+} from "../_shared/kyc-phone.ts";
+import {
   PHONE_STAMP_AUDIT_FAILED_MESSAGE,
   PHONE_STAMP_FAILED_MESSAGE,
   PHONE_STAMP_FORBIDDEN_MESSAGE,
@@ -184,6 +188,27 @@ async function verifyKyc(
   if (!firstName || !lastName || !idType || !idNumber || !dateOfBirth) {
     return { level: KycVerificationLevel.NONE, message: "Missing required verification information." };
   }
+
+  // Phone is collected HERE, at verification — never at sign-up
+  // (CEO directive, 2026-10-30). A submission without a valid phone
+  // number is incomplete: nothing is written.
+  const phone = extractKycPhone(data);
+  if (!phone) {
+    return { level: KycVerificationLevel.NONE, message: KYC_PHONE_REQUIRED_MESSAGE };
+  }
+
+  // Store the phone on the profile — profiles.phone is the
+  // platform's phone of record — before the KYC row, so a failed
+  // submission never leaves a "submitted" record behind. The write
+  // requests its row back and is asserted, like the KYC writes
+  // below: a 0-row update must fail loudly, never pass as success.
+  const { data: profileRows, error: profileError } = await supabase
+    .from("profiles")
+    .update({ phone })
+    .eq("id", userId)
+    .select("id");
+  if (profileError) throw profileError;
+  assertKycWriteLanded(profileRows);
 
   // Full when the advanced evidence is supplied, basic otherwise.
   // Submission is for review: verified_at is set by an admin, never here.

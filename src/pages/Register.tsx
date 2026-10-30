@@ -12,13 +12,12 @@ import { isAuthPending } from "@/lib/sessionHint";
 import { RouteShellSkeleton } from "@/components/ui/skeletons";
 import { useToast } from "@/hooks/use-toast";
 import { createSubmitGuard } from "@/lib/submitGuard";
-import { UserPlus, Mail, Lock, Phone, User, CheckCircle2, XCircle, MailCheck, CircleAlert } from "lucide-react";
+import { UserPlus, Mail, Lock, User, CheckCircle2, XCircle, MailCheck, CircleAlert } from "lucide-react";
 
 const Register = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const { signUp, isLoading, user, isAuthReady, hasStoredSession } = useAuth();
@@ -62,10 +61,12 @@ const Register = () => {
       }
 
       setFormError(null);
+      // No phone number at sign-up (CEO directive, 2026-10-30):
+      // phone is collected later, during identity verification
+      // (KYC) — the only place it is asked for.
       const result = await signUp(email, password, {
         first_name: firstName,
         last_name: lastName,
-        phone: phone,
       });
 
       // Every outcome lands somewhere deliberate — the pre-fix flow
@@ -226,22 +227,6 @@ const Register = () => {
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      required
-                      className="pl-10 h-12 rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-sm font-medium">Phone Number</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+260 XX XXX XXXX"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
                       required
                       className="pl-10 h-12 rounded-lg"
                     />

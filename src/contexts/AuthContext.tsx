@@ -96,10 +96,12 @@ type AuthContextType = {
   verifySession: () => Promise<void>;
 };
 
+// Sign-up collects names only — no phone number (CEO directive,
+// 2026-10-30). Phone is collected during identity verification
+// (KYC) and stored on profiles.phone at that point.
 type UserData = {
   first_name: string;
   last_name: string;
-  phone: string;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -452,7 +454,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           data: {
             first_name: userData.first_name,
             last_name: userData.last_name,
-            phone: userData.phone,
           },
           emailRedirectTo: `${window.location.origin}/login`
         }
