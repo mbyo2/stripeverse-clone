@@ -1,8 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireCronSecret } from "../_shared/auth.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
 Deno.serve(async (req) => {
@@ -11,6 +12,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const cronErr = requireCronSecret(req, corsHeaders)
+    if (cronErr) return cronErr
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -39,33 +43,22 @@ Deno.serve(async (req) => {
         if (billingError) throw billingError
 
         if (billingResult?.success) {
-          // Mark invoice as paid (in a real system, this would go through payment rail first)
-          // For now, if user has a payment method, simulate charge
+          // Invoices remain 'pending' until a real payment processor confirms
+          // a successful charge via webhook. Never auto-mark as paid based on
+          // the mere presence of a payment method record.
           const { data: paymentMethod } = await supabase
             .from('payment_methods')
-            .select('*')
+            .select('id')
             .eq('user_id', sub.user_id)
             .eq('is_primary', true)
-            .single()
+            .maybeSingle()
 
           if (paymentMethod) {
-            // Payment method exists - mark as paid
-            await supabase
-              .from('subscription_invoices')
-              .update({ status: 'paid' })
-              .eq('id', billingResult.invoice_id)
-
-            // Reset failed count
-            await supabase
-              .from('subscribers')
-              .update({ failed_payment_count: 0, dunning_status: 'none' })
-              .eq('id', sub.id)
-
-            results.push({ 
-              subscriber_id: sub.id, 
-              status: 'charged', 
+            results.push({
+              subscriber_id: sub.id,
+              status: 'pending_charge',
               amount: billingResult.amount,
-              invoice_id: billingResult.invoice_id 
+              invoice_id: billingResult.invoice_id
             })
           } else {
             // No payment method - queue for retry
@@ -174,7 +167,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('process-recurring-billing error:', error)
+    return new Response(JSON.stringify({ error: 'Operation failed' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })

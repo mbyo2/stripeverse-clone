@@ -77,14 +77,18 @@ Deno.serve(async (req) => {
         },
         { onConflict: "user_id,chain_id,address" }
       );
-    if (upErr) return json({ error: upErr.message }, 500);
+    if (upErr) {
+      console.error('verify-crypto-signature upsert error:', upErr);
+      return json({ error: 'Operation failed' }, 500);
+    }
 
     // Burn nonce
     await admin.from("crypto_address_nonces").delete().eq("id", nrow.id);
 
     return json({ success: true });
   } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+    console.error('verify-crypto-signature error:', e);
+    return json({ error: 'Operation failed' }, 500);
   }
 });
 

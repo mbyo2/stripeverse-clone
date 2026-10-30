@@ -1,9 +1,19 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireAuth } from "../_shared/auth.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// Escape any value for safe interpolation into HTML/attribute contexts.
+const esc = (v: unknown): string =>
+  String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 
 interface EmailPayload {
   type: 'transaction_receipt' | 'security_alert' | 'kyc_status' | 'welcome' | 'deposit_confirmed'
@@ -16,7 +26,7 @@ const emailTemplates = {
     subject: 'Welcome to BMaGlass Pay!',
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h1 style="color: #1a1a2e;">Welcome to BMaGlass Pay, ${name}! 🎉</h1>
+        <h1 style="color: #1a1a2e;">Welcome to BMaGlass Pay, ${esc(name)}! 🎉</h1>
         <p>Your account has been created successfully. Here's what you can do next:</p>
         <ul>
           <li>Complete your KYC verification to unlock all features</li>
@@ -30,15 +40,15 @@ const emailTemplates = {
   }),
   
   transaction_receipt: (data: Record<string, unknown>) => ({
-    subject: `Transaction ${data.direction === 'incoming' ? 'Received' : 'Sent'} - ${data.amount} ${data.currency}`,
+    subject: `Transaction ${data.direction === 'incoming' ? 'Received' : 'Sent'} - ${esc(data.amount)} ${esc(data.currency)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h1 style="color: #1a1a2e;">Transaction ${data.direction === 'incoming' ? 'Received' : 'Confirmation'}</h1>
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 16px 0;">
-          <p><strong>Amount:</strong> ${data.amount} ${data.currency}</p>
-          <p><strong>Type:</strong> ${data.direction}</p>
-          <p><strong>Reference:</strong> ${data.reference || 'N/A'}</p>
-          <p><strong>Status:</strong> ${data.status}</p>
+          <p><strong>Amount:</strong> ${esc(data.amount)} ${esc(data.currency)}</p>
+          <p><strong>Type:</strong> ${esc(data.direction)}</p>
+          <p><strong>Reference:</strong> ${esc(data.reference || 'N/A')}</p>
+          <p><strong>Status:</strong> ${esc(data.status)}</p>
           <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
         </div>
         <a href="https://bmaglasspay.com/transactions" style="display: inline-block; background: #1a1a2e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none;">View Transactions</a>
@@ -54,9 +64,9 @@ const emailTemplates = {
         <h1 style="color: #dc2626;">⚠️ Security Alert</h1>
         <p>We detected unusual activity on your account:</p>
         <div style="background: #fef2f2; padding: 20px; border-radius: 8px; border-left: 4px solid #dc2626; margin: 16px 0;">
-          <p><strong>Event:</strong> ${data.event_type}</p>
+          <p><strong>Event:</strong> ${esc(data.event_type)}</p>
           <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-          ${data.ip_address ? `<p><strong>IP Address:</strong> ${data.ip_address}</p>` : ''}
+          ${data.ip_address ? `<p><strong>IP Address:</strong> ${esc(data.ip_address)}</p>` : ''}
         </div>
         <p>If this was you, no action is needed. Otherwise, please secure your account immediately:</p>
         <a href="https://bmaglasspay.com/security-settings" style="display: inline-block; background: #dc2626; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none;">Secure Account</a>
@@ -79,14 +89,14 @@ const emailTemplates = {
   }),
   
   deposit_confirmed: (data: Record<string, unknown>) => ({
-    subject: `Deposit Confirmed - ${data.amount} ${data.currency}`,
+    subject: `Deposit Confirmed - ${esc(data.amount)} ${esc(data.currency)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h1 style="color: #16a34a;">Deposit Confirmed ✅</h1>
         <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 16px 0;">
-          <p><strong>Amount:</strong> ${data.amount} ${data.currency}</p>
-          <p><strong>Method:</strong> ${data.method || 'Wallet'}</p>
-          <p><strong>New Balance:</strong> ${data.new_balance} ${data.currency}</p>
+          <p><strong>Amount:</strong> ${esc(data.amount)} ${esc(data.currency)}</p>
+          <p><strong>Method:</strong> ${esc(data.method || 'Wallet')}</p>
+          <p><strong>New Balance:</strong> ${esc(data.new_balance)} ${esc(data.currency)}</p>
         </div>
         <a href="https://bmaglasspay.com/wallet" style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none;">View Wallet</a>
       </div>
@@ -100,6 +110,10 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const auth = await requireAuth(req, corsHeaders)
+    if ('response' in auth && !('user' in auth)) return auth.response
+    const caller = (auth as any).user
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -107,6 +121,20 @@ Deno.serve(async (req) => {
     )
 
     const { type, userId, data } = await req.json() as EmailPayload
+
+    // Users may only send notifications to themselves. Admins may send to anyone.
+    if (userId !== caller.id) {
+      const { data: isAdmin } = await supabaseClient.rpc('has_role', {
+        user_id: caller.id,
+        required_role: 'admin',
+      })
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
 
     // Get user email and profile
     const { data: { user }, error: userError } = await supabaseClient.auth.admin.getUserById(userId)
@@ -183,7 +211,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Email notification error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Operation failed' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

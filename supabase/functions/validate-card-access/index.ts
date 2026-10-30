@@ -81,7 +81,6 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         error: 'Card access validation failed',
-        details: error.message
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

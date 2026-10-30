@@ -1,10 +1,11 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireAdmin } from "../_shared/auth.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
 serve(async (req) => {
@@ -13,6 +14,9 @@ serve(async (req) => {
   }
 
   try {
+    const auth = await requireAdmin(req, corsHeaders)
+    if ('response' in auth && !('user' in auth)) return auth.response
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -40,7 +44,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Data backup error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Operation failed' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
@@ -63,9 +67,11 @@ async function createBackup(supabaseClient: any, tables: string[], backupType: s
     }
   }
 
-  const criticalTables = tables || [
+  // Only these tables may ever be backed up — caller-supplied table names
+  // are filtered against this allowlist so arbitrary tables cannot be read.
+  const ALLOWED_TABLES = [
     'profiles',
-    'wallets', 
+    'wallets',
     'transactions',
     'virtual_cards',
     'payment_methods',
@@ -74,6 +80,10 @@ async function createBackup(supabaseClient: any, tables: string[], backupType: s
     'compliance_checks',
     'audit_logs'
   ]
+
+  const criticalTables = Array.isArray(tables)
+    ? tables.filter((t) => ALLOWED_TABLES.includes(t))
+    : ALLOWED_TABLES
 
   for (const tableName of criticalTables) {
     try {
@@ -182,9 +192,10 @@ async function restoreBackup(supabaseClient: any, restoreData: any) {
   // For now, simulate restoration
   const restorationResults = []
   
-  const tablesToRestore = tables_to_restore || [
-    'profiles', 'wallets', 'transactions', 'virtual_cards'
-  ]
+  const RESTORE_ALLOWED = ['profiles', 'wallets', 'transactions', 'virtual_cards']
+  const tablesToRestore = Array.isArray(tables_to_restore)
+    ? tables_to_restore.filter((t: string) => RESTORE_ALLOWED.includes(t))
+    : RESTORE_ALLOWED
 
   for (const tableName of tablesToRestore) {
     try {

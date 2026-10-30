@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireAuth } from "../_shared/auth.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +18,10 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const auth = await requireAuth(req, corsHeaders)
+    if ('response' in auth && !('user' in auth)) return auth.response
+    const caller = (auth as any).user
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -44,6 +49,20 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Transaction not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Only the transaction owner (or an admin) can send its receipt
+    if (transaction.user_id !== caller.id) {
+      const { data: isAdmin } = await supabase.rpc('has_role', {
+        user_id: caller.id,
+        required_role: 'admin',
+      })
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
     }
 
     // Build receipt HTML
@@ -94,6 +113,14 @@ function generateReceiptHtml(transaction: any, type: string): string {
     year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 
+  const esc = (v: unknown): string =>
+    String(v ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
   return `
 <!DOCTYPE html>
 <html>
@@ -107,17 +134,17 @@ function generateReceiptHtml(transaction: any, type: string): string {
     <div style="padding: 24px;">
       <div style="text-align: center; margin-bottom: 20px;">
         <p style="font-size: 32px; font-weight: 700; margin: 0; color: ${type === 'refund' ? '#dc2626' : '#16a34a'};">
-          ${type === 'refund' ? '-' : ''}${transaction.currency} ${Number(transaction.amount).toFixed(2)}
+          ${type === 'refund' ? '-' : ''}${esc(transaction.currency)} ${esc(Number(transaction.amount).toFixed(2))}
         </p>
-        <p style="color: #71717a; margin: 4px 0 0; font-size: 14px;">${transaction.status === 'completed' ? '✓ Completed' : transaction.status}</p>
+        <p style="color: #71717a; margin: 4px 0 0; font-size: 14px;">${transaction.status === 'completed' ? '✓ Completed' : esc(transaction.status)}</p>
       </div>
       <hr style="border: none; border-top: 1px solid #e4e4e7; margin: 16px 0;">
       <table style="width: 100%; font-size: 14px;">
         <tr><td style="color: #71717a; padding: 6px 0;">Reference</td><td style="text-align: right; font-weight: 500;">RCP-${(transaction.uuid_id || transaction.id).toString().slice(0, 8).toUpperCase()}</td></tr>
         <tr><td style="color: #71717a; padding: 6px 0;">Date</td><td style="text-align: right;">${date}</td></tr>
-        <tr><td style="color: #71717a; padding: 6px 0;">Recipient</td><td style="text-align: right;">${transaction.recipient_name || 'N/A'}</td></tr>
-        <tr><td style="color: #71717a; padding: 6px 0;">Category</td><td style="text-align: right;">${transaction.category || 'General'}</td></tr>
-        ${transaction.fee_amount ? `<tr><td style="color: #71717a; padding: 6px 0;">Fee</td><td style="text-align: right;">${transaction.currency} ${Number(transaction.fee_amount).toFixed(2)}</td></tr>` : ''}
+        <tr><td style="color: #71717a; padding: 6px 0;">Recipient</td><td style="text-align: right;">${esc(transaction.recipient_name || 'N/A')}</td></tr>
+        <tr><td style="color: #71717a; padding: 6px 0;">Category</td><td style="text-align: right;">${esc(transaction.category || 'General')}</td></tr>
+        ${transaction.fee_amount ? `<tr><td style="color: #71717a; padding: 6px 0;">Fee</td><td style="text-align: right;">${esc(transaction.currency)} ${esc(Number(transaction.fee_amount).toFixed(2))}</td></tr>` : ''}
       </table>
       <hr style="border: none; border-top: 1px solid #e4e4e7; margin: 16px 0;">
       <p style="font-size: 12px; color: #a1a1aa; text-align: center;">

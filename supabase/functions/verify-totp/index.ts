@@ -139,8 +139,9 @@ serve(async (req) => {
       },
     )
   } catch (error) {
+    console.error('verify-totp error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Operation failed' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,

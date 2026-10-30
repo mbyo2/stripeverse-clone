@@ -22,4 +22,18 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the stable vendor code out of the entry chunk: React and
+        // Supabase change far less often than app code, so repeat visitors
+        // keep them cached across app deploys (assets are served immutable)
+        // instead of re-downloading them inside every new entry chunk.
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-supabase": ["@supabase/supabase-js"],
+        },
+      },
+    },
+  },
 }));

@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { assertSafeWebhookUrl } from "../_shared/url-guard.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,13 +20,15 @@ serve(async (req) => {
     )
 
     const webhookData = await req.json()
-    console.log('Received webhook:', webhookData)
 
     // Validate webhook signature (implement based on provider)
     const isValidSignature = await validateWebhookSignature(req, webhookData)
     if (!isValidSignature) {
       throw new Error('Invalid webhook signature')
     }
+
+    // Log only non-sensitive metadata, and only after signature validation.
+    console.log('Received webhook:', { provider: webhookData.provider || 'unknown' })
 
     // Process webhook based on provider
     const provider = webhookData.provider || 'unknown'
@@ -46,7 +49,20 @@ serve(async (req) => {
     }
 
     if (transactionUpdate) {
-      // Update transaction in database
+      // Idempotency: reject duplicate webhook deliveries
+      const idemKey = `${provider}:${transactionUpdate.transaction_id}:${transactionUpdate.external_reference ?? ''}:${transactionUpdate.status}`
+      const { error: idemError } = await supabaseClient
+        .from('webhook_idempotency_keys')
+        .insert({ key: idemKey, provider })
+      if (idemError && (idemError as any).code === '23505') {
+        console.log('Duplicate webhook ignored:', idemKey)
+        return new Response(
+          JSON.stringify({ success: true, duplicate: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        )
+      }
+
+      // Only update rows still pending — prevents double-processing
       const { data: transaction, error: txnError } = await supabaseClient
         .from('transactions')
         .update({
@@ -55,32 +71,33 @@ serve(async (req) => {
           metadata: transactionUpdate.metadata
         })
         .eq('transaction_id', transactionUpdate.transaction_id)
+        .eq('status', 'pending')
         .select()
-        .single()
+        .maybeSingle()
 
       if (txnError) {
         console.error('Transaction update error:', txnError)
         throw new Error('Failed to update transaction')
       }
 
-      // Update wallet balance if transaction completed
-      if (transactionUpdate.status === 'completed' && transaction) {
-        const { data: wallet } = await supabaseClient
-          .from('wallets')
-          .select('*')
-          .eq('id', transaction.wallet_id)
-          .single()
+      if (!transaction) {
+        console.log('Transaction not pending, skipping balance update')
+        return new Response(
+          JSON.stringify({ success: true, alreadyProcessed: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        )
+      }
 
-        if (wallet) {
-          const balanceChange = transaction.direction === 'incoming' ? 
-            transaction.amount : 
-            -(transaction.amount + (transaction.fee_amount || 0))
+      // Atomic wallet balance mutation via RPC
+      if (transactionUpdate.status === 'completed') {
+        const delta = transaction.direction === 'incoming'
+          ? Number(transaction.amount)
+          : -(Number(transaction.amount) + Number(transaction.fee_amount || 0))
 
-          await supabaseClient
-            .from('wallets')
-            .update({ balance: wallet.balance + balanceChange })
-            .eq('id', wallet.id)
-        }
+        await supabaseClient.rpc('increment_wallet_balance', {
+          p_user_id: transaction.user_id,
+          p_amount: delta,
+        })
       }
 
       // Send notification to business webhooks
@@ -258,16 +275,43 @@ function mapZamtelStatus(zamtelStatus: string): string {
 
 async function notifyBusinessWebhooks(supabaseClient: any, transaction: any, update: any) {
   try {
-    // Get all business webhooks that should be notified
+    // Resolve the merchant that owns this transaction. Without a merchant
+    // association we do NOT broadcast to unrelated businesses.
+    let merchantIds: string[] = []
+
+    if (transaction?.user_id) {
+      const { data: merchants } = await supabaseClient
+        .from('merchant_accounts')
+        .select('id')
+        .eq('user_id', transaction.user_id)
+      merchantIds = (merchants || []).map((m: any) => m.id)
+    }
+
+    if (merchantIds.length === 0) {
+      console.log('No merchant associated with transaction; skipping business webhook notifications', {
+        transaction_id: transaction?.transaction_id,
+      })
+      return
+    }
+
+    const eventName = `transaction.${update.status}`
+    // Only notify webhooks owned by the transaction's merchant(s) and
+    // subscribed to this specific event type.
     const { data: webhooks } = await supabaseClient
       .from('webhooks')
       .select('*')
-      .contains('events', ['transaction.completed', 'transaction.failed'])
+      .in('business_id', merchantIds)
 
     for (const webhook of webhooks || []) {
+      // events is a jsonb map like { "transaction.completed": true }
+      const events = webhook.events || {}
+      const subscribed = Array.isArray(events)
+        ? events.includes(eventName)
+        : !!events[eventName]
+      if (!subscribed) continue
       try {
         const payload = {
-          event: `transaction.${update.status}`,
+          event: eventName,
           data: {
             transaction_id: transaction.transaction_id,
             amount: transaction.amount,
@@ -278,6 +322,10 @@ async function notifyBusinessWebhooks(supabaseClient: any, transaction: any, upd
           }
         }
 
+        try { assertSafeWebhookUrl(webhook.url) } catch (e) {
+          console.error('Blocked unsafe webhook URL:', webhook.url, (e as Error).message)
+          continue
+        }
         await fetch(webhook.url, {
           method: 'POST',
           headers: {

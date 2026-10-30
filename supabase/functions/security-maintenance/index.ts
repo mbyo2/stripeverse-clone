@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { getSupabaseClient } from "../_shared/supabase-client.ts"
+import { requireAdmin, requireCronSecret } from "../_shared/auth.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
 serve(async (req) => {
@@ -13,6 +14,15 @@ serve(async (req) => {
   }
 
   try {
+    // Allow either an admin JWT or a valid CRON_SECRET for scheduled runs
+    if (req.headers.get('x-cron-secret')) {
+      const cronErr = requireCronSecret(req, corsHeaders)
+      if (cronErr) return cronErr
+    } else {
+      const auth = await requireAdmin(req, corsHeaders)
+      if ('response' in auth && !('user' in auth)) return auth.response
+    }
+
     const supabase = getSupabaseClient(req);
 
     // Run comprehensive security maintenance
@@ -47,7 +57,6 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         error: 'Security maintenance failed',
-        details: error.message
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
