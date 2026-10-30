@@ -11,6 +11,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Search, MessageCircle, Mail, ExternalLink, ChevronRight, BookOpen, Shield, CreditCard, Smartphone, Users, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from 'react-router-dom';
@@ -36,11 +37,16 @@ const Help = () => {
     { id: '6', question: 'What should I do if my virtual card is compromised?', answer: 'Virtual cards are coming soon, so there is no live card to compromise yet. When they launch, you will be able to freeze a card instantly from your Wallet page and contact support about a replacement.' },
     { id: '7', question: 'How do I complete KYC verification?', answer: 'Navigate to Settings → KYC or go to /kyc directly. Upload your government ID (front & back) and proof of address as files. Your selfie is different: it must be captured live with your camera inside the wizard — file uploads are not accepted for your face, for your security. Verification typically completes within 24 hours.' },
     { id: '8', question: 'How do refunds and disputes work?', answer: 'Go to Transactions, find the transaction, and click "Dispute". Provide details and any evidence. Our team reviews within 3-5 business days and you\'ll receive a notification with the outcome.' },
-    { id: '9', question: 'Can I use BMaGlass Pay for my business?', answer: 'Yes! Apply for a Business account through Role Management. You\'ll get access to the merchant dashboard, API keys, webhook management, and settlement tools.' },
+    { id: '9', question: 'Can I use BMaGlass Pay for my business?', answer: 'Yes! Apply for a Business account through Role Management. You\'ll get access to the merchant dashboard, API keys and webhook management.' },
     { id: '10', question: 'What mobile money providers do you support?', answer: 'Mobile money is coming soon: we are connecting directly to MTN Mobile Money, Airtel Money, and Zamtel Money for deposits and withdrawals. Bitcoin deposits and withdrawals are live today.' },
   ];
 
-  const guides = [
+  // Guide cards into unfinished features follow the feature
+  // registry (CEO directive 2026-10-30) and are not rendered for
+  // regular users. The FAQ answers below stay as they are — they
+  // already describe mobile money honestly as coming soon.
+  const { canSee } = useFeatureVisibility();
+  const allGuides = [
     { title: 'Getting Started', description: 'Create your account and make your first transaction', icon: BookOpen, link: '/dashboard' },
     { title: 'KYC Verification', description: 'For the specific features that ask for it — like higher P2P tiers and bigger limits', icon: Users, link: '/kyc' },
     { title: 'Virtual Cards', description: 'Coming soon: internal wallet cards, managed from your Wallet', icon: CreditCard, link: '/wallet' },
@@ -48,6 +54,11 @@ const Help = () => {
     { title: 'Security Settings', description: 'Enable 2FA and review your security dashboard', icon: Shield, link: '/security-settings' },
     { title: 'Business API', description: 'Integrate payments into your website or app', icon: ExternalLink, link: '/api' },
   ];
+  const guides = allGuides.filter(
+    (guide) =>
+      (guide.title !== 'Virtual Cards' || canSee('virtualCards')) &&
+      (guide.title !== 'Mobile Money' || canSee('mobileMoney')),
+  );
 
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

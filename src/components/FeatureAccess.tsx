@@ -1,6 +1,7 @@
 
 import { useRoles, Feature } from "@/contexts/RoleContext";
 import { canViewAdminConsole } from "@/lib/adminConsole";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, XCircle, LockIcon, UnlockIcon } from "lucide-react";
@@ -164,10 +165,15 @@ export const FeatureList = () => {
   // The feedback console belongs to the admin role, not to any
   // subscription tier — for everyone else the card is not rendered
   // at all (role visibility, CEO directive 2026-10-25) instead of
-  // dangling an "Upgrade" that could never unlock it.
+  // dangling an "Upgrade" that could never unlock it. The Virtual
+  // Cards entry likewise follows the feature registry (CEO
+  // directive 2026-10-30): not available to regular users, so the
+  // entry is not rendered for them at all.
+  const { canSee: canSeeFeature } = useFeatureVisibility();
   const features = allFeatures.filter(
     (feature) =>
-      feature.id !== "feedback_dashboard" || canViewAdminConsole(roles)
+      (feature.id !== "feedback_dashboard" || canViewAdminConsole(roles)) &&
+      (feature.id !== "virtual_cards" || canSeeFeature("virtualCards"))
   );
 
   return (

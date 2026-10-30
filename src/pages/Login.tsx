@@ -20,6 +20,7 @@ import {
   SESSION_ENDED_MESSAGE,
 } from "@/lib/authFailure";
 import { isAuthPending } from "@/lib/sessionHint";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { RouteShellSkeleton } from "@/components/ui/skeletons";
 
 type ResendState = "idle" | "sending" | ResendConfirmationOutcome;
@@ -53,6 +54,7 @@ const Login = () => {
   // notice — consumed once — explains why in plain language.
   const [sessionEndedNotice] = useState(() => consumeSessionEndedNotice());
   const { signIn, resendConfirmationEmail, isLoading, user, isAuthReady, hasStoredSession } = useAuth();
+  const { canSee } = useFeatureVisibility();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,12 +231,17 @@ const Login = () => {
             </CardFooter>
           </Card>
 
+          {/* USSD access is not live; the link follows the feature
+              registry (CEO directive 2026-10-30) and renders only
+              for the admin tier. */}
+          {canSee('ussdAccess') && (
           <div className="text-center mt-6">
             <Link to="/ussd-access" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
               <Hash className="h-3.5 w-3.5" />
               No smartphone? Access via USSD
             </Link>
           </div>
+          )}
         </div>
       </main>
       <Footer />

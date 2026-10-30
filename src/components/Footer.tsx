@@ -1,9 +1,21 @@
 import { Link } from 'react-router-dom';
 import { Mail, MapPin } from 'lucide-react';
 import Logo from '@/components/Logo';
+import { useFeatureVisibility } from '@/hooks/useFeatureVisibility';
+import type { FeatureKey } from '@/lib/featureVisibility';
+
+// Footer links into gated features (CEO directive 2026-10-30): the
+// link renders only when the registry says this viewer may see the
+// feature — the footer is guest-visible, and a guest clicking
+// through would land on a login wall and then a dead page.
+const FOOTER_LINK_FEATURES: Record<string, FeatureKey> = {
+  '/ussd-access': 'ussdAccess',
+  '/card/new': 'virtualCards',
+};
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const { canSee } = useFeatureVisibility();
 
   const footerSections = [
     {
@@ -14,7 +26,10 @@ const Footer = () => {
         { to: '/card/new', label: 'Virtual Cards' },
         { to: '/wallet', label: 'Digital Wallet' },
         { to: '/bitcoin-wallet', label: 'Bitcoin Wallet' },
-      ],
+      ].filter((link) => {
+        const feature = FOOTER_LINK_FEATURES[link.to];
+        return !feature || canSee(feature);
+      }),
     },
     {
       title: 'Business',

@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, ArrowRight, Wallet, Shield, User, CreditCard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 
 interface OnboardingStep {
   id: string;
@@ -28,8 +29,9 @@ interface OnboardingWizardProps {
 const OnboardingWizard = ({ kycLevel, walletBalance, hasProfile, onDismiss }: OnboardingWizardProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { canSee } = useFeatureVisibility();
 
-  const steps: OnboardingStep[] = [
+  const allSteps: OnboardingStep[] = [
     {
       id: "profile",
       title: "Complete Your Profile",
@@ -67,6 +69,13 @@ const OnboardingWizard = ({ kycLevel, walletBalance, hasProfile, onDismiss }: On
       completed: false, // Will be checked dynamically if needed
     },
   ];
+
+  // The virtual-card step follows the feature registry (CEO
+  // directive 2026-10-30): card creation is not available to
+  // regular users, so the step is not offered to them at all.
+  const steps = allSteps.filter(
+    (step) => step.id !== "card" || canSee("virtualCards"),
+  );
 
   const completedCount = steps.filter((s) => s.completed).length;
   const progress = (completedCount / steps.length) * 100;

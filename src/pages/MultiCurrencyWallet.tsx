@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Wallet, Plus, ArrowLeftRight, TrendingUp, Globe } from 'lucide-react';
 import { useMultiCurrencyWallets, useCreateWallet, useConvertCurrency, useConversionHistory, useExchangeRates } from '@/hooks/useMultiCurrency';
+import { useFeatureVisibility, useHasReceivingAccounts } from "@/hooks/useFeatureVisibility";
 import { useAccount } from '@/contexts/AccountContext';
 import { resolveExchangeRate } from '@/utils/exchangeRates';
 import { format } from 'date-fns';
@@ -35,6 +36,10 @@ const MultiCurrencyWallet = () => {
   const createWallet = useCreateWallet();
   const convertCurrency = useConvertCurrency();
   const { data: conversions } = useConversionHistory();
+  const { canSee } = useFeatureVisibility();
+  const hasReceivingAccounts = useHasReceivingAccounts();
+  const showReceivingAccounts =
+    canSee('receivingAccounts') || hasReceivingAccounts === true;
   const { data: exchangeRates } = useExchangeRates();
   const [addOpen, setAddOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
@@ -220,6 +225,11 @@ const MultiCurrencyWallet = () => {
           </TabsContent>
         </Tabs>
 
+        {/* Receiving accounts follow the feature registry (CEO
+            directive 2026-10-30): hidden while the feature is off,
+            except for users who already hold receiving accounts —
+            they keep the way in to their own details. */}
+        {showReceivingAccounts && (
         <Card className="mt-6">
           <CardContent className="pt-6 flex flex-wrap items-center gap-3">
             <Globe className="h-5 w-5 text-primary shrink-0" />
@@ -235,6 +245,7 @@ const MultiCurrencyWallet = () => {
             </Button>
           </CardContent>
         </Card>
+        )}
       </main>
       <Footer />
     </div>

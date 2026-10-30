@@ -32,6 +32,11 @@ import PayPalFundingOptions from "@/components/payments/PayPalFundingOptions";
 import { DEFAULT_PAYPAL_FUNDING, paypalFundingActionLabel, type PayPalFunding } from "@/utils/paypalFunding";
 import PayPalWithdraw from "@/components/wallet/PayPalWithdraw";
 import BankWithdraw from "@/components/wallet/BankWithdraw";
+import ExistingPayoutsView from "@/components/wallet/ExistingPayoutsView";
+import {
+  useFeatureVisibility,
+  useHasPayoutRecords,
+} from "@/hooks/useFeatureVisibility";
 import {
   PAYPAL_DEPOSIT_WITHDRAWAL_DISCLOSURE,
   selectPayPalWithdrawalWallet,
@@ -61,16 +66,27 @@ const Wallet = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const { enabled: moonpayEnabled, startMoonpayBuy, isStartingMoonpayBuy } = useMoonpay();
+  // Feature registry (CEO directive 2026-10-30): which of this
+  // page's sections this viewer may see at all.
+  const { canSee, adminTier } = useFeatureVisibility();
+  const hasPayoutRecords = useHasPayoutRecords();
 
   // Open on the first AVAILABLE deposit method (PayPal while mobile
   // money is unconfigured) instead of defaulting to a method that can
   // only answer 'not_configured'. Options carry their availability in
   // their labels; see src/utils/depositMethods.ts.
-  const depositOptions = getDepositMethodOptions({
+  const allDepositOptions = getDepositMethodOptions({
     paypalAvailable: PAYPAL_AVAILABLE,
     mobileMoneyAvailable: MOBILE_MONEY_AVAILABLE,
     moonpayAvailable: moonpayEnabled,
   });
+  // Unfinished deposit rails leave the list entirely for regular
+  // users (CEO directive 2026-10-30) instead of showing as
+  // selectable-but-unavailable; the admin tier keeps the full
+  // list, unavailable entries included, exactly as before.
+  const depositOptions = adminTier
+    ? allDepositOptions
+    : allDepositOptions.filter((option) => option.available);
   const [depositMethod, setDepositMethod] = useState(() =>
     selectDefaultDepositMethod(depositOptions),
   );
@@ -121,6 +137,14 @@ const Wallet = () => {
       )}
     </div>
   );
+
+  // Withdraw entry point (CEO directive 2026-10-30): new
+  // withdrawals are switched off platform-wide, so the withdraw
+  // forms are admin-tier only. A regular user who already holds
+  // payout records keeps the button, opening a read-only view of
+  // their own records (ExistingPayoutsView) — never the forms.
+  const showWithdraw = adminTier || hasPayoutRecords === true;
+  const withdrawTitle = adminTier ? "Withdraw" : "Your withdrawals";
 
   const handleSendMoney = () => {
     navigate("/transfer");
@@ -334,7 +358,7 @@ const Wallet = () => {
             </Dialog>
           )}
 
-          {isMobile ? (
+          {showWithdraw && (isMobile ? (
             <Drawer>
               <DrawerTrigger asChild>
                 <Button variant="outline" className="h-11 px-5 rounded-full font-semibold">
@@ -343,9 +367,9 @@ const Wallet = () => {
               </DrawerTrigger>
               <DrawerContent>
                 <DrawerHeader className="text-center">
-                  <DrawerTitle>Withdraw</DrawerTitle>
+                  <DrawerTitle>{withdrawTitle}</DrawerTitle>
                 </DrawerHeader>
-                <WithdrawContent />
+                {adminTier ? <WithdrawContent /> : <ExistingPayoutsView />}
               </DrawerContent>
             </Drawer>
           ) : (
@@ -357,12 +381,12 @@ const Wallet = () => {
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Withdraw</DialogTitle>
+                  <DialogTitle>{withdrawTitle}</DialogTitle>
                 </DialogHeader>
-                <WithdrawContent />
+                {adminTier ? <WithdrawContent /> : <ExistingPayoutsView />}
               </DialogContent>
             </Dialog>
-          )}
+          ))}
           </div>
         </div>
         
@@ -372,9 +396,15 @@ const Wallet = () => {
         {/* Quick Actions */}
         <QuickActions />
         
-        {/* Main Content Grid */}
+        {/* Main Content Grid — both cards follow the feature
+            registry (CEO directive 2026-10-30): virtual cards are
+            not available to regular users, and "payment methods"
+            were stored nowhere (the add flow was local state only),
+            so neither card renders for them. */}
+        {(canSee('virtualCards') || canSee('paymentMethods')) && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Virtual Cards */}
+          {canSee('virtualCards') && (
           <div className="lg:col-span-2">
             <Card className="h-full">
               <CardHeader className="pb-3">
@@ -394,8 +424,10 @@ const Wallet = () => {
               </CardContent>
             </Card>
           </div>
-          
+          )}
+
           {/* Payment Methods */}
+          {canSee('paymentMethods') && (
           <div className="lg:col-span-1">
             <Card className="h-full">
               <CardHeader className="pb-3">
@@ -407,7 +439,9 @@ const Wallet = () => {
               </CardContent>
             </Card>
           </div>
+          )}
         </div>
+        )}
         
         {/* Recent Transactions */}
         <Card>

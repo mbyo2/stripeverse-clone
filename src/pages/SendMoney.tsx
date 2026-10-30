@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWallet } from "@/hooks/useWallet";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -38,6 +39,7 @@ const SendMoney = () => {
   const [transactionRef, setTransactionRef] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
+  const { providerVisible, adminTier } = useFeatureVisibility();
   const { wallet } = useWallet();
   const invalidateMoney = useInvalidateMoneyState();
   const { formatAmount } = useCurrency();
@@ -311,9 +313,20 @@ const SendMoney = () => {
                         <SelectItem value="wallet">
                           BMaGlass Wallet ({formatAmount(wallet?.balance || 0)})
                         </SelectItem>
-                        <SelectItem value="mtn" disabled>MTN Mobile Money (not yet available)</SelectItem>
-                        <SelectItem value="airtel" disabled>Airtel Money (not yet available)</SelectItem>
-                        <SelectItem value="zamtel" disabled>Zamtel Kwacha (not yet available)</SelectItem>
+                        {/* Mobile-money rails follow the feature
+                            registry (CEO directive 2026-10-30): an
+                            unavailable provider is not listed for
+                            regular users at all; the admin tier keeps
+                            the disabled entries it tests with. */}
+                        {(adminTier || providerVisible("mtn")) && (
+                          <SelectItem value="mtn" disabled={!providerVisible("mtn")}>MTN Mobile Money{providerVisible("mtn") ? "" : " (not yet available)"}</SelectItem>
+                        )}
+                        {(adminTier || providerVisible("airtel")) && (
+                          <SelectItem value="airtel" disabled={!providerVisible("airtel")}>Airtel Money{providerVisible("airtel") ? "" : " (not yet available)"}</SelectItem>
+                        )}
+                        {(adminTier || providerVisible("zamtel")) && (
+                          <SelectItem value="zamtel" disabled={!providerVisible("zamtel")}>Zamtel Kwacha{providerVisible("zamtel") ? "" : " (not yet available)"}</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

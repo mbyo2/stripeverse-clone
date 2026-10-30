@@ -3,6 +3,13 @@
 // that it's only bitcoin available for now. And make it both lightning
 // and bitcoin so as some who love lightning won't feel left out."
 //
+// AMENDED 2026-10-30 (CEO directive: unfinished features stop being
+// shown to regular users at all): layer 3 changed — card / mobile
+// money / bank no longer render as disabled "Not available yet"
+// tiles; they are not listed. The Bitcoin-only notice (layer 1)
+// still sets the expectation in words. Layers 1, 2, 4 and 5 are
+// unchanged from the 2026-10-26 contract.
+//
 // The defect this prevents: card / mobile money / bank are NOT
 // connected rails (no direct mobile-money connection yet, no PayPal Payouts yet) but
 // the pay page presented them as ordinary selectable methods whose
@@ -15,10 +22,11 @@
 //  1. The Bitcoin-only notice renders at the payment-method step.
 //  2. Bitcoin AND Lightning are first-class method-level tiles, and
 //     the Lightning tile drives the attempt component's rail.
-//  3. Card / mobile money / bank render disabled with a "Not
-//     available yet" label; the old "availability is confirmed when
-//     you click Pay" copy is gone; the Pay button exists only for
-//     the wallet flow, so no fiat tile can ever be submitted.
+//  3. Card / mobile money / bank are not offered at all — no method
+//     tile is declared unavailable; the old "availability is
+//     confirmed when you click Pay" copy stays gone; the Pay button
+//     exists only for the wallet flow, so no fiat tile can ever be
+//     submitted.
 //  4. The Lightning invoice is visible copyable TEXT (mirroring the
 //     on-chain address), not only a QR + copy button — desktop
 //     Lightning users paste invoices.
@@ -74,16 +82,16 @@ describe("PublicCheckout — Bitcoin and Lightning as first-class method tiles",
   });
 });
 
-describe("PublicCheckout — unconnected fiat methods can no longer read as available", () => {
-  it("card, mobile money and bank are declared unavailable", () => {
-    expect(pageSource).toContain("id: 'card' as const, icon: CreditCard, label: 'Card', available: false");
-    expect(pageSource).toContain("id: 'mobile_money' as const, icon: Smartphone, label: 'Mobile Money', available: false");
-    expect(pageSource).toContain("id: 'bank' as const, icon: Building2, label: 'Bank', available: false");
+describe("PublicCheckout — unconnected fiat methods are not offered at all", () => {
+  it("card, mobile money and bank have no method tiles (2026-10-30 directive)", () => {
+    expect(pageSource).not.toContain("id: 'card' as const");
+    expect(pageSource).not.toContain("id: 'mobile_money' as const");
+    expect(pageSource).not.toContain("id: 'bank' as const");
   });
 
-  it("unavailable tiles render disabled with a plain label", () => {
-    expect(pageSource).toContain("disabled={!m.available}");
-    expect(pageSource).toContain(">Not available yet</span>");
+  it("no method is declared unavailable and no 'Not available yet' tile renders", () => {
+    expect(pageSource).not.toContain("available: false");
+    expect(pageSource).not.toContain(">Not available yet</span>");
   });
 
   it("the 'available until it fails' explainer copy is gone", () => {

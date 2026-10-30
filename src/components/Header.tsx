@@ -6,6 +6,7 @@ import GlobalSearch from "@/components/GlobalSearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles } from "@/contexts/RoleContext";
 import { headerMenuVisibility } from "@/lib/roleVisibility";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { RoleBadge } from "@/components/FeatureAccess";
 import { CurrencySelector } from "@/components/CurrencySelector";
@@ -92,6 +93,10 @@ const Header = () => {
   // sees it too. Presentation only; the routes and the database
   // enforce the real rules underneath.
   const menuVisibility = headerMenuVisibility(roles);
+  // Unfinished features (CEO directive 2026-10-30): nav entries for
+  // gated features render only when the registry says this viewer
+  // may see them — admin tier always, regular users only when live.
+  const { canSee: canSeeFeature } = useFeatureVisibility();
   const showAdminLinks = menuVisibility.adminLinks;
   const showFraudRules = menuVisibility.fraudRules;
   const location = useLocation();
@@ -218,11 +223,13 @@ const Header = () => {
                       <Globe className="h-4 w-4" /> Request Money
                     </Link>
                   </DropdownMenuItem>
+                  {canSeeFeature('bankTransfers') && (
                   <DropdownMenuItem asChild>
                     <Link to="/bank-transfers" className="flex items-center gap-2">
                       <Building2 className="h-4 w-4" /> Bank Transfers
                     </Link>
                   </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link to="/bulk-payments" className="flex items-center gap-2">
                       <FileSpreadsheet className="h-4 w-4" /> Bulk Payments
@@ -279,11 +286,13 @@ const Header = () => {
                       <FileText className="h-4 w-4" /> Transactions
                     </Link>
                   </DropdownMenuItem>
+                  {canSeeFeature('virtualCards') && (
                   <DropdownMenuItem asChild>
                     <Link to="/card/new" className="flex items-center gap-2">
                       <CardIcon className="h-4 w-4" /> Virtual Cards
                     </Link>
                   </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link to="/spending-insights" className="flex items-center gap-2">
                       <BarChart3 className="h-4 w-4" /> Spending Insights
@@ -294,16 +303,20 @@ const Header = () => {
                       <RotateCcw className="h-4 w-4" /> Refunds
                     </Link>
                   </DropdownMenuItem>
+                  {canSeeFeature('cardVault') && (
                   <DropdownMenuItem asChild>
                     <Link to="/card-vault" className="flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4" /> Card Vault
                     </Link>
                   </DropdownMenuItem>
+                  )}
+                  {canSeeFeature('payLater') && (
                   <DropdownMenuItem asChild>
                     <Link to="/pay-later" className="flex items-center gap-2">
                       <Layers className="h-4 w-4" /> Buy Now Pay Later
                     </Link>
                   </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link to="/savings" className="flex items-center gap-2">
                       <Star className="h-4 w-4" /> Savings
@@ -334,11 +347,13 @@ const Header = () => {
                       <Users className="h-4 w-4" /> Business Tools
                     </Link>
                   </DropdownMenuItem>
+                  {canSeeFeature('collectPayments') && (
                   <DropdownMenuItem asChild>
                     <Link to="/collect-payments" className="flex items-center gap-2">
                       <Banknote className="h-4 w-4" /> Collect Payments
                     </Link>
                   </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link to="/payment-links" className="flex items-center gap-2">
                       <Link2 className="h-4 w-4" /> Payment Links
@@ -364,11 +379,13 @@ const Header = () => {
                       <BarChart3 className="h-4 w-4" /> Analytics
                     </Link>
                   </DropdownMenuItem>
+                  {canSeeFeature('settlements') && (
                   <DropdownMenuItem asChild>
                     <Link to="/settlements" className="flex items-center gap-2">
                       <Receipt className="h-4 w-4" /> Settlements
                     </Link>
                   </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link to="/disputes" className="flex items-center gap-2">
                       <AlertCircle className="h-4 w-4" /> Disputes
@@ -399,16 +416,20 @@ const Header = () => {
                       <Lock className="h-4 w-4" /> Escrow
                     </Link>
                   </DropdownMenuItem>
+                  {canSeeFeature('billPayments') && (
                   <DropdownMenuItem asChild>
                     <Link to="/bill-payments" className="flex items-center gap-2">
                       <Zap className="h-4 w-4" /> Bill Payments
                     </Link>
                   </DropdownMenuItem>
+                  )}
+                  {canSeeFeature('agentNetwork') && (
                   <DropdownMenuItem asChild>
                     <Link to="/agent-network" className="flex items-center gap-2">
                       <Globe className="h-4 w-4" /> Agent Network
                     </Link>
                   </DropdownMenuItem>
+                  )}
                   {showFraudRules && (
                   <DropdownMenuItem asChild>
                     <Link to="/fraud-rules" className="flex items-center gap-2">
@@ -638,14 +659,14 @@ const Header = () => {
                     <MobileNavLink to="/transfer" icon={ArrowLeftRight}>Transfer</MobileNavLink>
                     <MobileNavLink to="/send-money" icon={DollarSign}>Send Money</MobileNavLink>
                     <MobileNavLink to="/request-money" icon={Globe}>Request Money</MobileNavLink>
-                    <MobileNavLink to="/bank-transfers" icon={Building2}>Bank Transfers</MobileNavLink>
+                    {canSeeFeature('bankTransfers') && <MobileNavLink to="/bank-transfers" icon={Building2}>Bank Transfers</MobileNavLink>}
                     <MobileNavLink to="/bulk-payments" icon={FileSpreadsheet}>Bulk Payments</MobileNavLink>
                     <MobileNavLink to="/contacts" icon={Users}>Contacts</MobileNavLink>
-                    <MobileNavLink to="/card/new" icon={CardIcon}>Virtual Cards</MobileNavLink>
+                    {canSeeFeature('virtualCards') && <MobileNavLink to="/card/new" icon={CardIcon}>Virtual Cards</MobileNavLink>}
                     <MobileNavLink to="/spending-insights" icon={BarChart3}>Spending Insights</MobileNavLink>
                     <MobileNavLink to="/refunds" icon={RotateCcw}>Refunds</MobileNavLink>
-                    <MobileNavLink to="/card-vault" icon={ShieldCheck}>Card Vault</MobileNavLink>
-                    <MobileNavLink to="/pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>
+                    {canSeeFeature('cardVault') && <MobileNavLink to="/card-vault" icon={ShieldCheck}>Card Vault</MobileNavLink>}
+                    {canSeeFeature('payLater') && <MobileNavLink to="/pay-later" icon={Layers}>Buy Now Pay Later</MobileNavLink>}
                     <MobileNavLink to="/scheduled-payments" icon={Clock}>Scheduled Payments</MobileNavLink>
                     <MobileNavLink to="/qr-payments" icon={Globe}>QR Payments</MobileNavLink>
                     <MobileNavLink to="/savings" icon={Star}>Savings</MobileNavLink>
@@ -655,12 +676,12 @@ const Header = () => {
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business</p>
                     <MobileNavLink to="/business" icon={Users}>Business Tools</MobileNavLink>
-                    <MobileNavLink to="/collect-payments" icon={Banknote}>Collect Payments</MobileNavLink>
+                    {canSeeFeature('collectPayments') && <MobileNavLink to="/collect-payments" icon={Banknote}>Collect Payments</MobileNavLink>}
                     <MobileNavLink to="/payment-links" icon={Link2}>Payment Links</MobileNavLink>
                     <MobileNavLink to="/pos" icon={Store}>Bitcoin POS</MobileNavLink>
                     <MobileNavLink to="/split-payments" icon={GitBranch}>Split Payments</MobileNavLink>
                     <MobileNavLink to="/invoices" icon={FileText}>Invoices</MobileNavLink>
-                    <MobileNavLink to="/settlements" icon={Receipt}>Settlements</MobileNavLink>
+                    {canSeeFeature('settlements') && <MobileNavLink to="/settlements" icon={Receipt}>Settlements</MobileNavLink>}
                     <MobileNavLink to="/disputes" icon={AlertCircle}>Disputes</MobileNavLink>
                     <MobileNavLink to="/webhook-logs" icon={Zap}>Webhook Logs</MobileNavLink>
                     <MobileNavLink to="/analytics" icon={BarChart3}>Analytics</MobileNavLink>
@@ -669,8 +690,8 @@ const Header = () => {
                     <MobileNavLink to="/billing" icon={DollarSign}>Billing</MobileNavLink>
                     <MobileNavLink to="/payment-plans" icon={CalendarClock}>Payment Plans</MobileNavLink>
                     <MobileNavLink to="/escrow" icon={Lock}>Escrow</MobileNavLink>
-                    <MobileNavLink to="/bill-payments" icon={Zap}>Bill Payments</MobileNavLink>
-                    <MobileNavLink to="/agent-network" icon={MapPin}>Agent Network</MobileNavLink>
+                    {canSeeFeature('billPayments') && <MobileNavLink to="/bill-payments" icon={Zap}>Bill Payments</MobileNavLink>}
+                    {canSeeFeature('agentNetwork') && <MobileNavLink to="/agent-network" icon={MapPin}>Agent Network</MobileNavLink>}
                     {showFraudRules && <MobileNavLink to="/fraud-rules" icon={Shield}>Fraud Rules</MobileNavLink>}
                     <MobileNavLink to="/ip-whitelist" icon={ShieldCheck}>IP Whitelist</MobileNavLink>
                     <MobileNavLink to="/checkout-widget" icon={Code2}>Checkout Widget</MobileNavLink>

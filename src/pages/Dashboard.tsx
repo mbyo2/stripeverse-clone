@@ -1,6 +1,7 @@
 
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -55,6 +56,7 @@ import { DashboardSkeleton } from "@/components/ui/skeletons";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { canSee: canSeeFeature } = useFeatureVisibility();
   const { toast } = useToast();
   const { user } = useAuth();
   const { dashboardStats, monthlyData, spendingData, recentTransactions, rewards, isLoading, isError, isAuthRecovering, retryWithRecovery } = useDashboardData();
@@ -109,7 +111,7 @@ const Dashboard = () => {
   const quickActions = [
     { label: 'Send', icon: Send, action: () => navigate('/transfer'), color: 'bg-primary' },
     { label: 'Request', icon: ArrowDownRight, action: () => navigate('/wallet'), color: 'bg-success' },
-    { label: 'Cards', icon: CreditCard, action: () => navigate('/card/new'), color: 'bg-paypal-gold' },
+    { label: 'Cards', icon: CreditCard, action: () => navigate('/card/new'), color: 'bg-paypal-gold', feature: 'virtualCards' as const },
     { label: 'Add Money', icon: Plus, action: () => navigate('/wallet'), color: 'bg-primary' },
   ];
 
@@ -138,7 +140,7 @@ const Dashboard = () => {
                 <p className="text-white/70 text-sm">Available balance</p>
               </div>
               <div className="flex gap-3">
-                {quickActions.map((action) => (
+                {quickActions.filter((a) => !('feature' in a) || canSeeFeature(a.feature)).map((action) => (
                   <button
                     key={action.label}
                     onClick={action.action}

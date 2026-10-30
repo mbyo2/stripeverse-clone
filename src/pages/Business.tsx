@@ -552,7 +552,7 @@ const BusinessPublicView = ({ isSignedIn }: { isSignedIn: boolean }) => {
     {
       icon: CreditCard,
       title: "Accept payments",
-      description: "Take Mobile Money, card, and Bitcoin payments from your customers.",
+      description: "Take Bitcoin and PayPal payments from your customers today — mobile money and card payments are on the way.",
     },
     {
       icon: Webhook,

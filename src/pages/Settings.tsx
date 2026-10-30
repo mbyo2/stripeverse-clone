@@ -16,6 +16,7 @@ import { User, Shield, Bell, CreditCard, LogOut, Camera, Loader2, ChevronRight, 
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { useNavigate, Link } from "react-router-dom";
 import { CurrencySelector } from "@/components/CurrencySelector";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +26,7 @@ import { computePaymentLinkBreakdown, type FeePayer } from "@/utils/splitPayment
 
 const Settings = () => {
   const { user, signOut } = useAuth();
+  const { canSee } = useFeatureVisibility();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -663,6 +665,11 @@ const Settings = () => {
                     </Button>
                   </div>
 
+                  {/* Inactive settings (CEO directive 2026-10-30):
+                      these two controls save nothing and are not
+                      rendered for regular users; admin tier only. */}
+                  {canSee('inactivePaymentSettings') && (
+                  <>
                   <Separator />
 
                   <div className="flex items-center justify-between">
@@ -688,6 +695,8 @@ const Settings = () => {
                       disabled
                     />
                   </div>
+                  </>
+                  )}
                 </CardContent>
               </Card>
             )}

@@ -25,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import QRCode from "qrcode.react";
 import { Copy, QrCode, Zap, Loader2, Send, ArrowLeftRight, KeyRound, ArrowUpRight, ArrowDownLeft, Bitcoin, CreditCard } from "lucide-react";
 import { useMoonpay } from "@/hooks/useMoonpay";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { MOONPAY_COMING_SOON_COPY, MOONPAY_COMING_SOON_LABEL } from "@/config/moonpay";
 import { LightningSend } from "@/components/bitcoin/LightningSend";
 import { LnurlSend } from "@/components/bitcoin/LnurlSend";
@@ -916,6 +917,13 @@ function TradePanel({ onDone }: { onDone: () => void }) {
  */
 function MoonpayBuyCard() {
   const { enabled, loading, startMoonpayBuy, isStartingMoonpayBuy } = useMoonpay();
+  // Custodial MoonPay card buy follows the feature registry (CEO
+  // directive 2026-10-30): while moonpay_enabled is off the card is
+  // not rendered for regular users at all — no "coming soon" panel.
+  // (Self-custody MoonPay buying is a separate, live surface and is
+  // not affected.)
+  const { canSee } = useFeatureVisibility();
+  if (!canSee("custodialMoonpay")) return null;
   const [usdInput, setUsdInput] = useState("");
 
   const buy = async () => {

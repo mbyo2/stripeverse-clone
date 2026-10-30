@@ -79,8 +79,11 @@ describe("split payments routing", () => {
 
 describe("virtual card natural URLs", () => {
   it("the create page stays at /card/new", () => {
+    // The element now carries the feature gate (CEO directive
+    // 2026-10-30: virtual cards are admin-tier only) — the PATH is
+    // what this pin protects: still /card/new, never renamed.
     expect(routes).toContain(
-      '<Route path="/card/new" element={<ProtectedPage><VirtualCardNew /></ProtectedPage>} />'
+      '<Route path="/card/new" element={<ProtectedPage><FeatureRouteGate feature="virtualCards"><VirtualCardNew /></FeatureRouteGate></ProtectedPage>} />'
     );
   });
 

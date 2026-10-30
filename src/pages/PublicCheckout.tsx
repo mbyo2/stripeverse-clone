@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Smartphone, Building2, Lock, CheckCircle, AlertCircle, Loader2, Receipt, Wallet, Bitcoin, Store, Zap } from 'lucide-react';
+import { CreditCard, Lock, CheckCircle, AlertCircle, Loader2, Receipt, Wallet, Bitcoin, Store, Zap } from 'lucide-react';
 import BitcoinLinkPayment from '@/components/payments/BitcoinLinkPayment';
 import { useToast } from '@/hooks/use-toast';
 import { useInvalidateMoneyState } from '@/utils/moneyFreshness';
@@ -128,8 +128,8 @@ const PublicCheckout = () => {
 
   // Wallet payment is offered when the visitor is signed in. Guests
   // pay with Bitcoin — the only external rail connected today; the
-  // unconnected methods (card / mobile money / bank) render disabled
-  // below, so they can never be clicked through to a failure.
+  // unconnected methods (card / mobile money / bank) are not listed
+  // at all, so they can never be clicked through to a failure.
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setPayerId(data.session?.user.id ?? null));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -301,9 +301,11 @@ const PublicCheckout = () => {
   // not live yet. Bitcoin appears in BOTH its forms as first-class
   // choices, so a Lightning payer sees Lightning immediately instead
   // of opening a generic "Bitcoin" tile first. Card / mobile money /
-  // bank stay visible but DISABLED ("Not available yet"): they set
-  // the expectation honestly and can never be clicked through to the
-  // server's not_configured failure. The BMaGlass Wallet tile is the
+  // bank are NOT listed at all (CEO directive 2026-10-30: unfinished
+  // rails stop being shown rather than displayed as unavailable —
+  // this supersedes the visible-but-disabled half of the
+  // 2026-10-26 instruction; the "Bitcoin only for now" notice below
+  // still sets the expectation). The BMaGlass Wallet tile is the
   // one internal rail and stays fully live for signed-in payers.
   // Bitcoin is listed FIRST (standing CEO rule, reaffirmed
   // 2026-10-28) — ahead of the wallet tile even for signed-in payers.
@@ -313,9 +315,6 @@ const PublicCheckout = () => {
       { id: 'lightning' as const, icon: Zap, label: 'Lightning', available: true },
     ] : []),
     ...(payerId ? [{ id: 'wallet' as const, icon: Wallet, label: 'BMaGlass Wallet', available: true }] : []),
-    { id: 'card' as const, icon: CreditCard, label: 'Card', available: false },
-    { id: 'mobile_money' as const, icon: Smartphone, label: 'Mobile Money', available: false },
-    { id: 'bank' as const, icon: Building2, label: 'Bank', available: false },
   ];
 
   return (
@@ -442,9 +441,6 @@ const PublicCheckout = () => {
                     >
                       <m.icon className={`h-5 w-5 ${selected ? 'text-primary' : 'text-muted-foreground'}`} />
                       <span className="text-xs font-medium">{m.label}</span>
-                      {!m.available && (
-                        <span className="text-[10px] leading-tight text-muted-foreground">Not available yet</span>
-                      )}
                     </button>
                   );
                 })}

@@ -7,6 +7,9 @@ import PageErrorBoundary from '@/components/PageErrorBoundary';
 import { useAuth } from '@/contexts/AuthContext';
 import { shellSkeletonVariant } from '@/lib/sessionHint';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import FeatureRouteGate from '@/components/FeatureRouteGate';
+import { fetchMyReceivingAccounts } from '@/services/receivingAccountsService';
+import { supabase } from '@/integrations/supabase/client';
 import type { Role } from '@/contexts/RoleContext';
 import BusinessRouteGuard from '@/components/business/BusinessRouteGuard';
 import PageTransition from '@/components/PageTransition';
@@ -161,6 +164,30 @@ const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute><PageTransition>{children}</PageTransition></ProtectedRoute>
 );
 
+// Feature gates (CEO directive 2026-10-30, src/lib/featureVisibility.ts):
+// routes whose feature is unfinished render for the admin tier (and
+// for regular users once the feature's platform flag switches on);
+// everyone else is redirected to their dashboard by FeatureRouteGate.
+// The two data checks are the data-stranding carve-outs: a regular
+// user who already holds records inside a hidden feature keeps
+// access to the page that shows those records.
+const hasOwnReceivingAccount = async (userId: string): Promise<boolean> =>
+  (await fetchMyReceivingAccounts(userId)).length > 0;
+
+const ownsVirtualCard = async (
+  userId: string,
+  params: Record<string, string | undefined>,
+): Promise<boolean> => {
+  if (!params.id) return false;
+  const { data } = await supabase
+    .from('virtual_cards')
+    .select('id')
+    .eq('id', params.id)
+    .eq('user_id', userId)
+    .maybeSingle();
+  return !!data;
+};
+
 // Admin console gate: every admin route admits admin OR super_admin
 // (super_admin is additive over admin — the foundation's design), so a
 // super_admin-only holder is never locked out of the console. The P2P
@@ -196,7 +223,7 @@ const AnimatedRoutes = () => {
         <Route path="/update-password" element={<PageTransition><UpdatePassword /></PageTransition>} />
         <Route path="/pricing" element={<PageTransition><Pricing /></PageTransition>} />
         <Route path="/subscription-tiers" element={<PageTransition><SubscriptionTiers /></PageTransition>} />
-        <Route path="/checkout/*" element={<PageTransition><Checkout /></PageTransition>} />
+        <Route path="/checkout/*" element={<FeatureRouteGate feature="legacyCheckout" publicRoute><PageTransition><Checkout /></PageTransition></FeatureRouteGate>} />
         <Route path="/about" element={<PageTransition><About /></PageTransition>} />
         <Route path="/contact" element={<PageTransition><Contact /></PageTransition>} />
         <Route path="/blog" element={<PageTransition><Blog /></PageTransition>} />
@@ -247,20 +274,20 @@ const AnimatedRoutes = () => {
         <Route path="/wallet" element={<ProtectedPage><Wallet /></ProtectedPage>} />
         <Route path="/bitcoin-wallet" element={<ProtectedPage><BitcoinWallet /></ProtectedPage>} />
         <Route path="/bitcoin-wallet/self-custody" element={<ProtectedPage><SelfCustodyWallet /></ProtectedPage>} />
-        <Route path="/wallet/crypto" element={<ProtectedPage><CryptoWallet /></ProtectedPage>} />
+        <Route path="/wallet/crypto" element={<ProtectedPage><FeatureRouteGate feature="cryptoPayouts"><CryptoWallet /></FeatureRouteGate></ProtectedPage>} />
         <Route path="/wallet-reconciliation" element={<ProtectedPage><WalletReconciliationPage /></ProtectedPage>} />
         <Route path="/transactions" element={<ProtectedPage><Transactions /></ProtectedPage>} />
         <Route path="/transaction-list" element={<ProtectedPage><TransactionList /></ProtectedPage>} />
         <Route path="/transaction-search" element={<ProtectedPage><TransactionSearch /></ProtectedPage>} />
         <Route path="/billing" element={<ProtectedPage><Billing /></ProtectedPage>} />
         <Route path="/analytics" element={<ProtectedRoute requiredFeature="analytics"><PageTransition><Analytics /></PageTransition></ProtectedRoute>} />
-        <Route path="/card/new" element={<ProtectedPage><VirtualCardNew /></ProtectedPage>} />
+        <Route path="/card/new" element={<ProtectedPage><FeatureRouteGate feature="virtualCards"><VirtualCardNew /></FeatureRouteGate></ProtectedPage>} />
         {/* Natural card URLs (what people type and what older links
             may still carry) — the canonical create page is /card/new. */}
         <Route path="/cards" element={<Navigate to="/card/new" replace />} />
         <Route path="/virtual-cards" element={<Navigate to="/card/new" replace />} />
-        <Route path="/card/:id" element={<ProtectedPage><VirtualCardDetails /></ProtectedPage>} />
-        <Route path="/card/:id/fund" element={<ProtectedPage><VirtualCardFund /></ProtectedPage>} />
+        <Route path="/card/:id" element={<ProtectedPage><FeatureRouteGate feature="virtualCards" dataCheck={ownsVirtualCard}><VirtualCardDetails /></FeatureRouteGate></ProtectedPage>} />
+        <Route path="/card/:id/fund" element={<ProtectedPage><FeatureRouteGate feature="virtualCards" dataCheck={ownsVirtualCard}><VirtualCardFund /></FeatureRouteGate></ProtectedPage>} />
         <Route path="/transfer" element={<ProtectedRoute requiredFeature="transfers"><PageTransition><Transfer /></PageTransition></ProtectedRoute>} />
         <Route path="/send-money" element={<ProtectedPage><SendMoney /></ProtectedPage>} />
         <Route path="/compliance" element={<RoleGuardedPage roles={['admin','super_admin','business']}><Compliance /></RoleGuardedPage>} />
@@ -273,7 +300,7 @@ const AnimatedRoutes = () => {
         <Route path="/notifications" element={<ProtectedPage><Notifications /></ProtectedPage>} />
         <Route path="/kyc" element={<ProtectedPage><KycPage /></ProtectedPage>} />
         <Route path="/verify-identity" element={<ProtectedPage><VerifyIdentity /></ProtectedPage>} />
-        <Route path="/ussd-access" element={<ProtectedPage><UssdAccess /></ProtectedPage>} />
+        <Route path="/ussd-access" element={<ProtectedPage><FeatureRouteGate feature="ussdAccess"><UssdAccess /></FeatureRouteGate></ProtectedPage>} />
         <Route path="/admin/users" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminUsers /></RoleGuardedPage>} />
         <Route path="/admin/transactions" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminTransactions /></RoleGuardedPage>} />
         {/* Treasury & Reports is super_admin ONLY (stricter than the
@@ -311,10 +338,10 @@ const AnimatedRoutes = () => {
         <Route path="/contacts" element={<ProtectedPage><Contacts /></ProtectedPage>} />
         <Route path="/spending-insights" element={<ProtectedPage><SpendingInsights /></ProtectedPage>} />
         <Route path="/invoices" element={<ProtectedPage><InvoicesPage /></ProtectedPage>} />
-        <Route path="/pay-later" element={<ProtectedPage><BuyNowPayLater /></ProtectedPage>} />
+        <Route path="/pay-later" element={<ProtectedPage><FeatureRouteGate feature="payLater"><BuyNowPayLater /></FeatureRouteGate></ProtectedPage>} />
         <Route path="/scheduled-payments" element={<ProtectedPage><ScheduledPayments /></ProtectedPage>} />
-        <Route path="/bank-transfers" element={<ProtectedPage><BankTransfers /></ProtectedPage>} />
-        <Route path="/collect-payments" element={<ProtectedPage><CollectPayments /></ProtectedPage>} />
+        <Route path="/bank-transfers" element={<ProtectedPage><FeatureRouteGate feature="bankTransfers"><BankTransfers /></FeatureRouteGate></ProtectedPage>} />
+        <Route path="/collect-payments" element={<ProtectedPage><FeatureRouteGate feature="collectPayments"><CollectPayments /></FeatureRouteGate></ProtectedPage>} />
         <Route path="/payment-links" element={<ProtectedPage><PaymentLinks /></ProtectedPage>} />
         <Route path="/pos" element={<ProtectedPage><BitcoinPos /></ProtectedPage>} />
         <Route path="/sub-accounts" element={<ProtectedPage><SubAccounts /></ProtectedPage>} />
@@ -324,20 +351,20 @@ const AnimatedRoutes = () => {
         <Route path="/splits" element={<Navigate to="/split-payments" replace />} />
         <Route path="/split-payments" element={<ProtectedPage><SplitPayments /></ProtectedPage>} />
         <Route path="/multi-currency" element={<ProtectedPage><MultiCurrencyWallet /></ProtectedPage>} />
-        <Route path="/receiving-accounts" element={<ProtectedPage><ReceivingAccounts /></ProtectedPage>} />
+        <Route path="/receiving-accounts" element={<ProtectedPage><FeatureRouteGate feature="receivingAccounts" dataCheck={hasOwnReceivingAccount}><ReceivingAccounts /></FeatureRouteGate></ProtectedPage>} />
         <Route path="/admin/receiving-accounts" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminReceivingAccounts /></RoleGuardedPage>} />
         <Route path="/bulk-payments" element={<ProtectedPage><BulkPayments /></ProtectedPage>} />
         <Route path="/refunds" element={<ProtectedPage><Refunds /></ProtectedPage>} />
-        <Route path="/settlements" element={<ProtectedPage><Settlements /></ProtectedPage>} />
+        <Route path="/settlements" element={<ProtectedPage><FeatureRouteGate feature="settlements"><Settlements /></FeatureRouteGate></ProtectedPage>} />
         <Route path="/webhook-logs" element={<ProtectedPage><WebhookLogs /></ProtectedPage>} />
-        <Route path="/card-vault" element={<ProtectedPage><CardVault /></ProtectedPage>} />
+        <Route path="/card-vault" element={<ProtectedPage><FeatureRouteGate feature="cardVault"><CardVault /></FeatureRouteGate></ProtectedPage>} />
 
         {/* New feature routes */}
         <Route path="/payment-plans" element={<ProtectedPage><PaymentPlans /></ProtectedPage>} />
         <Route path="/escrow" element={<ProtectedPage><Escrow /></ProtectedPage>} />
         <Route path="/savings" element={<ProtectedPage><Savings /></ProtectedPage>} />
-        <Route path="/bill-payments" element={<ProtectedPage><BillPayments /></ProtectedPage>} />
-        <Route path="/agent-network" element={<ProtectedPage><AgentNetwork /></ProtectedPage>} />
+        <Route path="/bill-payments" element={<ProtectedPage><FeatureRouteGate feature="billPayments"><BillPayments /></FeatureRouteGate></ProtectedPage>} />
+        <Route path="/agent-network" element={<ProtectedPage><FeatureRouteGate feature="agentNetwork"><AgentNetwork /></FeatureRouteGate></ProtectedPage>} />
         <Route path="/fraud-rules" element={<RoleGuardedPage roles={['admin','super_admin','business']}><FraudRules /></RoleGuardedPage>} />
         <Route path="/statements" element={<ProtectedPage><Statements /></ProtectedPage>} />
         <Route path="/ip-whitelist" element={<ProtectedPage><IpWhitelist /></ProtectedPage>} />

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { Badge } from "@/components/ui/badge";
 
 interface SearchResult {
@@ -58,6 +59,9 @@ interface GlobalSearchProps {
 }
 
 const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
+  // The Virtual Cards search entry follows the feature registry
+  // (CEO directive 2026-10-30) — hidden from regular users.
+  const { canSee } = useFeatureVisibility();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -80,7 +84,9 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
     }
 
     const q = query.toLowerCase();
-    const pageResults = PAGES.filter(
+    const pageResults = PAGES
+      .filter((page) => page.id !== "cards" || canSee("virtualCards"))
+      .filter(
       (p) => p.title.toLowerCase().includes(q) || p.subtitle.toLowerCase().includes(q)
     );
 

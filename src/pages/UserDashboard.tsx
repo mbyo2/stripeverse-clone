@@ -8,12 +8,14 @@ import Footer from "@/components/Footer";
 import { FeatureList, RoleBadge } from "@/components/FeatureAccess";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles } from "@/contexts/RoleContext";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { Link } from "react-router-dom";
 import { Wallet, CreditCard, Send, Users, Settings, HelpCircle } from "lucide-react";
 
 const UserDashboard = () => {
   const { user } = useAuth();
   const { hasAccess } = useRoles();
+  const { canSee: canSeeFeature } = useFeatureVisibility();
 
   const quickActions = [
     {
@@ -28,7 +30,9 @@ const UserDashboard = () => {
       description: "Manage your virtual cards",
       icon: <CreditCard className="h-6 w-6" />,
       link: "/card/new",
-      available: hasAccess("virtual_cards")
+      // Follows the feature registry (CEO directive 2026-10-30):
+      // virtual cards are not available to regular users.
+      available: canSeeFeature("virtualCards")
     },
     {
       title: "Send Money",
@@ -66,7 +70,7 @@ const UserDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap justify-between gap-y-6">
-                  {quickActions.map((action) => (
+                  {quickActions.filter((action) => action.title !== "Virtual Cards" || canSeeFeature("virtualCards")).map((action) => (
                     <div key={action.title} className="relative w-24">
                       <Link to={action.link} className={!action.available ? 'pointer-events-none' : ''}>
                         <div className={`flex flex-col items-center gap-2 text-center ${!action.available ? 'opacity-50' : ''}`}>

@@ -9,9 +9,17 @@ import {
   Bitcoin
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
+import type { FeatureKey } from "@/lib/featureVisibility";
 
 const QuickActions = () => {
   const navigate = useNavigate();
+  // Actions into unfinished features follow the feature registry
+  // (CEO directive 2026-10-30) and are not rendered for regular
+  // users: "Cards" leads to the wallet's virtual-card section,
+  // "Mobile"/"Bills" to the not-yet-live bill payments, "Crypto"
+  // to the EVM payout wallet.
+  const { canSee } = useFeatureVisibility();
 
   const actions = [
     {
@@ -24,6 +32,7 @@ const QuickActions = () => {
       icon: CreditCard,
       label: "Cards",
       description: "Virtual cards",
+      feature: "virtualCards" as FeatureKey,
       onClick: () => navigate("/wallet"),
     },
     {
@@ -45,6 +54,7 @@ const QuickActions = () => {
       icon: Smartphone,
       label: "Mobile",
       description: "Top up airtime",
+      feature: "billPayments" as FeatureKey,
       // Airtime is a bill-payments category; /bill-payments states
       // plainly that billers aren't live yet. This button previously
       // navigated to /wallet — the page it already sits on — so it
@@ -55,12 +65,14 @@ const QuickActions = () => {
       icon: Receipt,
       label: "Bills",
       description: "Pay utilities",
+      feature: "billPayments" as FeatureKey,
       onClick: () => navigate("/bill-payments"),
     },
     {
       icon: Bitcoin,
       label: "Crypto",
       description: "EVM payouts",
+      feature: "cryptoPayouts" as FeatureKey,
       onClick: () => navigate("/wallet/crypto"),
     },
   ];
@@ -68,7 +80,7 @@ const QuickActions = () => {
   return (
     <div className="mb-8">
       <div className="flex flex-wrap items-start justify-center sm:justify-between gap-x-2 gap-y-6 px-1">
-        {actions.map((action, index) => {
+        {actions.filter((action) => !("feature" in action) || canSee(action.feature)).map((action, index) => {
           const Icon = action.icon;
           return (
             <button

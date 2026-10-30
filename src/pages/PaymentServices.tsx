@@ -1,5 +1,6 @@
 
 import { useEffect, useRef } from "react";
+import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,10 @@ import { Shield, CreditCard, Smartphone, Phone, Coins, BarChart, Globe, ArrowRig
 import { Link } from "react-router-dom";
 
 const PaymentServices = () => {
+  // Tabs for unfinished rails follow the feature registry (CEO
+  // directive 2026-10-30) and render only for the admin tier;
+  // regular visitors land on the live Bitcoin tab.
+  const { canSee, adminTier } = useFeatureVisibility();
   const contentRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -59,16 +64,17 @@ const PaymentServices = () => {
             </div>
             
             {/* Payment Services Tabs */}
-            <Tabs defaultValue="mobile-money" className="mb-16">
+            <Tabs defaultValue={adminTier ? "mobile-money" : "bitcoin"} className="mb-16">
               <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 w-full mb-8">
-                <TabsTrigger value="mobile-money">Mobile Money</TabsTrigger>
-                <TabsTrigger value="card">Card Processing</TabsTrigger>
-                <TabsTrigger value="ussd">USSD Payments</TabsTrigger>
+                {canSee('mobileMoney') && <TabsTrigger value="mobile-money">Mobile Money</TabsTrigger>}
+                {canSee('cardProcessing') && <TabsTrigger value="card">Card Processing</TabsTrigger>}
+                {canSee('ussdAccess') && <TabsTrigger value="ussd">USSD Payments</TabsTrigger>}
                 <TabsTrigger value="bitcoin">Bitcoin</TabsTrigger>
                 <TabsTrigger value="api">Merchant API</TabsTrigger>
-                <TabsTrigger value="settlement">Settlement</TabsTrigger>
+                {canSee('settlements') && <TabsTrigger value="settlement">Settlement</TabsTrigger>}
               </TabsList>
               
+              {canSee('mobileMoney') && (
               <TabsContent value="mobile-money">
                 <Card>
                   <CardHeader>
@@ -139,7 +145,9 @@ const PaymentServices = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
+              )}
               
+              {canSee('cardProcessing') && (
               <TabsContent value="card">
                 <Card>
                   <CardHeader>
@@ -198,7 +206,9 @@ const PaymentServices = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
+              )}
               
+              {canSee('ussdAccess') && (
               <TabsContent value="ussd">
                 <Card>
                   <CardHeader>
@@ -255,6 +265,7 @@ const PaymentServices = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
+              )}
               
               <TabsContent value="bitcoin">
                 <Card>
@@ -379,6 +390,7 @@ const PaymentServices = () => {
                 </Card>
               </TabsContent>
               
+              {canSee('settlements') && (
               <TabsContent value="settlement">
                 <Card>
                   <CardHeader>
@@ -441,6 +453,7 @@ const PaymentServices = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
+              )}
             </Tabs>
             
             {/* Integration Process */}
