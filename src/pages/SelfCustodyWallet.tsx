@@ -48,9 +48,23 @@ import {
   accountXpub,
   deriveAddress,
   buildSignedTransaction,
+  planSendMax,
+  assertValidAddress,
 } from "@/lib/selfcustody/wallet";
-import { scanWallet, fetchRecommendedFeeRate, broadcastTransaction, type WalletScan } from "@/lib/selfcustody/chain";
-import { loadLastKnown, saveLastKnown, clearLastKnown, type LastKnownWalletData } from "@/lib/selfcustody/lastKnown";
+import {
+  scanWallet,
+  fetchRecommendedFeeRates,
+  broadcastTransaction,
+  type WalletScan,
+  type RecommendedFeeRates,
+} from "@/lib/selfcustody/chain";
+import {
+  loadLastKnown,
+  saveLastKnown,
+  clearLastKnown,
+  clearAllLastKnown,
+  type LastKnownWalletData,
+} from "@/lib/selfcustody/lastKnown";
 import { useSession, unlockSession, lockSession, touchSession } from "@/lib/selfcustody/session";
 import {
   sparkEnabled,
@@ -119,7 +133,34 @@ import QRCode from "qrcode.react";
  * recover these funds — the UI says so plainly at every step.
  */
 
-type Stage = "choose" | "backup-show" | "backup-verify" | "set-password" | "import" | "locked" | "wallet" | "recovery";
+type Stage =
+  | "choose"
+  | "backup-show"
+  | "backup-verify"
+  | "set-password"
+  | "import"
+  | "locked"
+  | "forgot-restore"
+  | "wallet"
+  | "recovery";
+
+/** On-chain send fee tiers, cheapest first. Keys match RecommendedFeeRates. */
+type ChainSpeed = "economy" | "hour" | "halfHour";
+const CHAIN_SPEEDS: { key: ChainSpeed; label: string; hint: string }[] = [
+  { key: "economy", label: "Economy", hint: "cheapest · hours or more" },
+  { key: "hour", label: "Hour", hint: "about 1 hour" },
+  { key: "halfHour", label: "Half hour", hint: "about 30 minutes" },
+];
+
+/** A prepared on-chain send: signed locally, broadcast ONLY on confirm. */
+interface PreparedChainSend {
+  toAddress: string;
+  amountSats: bigint;
+  feeSats: bigint;
+  feeRateSatVb: number;
+  speed: ChainSpeed;
+  hex: string;
+}
 
 function formatBtc(sats: number): string {
   return (sats / 100_000_000).toFixed(8).replace(/0+$/, "").replace(/\.$/, ".0");
@@ -154,7 +195,7 @@ function SelfCustodyWallet() {
 
   // Setup flow state (phrase lives here only until it is encrypted into the vault).
   const [pendingMnemonic, setPendingMnemonic] = useState<string | null>(null);
-  const [setupOrigin, setSetupOrigin] = useState<"create" | "import" | "recovery-import">("create");
+  const [setupOrigin, setSetupOrigin] = useState<"create" | "import" | "recovery-import" | "locked-restore">("create");
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [backupConfirmed, setBackupConfirmed] = useState(false);
   const [verifyAnswers, setVerifyAnswers] = useState<Record<number, string>>({});
@@ -171,9 +212,22 @@ function SelfCustodyWallet() {
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [feeRate, setFeeRate] = useState<number | null>(null);
+  const [chainFeeRates, setChainFeeRates] = useState<RecommendedFeeRates | null>(null);
   const [sendTo, setSendTo] = useState("");
   const [sendAmount, setSendAmount] = useState("");
   const [sending, setSending] = useState(false);
+  // On-chain send: fee tier + send-max + the prepare → confirm step.
+  const [sendSpeed, setSendSpeed] = useState<ChainSpeed>("halfHour");
+  const [sendMax, setSendMax] = useState(false);
+  const [preparedChainSend, setPreparedChainSend] = useState<PreparedChainSend | null>(null);
+  // Locked-screen removal: two explicit confirmations, both required.
+  const [confirmRemoveLocked, setConfirmRemoveLocked] = useState(false);
+  const [confirmRemoveLockedFinal, setConfirmRemoveLockedFinal] = useState(false);
+  // Seed reveal (unlocked wallet): warn → password → shown; any exit
+  // from the wallet view drops it back to idle (auto-hide).
+  const [seedView, setSeedView] = useState<"idle" | "warn" | "password" | "shown">("idle");
+  const [seedPw, setSeedPw] = useState("");
+  const [seedBusy, setSeedBusy] = useState(false);
 
   // Self-custody Lightning & Spark (Breez SDK – Spark) state.
   const [spBalance, setSpBalance] = useState<number | null>(null);
@@ -191,6 +245,9 @@ function SelfCustodyWallet() {
   const [sendAmountSats, setSendAmountSats] = useState("");
   const [preparedSend, setPreparedSend] = useState<PreparedSend | null>(null);
   const [preparedLnurl, setPreparedLnurl] = useState<PreparedLnurlPay | null>(null);
+  // Spark on-chain sends: the user's chosen confirmation speed, wired
+  // through to sparkSendPrepared (it used to always send "medium").
+  const [sparkSpeed, setSparkSpeed] = useState<"slow" | "medium" | "fast">("medium");
   // Send: whether the QR scanner dialog is open. While it is, the
   // wallet counts as active for the auto-lock (see the keep-alive
   // effect below) — aiming a camera or picking an image in the OS
@@ -284,6 +341,13 @@ function SelfCustodyWallet() {
       setParsedInput(null);
       setPreparedSend(null);
       setPreparedLnurl(null);
+      // Seed reveal auto-hides the moment the wallet locks, and any
+      // half-finished locked-screen removal or prepared send is dropped.
+      setSeedView("idle");
+      setSeedPw("");
+      setPreparedChainSend(null);
+      setConfirmRemoveLocked(false);
+      setConfirmRemoveLockedFinal(false);
       if (stage === "wallet") {
         setStage(
           vaultState === "readable" ? "locked" : vaultState === "unreadable" ? "recovery" : "choose",
@@ -302,7 +366,10 @@ function SelfCustodyWallet() {
     setScanning(true);
     setScanError(null);
     try {
-      const [result, rate] = await Promise.all([scanWallet(account), fetchRecommendedFeeRate().catch(() => null)]);
+      const [result, rates] = await Promise.all([
+        scanWallet(account),
+        fetchRecommendedFeeRates().catch(() => null),
+      ]);
       setScan(result);
       // Persist the good reading on-device: if the network later fails,
       // the wallet still shows its last-known balance and receive index
@@ -314,7 +381,10 @@ function SelfCustodyWallet() {
       };
       if (xpub) saveLastKnown(xpub, reading);
       setLastKnown(reading);
-      if (rate) setFeeRate(rate);
+      if (rates) {
+        setChainFeeRates(rates);
+        setFeeRate(rates.halfHour);
+      }
     } catch (e: any) {
       setScanError(friendlyScanError(e));
     } finally {
@@ -370,13 +440,20 @@ function SelfCustodyWallet() {
       toast.error("Passwords do not match");
       return;
     }
-    // Replacing an unreadable vault file is a destructive, deliberate
+    // Replacing an existing vault file is a destructive, deliberate
     // act: it needs the explicit confirmation step rendered on the
-    // set-password card for the recovery-import flow. (createVault
-    // independently refuses to overwrite any blob without the flag.)
-    const allowReplace = setupOrigin === "recovery-import" && confirmReplace;
-    if (setupOrigin === "recovery-import" && !confirmReplace) {
-      toast.error("Confirm that you want to replace the unreadable wallet file first");
+    // set-password card. Two flows reach it: recovery-import (the file
+    // is unreadable) and locked-restore (forgot password — the file is
+    // fine but can no longer be opened). (createVault independently
+    // refuses to overwrite any blob without the flag.)
+    const replaceOrigin = setupOrigin === "recovery-import" || setupOrigin === "locked-restore";
+    const allowReplace = replaceOrigin && confirmReplace;
+    if (replaceOrigin && !confirmReplace) {
+      toast.error(
+        setupOrigin === "recovery-import"
+          ? "Confirm that you want to replace the unreadable wallet file first"
+          : "Confirm that you want to replace the wallet stored on this device first",
+      );
       return;
     }
     setBusy(true);
@@ -413,6 +490,25 @@ function SelfCustodyWallet() {
     setStage("set-password");
   };
 
+  /**
+   * Forgot-password restore, from the locked screen: validate the
+   * phrase, then reuse the set-password step — with the replace
+   * confirmation wired exactly like recovery-import. The existing
+   * vault is overwritten ONLY by finishSetup, after the new password
+   * is set and the replacement explicitly confirmed.
+   */
+  const startForgotRestore = () => {
+    const phrase = importText.trim().toLowerCase().replace(/\s+/g, " ");
+    if (!isValidMnemonic(phrase)) {
+      toast.error("That seed phrase is not a valid BIP39 phrase (check the words and order)");
+      return;
+    }
+    setSetupOrigin("locked-restore");
+    setConfirmReplace(false);
+    setPendingMnemonic(phrase);
+    setStage("set-password");
+  };
+
   const doUnlock = async () => {
     setBusy(true);
     try {
@@ -426,8 +522,8 @@ function SelfCustodyWallet() {
     }
   };
 
-  const doDelete = () => {
-    if (xpub) clearLastKnown(xpub);
+  /** Shared tail of both removal paths (danger zone + locked screen). */
+  const finishRemoval = () => {
     deleteVault();
     lockSession();
     setHasVault(false);
@@ -435,37 +531,128 @@ function SelfCustodyWallet() {
     setScan(null);
     setLastKnown(null);
     setConfirmDelete(false);
+    setConfirmRemoveLocked(false);
+    setConfirmRemoveLockedFinal(false);
     setStage("choose");
     toast.success("Wallet removed from this device. Funds remain on-chain, recoverable only with your seed phrase.");
   };
 
-  // ── Send (signed fully on-device) ────────────────────────────────────────
+  const doDelete = () => {
+    if (xpub) clearLastKnown(xpub);
+    finishRemoval();
+  };
 
-  const doSend = async () => {
+  /**
+   * Removal from the LOCKED screen: the wallet cannot be unlocked, so
+   * its xpub is unknowable and the per-wallet last-known clear cannot
+   * run — every last-known entry goes instead. Reachable only after
+   * the two explicit confirmations rendered on the locked card.
+   */
+  const doRemoveLocked = () => {
+    clearAllLastKnown();
+    finishRemoval();
+  };
+
+  /**
+   * Seed reveal: re-verify the wallet password against the vault and
+   * show the phrase ONLY if it opens the wallet that is currently
+   * unlocked (a password for a different vault must never display a
+   * phrase here). The phrase itself is the session mnemonic — nothing
+   * new is decrypted into anywhere else.
+   */
+  const doRevealSeed = async () => {
+    if (!session.mnemonic) return;
+    setSeedBusy(true);
+    try {
+      const mnemonic = await unlockVault(seedPw);
+      if (mnemonic !== session.mnemonic) {
+        toast.error("That password opened a different wallet, so the phrase was not shown");
+        return;
+      }
+      setSeedPw("");
+      setSeedView("shown");
+    } catch (e: any) {
+      toast.error(toUserFacingError(e, "Could not verify that password"));
+    } finally {
+      setSeedBusy(false);
+    }
+  };
+
+  // ── Send (signed fully on-device): prepare → confirm ─────────────────
+  // Step 1 builds and signs the transaction LOCALLY at the chosen fee
+  // tier and shows destination, amount, the exact network fee and the
+  // total. Nothing is broadcast in this step — the signed hex is only
+  // relayed by doConfirmChainSend, after the user's explicit confirm.
+
+  const doPrepareChainSend = async () => {
     if (!account || !scan) return;
-    const amount = Number(sendAmount);
-    if (!sendTo.trim() || !Number.isSafeInteger(amount) || amount <= 0) {
-      toast.error("Enter a destination address and an amount in sats");
+    const toAddress = sendTo.trim();
+    try {
+      assertValidAddress(toAddress);
+    } catch {
+      toast.error("Enter a valid Bitcoin destination address");
       return;
+    }
+    let amountSats: bigint;
+    if (sendMax) {
+      amountSats = 0n; // resolved from the plan below, at the live rate
+    } else {
+      const amount = Number(sendAmount);
+      if (!Number.isSafeInteger(amount) || amount <= 0) {
+        toast.error("Enter an amount in sats, or choose Send max");
+        return;
+      }
+      amountSats = BigInt(amount);
     }
     setSending(true);
     try {
-      const rate = feeRate ?? (await fetchRecommendedFeeRate());
+      // Quote fresh at prepare time — the fee the user confirms is
+      // the fee in the transaction they confirm.
+      const rates = await fetchRecommendedFeeRates();
+      setChainFeeRates(rates);
+      setFeeRate(rates.halfHour);
+      const rate = rates[sendSpeed];
+      if (sendMax) {
+        amountSats = planSendMax(scan.utxos, rate).amountSats;
+      }
       const built = buildSignedTransaction({
         account,
         utxos: scan.utxos,
-        toAddress: sendTo.trim(),
-        amountSats: BigInt(amount),
+        toAddress,
+        amountSats,
         feeRateSatVb: rate,
         changeIndex: scan.nextChangeIndex,
+        sendMax,
       });
-      const txid = await broadcastTransaction(built.hex);
+      setPreparedChainSend({
+        toAddress,
+        amountSats,
+        feeSats: built.feeSats,
+        feeRateSatVb: rate,
+        speed: sendSpeed,
+        hex: built.hex,
+      });
+    } catch (e: any) {
+      toast.error(toUserFacingError(e, "Could not prepare that send"));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  /** Step 2: broadcast exactly the transaction the user just reviewed. */
+  const doConfirmChainSend = async () => {
+    if (!preparedChainSend) return;
+    setSending(true);
+    try {
+      const txid = await broadcastTransaction(preparedChainSend.hex);
       toast.success(`Sent. Transaction ${txid.slice(0, 16)}… broadcast.`);
       setSendTo("");
       setSendAmount("");
+      setSendMax(false);
+      setPreparedChainSend(null);
       doScan();
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "Send failed"));
+      toast.error(toUserFacingError(e, "Broadcast failed"));
     } finally {
       setSending(false);
     }
@@ -695,6 +882,9 @@ function SelfCustodyWallet() {
     const flow = parsedFlow(parsedInput);
     const amount = sendAmountSats ? Number(sendAmountSats) : undefined;
     setSpBusy(true);
+    // A fresh prepare starts from the default speed; the user picks
+    // another on the confirmation step if they want one.
+    setSparkSpeed("medium");
     try {
       if (flow === "lnurlPay") {
         const details = lnurlPayDetails(parsedInput);
@@ -723,7 +913,7 @@ function SelfCustodyWallet() {
         await sparkSendLnurlPay(session.mnemonic, preparedLnurl);
         toast.success("Payment sent");
       } else if (preparedSend) {
-        await sparkSendPrepared(session.mnemonic, preparedSend);
+        await sparkSendPrepared(session.mnemonic, preparedSend, sparkSpeed);
         toast.success("Payment sent");
       } else {
         return;
@@ -1172,15 +1362,28 @@ function SelfCustodyWallet() {
                 <Label htmlFor="pw2">Confirm password</Label>
                 <Input id="pw2" type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} autoComplete="new-password" />
               </div>
-              {setupOrigin === "recovery-import" && (
+              {(setupOrigin === "recovery-import" || setupOrigin === "locked-restore") && (
                 <div className="space-y-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm">
                   <p className="flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
                     <span>
-                      <strong>This replaces the unreadable wallet file on this device.</strong>{" "}
-                      Finishing permanently replaces that file with the wallet from the seed
-                      phrase you entered. The unreadable file cannot be opened — only continue
-                      if that phrase is the wallet you want on this device.
+                      {setupOrigin === "recovery-import" ? (
+                        <>
+                          <strong>This replaces the unreadable wallet file on this device.</strong>{" "}
+                          Finishing permanently replaces that file with the wallet from the seed
+                          phrase you entered. The unreadable file cannot be opened — only continue
+                          if that phrase is the wallet you want on this device.
+                        </>
+                      ) : (
+                        <>
+                          <strong>This replaces the wallet stored on this device.</strong>{" "}
+                          Finishing replaces the current wallet file with the wallet from the
+                          seed phrase you entered, protected by your new password. Your Bitcoin
+                          is controlled by the seed phrase, not by the file — if the phrase you
+                          entered is this wallet's phrase, your funds are exactly as they were;
+                          the device copy is simply re-created.
+                        </>
+                      )}
                     </span>
                   </p>
                   <label className="flex items-start gap-2">
@@ -1190,21 +1393,27 @@ function SelfCustodyWallet() {
                       checked={confirmReplace}
                       onChange={(e) => setConfirmReplace(e.target.checked)}
                     />
-                    I understand this replaces the unreadable wallet file on this device, and
-                    that the seed phrase I entered becomes the wallet stored here.
+                    {setupOrigin === "recovery-import"
+                      ? "I understand this replaces the unreadable wallet file on this device, and that the seed phrase I entered becomes the wallet stored here."
+                      : "I understand this replaces the wallet stored on this device, and that the seed phrase I entered becomes the wallet stored here under my new password."}
                   </label>
                 </div>
               )}
               <Button
                 className="w-full"
                 onClick={finishSetup}
-                disabled={busy || (setupOrigin === "recovery-import" && !confirmReplace)}
+                disabled={
+                  busy ||
+                  ((setupOrigin === "recovery-import" || setupOrigin === "locked-restore") && !confirmReplace)
+                }
               >
                 {busy
                   ? "Encrypting…"
                   : setupOrigin === "recovery-import"
                     ? "Replace unreadable file & create wallet"
-                    : "Create encrypted wallet"}
+                    : setupOrigin === "locked-restore"
+                      ? "Replace wallet on this device & restore"
+                      : "Create encrypted wallet"}
               </Button>
             </CardContent>
           </Card>
@@ -1237,10 +1446,114 @@ function SelfCustodyWallet() {
               <Button className="w-full" onClick={doUnlock} disabled={busy || !unlockPassword}>
                 {busy ? "Unlocking…" : "Unlock wallet"}
               </Button>
-              <p className="text-xs text-muted-foreground">
-                Forgot the password? Unlock the wallet to manage or remove it — if the password
-                is lost, your seed phrase is the only recovery path, by design.
-              </p>
+              <div className="border-t pt-4 space-y-2">
+                <p className="text-sm font-medium">Forgot your password?</p>
+                <p className="text-xs text-muted-foreground">
+                  There is no password reset — but your seed phrase restores the wallet. Restoring
+                  replaces the wallet file stored on this device with the wallet from your
+                  phrase, protected by a new password you choose.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setImportText("");
+                    setStage("forgot-restore");
+                  }}
+                >
+                  Forgot password — restore from seed phrase
+                </Button>
+              </div>
+              <div className="border-t pt-4 space-y-2">
+                <p className="text-sm font-medium text-destructive">No seed phrase either?</p>
+                <p className="text-xs text-muted-foreground">
+                  You can remove the wallet from this device without unlocking it. Read both
+                  confirmations carefully — removal is permanent here.
+                </p>
+                {!confirmRemoveLocked ? (
+                  <Button variant="destructive" className="w-full" onClick={() => setConfirmRemoveLocked(true)}>
+                    <Trash2 className="h-4 w-4 mr-2" /> Remove wallet from this device
+                  </Button>
+                ) : !confirmRemoveLockedFinal ? (
+                  <div className="space-y-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm">
+                    <p>
+                      <strong>Removal deletes only the encrypted wallet copy stored on this
+                      device.</strong> The Bitcoin itself stays on the blockchain. But without
+                      your seed phrase there is no way back in: the Bitcoin at this wallet's
+                      addresses becomes unreachable, and BMaGlass cannot recover it for you.
+                    </p>
+                    <Button variant="destructive" className="w-full" onClick={() => setConfirmRemoveLockedFinal(true)}>
+                      I understand — continue
+                    </Button>
+                    <Button variant="outline" className="w-full" onClick={() => setConfirmRemoveLocked(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm">
+                    <p>
+                      <strong>Final confirmation.</strong> Remove the wallet from this device
+                      now? This cannot be undone — afterwards, only the seed phrase could ever
+                      restore it.
+                    </p>
+                    <Button variant="destructive" className="w-full" onClick={doRemoveLocked}>
+                      Yes — remove the wallet from this device
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setConfirmRemoveLocked(false);
+                        setConfirmRemoveLockedFinal(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {stage === "forgot-restore" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Restore from your seed phrase</CardTitle>
+              <CardDescription>
+                Enter the words you wrote down when this wallet was created. The phrase is
+                checked and encrypted on this device only — it is never sent to BMaGlass or any
+                server.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <p>
+                  <strong>Restoring replaces the wallet stored on this device.</strong> Nothing
+                  is replaced yet: the current wallet file is only overwritten on the next step,
+                  after you set a new password and confirm the replacement. Your Bitcoin is
+                  controlled by the seed phrase itself, not by the file — restoring this
+                  wallet's phrase brings back the same wallet and the same funds.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="forgot-restore-phrase">Seed phrase (12 or 24 words)</Label>
+                <Textarea
+                  id="forgot-restore-phrase"
+                  placeholder="word1 word2 word3 … (12 or 24 words)"
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  rows={3}
+                  autoComplete="off"
+                />
+              </div>
+              <Button className="w-full" onClick={startForgotRestore} disabled={!importText.trim()}>
+                Continue — set a new password
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => setStage("locked")}>
+                Back to unlock
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -1253,7 +1566,13 @@ function SelfCustodyWallet() {
                   <CardTitle className="flex items-center gap-2">
                     Balance <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY</Badge>
                   </CardTitle>
-                  <CardDescription>Read live from the Bitcoin network. BMaGlass does not hold or record this balance.</CardDescription>
+                  <CardDescription>
+                    Read live from the Bitcoin network. BMaGlass does not hold or record this
+                    balance. This is your <strong>on-chain pot</strong>: Bitcoin held directly on
+                    the blockchain at your bc1… addresses — the place for larger amounts. Your
+                    Lightning &amp; Spark pot below is a separate balance under the same seed
+                    phrase.
+                  </CardDescription>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={doScan} disabled={scanning}>
@@ -1346,22 +1665,132 @@ function SelfCustodyWallet() {
                 <CardHeader>
                   <CardTitle>Send</CardTitle>
                   <CardDescription>
-                    Signed on this device and broadcast to the network.
-                    {feeRate ? ` Current fee rate ≈ ${feeRate} sat/vB.` : ""}
+                    Signed on this device. Nothing is broadcast until you review the fee and
+                    confirm on the next step.
+                    {feeRate ? ` Standard fee rate ≈ ${feeRate} sat/vB.` : ""}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-1">
                     <Label htmlFor="sc-to">Destination address</Label>
-                    <Input id="sc-to" placeholder="bc1q…" value={sendTo} onChange={(e) => setSendTo(e.target.value)} autoComplete="off" />
+                    <Input
+                      id="sc-to"
+                      placeholder="bc1q…"
+                      value={sendTo}
+                      onChange={(e) => {
+                        setSendTo(e.target.value);
+                        setPreparedChainSend(null);
+                      }}
+                      autoComplete="off"
+                    />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="sc-amount">Amount (sats)</Label>
-                    <Input id="sc-amount" type="number" min="1" placeholder="e.g. 25000" value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} />
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="sc-amount">Amount (sats)</Label>
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={sendMax}
+                          onChange={(e) => {
+                            setSendMax(e.target.checked);
+                            setPreparedChainSend(null);
+                          }}
+                        />
+                        Send max (whole balance, minus the fee)
+                      </label>
+                    </div>
+                    <Input
+                      id="sc-amount"
+                      type="number"
+                      min="1"
+                      placeholder={sendMax ? "Entire confirmed balance" : "e.g. 25000"}
+                      value={sendMax ? "" : sendAmount}
+                      disabled={sendMax}
+                      onChange={(e) => {
+                        setSendAmount(e.target.value);
+                        setPreparedChainSend(null);
+                      }}
+                    />
                   </div>
-                  <Button className="w-full" onClick={doSend} disabled={sending || !scan}>
-                    <Send className="h-4 w-4 mr-2" /> {sending ? "Broadcasting…" : "Sign & broadcast"}
-                  </Button>
+                  <div className="space-y-1">
+                    <Label>Confirmation speed</Label>
+                    <div className="grid grid-cols-3 gap-1 rounded-full bg-muted p-1" role="group" aria-label="On-chain confirmation speed">
+                      {CHAIN_SPEEDS.map((tier) => (
+                        <Button
+                          key={tier.key}
+                          type="button"
+                          size="sm"
+                          variant={sendSpeed === tier.key ? "default" : "ghost"}
+                          className="h-auto rounded-full py-1.5 text-xs"
+                          aria-pressed={sendSpeed === tier.key}
+                          onClick={() => {
+                            setSendSpeed(tier.key);
+                            setPreparedChainSend(null);
+                          }}
+                        >
+                          <span className="flex flex-col items-center leading-tight">
+                            <span>{tier.label}</span>
+                            <span className="text-[10px] opacity-80">
+                              {chainFeeRates ? `${chainFeeRates[tier.key]} sat/vB` : tier.hint}
+                            </span>
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Economy is cheapest and can take hours or longer; Half hour is the usual
+                      choice. The exact fee for your speed is shown before anything is sent.
+                    </p>
+                  </div>
+                  {!preparedChainSend ? (
+                    <Button className="w-full" onClick={doPrepareChainSend} disabled={sending || !scan}>
+                      <Send className="h-4 w-4 mr-2" /> {sending ? "Preparing…" : "Review send — show the fee first"}
+                    </Button>
+                  ) : (
+                    <div className="space-y-2 rounded border p-3 text-sm">
+                      <p>
+                        To:{" "}
+                        <span className="font-mono text-xs break-all">{preparedChainSend.toAddress}</span>
+                      </p>
+                      <p>
+                        Amount: <strong>{Number(preparedChainSend.amountSats).toLocaleString()} sats</strong>
+                      </p>
+                      <p>
+                        Network fee: <strong>{Number(preparedChainSend.feeSats).toLocaleString()} sats</strong>{" "}
+                        <span className="text-muted-foreground">
+                          ({CHAIN_SPEEDS.find((t) => t.key === preparedChainSend.speed)?.label} ·{" "}
+                          {preparedChainSend.feeRateSatVb} sat/vB)
+                        </span>
+                      </p>
+                      <p>
+                        Total leaving this pot:{" "}
+                        <strong>
+                          {Number(preparedChainSend.amountSats + preparedChainSend.feeSats).toLocaleString()} sats
+                        </strong>
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          disabled={sending}
+                          onClick={() => setPreparedChainSend(null)}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          className="flex-1 rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90"
+                          disabled={sending}
+                          onClick={doConfirmChainSend}
+                        >
+                          {sending ? "Broadcasting…" : "Confirm & broadcast"}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        The transaction is already signed on this device; confirming broadcasts
+                        exactly what is shown above — nothing more, nothing different.
+                      </p>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     To move Bitcoin to your custodial account, paste a deposit address from the
                     custodial wallet's Receive tab.
@@ -1390,6 +1819,15 @@ function SelfCustodyWallet() {
                   </p>
                 ) : (
                   <>
+                    <p className="text-sm text-muted-foreground">
+                      This is your <strong>second pot</strong>: the same seed phrase, held ready
+                      for instant Lightning and Spark payments — the place for smaller, everyday
+                      amounts. The two pots are separate balances. To move Bitcoin between them,
+                      send from one pot to the other pot&apos;s address (for example, pay a Spark
+                      Bitcoin address from the on-chain Send card above, or send from here to
+                      your on-chain Receive address) — each move is an ordinary payment and may
+                      carry a fee.
+                    </p>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-sm text-muted-foreground">
                         Spark balance: {spBalance === null ? "—" : `${spBalance.toLocaleString()} sats`}
@@ -1663,6 +2101,31 @@ function SelfCustodyWallet() {
                                   ))}
                                   {preparedSend.fee.isEstimate && (
                                     <p className="text-xs text-amber-600">Fee shown is an estimate — the final fee is confirmed by the network when sending.</p>
+                                  )}
+                                  {preparedSend.prepareResponse.paymentMethod.type === "bitcoinAddress" && (
+                                    <div className="space-y-1">
+                                      <Label>Confirmation speed for this on-chain send</Label>
+                                      <div className="grid grid-cols-3 gap-1 rounded-full bg-muted p-1" role="group" aria-label="Confirmation speed">
+                                        {(["slow", "medium", "fast"] as const).map((speed) => (
+                                          <Button
+                                            key={speed}
+                                            type="button"
+                                            size="sm"
+                                            variant={sparkSpeed === speed ? "default" : "ghost"}
+                                            className="h-9 rounded-full capitalize"
+                                            aria-pressed={sparkSpeed === speed}
+                                            disabled={spBusy}
+                                            onClick={() => setSparkSpeed(speed)}
+                                          >
+                                            {speed}
+                                          </Button>
+                                        ))}
+                                      </div>
+                                      <p className="text-xs text-muted-foreground">
+                                        The fee charged is the matching on-chain fee line above
+                                        for the speed you choose.
+                                      </p>
+                                    </div>
                                   )}
                                   <Button className="w-full rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90" disabled={spBusy} onClick={doConfirmSend}>
                                     Confirm &amp; send
@@ -1979,6 +2442,101 @@ function SelfCustodyWallet() {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5" /> Seed phrase
+                </CardTitle>
+                <CardDescription>
+                  The words that control this wallet. Check them against your paper backup, or
+                  copy them onto a new one — somewhere private.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {seedView === "idle" && (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Showing the phrase asks for your wallet password again, so a borrowed or
+                      unattended phone can never display it.
+                    </p>
+                    <Button variant="outline" onClick={() => setSeedView("warn")}>
+                      <Eye className="h-4 w-4 mr-2" /> Show seed phrase
+                    </Button>
+                  </>
+                )}
+                {seedView === "warn" && (
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm">
+                      <ShieldAlert className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                      <p>
+                        <strong>Never show this phrase next to other people.</strong> Anyone who
+                        sees or photographs it controls your funds — from anywhere, permanently.
+                        BMaGlass will never ask for it. Only continue somewhere private, with
+                        nobody able to see your screen.
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1" onClick={() => setSeedView("idle")}>
+                        Not now
+                      </Button>
+                      <Button className="flex-1" onClick={() => setSeedView("password")}>
+                        I understand — continue
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {seedView === "password" && (
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="seed-pw">Wallet password</Label>
+                      <Input
+                        id="seed-pw"
+                        type="password"
+                        value={seedPw}
+                        onChange={(e) => setSeedPw(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && doRevealSeed()}
+                        autoComplete="current-password"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          setSeedView("idle");
+                          setSeedPw("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button className="flex-1" onClick={doRevealSeed} disabled={seedBusy || !seedPw}>
+                        {seedBusy ? "Checking…" : "Verify & show"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {seedView === "shown" && session.mnemonic && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {session.mnemonic.split(" ").map((word, i) => (
+                        <div key={i} className="rounded border px-2 py-1.5 text-sm font-mono">
+                          <span className="text-muted-foreground mr-1">{i + 1}.</span>
+                          {word}
+                        </div>
+                      ))}
+                    </div>
+                    <Button variant="outline" className="w-full" onClick={() => setSeedView("idle")}>
+                      Hide seed phrase
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      The phrase also hides itself as soon as this wallet locks or you leave
+                      this view.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

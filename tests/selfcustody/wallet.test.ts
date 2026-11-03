@@ -9,6 +9,7 @@ import {
   deriveScript,
   selectCoins,
   buildSignedTransaction,
+  planSendMax,
   type ClientUtxo,
 } from "../../src/lib/selfcustody/wallet";
 
@@ -135,6 +136,81 @@ describe("client BIP39/BIP84 wallet", () => {
     expect(built.txid).toBe(recomputed);
     expect(built.feeSats).toBeGreaterThan(0n);
     expect(built.changeSats).toBe(100000n - 50000n - built.feeSats);
+  });
+
+  it("send-max plan: whole balance minus the one-output network fee", () => {
+    const account = accountFromMnemonic(VECTOR_MNEMONIC);
+    const utxos: ClientUtxo[] = [
+      { txid: "33".repeat(32), vout: 0, valueSats: 99900n, chain: 0, index: 0, script: deriveScript(account, 0, 0) },
+      { txid: "44".repeat(32), vout: 1, valueSats: 100n, chain: 0, index: 1, script: deriveScript(account, 0, 1) },
+    ];
+    // vsize(2 inputs, 1 output) = ceil(10.5 + 2*68 + 31) = 178 vB → 17,800 sats at 100 sat/vB.
+    const plan = planSendMax(utxos, 100);
+    expect(plan.inputs).toHaveLength(2);
+    expect(plan.feeSats).toBe(17800n);
+    expect(plan.amountSats).toBe(100000n - 17800n);
+  });
+
+  it("send-max build spends EVERY input with no change — even when one UTXO dominates", () => {
+    // Corner that plain coin selection gets wrong: at a very high fee
+    // rate with one dominant UTXO, selectCoins would stop early and
+    // leave the small UTXO behind with change. sendMax must not.
+    const account = accountFromMnemonic(VECTOR_MNEMONIC);
+    const utxos: ClientUtxo[] = [
+      { txid: "33".repeat(32), vout: 0, valueSats: 99900n, chain: 0, index: 0, script: deriveScript(account, 0, 0) },
+      { txid: "44".repeat(32), vout: 1, valueSats: 100n, chain: 0, index: 1, script: deriveScript(account, 0, 1) },
+    ];
+    const plan = planSendMax(utxos, 100);
+    const built = buildSignedTransaction({
+      account,
+      utxos,
+      toAddress: VECTOR_ADDRESS_0_0,
+      amountSats: plan.amountSats,
+      feeRateSatVb: 100,
+      changeIndex: 0,
+      sendMax: true,
+    });
+    expect(built.changeSats).toBe(0n);
+    expect(built.changeIndex).toBe(-1);
+    expect(built.feeSats).toBe(plan.feeSats);
+  });
+
+  it("send-max build refuses an amount that does not match the plan", () => {
+    const account = accountFromMnemonic(VECTOR_MNEMONIC);
+    const utxo: ClientUtxo = {
+      txid: "55".repeat(32),
+      vout: 0,
+      valueSats: 100000n,
+      chain: 0,
+      index: 0,
+      script: deriveScript(account, 0, 0),
+    };
+    expect(() =>
+      buildSignedTransaction({
+        account,
+        utxos: [utxo],
+        toAddress: VECTOR_ADDRESS_0_0,
+        amountSats: 50000n,
+        feeRateSatVb: 10,
+        changeIndex: 0,
+        sendMax: true,
+      }),
+    ).toThrow(/Send-max amount does not match/);
+  });
+
+  it("send-max plan refuses an empty or fee-swallowed balance", () => {
+    expect(() => planSendMax([], 10)).toThrow(/No confirmed balance/);
+    const account = accountFromMnemonic(VECTOR_MNEMONIC);
+    const dust: ClientUtxo = {
+      txid: "66".repeat(32),
+      vout: 0,
+      valueSats: 500n,
+      chain: 0,
+      index: 0,
+      script: deriveScript(account, 0, 0),
+    };
+    // vsize(1,1) = 110 vB → 1,100 sats of fee at 10 sat/vB > 500 sats.
+    expect(() => planSendMax([dust], 10)).toThrow(/too small to cover the network fee/);
   });
 
   it("refuses an invalid recipient address", () => {

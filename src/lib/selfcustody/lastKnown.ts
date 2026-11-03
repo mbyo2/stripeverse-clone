@@ -73,3 +73,17 @@ export function clearLastKnown(xpub: string): void {
     writeStore(store);
   }
 }
+
+/**
+ * Remove EVERY last-known entry. Used when the vault is removed from
+ * the locked screen: the wallet is locked, so its xpub is unknowable
+ * and a per-wallet clear is impossible — but no reading may survive
+ * the wallet it describes.
+ */
+export function clearAllLastKnown(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Storage blocked: the cache is a nicety, never fatal.
+  }
+}

@@ -119,6 +119,32 @@ export function selectCoins(
   throw new Error("Insufficient confirmed balance for this payment plus network fee");
 }
 
+export interface SendMaxPlan {
+  inputs: ClientUtxo[];
+  /** Everything sendable: total confirmed balance minus the network fee. */
+  amountSats: bigint;
+  feeSats: bigint;
+}
+
+/**
+ * Plan a "send max": every confirmed UTXO goes in, there is exactly
+ * one output (the payment — no change comes back), and the network
+ * fee comes out of the sent amount. buildSignedTransaction with
+ * `sendMax: true` consumes exactly this plan (and refuses an amount
+ * that does not match it), so the fee quoted at prepare time is the
+ * fee in the signed transaction.
+ */
+export function planSendMax(utxos: ClientUtxo[], feeRateSatVb: number): SendMaxPlan {
+  if (utxos.length === 0) throw new Error("No confirmed balance to send");
+  const total = utxos.reduce((sum, u) => sum + u.valueSats, 0n);
+  const feeSats = BigInt(Math.ceil(estimateTxVsize(utxos.length, 1) * feeRateSatVb));
+  const amountSats = total - feeSats;
+  if (amountSats <= 0n) {
+    throw new Error("Your confirmed balance is too small to cover the network fee");
+  }
+  return { inputs: [...utxos], amountSats, feeSats };
+}
+
 export interface BuiltTransaction {
   hex: string;
   txid: string;
@@ -140,10 +166,26 @@ export function buildSignedTransaction(params: {
   amountSats: bigint;
   feeRateSatVb: number;
   changeIndex: number;
+  /**
+   * Send-max: spend EVERY UTXO with no change output. amountSats must
+   * equal planSendMax(utxos, feeRateSatVb).amountSats — checked here so
+   * a stale or mismatched amount can never silently become a different
+   * transaction than the one the user reviewed.
+   */
+  sendMax?: boolean;
 }): BuiltTransaction {
   const { account, utxos, toAddress, amountSats, feeRateSatVb, changeIndex } = params;
   assertValidAddress(toAddress);
-  const selection = selectCoins(utxos, amountSats, feeRateSatVb);
+  let selection: CoinSelection;
+  if (params.sendMax) {
+    const plan = planSendMax(utxos, feeRateSatVb);
+    if (plan.amountSats !== amountSats) {
+      throw new Error("Send-max amount does not match the balance minus the network fee — prepare the send again");
+    }
+    selection = { inputs: plan.inputs, feeSats: plan.feeSats, changeSats: 0n };
+  } else {
+    selection = selectCoins(utxos, amountSats, feeRateSatVb);
+  }
 
   const tx = new btc.Transaction();
   for (const input of selection.inputs) {

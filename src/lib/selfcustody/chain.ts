@@ -220,6 +220,48 @@ export async function fetchRecommendedFeeRate(): Promise<number> {
   return rate;
 }
 
+export interface RecommendedFeeRates {
+  /** Cheapest tier — no time priority; can take hours or longer. */
+  economy: number;
+  /** Target roughly one hour. */
+  hour: number;
+  /** Target roughly 30 minutes — the wallet's default tier. */
+  halfHour: number;
+  /** Target the next block. */
+  fastest: number;
+}
+
+function saneFeeRate(value: unknown, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 1 ? n : fallback;
+}
+
+/**
+ * Parse a /v1/fees/recommended payload into the wallet's fee tiers.
+ * Pure — unit-tested. halfHourFee is the anchor tier (the one
+ * fetchRecommendedFeeRate has always used): any other tier that is
+ * missing or unusable falls back to it rather than failing the send.
+ * Throws only when even the anchor is unusable.
+ */
+export function parseRecommendedFeeRates(fees: any): RecommendedFeeRates {
+  const halfHour = Number(fees?.halfHourFee);
+  if (!Number.isFinite(halfHour) || halfHour < 1) {
+    throw new Error("Could not fetch current network fees");
+  }
+  return {
+    economy: saneFeeRate(fees?.economyFee, halfHour),
+    hour: saneFeeRate(fees?.hourFee, halfHour),
+    halfHour,
+    fastest: saneFeeRate(fees?.fastestFee, halfHour),
+  };
+}
+
+/** All fee tiers in one request (the same endpoint fetchRecommendedFeeRate uses). */
+export async function fetchRecommendedFeeRates(): Promise<RecommendedFeeRates> {
+  const fees = await esplora("/v1/fees/recommended");
+  return parseRecommendedFeeRates(fees);
+}
+
 export async function broadcastTransaction(txHex: string): Promise<string> {
   // Same fallback discipline as reads: a broadcast that one endpoint
   // refuses to relay (or never hears) is offered to the next. The

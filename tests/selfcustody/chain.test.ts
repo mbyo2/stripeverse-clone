@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { netChangeSats, esploraUrls, ESPLORA_BASES, scanWallet, fetchRecommendedFeeRate, resetEsploraPreference } from "../../src/lib/selfcustody/chain";
+import { netChangeSats, esploraUrls, ESPLORA_BASES, scanWallet, fetchRecommendedFeeRate, fetchRecommendedFeeRates, parseRecommendedFeeRates, resetEsploraPreference } from "../../src/lib/selfcustody/chain";
 
 // The sticky endpoint preference (chain.ts) is module state: reset
 // it before each test so fallback-order assertions stay canonical.
@@ -130,5 +130,49 @@ describe("Esplora fallback (primary down → fallback answers)", () => {
       }),
     );
     await expect(fetchRecommendedFeeRate()).rejects.toThrow(/Failed to fetch/);
+  });
+});
+
+describe("parseRecommendedFeeRates — the send screen's fee tiers", () => {
+  it("maps the mempool.space payload onto economy / hour / halfHour / fastest", () => {
+    expect(
+      parseRecommendedFeeRates({ fastestFee: 12, halfHourFee: 8, hourFee: 5, economyFee: 2, minimumFee: 1 }),
+    ).toEqual({ economy: 2, hour: 5, halfHour: 8, fastest: 12 });
+  });
+
+  it("falls back to the half-hour anchor for any missing or unusable tier", () => {
+    expect(parseRecommendedFeeRates({ halfHourFee: 7 })).toEqual({
+      economy: 7,
+      hour: 7,
+      halfHour: 7,
+      fastest: 7,
+    });
+    expect(
+      parseRecommendedFeeRates({ halfHourFee: 7, economyFee: 0, hourFee: "x", fastestFee: -3 }),
+    ).toEqual({ economy: 7, hour: 7, halfHour: 7, fastest: 7 });
+  });
+
+  it("throws when even the anchor tier is unusable", () => {
+    expect(() => parseRecommendedFeeRates({})).toThrow(/Could not fetch current network fees/);
+    expect(() => parseRecommendedFeeRates({ halfHourFee: 0 })).toThrow(/Could not fetch/);
+  });
+
+  it("fetchRecommendedFeeRates reads all tiers from the same single request", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        calls.push(url);
+        return jsonResponse({ fastestFee: 20, halfHourFee: 9, hourFee: 6, economyFee: 3 });
+      }),
+    );
+    await expect(fetchRecommendedFeeRates()).resolves.toEqual({
+      economy: 3,
+      hour: 6,
+      halfHour: 9,
+      fastest: 20,
+    });
+    expect(calls).toEqual(["https://mempool.space/api/v1/fees/recommended"]);
+    vi.unstubAllGlobals();
   });
 });
