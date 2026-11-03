@@ -12,7 +12,9 @@
 //  3. Radix TabsContent unmounts inactive tabs, destroying the
 //     uploader's selected-file/preview state on every step switch —
 //     the panels are forceMount-ed now, and an in-progress draft is
-//     kept in sessionStorage so no transition can lose entered data.
+//     kept in localStorage so no transition can lose entered data
+//     (localStorage, not sessionStorage: mobile browsers discard
+//     background tabs, which destroys sessionStorage drafts).
 //  4. Mount hydration resolves asynchronously and used to overwrite
 //     fields the user had already typed; it is dirty-field-guarded.
 //  5. ID document types are restricted to NRC + Passport (CEO ruling).
@@ -66,8 +68,11 @@ describe("KycVerification — step transitions cannot lose data", () => {
 
   it("persists an in-progress draft per user and clears it on submit", () => {
     expect(wizard).toContain("kyc-draft:");
-    expect(wizard).toContain("sessionStorage.setItem(draftKey");
-    expect(wizard).toContain("sessionStorage.removeItem(draftKey)");
+    expect(wizard).toContain("localStorage.setItem(draftKey");
+    expect(wizard).toContain("localStorage.removeItem(draftKey)");
+    // One-time fallback: a draft saved by the old sessionStorage
+    // build is still honoured once.
+    expect(wizard).toContain("sessionStorage.getItem(`kyc-draft:");
   });
 
   it("hydration can never overwrite a field the user already edited", () => {

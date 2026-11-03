@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,12 @@ import {
 import { Ban, CheckCircle2, Clock, Plus, ScanFace, ShieldCheck, Trash2 } from "lucide-react";
 import P2pShell from "@/components/p2p/P2pShell";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  clearFormDraft,
+  draftString,
+  loadFormDraft,
+  saveFormDraft,
+} from "@/lib/formDraft";
 import { useToast } from "@/hooks/use-toast";
 import {
   p2pAction,
@@ -85,6 +91,39 @@ export default function P2PProfile() {
   const [bankName, setBankName] = useState("");
   const [methodError, setMethodError] = useState<string | null>(null);
 
+  // Durable draft for the add-payment-method form: entries are saved
+  // on this device as they are typed and restored on return, so a
+  // page reload, a discarded mobile tab or a browser restart can
+  // never throw them away. Cleared once the method is added.
+  const methodDraftKey = user ? `p2p-payment-method-draft:${user.id}` : null;
+  const methodDraftRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!methodDraftKey || methodDraftRestoredRef.current) return;
+    methodDraftRestoredRef.current = true;
+    const draft = loadFormDraft(methodDraftKey);
+    if (!draft) return;
+    const savedType = draftString(draft, "methodType");
+    if (savedType === "mobile_money" || savedType === "bank") setMethodType(savedType);
+    const savedNumber = draftString(draft, "accountNumber");
+    if (savedNumber !== undefined) setAccountNumber(savedNumber);
+    const savedName = draftString(draft, "accountName");
+    if (savedName !== undefined) setAccountName(savedName);
+    const savedBank = draftString(draft, "bankName");
+    if (savedBank !== undefined) setBankName(savedBank);
+  }, [methodDraftKey]);
+  useEffect(() => {
+    if (!methodDraftKey || !methodDraftRestoredRef.current) return;
+    // An emptied form (e.g. right after a successful add) leaves no
+    // draft behind at all.
+    if (!accountNumber && !accountName && !bankName) {
+      clearFormDraft(methodDraftKey);
+      return;
+    }
+    saveFormDraft(methodDraftKey, {
+      methodType, accountNumber, accountName, bankName,
+    });
+  }, [methodDraftKey, methodType, accountNumber, accountName, bankName]);
+
   const limits = limitsQuery.data;
   const profile = profileQuery.data;
   const holdsSats = holdsQuery.data ?? 0;
@@ -110,6 +149,7 @@ export default function P2PProfile() {
       setAccountName("");
       setBankName("");
       setMethodError(null);
+      if (methodDraftKey) clearFormDraft(methodDraftKey);
       invalidate();
     },
     onError: (e: unknown) =>

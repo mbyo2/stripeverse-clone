@@ -93,18 +93,22 @@ const KycVerification = () => {
 
   const { toast } = useToast();
 
-  // Restore + persist an in-progress draft (sessionStorage, per user).
+  // Restore + persist an in-progress draft (localStorage, per user).
   // Together with forceMount on the tab panels this guarantees that no
-  // step transition — in either direction, and not even a page reload —
-  // can throw away personal-info fields, uploaded document URLs, or the
-  // user's place in the wizard. The draft is cleared on submit.
+  // step transition — in either direction, a page reload, a discarded
+  // mobile tab, or a full browser restart — can throw away
+  // personal-info fields, uploaded document URLs, or the user's place
+  // in the wizard. (localStorage, not sessionStorage: on mobile the
+  // browser routinely discards background tabs, which kills
+  // sessionStorage and was losing users' entries.) The draft is
+  // cleared on submit.
   const draftKey = authUserId ? `kyc-draft:${authUserId}` : null;
 
   useEffect(() => {
     if (!draftKey || !hydratedRef.current) return;
     try {
       const { selfieImage: _file, ...serializable } = formData;
-      sessionStorage.setItem(draftKey, JSON.stringify({ form: serializable, activeTab }));
+      localStorage.setItem(draftKey, JSON.stringify({ form: serializable, activeTab }));
     } catch {
       // Storage full/blocked — the in-memory state still protects the session.
     }
@@ -133,7 +137,12 @@ const KycVerification = () => {
         // where the user left off instead of at empty fields.
         let savedDraft: { form?: Partial<KycFormState>; activeTab?: string } | null = null;
         try {
-          const rawDraft = sessionStorage.getItem(`kyc-draft:${userData.user.id}`);
+          // Drafts used to live in sessionStorage; read that store
+          // once as a fallback so an in-progress draft survives the
+          // upgrade to localStorage.
+          const rawDraft =
+            localStorage.getItem(`kyc-draft:${userData.user.id}`) ??
+            sessionStorage.getItem(`kyc-draft:${userData.user.id}`);
           if (rawDraft) savedDraft = JSON.parse(rawDraft);
         } catch {
           savedDraft = null;
@@ -450,7 +459,7 @@ const KycVerification = () => {
       // The submission has landed — the in-progress draft has served
       // its purpose and must not resurrect stale values next visit.
       if (draftKey) {
-        try { sessionStorage.removeItem(draftKey); } catch { /* ignore */ }
+        try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
       }
       
       // Update the notification context to create a system notification
@@ -481,6 +490,21 @@ const KycVerification = () => {
     }
   };
   
+  // What still stands between the user and a submittable form, in
+  // plain language. The submit button being greyed out with no
+  // explanation reads as "the form is broken" — this list is shown
+  // next to it so the next action is always obvious.
+  const phoneValid = /^\+?\d{9,15}$/.test(formData.phone.replace(/[\s()-]/g, ""));
+  const missingItems: string[] = [];
+  if (!formData.firstName) missingItems.push("your first name (Personal Info)");
+  if (!formData.lastName) missingItems.push("your last name (Personal Info)");
+  if (!formData.idType) missingItems.push("your ID type (Personal Info)");
+  if (!formData.idNumber) missingItems.push("your ID number (Personal Info)");
+  if (!formData.dateOfBirth) missingItems.push("your date of birth (Personal Info)");
+  if (!phoneValid) missingItems.push("a valid phone number (Personal Info)");
+  if (!formData.idFrontUrl) missingItems.push("the front of your ID document (ID Documents)");
+  if (!selfiePreview) missingItems.push("your live selfie with ID (ID Documents)");
+
   const getNextTab = () => {
     switch (activeTab) {
       case "personal":
@@ -789,7 +813,7 @@ const KycVerification = () => {
                         submission in some browsers. Completeness is
                         enforced here instead — plus server-side in
                         verifyKyc, which refuses incomplete submissions. */}
-                    <Button type="submit" disabled={submitting || !formData.idFrontUrl || !selfiePreview || !formData.firstName || !formData.lastName || !formData.idType || !formData.idNumber || !formData.dateOfBirth || !/^\+?\d{9,15}$/.test(formData.phone.replace(/[\s()-]/g, ""))}>
+                    <Button type="submit" disabled={submitting || missingItems.length > 0}>
                       {submitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -798,6 +822,21 @@ const KycVerification = () => {
                       ) : verificationStarted ? "Update Verification" : "Submit Verification"}
                     </Button>
                   </div>
+                  {missingItems.length > 0 && (
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+                      <p className="text-sm font-medium">Still needed before you can submit:</p>
+                      <ul className="list-disc pl-5 mt-1 space-y-0.5 text-sm text-muted-foreground">
+                        {missingItems.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Everything you have entered so far is saved on this
+                        device as you go — you can leave and come back, and
+                        your entries will still be here.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </form>

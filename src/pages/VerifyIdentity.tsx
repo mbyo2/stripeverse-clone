@@ -42,6 +42,11 @@ import {
 } from "lucide-react";
 import { LivePhotoSlot } from "@/components/identity/LiveCameraCapture";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  clearFormDraft,
+  loadFormDraft,
+  saveFormDraft,
+} from "@/lib/formDraft";
 import { useToast } from "@/hooks/use-toast";
 import {
   IdentityActionError,
@@ -83,6 +88,42 @@ const DOCUMENT_TYPE_OPTIONS = [
 function errorText(e: unknown, fallback: string): string {
   if (e instanceof IdentityActionError || e instanceof Error) return e.message;
   return fallback;
+}
+
+// Captured photos are Blobs in memory; the durable draft (below)
+// stores them as data URLs so they can be rebuilt after an
+// interruption. Oversized captures are skipped rather than letting
+// the draft fail on storage quota.
+const MAX_DRAFT_PHOTO_CHARS = 1_800_000;
+
+function blobToDataUrl(blob: Blob): Promise<string | null> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = typeof reader.result === "string" ? reader.result : null;
+      resolve(url && url.length <= MAX_DRAFT_PHOTO_CHARS ? url : null);
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function dataUrlToBlob(url: string): Promise<Blob | null> {
+  try {
+    const res = await fetch(url);
+    return await res.blob();
+  } catch {
+    return null;
+  }
+}
+
+interface FaceVerifyDraft {
+  step?: string;
+  documentType?: string;
+  consentChecked?: boolean;
+  front?: string;
+  back?: string;
+  selfie?: string;
 }
 
 // ---------------------------------------------------------------------
@@ -150,6 +191,88 @@ export default function VerifyIdentity() {
 
   const existing = statusQuery.data?.verification ?? null;
   const existingMeta = identityStatusMeta(existing?.status ?? null);
+
+  // ---------------------------------------------------------------
+  // Durable draft: the wizard's place, document choice, consent and
+  // the photos captured so far are saved on this device as the user
+  // goes, and restored on return. Without this, everything lived in
+  // page memory only — a page reload, a discarded mobile tab or a
+  // browser restart threw the captured document photos away and put
+  // the user back at step 1 (CEO report, 2026-11-03: entries were
+  // not kept on ANY of the verification forms). Cleared on submit.
+  // ---------------------------------------------------------------
+  const draftKey = user ? `face-verify-draft:${user.id}` : null;
+  const draftRestoredRef = useRef(false);
+  // Saving is gated on the restore having fully finished: the
+  // restore is async (photos are Blobs rebuilt from data URLs), and
+  // an early save of the still-empty wizard would wipe the stored
+  // draft before it could be read back.
+  const draftReadyRef = useRef(false);
+  const draftSaveSeqRef = useRef(0);
+
+  useEffect(() => {
+    if (!draftKey || draftRestoredRef.current) return;
+    draftRestoredRef.current = true;
+    const draft = loadFormDraft<FaceVerifyDraft & Record<string, unknown>>(draftKey);
+    if (!draft) {
+      draftReadyRef.current = true;
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      if (draft.consentChecked === true) setConsentChecked(true);
+      if (typeof draft.documentType === "string" && draft.documentType) {
+        setDocumentType(draft.documentType);
+      }
+      const [front, back, selfie] = await Promise.all([
+        draft.front ? dataUrlToBlob(draft.front) : Promise.resolve(null),
+        draft.back ? dataUrlToBlob(draft.back) : Promise.resolve(null),
+        draft.selfie ? dataUrlToBlob(draft.selfie) : Promise.resolve(null),
+      ]);
+      if (cancelled) return;
+      if (front) setFrontBlob(front);
+      if (back) setBackBlob(back);
+      if (selfie) {
+        setManualSelfie(selfie);
+        setEngineFailed(true);
+      }
+      // Resume where the user left off — but never into the camera
+      // step without the document photo it depends on.
+      if (draft.step === "liveness" && front) {
+        setStep("liveness");
+        setWizardOpen(true);
+      } else if (draft.step === "document" || draft.step === "liveness") {
+        setStep("document");
+        setWizardOpen(true);
+      }
+      draftReadyRef.current = true;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftKey || !draftReadyRef.current) return;
+    if (step === "done") return;
+    const seq = ++draftSaveSeqRef.current;
+    void (async () => {
+      const [front, back, selfie] = await Promise.all([
+        frontBlob ? blobToDataUrl(frontBlob) : Promise.resolve(null),
+        backBlob ? blobToDataUrl(backBlob) : Promise.resolve(null),
+        manualSelfie ? blobToDataUrl(manualSelfie) : Promise.resolve(null),
+      ]);
+      if (draftSaveSeqRef.current !== seq) return;
+      saveFormDraft(draftKey, {
+        step,
+        documentType,
+        consentChecked,
+        ...(front ? { front } : {}),
+        ...(back ? { back } : {}),
+        ...(selfie ? { selfie } : {}),
+      });
+    })();
+  }, [draftKey, step, documentType, consentChecked, frontBlob, backBlob, manualSelfie]);
 
   // ---------------------------------------------------------------
   // Liveness loop
@@ -302,6 +425,7 @@ export default function VerifyIdentity() {
         });
         setFinalStatus(result.status);
         setStep("done");
+        if (draftKey) clearFormDraft(draftKey);
         invalidate();
         stopStream();
       } catch (e) {
@@ -379,6 +503,7 @@ export default function VerifyIdentity() {
       });
       setFinalStatus(result.status);
       setStep("done");
+      if (draftKey) clearFormDraft(draftKey);
       invalidate();
       toast({ title: "Photos sent for review" });
     } catch (e) {
@@ -491,6 +616,12 @@ export default function VerifyIdentity() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              <p className="text-xs text-muted-foreground">
+                Your progress — including photos you have already captured —
+                is saved on this device as you go. You can leave and come
+                back, and you will pick up right where you stopped.
+              </p>
+
               {error && step !== "liveness" && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>

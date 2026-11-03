@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,14 @@ import {
 import { AlertTriangle, Loader2 } from "lucide-react";
 import P2pShell from "@/components/p2p/P2pShell";
 import { P2pTransferDialog } from "@/components/p2p/P2pAccountCard";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  clearFormDraft,
+  draftString,
+  draftStringArray,
+  loadFormDraft,
+  saveFormDraft,
+} from "@/lib/formDraft";
 import { useToast } from "@/hooks/use-toast";
 import { p2pAction, P2pActionError } from "@/services/p2pService";
 import {
@@ -47,6 +55,7 @@ const WINDOW_OPTIONS = [15, 30, 45, 60, 120];
  */
 export default function P2PNewAd() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
   const invalidate = useInvalidateP2p();
   const limitsQuery = useP2pLimits();
@@ -69,6 +78,48 @@ export default function P2PNewAd() {
   const [minTrades, setMinTrades] = useState("0");
   const [formError, setFormError] = useState<string | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
+
+  // Durable draft: everything typed here is saved on this device as
+  // it is entered and restored on return, so a page reload, a
+  // discarded mobile tab or a browser restart can never throw the
+  // half-written ad away. Cleared once the ad is posted.
+  const draftKey = user ? `p2p-new-ad-draft:${user.id}` : null;
+  const draftRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!draftKey || draftRestoredRef.current) return;
+    draftRestoredRef.current = true;
+    const draft = loadFormDraft(draftKey);
+    if (!draft) return;
+    const s = (field: string, apply: (v: string) => void) => {
+      const v = draftString(draft, field);
+      if (v !== undefined) apply(v);
+    };
+    s("side", (v) => { if (v === "sell_crypto" || v === "buy_crypto") setSide(v); });
+    s("priceType", (v) => { if (v === "fixed" || v === "margin") setPriceType(v); });
+    s("fixedPrice", setFixedPrice);
+    s("margin", setMargin);
+    s("totalBtc", setTotalBtc);
+    s("minOrder", setMinOrder);
+    s("maxOrder", setMaxOrder);
+    const savedMethods = draftStringArray(draft, "methods");
+    if (savedMethods && savedMethods.length > 0) setMethods(savedMethods);
+    s("windowMinutes", setWindowMinutes);
+    s("settleDelay", setSettleDelay);
+    s("terms", setTerms);
+    s("minTier", setMinTier);
+    s("minTrades", setMinTrades);
+  }, [draftKey]);
+  useEffect(() => {
+    if (!draftKey || !draftRestoredRef.current) return;
+    saveFormDraft(draftKey, {
+      side, priceType, fixedPrice, margin, totalBtc, minOrder, maxOrder,
+      methods, windowMinutes, settleDelay, terms, minTier, minTrades,
+    });
+  }, [
+    draftKey, side, priceType, fixedPrice, margin, totalBtc, minOrder,
+    maxOrder, methods, windowMinutes, settleDelay, terms, minTier,
+    minTrades,
+  ]);
 
   const previewPrice = useMemo(
     () =>
@@ -123,6 +174,7 @@ export default function P2PNewAd() {
       ),
     onSuccess: () => {
       toast({ title: "Ad posted", description: "Your ad is live on the marketplace." });
+      if (draftKey) clearFormDraft(draftKey);
       invalidate();
       navigate("/p2p/my-ads");
     },
