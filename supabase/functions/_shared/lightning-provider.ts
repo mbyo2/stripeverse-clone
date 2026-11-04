@@ -483,18 +483,37 @@ export async function providerPayInvoice(
 
 /**
  * Parse the account balance (sats) out of a Coinos GET /me payload.
- * The live-verified shape (2026-10-24): the account object itself
- * carries a top-level numeric `balance`. Some account views nest the
- * account under `user`/`me`; accept those too. Returns null on any
- * other shape — never a guess.
+ * Shapes accepted, in order: a top-level numeric `balance` on the
+ * account object (the shape the invoice responses carry), the same
+ * nested under `user`/`me`, and — the current coinos-server /me,
+ * which sends the user with its accounts attached
+ * (user.accounts = getAccounts()) — the sum of the numeric
+ * `balance` fields across the `accounts` array (an account entry
+ * without a numeric balance contributes nothing, understating
+ * rather than overstating the pool). Returns null on any other
+ * shape — never a guess.
  */
 export function parseCoinosBalance(payload: unknown): number | null {
   const outer = asRecord(payload);
   if (!outer) return null;
   const account = asRecord(outer.user) ?? asRecord(outer.me) ?? outer;
-  const balance = (account as Record<string, unknown>).balance;
-  if (typeof balance !== "number" || !Number.isFinite(balance)) return null;
-  return Math.trunc(balance);
+  const rec = account as Record<string, unknown>;
+  const balance = rec.balance;
+  if (typeof balance === "number" && Number.isFinite(balance)) {
+    return Math.trunc(balance);
+  }
+  if (Array.isArray(rec.accounts)) {
+    let total = 0;
+    for (const entry of rec.accounts) {
+      const entryRec = asRecord(entry);
+      const entryBalance = entryRec?.balance;
+      if (typeof entryBalance === "number" && Number.isFinite(entryBalance)) {
+        total += entryBalance;
+      }
+    }
+    return Math.trunc(total);
+  }
+  return null;
 }
 
 /**

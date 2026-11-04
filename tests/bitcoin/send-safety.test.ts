@@ -283,6 +283,16 @@ describe("parseCoinosBalance / providerGetBalance", () => {
     expect(parseCoinosBalance({ user: { balance: 99.9 } })).toBe(99);
   });
 
+  it("sums the accounts array the current coinos-server /me attaches", () => {
+    expect(
+      parseCoinosBalance({
+        username: "pooled",
+        accounts: [{ balance: 300 }, { balance: 200 }, { id: "no-balance" }],
+      }),
+    ).toBe(500);
+    expect(parseCoinosBalance({ accounts: [] })).toBe(0);
+  });
+
   it("returns null on any other shape — never a guess", () => {
     expect(parseCoinosBalance({})).toBeNull();
     expect(parseCoinosBalance({ balance: "1000" })).toBeNull();
