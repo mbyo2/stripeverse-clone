@@ -754,19 +754,24 @@ type TradeQuote = {
   expires_at: string;
 };
 
+/**
+ * Sell Bitcoin into ZMW. Sell-only by CEO order (2026-11-04): the
+ * Buy side was removed from the custodial page after a live audit —
+ * buy execution hard-refuses while the platform treasury holds no
+ * Bitcoin inventory ("insufficient platform inventory"), so a Buy
+ * tab here was a dead end. Do not re-add a Buy tab until buy
+ * execution is proven live end-to-end.
+ */
 function TradePanel({ onDone }: { onDone: () => void }) {
   const { toast } = useToast();
   const invalidateMoney = useInvalidateMoneyState();
-  const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [zmwInput, setZmwInput] = useState("");
   const [satsInput, setSatsInput] = useState("");
   const [quote, setQuote] = useState<TradeQuote | null>(null);
   const [idemKey, setIdemKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
-  const { data: fiatWallets, refetch: refetchFiat } = useMultiCurrencyWallets();
-  const zmwBalance = Number(fiatWallets?.find((w: any) => w.currency === "ZMW")?.balance ?? 0);
+  const { refetch: refetchFiat } = useMultiCurrencyWallets();
 
   useEffect(() => {
     if (!quote) return;
@@ -776,18 +781,10 @@ function TradePanel({ onDone }: { onDone: () => void }) {
     return () => clearInterval(id);
   }, [quote]);
 
-  const switchSide = (v: string) => {
-    setSide(v as "buy" | "sell");
-    setQuote(null);
-    setIdemKey(null);
-  };
-
   const getQuote = async () => {
     setLoading(true);
     try {
-      const body = side === "buy"
-        ? { action: "quote", side, amount_zmw: Number(zmwInput) }
-        : { action: "quote", side, amount_sats: Number(satsInput) };
+      const body = { action: "quote", side: "sell", amount_sats: Number(satsInput) };
       const { data, error } = await supabase.functions.invoke("btc-trade", { body });
       if (error) throw error;
       const q = data as Partial<TradeQuote> | null;
@@ -813,14 +810,11 @@ function TradePanel({ onDone }: { onDone: () => void }) {
       });
       if (error) throw error;
       toast({
-        title: side === "buy" ? "Bitcoin bought" : "Bitcoin sold",
-        description: side === "buy"
-          ? `${quote.amount_sats.toLocaleString()} sats added to your wallet`
-          : `${formatCurrency(quote.amount_zmw)} credited to your ZMW wallet`,
+        title: "Bitcoin sold",
+        description: `${formatCurrency(quote.amount_zmw)} credited to your ZMW wallet`,
       });
       setQuote(null);
       setIdemKey(null);
-      setZmwInput("");
       setSatsInput("");
       // A trade moves the ZMW wallet too: refresh shared money state
       // (not just this panel's wallet list) for the Wallet page and
@@ -839,48 +833,28 @@ function TradePanel({ onDone }: { onDone: () => void }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <ArrowLeftRight className="h-5 w-5" /> Buy & Sell Bitcoin
+          <ArrowLeftRight className="h-5 w-5" /> Sell Bitcoin
         </CardTitle>
+        <CardDescription>
+          Sell Bitcoin from your custodial balance — the ZMW lands in your ZMW wallet straight away.
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs value={side} onValueChange={switchSide} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="buy">Buy</TabsTrigger>
-            <TabsTrigger value="sell">Sell</TabsTrigger>
-          </TabsList>
-          <TabsContent value="buy" className="pt-4 space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="buyZmw">You pay (ZMW) — balance {formatCurrency(zmwBalance)}</Label>
-              <Input id="buyZmw" type="number" min={10} placeholder="e.g. 500" value={zmwInput} onChange={(e) => { setZmwInput(e.target.value); setQuote(null); }} />
-            </div>
-          </TabsContent>
-          <TabsContent value="sell" className="pt-4 space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="sellSats">You sell (sats)</Label>
-              <Input id="sellSats" type="number" min={1000} placeholder="e.g. 50000" value={satsInput} onChange={(e) => { setSatsInput(e.target.value); setQuote(null); }} />
-            </div>
-          </TabsContent>
-        </Tabs>
+        <div className="grid gap-2">
+          <Label htmlFor="sellSats">You sell (sats)</Label>
+          <Input id="sellSats" type="number" min={1000} placeholder="e.g. 50000" value={satsInput} onChange={(e) => { setSatsInput(e.target.value); setQuote(null); }} />
+        </div>
 
         {!quote ? (
-          <Button onClick={getQuote} disabled={loading || (side === "buy" ? !zmwInput : !satsInput)} className="w-full mt-4">
+          <Button onClick={getQuote} disabled={loading || !satsInput} className="w-full mt-4">
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Get quote
           </Button>
         ) : (
           <div className="mt-4 space-y-3">
             <div className="rounded-lg bg-muted p-4 space-y-1 text-sm">
-              {side === "buy" ? (
-                <>
-                  <p>You pay: <strong>{formatCurrency(quote.amount_zmw)}</strong></p>
-                  <p>You receive: <strong>{quote.amount_sats.toLocaleString()} sats</strong> ({formatBitcoinAmount(quote.amount_sats / 100_000_000)})</p>
-                </>
-              ) : (
-                <>
-                  <p>You sell: <strong>{quote.amount_sats.toLocaleString()} sats</strong></p>
-                  <p>You receive: <strong>{formatCurrency(quote.amount_zmw)}</strong></p>
-                </>
-              )}
+              <p>You sell: <strong>{quote.amount_sats.toLocaleString()} sats</strong></p>
+              <p>You receive: <strong>{formatCurrency(quote.amount_zmw)}</strong></p>
               <p className="text-muted-foreground">Rate: {formatCurrency(quote.mid_rate_zmw)} per BTC · Fee: {formatCurrency(quote.fee_zmw)} ({(quote.fee_bps / 100).toFixed(2)}%)</p>
               <p className={secondsLeft === 0 ? "text-destructive" : "text-muted-foreground"}>
                 {secondsLeft > 0 ? `Quote locked for ${secondsLeft}s` : "Quote expired — get a new quote"}
@@ -890,7 +864,7 @@ function TradePanel({ onDone }: { onDone: () => void }) {
               <Button variant="outline" className="flex-1" onClick={() => { setQuote(null); setIdemKey(null); }}>Cancel</Button>
               <Button className="flex-1" disabled={executing || secondsLeft === 0} onClick={execute}>
                 {executing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Confirm {side === "buy" ? "buy" : "sell"}
+                Confirm sell
               </Button>
             </div>
           </div>
@@ -901,8 +875,8 @@ function TradePanel({ onDone }: { onDone: () => void }) {
 }
 
 /**
- * Card (MoonPay) buy entry — sits beside the Buy & Sell panel in
- * the Bitcoin buy area. This is the CUSTODIAL wallet's entry.
+ * Card (MoonPay) buy entry — sits beside the Sell panel in the
+ * Bitcoin wallet area. This is the CUSTODIAL wallet's entry.
  *
  * Truthful gate, mirroring the card gates in Wallet: while
  * platform_settings.moonpay_enabled is off, the entry is disabled
@@ -1193,7 +1167,7 @@ export default function BitcoinWallet() {
               </CardTitle>
               <CardDescription>
                 BMaGlass holds the keys for this account — access is recovered by signing in,
-                and you can buy/sell against your ZMW balance. Your self-custody wallet (below)
+                and you can sell against your ZMW balance. Your self-custody wallet (below)
                 is separate: there, you hold the keys.
               </CardDescription>
             </CardHeader>
