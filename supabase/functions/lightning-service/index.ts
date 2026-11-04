@@ -50,7 +50,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
-import { decodeBolt11, decodeBolt11Msat, isBolt11Expired } from "../_shared/btc-core.ts";
+import { decodeBolt11, decodeBolt11Msat, isBolt11Expired, poolShortfallReason } from "../_shared/btc-core.ts";
 import {
   LightningNotConfiguredError,
   LightningUpstreamError,
@@ -221,9 +221,27 @@ async function lightningSendGuard(
     return json(503, { error: LIGHTNING_PAYMENTS_UNAVAILABLE });
   }
   if (sats > poolBalance) {
+    // Cross-rail classification (CEO 2026-11-04): distinguish "the
+    // Lightning pool is short but the platform's combined backing
+    // covers it" (POOL_SHORT_REBALANCE_NEEDED) from true
+    // insufficiency (INSUFFICIENT_PLATFORM_FUNDS) via the persisted
+    // on-chain pool set. Hard stop either way today; the code is
+    // what the follow-on queue-and-rebalance work keys off.
+    let onchainPool: number | null = null;
+    const { data: utxoRows, error: utxoErr } = await admin
+      .from("btc_pool_utxos")
+      .select("value_sats")
+      .eq("status", "confirmed");
+    if (!utxoErr && utxoRows) {
+      onchainPool = utxoRows.reduce(
+        (sum: number, r: any) => sum + Number(r.value_sats),
+        0,
+      );
+    }
     return json(400, {
       error:
         "That payment is larger than the platform's current Lightning balance. Try a smaller amount, or pay on-chain instead.",
+      code: poolShortfallReason(sats, poolBalance, onchainPool),
     });
   }
   return null;

@@ -1385,11 +1385,43 @@ export interface WithdrawalGuardInput {
    * the caller could not read it and handles that failure itself.
    */
   poolSats: number | null;
+  /**
+   * The OTHER rail's pool, when known — used only to classify a
+   * pool refusal (see poolShortfallReason). Null/omitted = unknown,
+   * which classifies conservatively as true insufficiency.
+   */
+  otherRailPoolSats?: number | null;
+}
+
+/**
+ * Why a pool refusal happened (CEO decision 2026-11-04: cross-rail
+ * unified balance — money received on either rail must be sendable
+ * on either rail). The guard stays a HARD STOP today, but the two
+ * outcomes are distinguishable so the follow-on rebalancing mission
+ * can convert exactly one of them into queue-and-rebalance:
+ *   POOL_SHORT_REBALANCE_NEEDED — this rail is short, but the
+ *     platform's COMBINED backing covers the amount; moving funds
+ *     between pools would unblock it.
+ *   INSUFFICIENT_PLATFORM_FUNDS — even the combined backing is
+ *     short (or the other rail could not be read): a true refusal.
+ */
+export type PoolShortfallReason =
+  | "POOL_SHORT_REBALANCE_NEEDED"
+  | "INSUFFICIENT_PLATFORM_FUNDS";
+
+export function poolShortfallReason(
+  amountSats: number,
+  poolSats: number,
+  otherRailPoolSats: number | null,
+): PoolShortfallReason {
+  return otherRailPoolSats !== null && amountSats <= poolSats + otherRailPoolSats
+    ? "POOL_SHORT_REBALANCE_NEEDED"
+    : "INSUFFICIENT_PLATFORM_FUNDS";
 }
 
 export type WithdrawalGuardDecision =
   | { allowed: true }
-  | { allowed: false; refusal: WithdrawalGuardRefusal };
+  | { allowed: false; refusal: WithdrawalGuardRefusal; poolReason?: PoolShortfallReason };
 
 export function checkWithdrawalGuard(
   input: WithdrawalGuardInput,
@@ -1408,7 +1440,11 @@ export function checkWithdrawalGuard(
     return { allowed: false, refusal: "above_platform_daily_cap" };
   }
   if (input.poolSats !== null && amount > input.poolSats) {
-    return { allowed: false, refusal: "above_pool_balance" };
+    return {
+      allowed: false,
+      refusal: "above_pool_balance",
+      poolReason: poolShortfallReason(amount, input.poolSats, input.otherRailPoolSats ?? null),
+    };
   }
   return { allowed: true };
 }

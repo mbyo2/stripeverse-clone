@@ -121,7 +121,43 @@ describe("checkWithdrawalGuard", () => {
     expect(core.checkWithdrawalGuard({ ...BASE, poolSats: 40_000 })).toEqual({
       allowed: false,
       refusal: "above_pool_balance",
+      poolReason: "INSUFFICIENT_PLATFORM_FUNDS",
     });
+  });
+
+  it("classifies a pool refusal as POOL_SHORT_REBALANCE_NEEDED when combined backing covers it", () => {
+    // This rail holds 40,000; the amount is 50,000; the other rail
+    // holds 20,000 — combined 60,000 covers it. Cross-rail decision
+    // (CEO 2026-11-04): distinguishable from true insufficiency.
+    const decision = core.checkWithdrawalGuard({
+      ...BASE,
+      poolSats: 40_000,
+      otherRailPoolSats: 20_000,
+    });
+    expect(decision).toEqual({
+      allowed: false,
+      refusal: "above_pool_balance",
+      poolReason: "POOL_SHORT_REBALANCE_NEEDED",
+    });
+  });
+
+  it("classifies as INSUFFICIENT_PLATFORM_FUNDS when even the combined backing is short", () => {
+    const decision = core.checkWithdrawalGuard({
+      ...BASE,
+      poolSats: 40_000,
+      otherRailPoolSats: 5_000,
+    });
+    expect(decision).toEqual({
+      allowed: false,
+      refusal: "above_pool_balance",
+      poolReason: "INSUFFICIENT_PLATFORM_FUNDS",
+    });
+  });
+
+  it("poolShortfallReason: unknown other rail classifies conservatively", () => {
+    expect(core.poolShortfallReason(50_000, 40_000, null)).toBe("INSUFFICIENT_PLATFORM_FUNDS");
+    expect(core.poolShortfallReason(50_000, 40_000, 10_000)).toBe("POOL_SHORT_REBALANCE_NEEDED");
+    expect(core.poolShortfallReason(50_000, 40_000, 9_999)).toBe("INSUFFICIENT_PLATFORM_FUNDS");
   });
 
   it("skips the pool leg when the caller could not read the pool (null)", () => {
@@ -345,6 +381,9 @@ describe("send-safety wiring (source pins)", () => {
     expect(onchain).toContain("above_pool_balance");
     expect(onchain).toContain("withdrawalLimits");
     expect(onchain).toContain("isOperator");
+    // Cross-rail refusal classification (CEO 2026-11-04).
+    expect(onchain).toContain("poolShortfallReason");
+    expect(onchain).toContain("lightningPoolSatsOrNull");
   });
 
   it("btc-onchain persists the UTXO set and reconciles on a service action", () => {
@@ -367,6 +406,7 @@ describe("send-safety wiring (source pins)", () => {
     expect(lightning).toContain("providerGetBalance");
     expect(lightning).toContain("btc_min_withdrawal_lightning_sats");
     expect(lightning).toContain("Minimum Lightning payment is");
+    expect(lightning).toContain("poolShortfallReason");
   });
 
   it("the migration carries the policy columns, the UTXO set, buckets and the cron", () => {

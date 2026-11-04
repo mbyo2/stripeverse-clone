@@ -94,6 +94,7 @@ import {
   filterUncommittedUtxos,
   planConsolidation,
   planUtxoScan,
+  poolShortfallReason,
   poolTotalSats,
   receiveStatus,
   requiredConfirmationsFor,
@@ -929,6 +930,16 @@ async function withdrawalLimits(supabase: any): Promise<WithdrawalLimits> {
   };
 }
 
+/** The Lightning pool (Coinos balance), read only to classify a pool refusal cross-rail; null when unconfigured or unreadable. */
+async function lightningPoolSatsOrNull(): Promise<number | null> {
+  if (!lightningProviderConfigured()) return null;
+  try {
+    return await providerGetBalance();
+  } catch {
+    return null;
+  }
+}
+
 async function isOperator(supabase: any, userId: string): Promise<boolean> {
   const { data } = await supabase
     .from("user_roles")
@@ -1353,8 +1364,13 @@ async function queueSend(supabase: any, userId: string, body: any) {
     });
   }
   if (!queueGuard.allowed && queueGuard.refusal === "above_pool_balance") {
+    // Cross-rail classification (CEO 2026-11-04): the machine-readable
+    // code distinguishes "this rail is short but combined backing
+    // covers it" from true insufficiency. Hard stop either way today.
+    const otherRailPool = await lightningPoolSatsOrNull();
     return json(409, {
       error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
+      code: poolShortfallReason(amountSats, poolTotalSats(utxos), otherRailPool),
     });
   }
   const changeScript = deriveScript(accountPub, 1, 0);
@@ -1869,8 +1885,13 @@ async function send(supabase: any, userId: string, body: any) {
     });
   }
   if (!sendGuard.allowed && sendGuard.refusal === "above_pool_balance") {
+    // Cross-rail classification (CEO 2026-11-04): the machine-readable
+    // code distinguishes "this rail is short but combined backing
+    // covers it" from true insufficiency. Hard stop either way today.
+    const otherRailPool = await lightningPoolSatsOrNull();
     return json(409, {
       error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
+      code: poolShortfallReason(amountSats, poolTotalSats(utxos), otherRailPool),
     });
   }
   // Coin selection needs a change script for fee sizing only — every
