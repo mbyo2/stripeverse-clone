@@ -526,7 +526,7 @@ export function parseCoinosBalance(payload: unknown): number | null {
 export async function providerGetBalance(
   config?: LightningProviderConfig,
 ): Promise<number> {
-  const cfg = config ?? providerConfig();
+  const cfg = config ?? readLightningProviderConfig();
   const payload = await coinosFetch(cfg, "/me", "GET");
   const balance = parseCoinosBalance(payload);
   if (balance === null) {

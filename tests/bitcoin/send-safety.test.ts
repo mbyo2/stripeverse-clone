@@ -15,6 +15,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import {
+  LightningNotConfiguredError,
   LightningUpstreamError,
   parseCoinosBalance,
   providerGetBalance,
@@ -311,6 +312,11 @@ describe("parseCoinosBalance / providerGetBalance", () => {
   it("providerGetBalance throws upstream on a balanceless payload", async () => {
     stubFetch(200, { username: "bmaglass" });
     await expect(providerGetBalance(CFG)).rejects.toBeInstanceOf(LightningUpstreamError);
+  });
+
+  it("providerGetBalance with no config resolves config from env (regression: a wrong resolver name shipped as a ReferenceError that only the no-config path hits)", async () => {
+    stubFetch(200, { balance: 1 });
+    await expect(providerGetBalance()).rejects.toBeInstanceOf(LightningNotConfiguredError);
   });
 });
 
