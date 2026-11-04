@@ -26,6 +26,20 @@
 //   run_batch       (service role only) → P4 batcher: form + broadcast
 //                   one batch when the fee window is open or the
 //                   oldest queued withdrawal hits the max wait
+//   reconcile_pools (service role only) → liquidity research step 0:
+//                   record the daily ledger-buckets vs pool-reality
+//                   reconciliation (btc_reconciliation_runs) — a
+//                   report, never a fix-up
+//
+// Withdrawal safety (liquidity research steps 0–1): send/queue_send
+// evaluate the btc-core checkWithdrawalGuard BEFORE reserving —
+// minimums (regular users; operators exempt), per-tx cap, per-user
+// and platform-wide daily caps, and the pool cap (never more than
+// the confirmed UTXO total). Policy values live on platform_settings
+// (migration 20261250) with env fallback. The UTXO set itself is
+// persisted in Postgres (btc_pool_utxos) and only rescanned when
+// stale; fee rates are cached and Esplora reads fail over between
+// the two public explorers with backoff.
 //
 // Concurrency (audit M1): the reservation is the serialization
 // point. After reserving, send() re-validates against state that
@@ -45,8 +59,10 @@
 //   ESPLORA_API_URL    default https://mempool.space/api
 //   ESPLORA_SECONDARY_API_URL  default https://blockstream.info/api —
 //                      the independent explorer for the M2 cross-check
-//   BTC_MIN_WITHDRAWAL_SATS (10000), BTC_MAX_TX_SATS (2000000),
-//   BTC_MAX_DAILY_SATS (5000000)
+//                      AND the Esplora failover peer
+//   Withdrawal minimums/caps: platform_settings columns (migration
+//   20261250) — BTC_MIN_WITHDRAWAL_SATS (32000), BTC_MAX_TX_SATS
+//   (2000000), BTC_MAX_DAILY_SATS (5000000) env vars are the fallback
 //   BTC_DEPOSIT_MEDIUM_SATS (500000), BTC_DEPOSIT_LARGE_SATS (2000000)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -60,22 +76,32 @@ import {
   buildBatchWithdrawalTx,
   buildConsolidationTx,
   buildWithdrawalTx,
+  checkWithdrawalGuard,
   classifyBroadcastOutcome,
+  computePoolReconciliation,
+  createFeeRateCache,
   crossCheckDeposit,
   custodyStatus,
   depositNeedsCrossCheck,
   deriveAddress,
   deriveScript,
+  esploraBackoffMs,
+  esploraShouldFailover,
   estimateVsize,
+  FEE_RATE_CACHE_TTL_MS,
+  feeRateFromBlockstreamEstimates,
+  feeRateFromMempoolRecommended,
   filterUncommittedUtxos,
   planConsolidation,
   planUtxoScan,
+  poolTotalSats,
   receiveStatus,
   requiredConfirmationsFor,
   selectCoins,
   selectCoinsMulti,
   shouldFormBatch,
   spentOutpointsFromTx,
+  utxoSetStale,
   validateMainnetAddress,
   type BroadcastClassification,
   type ConsolidationPlan,
@@ -85,6 +111,10 @@ import {
   type Utxo,
 } from "../_shared/btc-core.ts";
 import { dispatchPaymentLinkPaid } from "../_shared/developer-webhooks.ts";
+import {
+  lightningProviderConfigured,
+  providerGetBalance,
+} from "../_shared/lightning-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -157,11 +187,89 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-async function esplora(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(`${ESPLORA}${path}`, {
+async function esploraOnce(base: string, path: string, init?: RequestInit): Promise<Response> {
+  return fetch(`${base}${path}`, {
     ...init,
     signal: AbortSignal.timeout(20_000),
   });
+}
+
+/**
+ * Esplora transport with failover + backoff (liquidity research
+ * step 1). Reads alternate between the primary explorer and the
+ * independent secondary (mempool.space ⇄ blockstream.info by
+ * default) with exponential backoff whenever an answer is a
+ * throttle (429), a server error, or a network failure — the
+ * decision is the pure esploraShouldFailover policy in btc-core.
+ * The LAST response is returned even when it is an error status, so
+ * callers keep their own `!res.ok` handling and crafted refusals.
+ *
+ * Writes — the /tx broadcast POST — deliberately stay single-shot
+ * on the primary: classifyBroadcastOutcome is built on ONE POST
+ * observation plus independent lookups (which DO fail over), and a
+ * blind retry could misread a landed broadcast as a failure.
+ */
+async function esplora(path: string, init?: RequestInit): Promise<Response> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method !== "GET") {
+    return esploraOnce(ESPLORA, path, init);
+  }
+  const bases = [ESPLORA, ESPLORA_SECONDARY];
+  let lastResponse: Response | null = null;
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await sleep(esploraBackoffMs(attempt));
+    try {
+      const res = await esploraOnce(bases[attempt % 2], path, init);
+      if (!esploraShouldFailover(res.status)) return res;
+      lastResponse = res;
+      lastError = null;
+    } catch (e) {
+      lastError = e;
+      lastResponse = null;
+    }
+  }
+  if (lastResponse) return lastResponse;
+  throw lastError instanceof Error ? lastError : new Error("esplora unreachable");
+}
+
+// ── Fee rate (cached, two sources — liquidity research step 1) ──────────
+//
+// One rate per FEE_RATE_CACHE_TTL_MS window, shared by every caller
+// (estimate, queue, send, batch, consolidation) instead of a network
+// fetch per request. Source order: mempool.space's
+// /v1/fees/recommended (the halfHourFee this path has always used),
+// then Blockstream's /fee-estimates at the equivalent target. Null
+// when neither source answers — each caller keeps its own existing
+// failure behaviour (502 crafted refusal / batch skip).
+const feeRateCache = createFeeRateCache(FEE_RATE_CACHE_TTL_MS);
+
+async function fetchFeeRateSatVb(): Promise<number | null> {
+  const cached = feeRateCache.get(Date.now());
+  if (cached !== null) return cached;
+  try {
+    const res = await esplora("/v1/fees/recommended");
+    if (res.ok) {
+      const rate = feeRateFromMempoolRecommended(await res.json());
+      if (rate !== null) {
+        feeRateCache.set(rate, Date.now());
+        return rate;
+      }
+    }
+  } catch { /* fall through to the second source */ }
+  try {
+    const res = await fetch(`${ESPLORA_SECONDARY}/fee-estimates`, {
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (res.ok) {
+      const rate = feeRateFromBlockstreamEstimates(await res.json());
+      if (rate !== null) {
+        feeRateCache.set(rate, Date.now());
+        return rate;
+      }
+    }
+  } catch { /* no source answered */ }
+  return null;
 }
 
 /**
@@ -243,6 +351,16 @@ serve(async (req) => {
         return json(401, { error: "Service role required" });
       }
       return await runBatch(admin);
+    }
+
+    // ── reconcile_pools: scheduler-only (liquidity research step 0) ────
+    if (action === "reconcile_pools") {
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
+      if (!serviceKey || !timingSafeEqual(token, serviceKey)) {
+        return json(401, { error: "Service role required" });
+      }
+      return await reconcilePools(admin);
     }
 
     // ── Everything else needs a real user ──────────────────────────────────
@@ -332,7 +450,7 @@ async function receive(supabase: any, userId: string) {
 async function checkDeposits(supabase: any) {
   const { data: assignments, error } = await supabase
     .from("btc_address_assignments")
-    .select("user_id, address")
+    .select("user_id, address, derivation_index")
     .order("created_at", { ascending: true })
     .limit(MAX_SCAN_ADDRESSES);
   if (error) throw error;
@@ -402,7 +520,17 @@ async function checkDeposits(supabase: any) {
             // Isolated: a conversion failure never breaks the scan —
             // the BTC stays a normal custodial credit and the sell
             // function's `check` action retries the conversion.
-            await trySettleSellIntents(admin, assignment.user_id, tx.txid, voutIndex);
+            await trySettleSellIntents(supabase, assignment.user_id, tx.txid, voutIndex);
+            // Incremental pool-UTXO insert (research step 1): the
+            // spend path sees this UTXO without a rescan.
+            await notePoolUtxo(supabase, {
+              txid: tx.txid,
+              vout: voutIndex,
+              value: vout.value,
+              chain: 0,
+              index: Number(assignment.derivation_index),
+              address: assignment.address,
+            });
           }
         }
       }
@@ -433,6 +561,90 @@ async function checkDeposits(supabase: any) {
     credited,
     errors,
     link_attempts: linkAttempts,
+  });
+}
+
+// ── reconcile_pools (liquidity research step 0; migration 20261250) ─────
+//
+// The daily ledger-vs-pool reconciliation: ledger buckets from
+// btc_ledger_buckets() (user liabilities + operator fee income),
+// pool reality from the persisted UTXO set and the Lightning
+// provider's account balance. The verdict is RECORDED in
+// btc_reconciliation_runs — a report for the operator, never a
+// silent fix-up: nothing here moves money or edits a balance.
+// 'under_backed' (pools < ledger) is logged as CRITICAL: it means
+// the ledger promises sats the pools do not hold.
+
+async function reconcilePools(supabase: any) {
+  const { data: bucketRows, error: bucketErr } = await supabase.rpc("btc_ledger_buckets");
+  if (bucketErr) throw bucketErr;
+  const buckets = Array.isArray(bucketRows) ? bucketRows[0] : bucketRows;
+  const userLiabilities = Number(buckets?.user_liabilities_sats ?? 0);
+  const feeIncome = Number(buckets?.fee_income_sats ?? 0);
+
+  const notes: string[] = [];
+  let poolOnchain: number | null = null;
+  const r = receiveStatus(Deno.env.get("BTC_XPUB"));
+  if (r.configured) {
+    try {
+      poolOnchain = poolTotalSats(await gatherUtxos(supabase, r.accountPub));
+    } catch (e) {
+      notes.push(`on-chain pool read failed: ${thrownMessage(e, "unknown")}`);
+    }
+  } else {
+    notes.push("on-chain pool not readable: receiving not configured");
+  }
+
+  let poolLightning: number | null = null;
+  if (lightningProviderConfigured()) {
+    try {
+      poolLightning = await providerGetBalance();
+    } catch (e) {
+      notes.push(`lightning pool read failed: ${thrownMessage(e, "unknown")}`);
+    }
+  } else {
+    notes.push("lightning pool not readable: provider not configured");
+  }
+
+  const rec = computePoolReconciliation({
+    userLiabilitiesSats: userLiabilities,
+    feeIncomeSats: feeIncome,
+    poolOnchainSats: poolOnchain,
+    poolLightningSats: poolLightning,
+  });
+
+  const { data: row, error: insErr } = await supabase
+    .from("btc_reconciliation_runs")
+    .insert({
+      user_liabilities_sats: userLiabilities,
+      fee_income_sats: feeIncome,
+      pool_onchain_sats: poolOnchain,
+      pool_lightning_sats: poolLightning,
+      float_sats: rec.floatSats,
+      status: rec.status,
+      detail: { notes },
+    })
+    .select("id, created_at")
+    .single();
+  if (insErr) throw insErr;
+
+  if (rec.status === "under_backed") {
+    console.error(
+      "CRITICAL: BTC pools under-back the merchant ledger — see btc_reconciliation_runs",
+      row.id,
+      rec,
+    );
+  }
+
+  return json(200, {
+    reconciliation_id: row.id,
+    created_at: row.created_at,
+    user_liabilities_sats: userLiabilities,
+    fee_income_sats: feeIncome,
+    pool_onchain_sats: poolOnchain,
+    pool_lightning_sats: poolLightning,
+    float_sats: rec.floatSats,
+    status: rec.status,
   });
 }
 
@@ -542,7 +754,19 @@ async function scanLinkAttempts(
           console.error("link attempt deposit record failed:", rpcErr.message);
           continue;
         }
-        if (result === "credited") credited++;
+        if (result === "credited") {
+          credited++;
+          // Incremental pool-UTXO insert (research step 1), as for
+          // wallet deposits: escrowed link funds are pool funds too.
+          await notePoolUtxo(supabase, {
+            txid: tx.txid,
+            vout: voutIndex,
+            value: vout.value,
+            chain: 0,
+            index: Number(attempt.derivation_index),
+            address,
+          });
+        }
       }
     }
 
@@ -669,6 +893,62 @@ async function fetchAddressTxs(address: string): Promise<any[]> {
  * it from the built transaction), which is why this is labelled an
  * estimate end-to-end.
  */
+// ── Withdrawal policy (liquidity research step 0; migration 20261250) ────
+//
+// Minimums, the per-transaction cap and both daily caps live on the
+// platform_settings singleton so the operator can tune them without a
+// redeploy; the previous env vars remain the fallback when a settings
+// value is absent, and the compiled defaults are the last resort.
+// Minimums bind REGULAR users only — the operator (admin/super_admin)
+// keeps small proof sends available while the feature is gated, which
+// is what lets the rails be proven with real sats before Send is
+// restored for everyone.
+
+interface WithdrawalLimits {
+  minOnchainSats: number;
+  maxTxSats: number;
+  maxDailySats: number;
+  maxPlatformDailySats: number;
+}
+
+async function withdrawalLimits(supabase: any): Promise<WithdrawalLimits> {
+  const { data: settings } = await supabase
+    .from("platform_settings")
+    .select(
+      "btc_min_withdrawal_onchain_sats, btc_max_tx_sats, btc_max_daily_sats, btc_max_platform_daily_sats",
+    )
+    .limit(1)
+    .maybeSingle();
+  return {
+    minOnchainSats: Number(
+      settings?.btc_min_withdrawal_onchain_sats ?? envInt("BTC_MIN_WITHDRAWAL_SATS", 32_000),
+    ),
+    maxTxSats: Number(settings?.btc_max_tx_sats ?? envInt("BTC_MAX_TX_SATS", 2_000_000)),
+    maxDailySats: Number(settings?.btc_max_daily_sats ?? envInt("BTC_MAX_DAILY_SATS", 5_000_000)),
+    maxPlatformDailySats: Number(settings?.btc_max_platform_daily_sats ?? 20_000_000),
+  };
+}
+
+async function isOperator(supabase: any, userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["admin", "super_admin"])
+    .limit(1);
+  return (data ?? []).length > 0;
+}
+
+/** Sats committed by ALL users' withdrawals in the window — the hot-wallet velocity leg of the guard. */
+async function sumRecentPlatformWithdrawalSats(supabase: any, sinceIso: string): Promise<number> {
+  const { data } = await supabase
+    .from("btc_withdrawals")
+    .select("amount_sats")
+    .in("status", ["reserved", "broadcast", "confirmed", "queued", "batched"])
+    .gte("created_at", sinceIso);
+  return (data ?? []).reduce((sum: number, r: any) => sum + Number(r.amount_sats), 0);
+}
+
 async function estimateSend(supabase: any, userId: string, body: any) {
   void userId; // identity already verified by the router; the estimate is pool-level
   const c = custody();
@@ -691,10 +971,7 @@ async function estimateSend(supabase: any, userId: string, body: any) {
     return json(400, { error: "Invalid mainnet Bitcoin address" });
   }
 
-  const feeRes = await esplora("/v1/fees/recommended");
-  if (!feeRes.ok) return json(502, { error: "Fee estimation unavailable" });
-  const fees = await feeRes.json();
-  const feeRate = Math.max(1, Math.ceil(Number(fees.halfHourFee) || 0));
+  const feeRate = await fetchFeeRateSatVb();
   if (!feeRate) return json(502, { error: "Fee estimation unavailable" });
 
   // P4: the same response carries the batch policy so the send
@@ -806,13 +1083,10 @@ async function consolidate(supabase: any) {
   }
 
   // Fee window: the live network rate must be at/under the cap.
-  const feeRes = await esplora("/v1/fees/recommended");
-  if (!feeRes.ok) {
-    return await skip("failed", "Fee estimation unavailable — esplora did not answer");
+  const feeRate = await fetchFeeRateSatVb();
+  if (!feeRate) {
+    return await skip("failed", "Fee estimation unavailable — no explorer answered");
   }
-  const fees = await feeRes.json();
-  const feeRate = Math.max(1, Math.ceil(Number(fees.halfHourFee) || 0));
-  if (!feeRate) return await skip("failed", "Fee estimation unavailable — no halfHourFee");
 
   const r = receiveStatus(Deno.env.get("BTC_XPUB"));
   if (!r.configured) {
@@ -916,6 +1190,7 @@ async function consolidate(supabase: any) {
     return json(200, { consolidated: false, status: "failed", run_id: runId });
   }
 
+  await markPoolUtxosSpent(supabase, plan.inputs);
   const broadcast = await broadcastTx(built.hex, built.txid);
   // Record the txid whatever the outcome (reconciliation + input
   // exclusion), mirroring recordWithdrawalTxid.
@@ -997,11 +1272,14 @@ async function queueSend(supabase: any, userId: string, body: any) {
   } catch {
     return json(400, { error: "Invalid mainnet Bitcoin address" });
   }
+  const limits = await withdrawalLimits(supabase);
+  const operator = await isOperator(supabase, userId);
+
   // A batch output below the dust limit can never be constructed;
   // refuse here, at request time, not at formation.
   if (amountSats < 546) {
     return json(400, {
-      error: "That amount is below the Bitcoin network's dust limit — it could never be sent. Please queue at least 10,000 sats.",
+      error: `That amount is below the Bitcoin network's dust limit — it could never be sent. Please queue at least ${limits.minOnchainSats} sats.`,
     });
   }
 
@@ -1032,11 +1310,10 @@ async function queueSend(supabase: any, userId: string, body: any) {
     });
   }
 
-  const minSats = envInt("BTC_MIN_WITHDRAWAL_SATS", 10_000);
-  const maxTxSats = envInt("BTC_MAX_TX_SATS", 2_000_000);
-  const maxDailySats = envInt("BTC_MAX_DAILY_SATS", 5_000_000);
-  if (amountSats < minSats) {
-    return json(400, { error: `Minimum withdrawal is ${minSats} sats` });
+  const maxTxSats = limits.maxTxSats;
+  const maxDailySats = limits.maxDailySats;
+  if (!operator && amountSats < limits.minOnchainSats) {
+    return json(400, { error: `Minimum withdrawal is ${limits.minOnchainSats} sats` });
   }
   if (amountSats > maxTxSats) {
     return json(400, { error: `Maximum per-transaction withdrawal is ${maxTxSats} sats` });
@@ -1049,13 +1326,37 @@ async function queueSend(supabase: any, userId: string, body: any) {
 
   // The solo estimate the reservation is taken at — the same rate and
   // selection send() would use right now (P3's figure).
-  const feeRes = await esplora("/v1/fees/recommended");
-  if (!feeRes.ok) return json(502, { error: "Fee estimation unavailable" });
-  const fees = await feeRes.json();
-  const feeRate = Math.max(1, Math.ceil(Number(fees.halfHourFee) || 0));
+  const feeRate = await fetchFeeRateSatVb();
   if (!feeRate) return json(502, { error: "Fee estimation unavailable" });
 
   const utxos = await gatherUtxos(supabase, accountPub);
+
+  // Pool + platform-velocity guard (btc-core checkWithdrawalGuard):
+  // never queue more than the pool actually holds, and never let the
+  // platform's committed sends outrun the hot-wallet daily ceiling.
+  // The ledger leg stays atomic inside btc_reserve_withdrawal.
+  const platformUsed = await sumRecentPlatformWithdrawalSats(supabase, dayAgo);
+  const queueGuard = checkWithdrawalGuard({
+    amountSats,
+    isOperator: operator,
+    minSats: limits.minOnchainSats,
+    maxTxSats,
+    userDailyUsedSats: sentToday,
+    maxDailySats,
+    platformDailyUsedSats: platformUsed,
+    maxPlatformDailySats: limits.maxPlatformDailySats,
+    poolSats: poolTotalSats(utxos),
+  });
+  if (!queueGuard.allowed && queueGuard.refusal === "above_platform_daily_cap") {
+    return json(400, {
+      error: "The platform's daily Bitcoin withdrawal limit is reached — please try again tomorrow",
+    });
+  }
+  if (!queueGuard.allowed && queueGuard.refusal === "above_pool_balance") {
+    return json(409, {
+      error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
+    });
+  }
   const changeScript = deriveScript(accountPub, 1, 0);
   const selection = selectCoins(utxos, amountSats, feeRate, recipient.script, changeScript);
   if (!selection) {
@@ -1207,16 +1508,9 @@ async function runBatch(supabase: any) {
   const oldestAgeHours =
     (Date.now() - new Date(queued[0].created_at).getTime()) / 3600_000;
 
-  const feeRes = await esplora("/v1/fees/recommended");
-  if (!feeRes.ok) {
-    return await skip("failed", "Fee estimation unavailable — esplora did not answer", {
-      member_count: queued.length,
-    });
-  }
-  const fees = await feeRes.json();
-  const feeRate = Math.max(1, Math.ceil(Number(fees.halfHourFee) || 0));
+  const feeRate = await fetchFeeRateSatVb();
   if (!feeRate) {
-    return await skip("failed", "Fee estimation unavailable — no halfHourFee", {
+    return await skip("failed", "Fee estimation unavailable — no explorer answered", {
       member_count: queued.length,
     });
   }
@@ -1366,6 +1660,7 @@ async function runBatch(supabase: any) {
     );
   }
 
+  await markPoolUtxosSpent(supabase, selection.selected);
   const broadcast = await broadcastTx(built.hex, built.txid);
   if (broadcast.outcome === "unknown") {
     // Reserves stay held; the batch is ops-visible for reconciliation
@@ -1520,12 +1815,15 @@ async function send(supabase: any, userId: string, body: any) {
     return json(409, { error: "This withdrawal is already in progress" });
   }
 
-  // Limits (config constants with env overrides).
-  const minSats = envInt("BTC_MIN_WITHDRAWAL_SATS", 10_000);
-  const maxTxSats = envInt("BTC_MAX_TX_SATS", 2_000_000);
-  const maxDailySats = envInt("BTC_MAX_DAILY_SATS", 5_000_000);
-  if (amountSats < minSats) {
-    return json(400, { error: `Minimum withdrawal is ${minSats} sats` });
+  // Limits: operator-configurable on platform_settings (migration
+  // 20261250), env fallback. The minimum binds regular users only —
+  // the operator keeps small proof sends.
+  const limits = await withdrawalLimits(supabase);
+  const operator = await isOperator(supabase, userId);
+  const maxTxSats = limits.maxTxSats;
+  const maxDailySats = limits.maxDailySats;
+  if (!operator && amountSats < limits.minOnchainSats) {
+    return json(400, { error: `Minimum withdrawal is ${limits.minOnchainSats} sats` });
   }
   if (amountSats > maxTxSats) {
     return json(400, { error: `Maximum per-transaction withdrawal is ${maxTxSats} sats` });
@@ -1539,15 +1837,42 @@ async function send(supabase: any, userId: string, body: any) {
   // (Keys and the seed⇄xpub interlock were verified by the custody gate
   // at the top of this function — accountPriv/accountPub come from it.)
 
-  // Fee rate from the network (hard-fail if unavailable — never guess fees).
-  const feeRes = await esplora("/v1/fees/recommended");
-  if (!feeRes.ok) return json(502, { error: "Fee estimation unavailable" });
-  const fees = await feeRes.json();
-  const feeRate = Math.max(1, Math.ceil(Number(fees.halfHourFee) || 0));
+  // Fee rate from the network (cached, two sources — hard-fail if
+  // unavailable; never guess fees).
+  const feeRate = await fetchFeeRateSatVb();
   if (!feeRate) return json(502, { error: "Fee estimation unavailable" });
 
   // Gather confirmed UTXOs across the platform wallet.
   const utxos = await gatherUtxos(supabase, accountPub);
+
+  // Pool + platform-velocity guard (btc-core checkWithdrawalGuard),
+  // evaluated BEFORE any reservation: the amount may never exceed
+  // the pool the wallet actually holds — even when the user's ledger
+  // balance would cover it — and committed sends may never outrun
+  // the platform's daily hot-wallet ceiling. The ledger leg and the
+  // per-user daily leg stay atomic inside btc_reserve_withdrawal.
+  const platformUsed = await sumRecentPlatformWithdrawalSats(supabase, dayAgo);
+  const sendGuard = checkWithdrawalGuard({
+    amountSats,
+    isOperator: operator,
+    minSats: limits.minOnchainSats,
+    maxTxSats,
+    userDailyUsedSats: sentToday,
+    maxDailySats,
+    platformDailyUsedSats: platformUsed,
+    maxPlatformDailySats: limits.maxPlatformDailySats,
+    poolSats: poolTotalSats(utxos),
+  });
+  if (!sendGuard.allowed && sendGuard.refusal === "above_platform_daily_cap") {
+    return json(400, {
+      error: "The platform's daily Bitcoin withdrawal limit is reached — please try again tomorrow",
+    });
+  }
+  if (!sendGuard.allowed && sendGuard.refusal === "above_pool_balance") {
+    return json(409, {
+      error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
+    });
+  }
   // Coin selection needs a change script for fee sizing only — every
   // BIP84 change script has identical length, so index 0 is a valid
   // stand-in. The real change index is allocated after the reservation,
@@ -1682,6 +2007,7 @@ async function send(supabase: any, userId: string, body: any) {
   // 'reserved' for a human refund decision (runbook §8). Automatic
   // refunds happen only before this point, where non-broadcast is
   // proven by construction (reserve/build failures above).
+  await markPoolUtxosSpent(supabase, reselection.selected);
   const broadcast = await broadcastTx(built.hex, built.txid);
   if (broadcast.outcome === "unknown") {
     // The signed transaction MAY be on the network despite the ambiguous
@@ -1860,7 +2186,128 @@ async function recordWithdrawalTxid(supabase: any, withdrawalId: string, txid: s
   }
 }
 
+/**
+ * The pool's confirmed UTXO set (liquidity research step 1): read
+ * from the persisted set in Postgres (btc_pool_utxos) while it is
+ * fresh — deposit credits and broadcast spend-marks keep it current
+ * incrementally — and fall back to a full explorer rescan only when
+ * it is stale (btc-core utxoSetStale policy). The persisted set can
+ * briefly include inputs committed to an in-flight withdrawal;
+ * committedOutpoints + the post-reservation reselection remain the
+ * precise net, exactly as they were when every gather was a rescan,
+ * and the TTL rescan reconciles any drift.
+ */
 async function gatherUtxos(supabase: any, accountPub: any): Promise<Utxo[]> {
+  const { data: state } = await supabase
+    .from("btc_pool_sync_state")
+    .select("last_utxo_refresh_at")
+    .eq("id", true)
+    .maybeSingle();
+  const lastMs = state?.last_utxo_refresh_at
+    ? Date.parse(state.last_utxo_refresh_at)
+    : null;
+  if (!utxoSetStale(lastMs, Date.now())) {
+    const { data: rows } = await supabase
+      .from("btc_pool_utxos")
+      .select("txid, vout, value_sats, chain, derivation_index")
+      .eq("status", "confirmed");
+    return (rows ?? []).map((r: any) => ({
+      txid: r.txid as string,
+      vout: Number(r.vout),
+      value: Number(r.value_sats),
+      chain: Number(r.chain) as 0 | 1,
+      index: Number(r.derivation_index),
+    }));
+  }
+  return refreshPoolUtxos(supabase, accountPub);
+}
+
+/** Full rescan + persist: upsert what the scan found, retire what it no longer sees, stamp the sync state. Best-effort — the scan result is authoritative for the caller either way. */
+async function refreshPoolUtxos(supabase: any, accountPub: any): Promise<Utxo[]> {
+  const utxos = await scanPoolUtxos(supabase, accountPub);
+  const nowIso = new Date().toISOString();
+  try {
+    if (utxos.length > 0) {
+      const rows = utxos.map((u) => ({
+        txid: u.txid,
+        vout: u.vout,
+        value_sats: u.value,
+        chain: u.chain,
+        derivation_index: u.index,
+        address: deriveAddress(accountPub, u.chain, u.index),
+        status: "confirmed",
+        updated_at: nowIso,
+      }));
+      const { error } = await supabase
+        .from("btc_pool_utxos")
+        .upsert(rows, { onConflict: "txid,vout" });
+      if (error) console.error("btc-onchain: pool UTXO persist failed:", error);
+    }
+    const found = new Set(utxos.map((u) => `${u.txid}:${u.vout}`));
+    const { data: existing } = await supabase
+      .from("btc_pool_utxos")
+      .select("txid, vout")
+      .eq("status", "confirmed");
+    for (const r of existing ?? []) {
+      if (!found.has(`${r.txid}:${r.vout}`)) {
+        await supabase
+          .from("btc_pool_utxos")
+          .update({ status: "spent", updated_at: nowIso })
+          .eq("txid", r.txid)
+          .eq("vout", r.vout);
+      }
+    }
+    await supabase.from("btc_pool_sync_state").upsert(
+      {
+        id: true,
+        last_utxo_refresh_at: nowIso,
+        last_refresh_reason: "full_scan",
+        updated_at: nowIso,
+      },
+      { onConflict: "id" },
+    );
+  } catch (e) {
+    console.error("btc-onchain: pool UTXO persist failed:", e);
+  }
+  return utxos;
+}
+
+/** Incremental insert: a deposit UTXO the moment it is credited. Best-effort. */
+async function notePoolUtxo(
+  supabase: any,
+  u: { txid: string; vout: number; value: number; chain: 0 | 1; index: number; address: string },
+): Promise<void> {
+  const { error } = await supabase.from("btc_pool_utxos").upsert(
+    {
+      txid: u.txid,
+      vout: u.vout,
+      value_sats: u.value,
+      chain: u.chain,
+      derivation_index: u.index,
+      address: u.address,
+      status: "confirmed",
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "txid,vout" },
+  );
+  if (error) console.error("btc-onchain: pool UTXO note failed:", error);
+}
+
+/** Incremental spend-mark: inputs of a transaction about to broadcast. Best-effort; the TTL rescan reconciles any miss. */
+async function markPoolUtxosSpent(supabase: any, inputs: Utxo[]): Promise<void> {
+  const nowIso = new Date().toISOString();
+  for (const u of inputs) {
+    const { error } = await supabase
+      .from("btc_pool_utxos")
+      .update({ status: "spent", updated_at: nowIso })
+      .eq("txid", u.txid)
+      .eq("vout", u.vout);
+    if (error) console.error("btc-onchain: pool UTXO spend-mark failed:", error);
+  }
+}
+
+/** The full explorer rescan (the pre-persistence gatherUtxos body). */
+async function scanPoolUtxos(supabase: any, accountPub: any): Promise<Utxo[]> {
   const { data: maxRow } = await supabase
     .from("btc_address_assignments")
     .select("derivation_index")

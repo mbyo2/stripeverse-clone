@@ -1335,3 +1335,238 @@ export function crossCheckDeposit(
   }
   return { ok: true };
 }
+
+// ── Withdrawal safety guard (liquidity research step 0, 2026-11-04) ──────
+//
+// The platform must never promise sats it does not hold. This pure
+// policy is the single statement of the pre-reservation guard both
+// custodial send rails evaluate BEFORE any balance is reserved:
+//
+//   amount ≤ min(ledger, pool) — the ledger leg is enforced atomically
+//   inside the reserve RPCs; the POOL leg lives here: an amount above
+//   the actual pool balance on the rail (confirmed UTXOs on-chain, the
+//   provider account balance on Lightning) is refused even when the
+//   user's ledger balance would cover it.
+//
+//   minimums bind REGULAR users only — the operator keeps the ability
+//   to run small proof sends while the feature is gated (the custodial
+//   Send UI is admin-only until sends are proven settling).
+//
+//   per-transaction + per-user-daily + platform-daily (hot-wallet
+//   velocity) caps bound what any bug or compromised path can drain.
+//
+// Call sites wire the inputs they own: where a leg is enforced
+// atomically elsewhere (the reserve RPCs re-check the per-user daily
+// cap and the ledger under a lock), the caller passes values that
+// keep that leg vacuous here and the RPC remains the authority — the
+// guard's decision matrix is nevertheless the tested policy for every
+// leg, so no call site can quietly re-invent a weaker rule.
+
+export type WithdrawalGuardRefusal =
+  | "below_minimum"
+  | "above_max_tx"
+  | "above_user_daily_cap"
+  | "above_platform_daily_cap"
+  | "above_pool_balance";
+
+export interface WithdrawalGuardInput {
+  amountSats: number;
+  /** Operator (admin/super_admin) callers are exempt from the minimum. */
+  isOperator: boolean;
+  minSats: number;
+  maxTxSats: number;
+  userDailyUsedSats: number;
+  maxDailySats: number;
+  platformDailyUsedSats: number;
+  maxPlatformDailySats: number;
+  /**
+   * The actual spendable pool on this rail (confirmed UTXO total
+   * on-chain; provider account balance on Lightning), or null when
+   * the caller could not read it and handles that failure itself.
+   */
+  poolSats: number | null;
+}
+
+export type WithdrawalGuardDecision =
+  | { allowed: true }
+  | { allowed: false; refusal: WithdrawalGuardRefusal };
+
+export function checkWithdrawalGuard(
+  input: WithdrawalGuardInput,
+): WithdrawalGuardDecision {
+  const amount = input.amountSats;
+  if (!input.isOperator && amount < input.minSats) {
+    return { allowed: false, refusal: "below_minimum" };
+  }
+  if (amount > input.maxTxSats) {
+    return { allowed: false, refusal: "above_max_tx" };
+  }
+  if (input.userDailyUsedSats + amount > input.maxDailySats) {
+    return { allowed: false, refusal: "above_user_daily_cap" };
+  }
+  if (input.platformDailyUsedSats + amount > input.maxPlatformDailySats) {
+    return { allowed: false, refusal: "above_platform_daily_cap" };
+  }
+  if (input.poolSats !== null && amount > input.poolSats) {
+    return { allowed: false, refusal: "above_pool_balance" };
+  }
+  return { allowed: true };
+}
+
+// ── Fee-rate sources + cache (liquidity research step 1, 2026-11-04) ────
+//
+// Fee estimates used to be fetched from the network on EVERY request
+// (estimate, queue, send, batch, consolidation) — pure polling waste
+// against a rate-limited public API. The rate now comes through a
+// short-TTL cache, from mempool.space's /v1/fees/recommended first
+// and Blockstream's /fee-estimates as the second source (the two
+// payload shapes differ; both parsers are pure and unit-tested).
+
+export const FEE_RATE_CACHE_TTL_MS = 300_000; // 5 minutes
+
+export interface FeeRateCache {
+  get(nowMs: number): number | null;
+  set(rateSatVb: number, nowMs: number): void;
+}
+
+/** A one-entry fee-rate cache with an injected clock (pure). */
+export function createFeeRateCache(ttlMs: number): FeeRateCache {
+  let entry: { rate: number; at: number } | null = null;
+  return {
+    get(nowMs: number): number | null {
+      return entry !== null && nowMs - entry.at < ttlMs ? entry.rate : null;
+    },
+    set(rateSatVb: number, nowMs: number): void {
+      entry = { rate: rateSatVb, at: nowMs };
+    },
+  };
+}
+
+function finitePositiveRate(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return Math.ceil(n);
+}
+
+/**
+ * The send path's fee rate from a mempool.space /v1/fees/recommended
+ * payload: the half-hour rate, exactly as the send path has always
+ * read it. Null when the payload carries no usable rate.
+ */
+export function feeRateFromMempoolRecommended(payload: unknown): number | null {
+  if (!payload || typeof payload !== "object") return null;
+  return finitePositiveRate((payload as { halfHourFee?: unknown }).halfHourFee);
+}
+
+/**
+ * The equivalent rate from a Blockstream Esplora /fee-estimates
+ * payload (a map of confirmation-target blocks → sat/vB). The
+ * half-hour target is 3 blocks; fall back to 6, then 1, then the
+ * fastest quoted target — never to a slow-target rate, which would
+ * underprice the send.
+ */
+export function feeRateFromBlockstreamEstimates(payload: unknown): number | null {
+  if (!payload || typeof payload !== "object") return null;
+  const rec = payload as Record<string, unknown>;
+  for (const target of ["3", "6", "1"]) {
+    const rate = finitePositiveRate(rec[target]);
+    if (rate !== null) return rate;
+  }
+  const targets = Object.keys(rec)
+    .map((k) => Number(k))
+    .filter((k) => Number.isFinite(k) && k > 0)
+    .sort((a, b) => a - b);
+  for (const t of targets) {
+    const rate = finitePositiveRate(rec[String(t)]);
+    if (rate !== null) return rate;
+  }
+  return null;
+}
+
+// ── Esplora resilience policy (liquidity research step 1, 2026-11-04) ────
+//
+// Public Esplora endpoints throttle (HTTP 429) and occasionally 5xx.
+// Reads therefore fail over between the two public operators
+// (mempool.space ⇄ blockstream.info) with exponential backoff,
+// instead of failing the money path on the first throttle. Only
+// throttling / server-side / unreachable answers fail over: a 4xx
+// verdict (e.g. 404 unknown tx) is a real answer from that explorer
+// and is returned as-is (the caller's own re-checks handle lag).
+
+/** Whether an Esplora answer (HTTP status, or null for a network-level failure) should fail over / retry. */
+export function esploraShouldFailover(status: number | null): boolean {
+  return status === null || status === 429 || status >= 500;
+}
+
+/** Delay before retry attempt `attempt` (1-based): 300ms, 1s, 3s, then capped at 3s. */
+export function esploraBackoffMs(attempt: number): number {
+  const table = [0, 300, 1_000, 3_000];
+  const idx = Math.min(Math.max(Math.trunc(attempt), 0), table.length - 1);
+  return table[idx];
+}
+
+// ── Persisted pool UTXO set (liquidity research step 1, 2026-11-04) ──────
+//
+// Sends used to rescan every derived address against the public
+// explorer on every request. The pool's confirmed UTXO set is now
+// persisted in Postgres (btc_pool_utxos) and refreshed incrementally:
+// deposit credits upsert their UTXO the moment they land, broadcasts
+// mark their inputs spent, and a full rescan happens only when the
+// persisted set is older than this TTL — so the common send reads
+// Postgres, not the explorer.
+
+export const POOL_UTXO_TTL_MS = 600_000; // 10 minutes
+
+/** Whether the persisted UTXO set needs a full rescan before use. */
+export function utxoSetStale(
+  lastRefreshMs: number | null,
+  nowMs: number,
+  ttlMs: number = POOL_UTXO_TTL_MS,
+): boolean {
+  return lastRefreshMs === null || nowMs - lastRefreshMs >= ttlMs;
+}
+
+/** Total spendable sats in a UTXO list (the on-chain pool balance). */
+export function poolTotalSats(utxos: readonly Utxo[]): number {
+  return utxos.reduce((sum, u) => sum + u.value, 0);
+}
+
+// ── Pool reconciliation (liquidity research step 0, 2026-11-04) ──────────
+//
+// The ledger splits into three buckets — user liabilities (every
+// non-operator BTC balance), platform fee income (the operator's BTC
+// wallet, the codebase's fee account), and the derived FLOAT: what
+// the pools actually hold beyond both. Daily reconciliation compares
+// the ledger total against pool reality (confirmed UTXOs + the
+// Lightning provider balance) and LOGS the verdict — a report, never
+// a silent fix-up. float < 0 means the platform owes more sats than
+// it holds: withdrawals are promising money that does not exist.
+
+export interface PoolReconciliation {
+  totalLedgerSats: number;
+  /** Null when either pool could not be read this run. */
+  totalPoolSats: number | null;
+  /** pool − ledger; null whenever totalPoolSats is null. */
+  floatSats: number | null;
+  status: "ok" | "under_backed" | "partial";
+}
+
+export function computePoolReconciliation(input: {
+  userLiabilitiesSats: number;
+  feeIncomeSats: number;
+  poolOnchainSats: number | null;
+  poolLightningSats: number | null;
+}): PoolReconciliation {
+  const totalLedgerSats = input.userLiabilitiesSats + input.feeIncomeSats;
+  if (input.poolOnchainSats === null || input.poolLightningSats === null) {
+    return { totalLedgerSats, totalPoolSats: null, floatSats: null, status: "partial" };
+  }
+  const totalPoolSats = input.poolOnchainSats + input.poolLightningSats;
+  const floatSats = totalPoolSats - totalLedgerSats;
+  return {
+    totalLedgerSats,
+    totalPoolSats,
+    floatSats,
+    status: floatSats >= 0 ? "ok" : "under_backed",
+  };
+}

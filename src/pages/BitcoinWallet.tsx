@@ -673,7 +673,7 @@ function SendOnchain({
       </div>
       <p className="text-xs text-muted-foreground">
         A network fee is added on top, calculated from live network rates when you send.
-        Minimum withdrawal 10,000 sats.
+        Minimum withdrawal 32,000 sats.
       </p>
       {feeEstimate?.kind === "ok" && (
         <p className="text-xs text-muted-foreground">

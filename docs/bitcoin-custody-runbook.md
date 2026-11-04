@@ -52,6 +52,44 @@ Deposits/withdrawals move real BTC in/out, so wallet total and user totals move 
 2. Keep only the current float plus a few days of expected withdrawals in it. Do not let large amounts accumulate for convenience; move excess to separate cold storage as a documented decision outside this runbook.
 3. Check the wallet total against the invariant at least weekly (Section 8).
 
+### Withdrawal safety policy (2026-11-04 — liquidity research steps 0–1)
+
+Every custodial send, on both rails, is evaluated against the **withdrawal guard** (`checkWithdrawalGuard` in `_shared/btc-core.ts`) BEFORE any balance is reserved:
+
+- **Pool cap — `min(ledger, pool)`:** a send may never exceed the ACTUAL pool on its rail: the confirmed UTXO total of the Sparrow wallet on-chain, the Coinos account balance on Lightning. A user whose ledger balance exceeds the pool is refused ("Platform funds are not yet available…"), never partially promised. The ledger leg is enforced atomically inside the reserve RPCs; the pool leg is the guard's.
+- **Minimums (regular users):** on-chain **32,000 sats** (≈ $25 — batching economics), Lightning **1,000 sats**. **Operators (admin/super_admin) are exempt** — while Send is gated off for regular users, the operator path must stay able to run small real-sat proof sends; that exemption is deliberate, do not "fix" it.
+- **Caps:** per-transaction 2,000,000 sats; per-user daily 5,000,000 sats (enforced atomically in the reserve RPCs); **platform-wide daily 20,000,000 sats** (hot-wallet velocity ceiling across all users).
+- All five values are operator-tunable on the `platform_settings` singleton (`btc_min_withdrawal_onchain_sats`, `btc_min_withdrawal_lightning_sats`, `btc_max_tx_sats`, `btc_max_daily_sats`, `btc_max_platform_daily_sats`); the old env vars remain as fallback only.
+- **Batching:** queued (batch) sends remain the cheap path — the batch forms when the live fee rate is at/under `btc_fee_window_batch_max_sat_vb` (default 5 sat/vB) or the oldest queued withdrawal reaches `btc_batch_max_wait_hours` (default 6h); members share the batch's ACTUAL fee pro-rata, capped at each member's solo reserve, unused reserve refunded — a batch is always cheaper-or-equal than solo, never more. (Difference from the OpenNode benchmark in the research: their scheduled transfer is free; ours still charges the shared network fee. Policy choice, not a gap.)
+- **Manual approval above ~$100 equivalent** is NOT automated: for now the operator reviews any single send above that size by hand before it goes out (watch `btc_withdrawals` / Lightning payments), per the research's Coinos-shaped policy note.
+- **Chain-data robustness:** fee rates are cached for 5 minutes (mempool.space `/v1/fees/recommended`, then Blockstream `/fee-estimates`); the pool UTXO set is persisted in `btc_pool_utxos` and refreshed incrementally (deposit credits insert, broadcasts mark inputs spent, full rescan only when the set is >10 minutes stale); Esplora reads fail over mempool.space ⇄ blockstream.info with backoff on 429/5xx. The broadcast POST stays single-shot on the primary by design — its outcome classification depends on one observation, and the confirmation lookups do fail over.
+
+### Ledger buckets and daily reconciliation
+
+The BTC ledger reads in three buckets (RPC `btc_ledger_buckets()`, service-role only): **user liabilities** = Σ BTC balances of all non-operator users; **fee income** = the operator's (earliest admin's) BTC wallet balance — the platform's fee account; **float** is derived, never stored: `(on-chain pool + Lightning pool) − (liabilities + fee income)`.
+
+The cron job `btc-reconcile-pools` (daily 03:17 UTC) calls `btc-onchain` action `reconcile_pools`, which writes one row to `btc_reconciliation_runs`: status `ok` (pools ≥ ledger), `under_backed` (pools < ledger — **the ledger promises sats the pools do not hold; treat as an incident: stop raising limits, find the gap before anything else**), or `partial` (a pool could not be read — the row's `detail.notes` say which). Reconciliation is a REPORT: it never moves money or edits a balance. Run it on demand any time with a service-role POST `{"action":"reconcile_pools"}`.
+
+### Pool rebalancing (Sparrow ⇄ Coinos) — manual, operator-run
+
+The ledger is unified but the pools are not: sats received on-chain sit in the Sparrow wallet; Lightning payouts leave from the Coinos account. Nothing moves between them automatically — rebalancing is a deliberate operator action. Receipts are the float; rebalance on TRIGGER, not on schedule:
+
+**Triggers:** the reconciliation run shows one rail's float thin against expected payouts (e.g. Lightning float below a few days of expected Lightning withdrawals while on-chain float is ample), or a known large payout is coming on the other rail.
+
+**On-chain → Lightning (fund Coinos):**
+1. In Coinos, create a deposit: a Lightning invoice (if paying from another Lightning wallet) or the account's Bitcoin deposit address (for an on-chain transfer from the pool).
+2. Send from the Sparrow pool — via the platform's own admin send path (it is operator-exempt from the minimum) or directly from Sparrow — to that invoice/address.
+3. Wait for the credit; verify with Coinos `GET /me` (balance in sats).
+4. Trigger `reconcile_pools` and confirm the new split is recorded.
+
+**Lightning → on-chain (fund the Sparrow pool):**
+1. Get a fresh platform deposit address on chain 0 (the next unused derivation index) — e.g. the operator account's `receive` address in the app, or a Sparrow receive address on the same account.
+2. In Coinos, use the Bitcoin send (`POST /bitcoin/send`) to that address for the chosen amount. Expect a cross-rail fee (public sources conflict — 0.1% to 0.4%; confirm the figure in-account before sending).
+3. Wait for the platform's `check_deposits` to credit it (tiered confirmations apply); verify the UTXO appears in `btc_pool_utxos`.
+4. Trigger `reconcile_pools` and confirm.
+
+**Guardrails:** keep the Coinos balance small (days of payouts, not weeks — it is a third-party pooled account); two-person check for any rebalance above the per-transaction cap; NEVER rebalance to cover a single withdrawal that exceeds a user's ledger balance (the caps exist precisely to refuse those); log every rebalance — date, direction, amount, txid/payment hash, both pool balances before and after — in the ops notes next to the reconciliation row it produced.
+
 ### Key tables and functions
 | Item | Purpose |
 |---|---|
@@ -60,6 +98,9 @@ Deposits/withdrawals move real BTC in/out, so wallet total and user totals move 
 | `btc_withdrawals` | `status`: `reserved` → `broadcast` → `confirmed`/`failed`, plus `idempotency_key` |
 | `btc_quotes` | Buy/sell price quotes |
 | `btc_treasury` | Singleton `id = 1`, `float_sats` |
+| `btc_pool_utxos` + `btc_pool_sync_state` | The pool's persisted confirmed UTXO set + its refresh stamp (20261250) |
+| `btc_reconciliation_runs` | Daily ledger-buckets vs pool-reality verdicts (20261250) |
+| `platform_settings` | Singleton policy row — incl. the `btc_min_withdrawal_*` / `btc_max_*` withdrawal policy columns (20261250) |
 
 Deploy to project paymentgetway: `btc-onchain`, `btc-trade`, plus updated `lightning-service` and `btc-payment`.
 
@@ -244,6 +285,7 @@ The real project URL and service-role key live in the dashboard (**Project Setti
 
 ### Daily (5–10 minutes)
 1. **Invariant:** compare hot-wallet actual BTC (sats), `btc_treasury.float_sats`, and Σ `crypto_wallets` BTC balances. Wallet ≈ float + user balances, allowing only for in-flight items you can name.
+1b. **Reconciliation:** read today's `btc_reconciliation_runs` row (cron `btc-reconcile-pools`, 03:17 UTC). `ok` = pools cover the ledger. `under_backed` = incident — stop, find the gap (Section 1, "Ledger buckets"). `partial` = a pool could not be read; check `detail.notes` and re-run `reconcile_pools` by hand.
 2. **Stuck withdrawals:** check `btc_withdrawals` for `reserved` rows older than 1 hour (see below).
 3. **Deposits:** confirm new `btc_deposits` rows are moving `detected` → `credited`.
 4. **Logs:** scan `btc-onchain` and `btc-trade` logs for repeated errors.
@@ -251,7 +293,7 @@ The real project URL and service-role key live in the dashboard (**Project Setti
 
 ### Weekly
 1. Repeat the invariant check slowly and record the three numbers and the date. A written trail is how you spot slow drift.
-2. **Limits review:** re-read `BTC_MIN_WITHDRAWAL_SATS`, `BTC_MAX_TX_SATS`, `BTC_MAX_DAILY_SATS`. Confirm they still fit your risk appetite and hot-wallet size. A daily limit above the hot-wallet total is meaningless; a raise never lowered again is a future loss.
+2. **Limits review:** re-read the withdrawal policy on `platform_settings` (`btc_min_withdrawal_onchain_sats`, `btc_min_withdrawal_lightning_sats`, `btc_max_tx_sats`, `btc_max_daily_sats`, `btc_max_platform_daily_sats`). Confirm they still fit your risk appetite and hot-wallet size. A daily limit above the hot-wallet total is meaningless; a raise never lowered again is a future loss.
 3. **Float adequacy:** enough to serve normal buy demand without constant top-ups, but not so much that the hot wallet holds unnecessary value. Top up (Section 6) or move excess to cold storage as a deliberate, documented decision.
 4. **Access review:** re-check dashboard access to paymentgetway; confirm MFA is still on for everyone.
 5. **Scheduler:** confirm the `btc-check-deposits` job ran all week (Section 7).

@@ -56,6 +56,7 @@ import {
   LightningUpstreamError,
   lightningProviderConfigured,
   providerCreateInvoice,
+  providerGetBalance,
   providerGetInvoice,
   providerGetOutgoingPayment,
   providerPayInvoice,
@@ -83,9 +84,10 @@ const MAX_SATS = (() => {
 })();
 
 // Rolling-24h cap across a user's outbound Lightning sends, enforced
-// inside btc_reserve_lightning_send — the same env + default as the
-// on-chain withdrawal cap in btc-onchain, so both rails share one
-// daily ceiling policy.
+// inside btc_reserve_lightning_send. The live value comes from
+// platform_settings (btc_max_daily_sats, migration 20261250) so both
+// rails share one operator-tunable daily ceiling; this env + default
+// is the fallback when no settings value is present.
 const MAX_DAILY_SATS = (() => {
   const raw = Deno.env.get("BTC_MAX_DAILY_SATS");
   const n = raw ? Number.parseInt(raw, 10) : NaN;
@@ -160,6 +162,72 @@ const LNURL_WITHDRAW_REFUSED =
   "That service didn't accept the withdrawal. Nothing was taken from anywhere — try again or contact the service.";
 const LNURL_WITHDRAW_SUBMITTED_MESSAGE =
   "Your withdrawal request was sent. When the service pays, the Bitcoin arrives in your wallet automatically.";
+
+// ── Send guard (liquidity research step 0; migration 20261250) ──────────
+//
+// Before ANY outbound Lightning reservation: the amount may never
+// exceed the platform's actual Lightning pool — the pooled provider
+// account balance (min(ledger, pool): the ledger leg stays atomic
+// inside btc_reserve_lightning_send) — and regular users are bound
+// by the Lightning minimum while the operator keeps small proof
+// sends. Policy values live on platform_settings with the previous
+// constants as fallback. A pool balance that cannot be read fails
+// CLOSED with the existing unavailable refusal (the same pattern as
+// this function's freeze guard): an unverifiable pool authorises
+// nothing.
+
+async function isOperatorUser(admin: any, userId: string): Promise<boolean> {
+  const { data } = await admin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["admin", "super_admin"])
+    .limit(1);
+  return (data ?? []).length > 0;
+}
+
+async function lightningSendPolicy(
+  admin: any,
+): Promise<{ minSats: number; maxDailySats: number }> {
+  const { data: settings } = await admin
+    .from("platform_settings")
+    .select("btc_min_withdrawal_lightning_sats, btc_max_daily_sats")
+    .limit(1)
+    .maybeSingle();
+  return {
+    minSats: Number(settings?.btc_min_withdrawal_lightning_sats ?? 1_000),
+    maxDailySats: Number(settings?.btc_max_daily_sats ?? MAX_DAILY_SATS),
+  };
+}
+
+/** Returns a refusal Response when the send guard blocks, else null. */
+async function lightningSendGuard(
+  admin: any,
+  userId: string,
+  sats: number,
+): Promise<Response | null> {
+  const policy = await lightningSendPolicy(admin);
+  const operator = await isOperatorUser(admin, userId);
+  if (!operator && sats < policy.minSats) {
+    return json(400, {
+      error: `Minimum Lightning payment is ${policy.minSats} sats`,
+    });
+  }
+  let poolBalance: number;
+  try {
+    poolBalance = await providerGetBalance();
+  } catch (e) {
+    console.error("lightning-service: pool balance read failed closed:", e);
+    return json(503, { error: LIGHTNING_PAYMENTS_UNAVAILABLE });
+  }
+  if (sats > poolBalance) {
+    return json(400, {
+      error:
+        "That payment is larger than the platform's current Lightning balance. Try a smaller amount, or pay on-chain instead.",
+    });
+  }
+  return null;
+}
 
 // Returns the designed 503 refusal while the provider is not
 // configured, else null.
@@ -476,6 +544,13 @@ serve(async (req) => {
       if ("refusal" in decoded) return decoded.refusal;
       const { details, sats } = decoded;
 
+      // Send guard (research step 0): minimum for regular users and
+      // the pool cap against the provider account's actual balance —
+      // still before anything is reserved.
+      const guardRefusal = await lightningSendGuard(admin, user.id, sats);
+      if (guardRefusal) return guardRefusal;
+      const sendPolicy = await lightningSendPolicy(admin);
+
       // Reserve the amount and record the send atomically
       // (btc_reserve_lightning_send): the row is the audit +
       // idempotency anchor, the hold drops available_sats only.
@@ -490,7 +565,7 @@ serve(async (req) => {
           p_payment_hash: details.paymentHash,
           p_amount_sats: sats,
           p_idempotency_key: idempotency_key.trim(),
-          p_max_daily_sats: MAX_DAILY_SATS,
+          p_max_daily_sats: sendPolicy.maxDailySats,
         },
       );
       if (reserveErr) {
@@ -737,6 +812,12 @@ serve(async (req) => {
         return json(400, { error: LNURL_AMOUNT_MISMATCH });
       }
 
+      // Send guard (research step 0), as in pay_invoice: minimum
+      // for regular users + the provider-pool cap, before reserving.
+      const guardRefusal = await lightningSendGuard(admin, user.id, sats);
+      if (guardRefusal) return guardRefusal;
+      const sendPolicy = await lightningSendPolicy(admin);
+
       // Reserve-first, exactly as pay_invoice: the hold, the
       // provider pay, and settlement ONLY on the read-back.
       const { data: reserveRows, error: reserveErr } = await admin.rpc(
@@ -747,7 +828,7 @@ serve(async (req) => {
           p_payment_hash: details.paymentHash,
           p_amount_sats: sats,
           p_idempotency_key: idempotency_key.trim(),
-          p_max_daily_sats: MAX_DAILY_SATS,
+          p_max_daily_sats: sendPolicy.maxDailySats,
         },
       );
       if (reserveErr) {

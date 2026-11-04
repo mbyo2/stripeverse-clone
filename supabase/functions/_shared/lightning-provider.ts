@@ -481,6 +481,41 @@ export async function providerPayInvoice(
   return { kind: "unknown", detail: `Coinos pay answered ${res.status}: ${text.slice(0, 200)}` };
 }
 
+/**
+ * Parse the account balance (sats) out of a Coinos GET /me payload.
+ * The live-verified shape (2026-10-24): the account object itself
+ * carries a top-level numeric `balance`. Some account views nest the
+ * account under `user`/`me`; accept those too. Returns null on any
+ * other shape — never a guess.
+ */
+export function parseCoinosBalance(payload: unknown): number | null {
+  const outer = asRecord(payload);
+  if (!outer) return null;
+  const account = asRecord(outer.user) ?? asRecord(outer.me) ?? outer;
+  const balance = (account as Record<string, unknown>).balance;
+  if (typeof balance !== "number" || !Number.isFinite(balance)) return null;
+  return Math.trunc(balance);
+}
+
+/**
+ * The platform's actual Lightning pool balance: the Coinos account
+ * balance in sats. Used by the send path's pool cap (a payment may
+ * never exceed what the pooled account actually holds) and by pool
+ * reconciliation. Throws LightningUpstreamError on any failure —
+ * callers fail closed.
+ */
+export async function providerGetBalance(
+  config?: LightningProviderConfig,
+): Promise<number> {
+  const cfg = config ?? providerConfig();
+  const payload = await coinosFetch(cfg, "/me", "GET");
+  const balance = parseCoinosBalance(payload);
+  if (balance === null) {
+    throw new LightningUpstreamError("Coinos returned no account balance");
+  }
+  return balance;
+}
+
 export type ProviderOutgoingState = "paid" | "failed" | "pending" | "not_found";
 
 export interface ProviderOutgoingPayment {
