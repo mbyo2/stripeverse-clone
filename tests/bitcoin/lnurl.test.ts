@@ -429,8 +429,17 @@ describe("lightning-service LNURL actions (source proof)", () => {
     const at = service.indexOf('action === "lnurl_pay"');
     const slice = service.slice(at, service.indexOf('action === "lnurl_withdraw"', at));
     expect(slice.indexOf("assertAccountNotFrozen")).toBeLessThan(slice.indexOf("btc_reserve_lightning_send"));
-    expect(slice).toContain("providerPayInvoice");
-    expect(slice).toContain("resolveOutboundSend");
+    // 20261251: the provider pay + read-back tail was factored into
+    // the shared attemptOutboundPayment helper (pay_invoice,
+    // lnurl_pay and the rebalance resume all complete through it);
+    // the doctrine lives there now and lnurl_pay must call it.
+    expect(slice).toContain("attemptOutboundPayment");
+    const helper = service.slice(
+      service.indexOf("async function attemptOutboundPayment"),
+      service.indexOf("async function queueLightningPaymentBehindBridge"),
+    );
+    expect(helper).toContain("providerPayInvoice");
+    expect(helper).toContain("resolveOutboundSend");
     expect(slice).toContain("idempotency_key required");
   });
 

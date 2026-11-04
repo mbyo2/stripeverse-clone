@@ -20,14 +20,33 @@
 export type OnchainSendOutcome =
   | { kind: "broadcast"; txid: string; feeSats: number }
   | { kind: "verifying"; txid: string | null; message: string }
+  | { kind: "awaiting"; message: string }
   | { kind: "unexpected" };
 
 /** Shown when a verifying response carries no message of its own. */
 export const BTC_SEND_VERIFYING_FALLBACK_MESSAGE =
   "Your withdrawal was sent to the network but its confirmation is delayed — it is being verified, do not retry.";
 
+/** Shown when a queued (awaiting-rebalance) response carries no message of its own. */
+export const BTC_SEND_AWAITING_FALLBACK_MESSAGE =
+  "Your payment is being prepared — we're moving funds between our wallets so it can go through. This usually takes under an hour.";
+
 export function interpretOnchainSendResponse(data: unknown): OnchainSendOutcome {
   const d = (data ?? {}) as Record<string, unknown>;
+
+  if (d.status === "awaiting_rebalance") {
+    // 202: the send is reserved and queued while the platform moves
+    // funds between its wallets (cross-rail rebalancing, migration
+    // 20261251). It completes automatically, or the reservation is
+    // refunded in full — it must NOT be retried.
+    return {
+      kind: "awaiting",
+      message:
+        typeof d.message === "string" && d.message
+          ? d.message
+          : BTC_SEND_AWAITING_FALLBACK_MESSAGE,
+    };
+  }
 
   if (d.status === "verifying") {
     return {

@@ -1592,12 +1592,21 @@ export function computePoolReconciliation(input: {
   feeIncomeSats: number;
   poolOnchainSats: number | null;
   poolLightningSats: number | null;
+  /**
+   * Sats in flight between the pools inside an executing bridge
+   * (migration 20261251): they have left the source pool's readable
+   * set but not yet landed in the destination's. They still back
+   * the ledger, so they count toward the pool total — without this,
+   * every bridge would read as missing backing until it confirms.
+   */
+  inTransitSats?: number;
 }): PoolReconciliation {
   const totalLedgerSats = input.userLiabilitiesSats + input.feeIncomeSats;
   if (input.poolOnchainSats === null || input.poolLightningSats === null) {
     return { totalLedgerSats, totalPoolSats: null, floatSats: null, status: "partial" };
   }
-  const totalPoolSats = input.poolOnchainSats + input.poolLightningSats;
+  const totalPoolSats = input.poolOnchainSats + input.poolLightningSats +
+    Math.max(0, Math.trunc(input.inTransitSats ?? 0));
   const floatSats = totalPoolSats - totalLedgerSats;
   return {
     totalLedgerSats,
@@ -1605,4 +1614,85 @@ export function computePoolReconciliation(input: {
     floatSats,
     status: floatSats >= 0 ? "ok" : "under_backed",
   };
+}
+
+// ── Cross-rail rebalancing (CEO decision 2026-11-04; migration 20261251) ──
+//
+// One unified balance per account, sendable on either rail: when a
+// send's rail is short but the combined backing covers it
+// (POOL_SHORT_REBALANCE_NEEDED), the send queues and the platform
+// bridges the shortfall between its own pools with a plain on-chain
+// transfer. The policies below are the pure, unit-tested core of
+// that engine; btc-onchain's process_rebalance action executes them.
+//
+// User-facing copy for the queued state lives here so every surface
+// (both edge functions, the wallet UI) says exactly the same thing —
+// plain language, never internal terms like "rebalance" or "pool".
+
+/** Shown while a send waits for its bridge: honest, plain, no internals. */
+export const AWAITING_REBALANCE_MESSAGE =
+  "Your payment is being prepared — we're moving funds between our wallets so it can go through. This usually takes under an hour.";
+
+/** Shown when the bounded wait expires: nothing sent, refund in full. */
+export const REBALANCE_TIMEOUT_MESSAGE =
+  "We couldn't prepare your payment in time, so it wasn't sent. Your sats are back in your balance in full.";
+
+/** Shown when a bridge is definitively refused before any send happens. */
+export const REBALANCE_FAILED_MESSAGE =
+  "We couldn't prepare your payment, so it wasn't sent. Your sats are back in your balance in full.";
+
+export type RebalanceDirection = "lightning_to_onchain" | "onchain_to_lightning";
+
+/**
+ * How much to bridge for a shortfall: the shortfall plus a bounded
+ * buffer (so the next send on that rail doesn't immediately queue
+ * again), capped by the per-transaction ceiling and by what the
+ * source pool actually holds. A bridge smaller than the operator's
+ * minimum is not viable — dust never bridges. A partial bridge
+ * (source pool thinner than shortfall + buffer) is still viable
+ * when it covers at least the minimum: the queued send re-checks
+ * after it lands and requests the remainder if it is still short.
+ */
+export function planRebalanceAmount(input: {
+  shortfallSats: number;
+  bufferSats: number;
+  sourcePoolSats: number;
+  minSats: number;
+  maxTxSats: number;
+}): { amountSats: number; viable: boolean } {
+  const shortfall = Math.max(0, Math.trunc(input.shortfallSats));
+  const wanted = shortfall + Math.max(0, Math.trunc(input.bufferSats));
+  const amountSats = Math.max(
+    0,
+    Math.min(wanted, Math.trunc(input.maxTxSats), Math.trunc(input.sourcePoolSats)),
+  );
+  return { amountSats, viable: amountSats >= Math.max(1, Math.trunc(input.minSats)) };
+}
+
+/**
+ * Proactive top-up need for one pool: how far it sits below its
+ * operator-set target, limited by what the other pool can spare
+ * WITHOUT dropping below its own target. Zero when the pool is at
+ * or above target, or the other pool has nothing spare — a top-up
+ * never creates the shortage it is meant to prevent.
+ */
+export function proactiveRebalanceNeed(input: {
+  poolSats: number;
+  targetSats: number;
+  otherPoolSats: number;
+  otherTargetSats: number;
+}): number {
+  const deficit = Math.trunc(input.targetSats) - Math.trunc(input.poolSats);
+  if (deficit <= 0) return 0;
+  const spare = Math.trunc(input.otherPoolSats) - Math.trunc(input.otherTargetSats);
+  return Math.max(0, Math.min(deficit, spare));
+}
+
+/** The bounded wait: a queued send may wait at most this long for its bridge. */
+export function rebalanceExpired(
+  createdAtMs: number,
+  nowMs: number,
+  maxWaitMinutes: number,
+): boolean {
+  return nowMs - createdAtMs >= Math.max(1, Math.trunc(maxWaitMinutes)) * 60_000;
 }

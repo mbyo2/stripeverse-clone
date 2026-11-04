@@ -73,6 +73,7 @@ import {
 } from "../_shared/account-freeze.ts";
 import {
   allocateBatchFeeShares,
+  AWAITING_REBALANCE_MESSAGE,
   buildBatchWithdrawalTx,
   buildConsolidationTx,
   buildWithdrawalTx,
@@ -93,9 +94,14 @@ import {
   feeRateFromMempoolRecommended,
   filterUncommittedUtxos,
   planConsolidation,
+  planRebalanceAmount,
   planUtxoScan,
   poolShortfallReason,
   poolTotalSats,
+  proactiveRebalanceNeed,
+  rebalanceExpired,
+  REBALANCE_FAILED_MESSAGE,
+  REBALANCE_TIMEOUT_MESSAGE,
   receiveStatus,
   requiredConfirmationsFor,
   selectCoins,
@@ -109,12 +115,15 @@ import {
   type DepositCrossCheck,
   type DepositTxView,
   type Outpoint,
+  type RebalanceDirection,
   type Utxo,
 } from "../_shared/btc-core.ts";
 import { dispatchPaymentLinkPaid } from "../_shared/developer-webhooks.ts";
 import {
   lightningProviderConfigured,
+  providerBitcoinSend,
   providerGetBalance,
+  providerGetBitcoinAddress,
 } from "../_shared/lightning-provider.ts";
 
 const corsHeaders = {
@@ -364,6 +373,16 @@ serve(async (req) => {
       return await reconcilePools(admin);
     }
 
+    // ── process_rebalance: scheduler-only (migration 20261251) ─────────
+    if (action === "process_rebalance") {
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
+      if (!serviceKey || !timingSafeEqual(token, serviceKey)) {
+        return json(401, { error: "Service role required" });
+      }
+      return await processRebalance(admin);
+    }
+
     // ── Everything else needs a real user ──────────────────────────────────
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -607,11 +626,34 @@ async function reconcilePools(supabase: any) {
     notes.push("lightning pool not readable: provider not configured");
   }
 
+  // In-flight bridge amounts (migration 20261251): sats an executing
+  // bridge has taken out of the source pool's readable set but not
+  // yet landed in the destination's still back the ledger — count
+  // them, or every bridge reads as missing backing until it confirms.
+  const { data: inFlightRows } = await supabase
+    .from("btc_rebalance_requests")
+    .select("amount_sats")
+    .in("status", ["bridging", "confirming"]);
+  const inFlightSats = (inFlightRows ?? []).reduce(
+    (sum: number, r: any) => sum + Number(r.amount_sats),
+    0,
+  );
+  const { data: feeRows } = await supabase
+    .from("btc_rebalance_requests")
+    .select("fee_sats")
+    .eq("status", "completed")
+    .not("fee_sats", "is", null);
+  const bridgeFeesTotal = (feeRows ?? []).reduce(
+    (sum: number, r: any) => sum + Number(r.fee_sats),
+    0,
+  );
+
   const rec = computePoolReconciliation({
     userLiabilitiesSats: userLiabilities,
     feeIncomeSats: feeIncome,
     poolOnchainSats: poolOnchain,
     poolLightningSats: poolLightning,
+    inTransitSats: inFlightSats,
   });
 
   const { data: row, error: insErr } = await supabase
@@ -623,7 +665,11 @@ async function reconcilePools(supabase: any) {
       pool_lightning_sats: poolLightning,
       float_sats: rec.floatSats,
       status: rec.status,
-      detail: { notes },
+      detail: {
+        notes,
+        in_flight_rebalance_sats: inFlightSats,
+        bridge_fees_sats_total: bridgeFeesTotal,
+      },
     })
     .select("id, created_at")
     .single();
@@ -1030,6 +1076,881 @@ async function estimateSend(supabase: any, userId: string, body: any) {
   });
 }
 
+// ── Cross-rail rebalancing engine (migration 20261251) ────────────────────
+//
+// Implements the CEO's 2026-11-04 unified-balance decision: a send
+// whose rail is short but whose combined backing covers it queues
+// in 'awaiting_rebalance' (send/queue_send above, pay_invoice in
+// lightning-service) behind a btc_rebalance_requests row, and this
+// engine — run by the btc-process-rebalance cron every 5 minutes —
+// bridges the shortfall between the pools with a plain on-chain
+// transfer, resumes the queued sends through the existing
+// exactly-once paths, and refunds them in full when the bounded
+// wait expires. Bridges are platform-internal: no user's ledger
+// balance is ever touched by a bridge (the treasury destination is
+// a platform address the deposit scanner cannot credit).
+
+interface RebalancePolicy {
+  enabled: boolean;
+  bufferSats: number;
+  minSats: number;
+  maxTxSats: number;
+  maxDailySats: number;
+  cooldownMinutes: number;
+  maxWaitMinutes: number;
+  targetLightningSats: number;
+  targetOnchainSats: number;
+  coinosAddress: string | null;
+}
+
+async function rebalancePolicy(supabase: any): Promise<RebalancePolicy> {
+  const { data: settings } = await supabase
+    .from("platform_settings")
+    .select(
+      "btc_rebalance_enabled, btc_rebalance_buffer_sats, btc_rebalance_min_sats, " +
+      "btc_rebalance_max_tx_sats, btc_rebalance_max_daily_sats, " +
+      "btc_rebalance_cooldown_minutes, btc_rebalance_max_wait_minutes, " +
+      "btc_rebalance_target_lightning_sats, btc_rebalance_target_onchain_sats, " +
+      "btc_coinos_deposit_address",
+    )
+    .limit(1)
+    .maybeSingle();
+  return {
+    enabled: settings?.btc_rebalance_enabled !== false,
+    bufferSats: Number(settings?.btc_rebalance_buffer_sats ?? 50_000),
+    minSats: Number(settings?.btc_rebalance_min_sats ?? 10_000),
+    maxTxSats: Number(settings?.btc_rebalance_max_tx_sats ?? 2_000_000),
+    maxDailySats: Number(settings?.btc_rebalance_max_daily_sats ?? 5_000_000),
+    cooldownMinutes: Number(settings?.btc_rebalance_cooldown_minutes ?? 30),
+    maxWaitMinutes: Number(settings?.btc_rebalance_max_wait_minutes ?? 60),
+    targetLightningSats: Number(settings?.btc_rebalance_target_lightning_sats ?? 200_000),
+    targetOnchainSats: Number(settings?.btc_rebalance_target_onchain_sats ?? 200_000),
+    coinosAddress: typeof settings?.btc_coinos_deposit_address === "string" &&
+        settings.btc_coinos_deposit_address.trim()
+      ? settings.btc_coinos_deposit_address.trim()
+      : null,
+  };
+}
+
+/**
+ * Upper-bound network fee for a send that cannot be coin-selected
+ * yet (its pool is short — that is why it is queueing). Sized as if
+ * every gathered UTXO were an input; the reservation taken at this
+ * estimate is trued up at resume (instant) or batch settle (batch).
+ */
+function estimateFeeUpperBound(
+  utxos: Utxo[],
+  feeRate: number,
+  recipientScript: Uint8Array,
+  accountPub: any,
+): number {
+  const inputCount = Math.max(1, utxos.length);
+  return estimateVsize(inputCount, [recipientScript, deriveScript(accountPub, 1, 0)]) *
+    Math.max(1, Math.ceil(feeRate));
+}
+
+/**
+ * Park an already-reserved withdrawal behind a bridge: size the
+ * bridge (shortfall + buffer, policy caps), flip the row to
+ * 'awaiting_rebalance', and register the rebalance request (which
+ * JOINS any in-flight request for the direction instead of
+ * double-executing). Any failure unwinds the reservation in full —
+ * the caller surfaces a refusal, never a stranded hold.
+ */
+async function parkWithdrawalBehindBridge(
+  supabase: any,
+  args: {
+    userId: string;
+    withdrawalId: string;
+    shortfallSats: number;
+    sourcePoolSats: number;
+    failMode: "instant" | "batch";
+  },
+): Promise<{ ok: true } | { ok: false; response: Response }> {
+  const failRow = async (errorText: string) => {
+    const { error } = await supabase.rpc("btc_fail_awaiting_withdrawal", {
+      p_withdrawal_id: args.withdrawalId,
+      p_error: errorText,
+    });
+    if (!error) return;
+    // The row was not in 'awaiting_rebalance' yet (the mark itself
+    // failed): unwind through the mode's own pre-queue path.
+    if (args.failMode === "batch") {
+      await supabase.rpc("btc_cancel_batched_withdrawal", {
+        p_user_id: args.userId,
+        p_withdrawal_id: args.withdrawalId,
+      });
+    } else {
+      await supabase.rpc("btc_fail_withdrawal", {
+        p_withdrawal_id: args.withdrawalId,
+        p_error: errorText,
+      });
+    }
+  };
+
+  const policy = await rebalancePolicy(supabase);
+  if (!policy.enabled) {
+    await failRow("Cross-rail preparation is switched off");
+    return {
+      ok: false,
+      response: json(409, {
+        error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
+        code: "POOL_SHORT_REBALANCE_NEEDED",
+      }),
+    };
+  }
+  const plan = planRebalanceAmount({
+    shortfallSats: args.shortfallSats,
+    bufferSats: policy.bufferSats,
+    sourcePoolSats: args.sourcePoolSats,
+    minSats: 1,
+    maxTxSats: policy.maxTxSats,
+  });
+  if (!plan.viable || plan.amountSats < args.shortfallSats) {
+    // The source pool cannot actually cover the shortfall — the
+    // combined-backing classification must have raced a drain.
+    // Refuse honestly (reservation unwound in full).
+    await failRow("Combined platform funds cannot cover this withdrawal");
+    return {
+      ok: false,
+      response: json(409, {
+        error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
+        code: "INSUFFICIENT_PLATFORM_FUNDS",
+      }),
+    };
+  }
+  const { error: markErr } = await supabase.rpc("btc_mark_withdrawal_awaiting_rebalance", {
+    p_withdrawal_id: args.withdrawalId,
+  });
+  if (markErr) {
+    console.error("btc-onchain: could not park withdrawal behind bridge", args.withdrawalId, markErr);
+    await failRow("Could not prepare the withdrawal");
+    return {
+      ok: false,
+      response: json(500, { error: "Could not prepare the withdrawal; your balance was refunded" }),
+    };
+  }
+  const { error: reqErr } = await supabase.rpc("btc_request_rebalance", {
+    p_direction: "lightning_to_onchain",
+    p_amount_sats: plan.amountSats,
+    p_reason: "send",
+    p_linked_kind: "withdrawal",
+    p_linked_id: args.withdrawalId,
+  });
+  if (reqErr) {
+    console.error("btc-onchain: could not register rebalance request", args.withdrawalId, reqErr);
+    await failRow("Could not prepare the withdrawal");
+    return {
+      ok: false,
+      response: json(500, { error: "Could not prepare the withdrawal; your balance was refunded" }),
+    };
+  }
+  return { ok: true };
+}
+
+/** send()'s queue path: reserve at the estimated fee, then park. */
+async function queueWithdrawalForRebalance(
+  supabase: any,
+  args: {
+    userId: string;
+    toAddress: string;
+    amountSats: number;
+    feeSats: number;
+    idempotencyKey: string;
+    maxDailySats: number;
+    shortfallSats: number;
+    sourcePoolSats: number;
+  },
+): Promise<Response> {
+  const { data: reserveRows, error: reserveErr } = await supabase.rpc("btc_reserve_withdrawal", {
+    p_user_id: args.userId,
+    p_to_address: args.toAddress,
+    p_amount_sats: args.amountSats,
+    p_fee_sats: args.feeSats,
+    p_idempotency_key: args.idempotencyKey,
+    p_max_daily_sats: args.maxDailySats,
+  });
+  if (reserveErr) {
+    return json(400, { error: reserveErr.message });
+  }
+  const withdrawal = Array.isArray(reserveRows) ? reserveRows[0] : reserveRows;
+  const withdrawalId = withdrawal.withdrawal_id as string;
+  const parked = await parkWithdrawalBehindBridge(supabase, {
+    userId: args.userId,
+    withdrawalId,
+    shortfallSats: args.shortfallSats,
+    sourcePoolSats: args.sourcePoolSats,
+    failMode: "instant",
+  });
+  if (!parked.ok) return parked.response;
+  return json(202, {
+    status: "awaiting_rebalance",
+    withdrawal_id: withdrawalId,
+    amount_sats: args.amountSats,
+    message: AWAITING_REBALANCE_MESSAGE,
+  });
+}
+
+/** The platform treasury address (Coinos bridge destination), allocated once. */
+async function ensureTreasuryAddress(
+  supabase: any,
+  accountPub: any,
+): Promise<{ address: string; derivationIndex: number } | null> {
+  const { data: existing } = await supabase
+    .from("btc_platform_addresses")
+    .select("address, derivation_index")
+    .eq("purpose", "coinos_bridge")
+    .maybeSingle();
+  if (existing) {
+    return { address: existing.address as string, derivationIndex: Number(existing.derivation_index) };
+  }
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { data: idxData, error: idxErr } = await supabase.rpc("btc_next_derivation_index");
+    if (idxErr) {
+      console.error("btc-onchain rebalance: treasury index allocation failed:", idxErr);
+      return null;
+    }
+    const derivationIndex = Number(idxData);
+    const address = deriveAddress(accountPub, 0, derivationIndex);
+    const { error: insErr } = await supabase.from("btc_platform_addresses").insert({
+      purpose: "coinos_bridge",
+      derivation_index: derivationIndex,
+      address,
+    });
+    if (!insErr) return { address, derivationIndex };
+    if ((insErr as { code?: string }).code === "23505") {
+      const { data: raced } = await supabase
+        .from("btc_platform_addresses")
+        .select("address, derivation_index")
+        .eq("purpose", "coinos_bridge")
+        .maybeSingle();
+      if (raced) {
+        return { address: raced.address as string, derivationIndex: Number(raced.derivation_index) };
+      }
+      continue;
+    }
+    console.error("btc-onchain rebalance: treasury address insert failed:", insErr);
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Fail a rebalance request and release everything queued behind it
+ * on THIS function's rails: linked on-chain withdrawals are failed
+ * with a full refund (btc_fail_awaiting_withdrawal). Linked
+ * Lightning payments are released by lightning-service's own
+ * processor sweep, which watches for failed requests.
+ */
+async function failRebalanceRequest(
+  supabase: any,
+  requestId: string,
+  reason: string,
+  linkedSendError: string,
+): Promise<void> {
+  await supabase.from("btc_rebalance_requests").update({
+    status: "failed",
+    failure_reason: reason,
+    updated_at: new Date().toISOString(),
+  }).eq("id", requestId);
+  const { data: links } = await supabase
+    .from("btc_rebalance_links")
+    .select("kind, ref_id")
+    .eq("request_id", requestId)
+    .eq("kind", "withdrawal");
+  for (const link of links ?? []) {
+    const { error } = await supabase.rpc("btc_fail_awaiting_withdrawal", {
+      p_withdrawal_id: link.ref_id,
+      p_error: linkedSendError,
+    });
+    if (error) {
+      console.error(
+        "btc-onchain rebalance: could not fail linked withdrawal",
+        link.ref_id, error,
+      );
+    }
+  }
+}
+
+async function updateRebalanceRequest(supabase: any, requestId: string, patch: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("btc_rebalance_requests")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("id", requestId);
+  if (error) console.error("btc-onchain rebalance: request update failed", requestId, error);
+}
+
+type RebalanceRequestRow = {
+  id: string;
+  direction: RebalanceDirection;
+  amount_sats: number;
+  reason: string;
+  status: string;
+  bridge_txid: string | null;
+  bridge_address: string | null;
+  source_balance_before_sats: number | null;
+  created_at: string;
+};
+
+/** Start a bridge for a 'requested'/'awaiting_operator' row, subject to the policy caps. */
+async function startBridge(
+  supabase: any,
+  req: RebalanceRequestRow,
+  policy: RebalancePolicy,
+): Promise<string> {
+  // Daily bridge cap: today's committed bridge volume (everything
+  // that started or completed) plus this request must fit.
+  const dayStart = new Date();
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const { data: todayRows } = await supabase
+    .from("btc_rebalance_requests")
+    .select("amount_sats")
+    .in("status", ["bridging", "confirming", "completed"])
+    .gte("created_at", dayStart.toISOString());
+  const committedToday = (todayRows ?? []).reduce(
+    (sum: number, r: any) => sum + Number(r.amount_sats), 0,
+  );
+  if (committedToday + Number(req.amount_sats) > policy.maxDailySats) {
+    return "deferred_daily_cap";
+  }
+  // Cooldown binds proactive top-ups only — a user's queued payment
+  // never waits on it.
+  if (req.reason === "topup") {
+    const { data: lastTerminal } = await supabase
+      .from("btc_rebalance_requests")
+      .select("updated_at")
+      .eq("direction", req.direction)
+      .in("status", ["completed", "failed"])
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastTerminal?.updated_at &&
+        Date.now() - Date.parse(lastTerminal.updated_at) < policy.cooldownMinutes * 60_000) {
+      return "deferred_cooldown";
+    }
+  }
+  return req.direction === "lightning_to_onchain"
+    ? await startCoinosBridge(supabase, req)
+    : await startSparrowBridge(supabase, req, policy);
+}
+
+/** Lightning → on-chain: Coinos sends on-chain to the platform treasury address. */
+async function startCoinosBridge(supabase: any, req: RebalanceRequestRow): Promise<string> {
+  if (!lightningProviderConfigured()) {
+    await failRebalanceRequest(supabase, req.id, "Lightning provider not configured", REBALANCE_FAILED_MESSAGE);
+    return "failed";
+  }
+  const r = receiveStatus(Deno.env.get("BTC_XPUB"));
+  if (!r.configured) {
+    console.error("btc-onchain rebalance: cannot allocate treasury address — receiving not configured (" + r.reason + ")");
+    return "waiting_custody";
+  }
+  const treasury = await ensureTreasuryAddress(supabase, r.accountPub);
+  if (!treasury) return "waiting_custody";
+
+  let balanceBefore: number | null = null;
+  try {
+    balanceBefore = await providerGetBalance();
+  } catch {
+    balanceBefore = null;
+  }
+  // Record the destination BEFORE the send: if the POST's outcome is
+  // unknown, the completion watcher adopts the transfer by watching
+  // this address — the POST is never blindly retried.
+  await updateRebalanceRequest(supabase, req.id, {
+    bridge_address: treasury.address,
+    source_balance_before_sats: balanceBefore,
+  });
+
+  let outcome;
+  try {
+    outcome = await providerBitcoinSend({
+      address: treasury.address,
+      amountSats: Number(req.amount_sats),
+    });
+  } catch (e) {
+    console.error(
+      "CRITICAL: Coinos bitcoin send outcome unknown — request left 'bridging' for arrival detection (never re-POST)",
+      req.id, thrownMessage(e, "unknown"),
+    );
+    await updateRebalanceRequest(supabase, req.id, { status: "bridging" });
+    return "bridging_unknown";
+  }
+  if (outcome.kind === "rejected") {
+    console.error("btc-onchain rebalance: Coinos refused the bridge send", req.id, outcome.detail);
+    await failRebalanceRequest(
+      supabase, req.id,
+      `Lightning provider refused the on-chain transfer: ${outcome.detail}`,
+      REBALANCE_FAILED_MESSAGE,
+    );
+    return "failed";
+  }
+  await updateRebalanceRequest(supabase, req.id, {
+    status: "bridging",
+    bridge_txid: outcome.txid,
+  });
+  return "bridging";
+}
+
+/** On-chain → Lightning: the Sparrow pool sends to the Coinos account's Bitcoin deposit address. */
+async function startSparrowBridge(
+  supabase: any,
+  req: RebalanceRequestRow,
+  policy: RebalancePolicy,
+): Promise<string> {
+  let address = policy.coinosAddress;
+  if (!address && lightningProviderConfigured()) {
+    try {
+      address = await providerGetBitcoinAddress();
+    } catch (e) {
+      console.error("btc-onchain rebalance: Coinos address read failed:", thrownMessage(e, "unknown"));
+      address = null;
+    }
+  }
+  if (!address) {
+    // The ONE operator action this direction can require: Coinos
+    // does not expose a deposit address for this account through
+    // its API, so the operator copies it from the Coinos web app
+    // (Receive → Bitcoin) into platform_settings.
+    await updateRebalanceRequest(supabase, req.id, {
+      status: "awaiting_operator",
+      failure_reason:
+        "Operator action needed: the Lightning provider does not expose this account's Bitcoin deposit address through its API. " +
+        "Copy the account's Bitcoin deposit address from the Coinos web app (Receive → Bitcoin) into " +
+        "platform_settings.btc_coinos_deposit_address; this request resumes automatically on the next processor run.",
+    });
+    return "awaiting_operator";
+  }
+
+  const c = custody();
+  if (!c.configured) {
+    console.error("btc-onchain rebalance: custody not configured (" + c.reason + ")");
+    return "waiting_custody";
+  }
+  const feeRate = await fetchFeeRateSatVb();
+  if (!feeRate) return "waiting_fee_rate";
+
+  let recipient;
+  try {
+    recipient = validateMainnetAddress(address);
+  } catch {
+    await failRebalanceRequest(
+      supabase, req.id,
+      "The configured Coinos deposit address is not a valid mainnet address",
+      REBALANCE_FAILED_MESSAGE,
+    );
+    return "failed";
+  }
+
+  const utxos = await gatherUtxos(supabase, c.accountPub);
+  const committed = await committedOutpoints(supabase, "00000000-0000-0000-0000-000000000000");
+  const spendable = filterUncommittedUtxos(utxos, committed);
+  const selection = selectCoins(
+    spendable, Number(req.amount_sats), feeRate, recipient.script, deriveScript(c.accountPub, 1, 0),
+  );
+  if (!selection) {
+    await failRebalanceRequest(
+      supabase, req.id,
+      "On-chain pool cannot cover the bridge amount",
+      REBALANCE_FAILED_MESSAGE,
+    );
+    return "failed";
+  }
+  const { data: changeIdx, error: changeErr } = await supabase.rpc("btc_next_change_index");
+  if (changeErr) {
+    console.error("btc-onchain rebalance: change index allocation failed:", changeErr);
+    return "waiting_custody";
+  }
+
+  let balanceBefore: number | null = null;
+  if (lightningProviderConfigured()) {
+    try {
+      balanceBefore = await providerGetBalance();
+    } catch {
+      balanceBefore = null;
+    }
+  }
+
+  let built;
+  try {
+    built = buildWithdrawalTx({
+      accountPriv: c.accountPriv, accountPub: c.accountPub,
+      utxos: spendable, toAddress: address,
+      amountSats: Number(req.amount_sats), feeRateSatVb: feeRate,
+      changeIndex: Number(changeIdx),
+    });
+  } catch (e) {
+    await failRebalanceRequest(
+      supabase, req.id,
+      `Bridge transaction build failed: ${thrownMessage(e, "unknown")}`,
+      REBALANCE_FAILED_MESSAGE,
+    );
+    return "failed";
+  }
+
+  await markPoolUtxosSpent(supabase, selection.selected);
+  const broadcast = await broadcastTx(built.hex, built.txid);
+  await updateRebalanceRequest(supabase, req.id, {
+    status: "bridging",
+    bridge_txid: built.txid,
+    bridge_address: address,
+    fee_sats: built.feeSats,
+    source_balance_before_sats: balanceBefore,
+  });
+  if (broadcast.outcome === "unknown") {
+    console.error(
+      "CRITICAL: bridge broadcast outcome unknown — request left 'bridging' for confirmation watch (never re-send)",
+      req.id, built.txid, broadcast.detail,
+    );
+    return "bridging_unknown";
+  }
+  return "bridging";
+}
+
+/** Advance a 'bridging'/'confirming' request whose transfer may have landed. */
+async function checkBridgeCompletion(supabase: any, req: RebalanceRequestRow): Promise<string> {
+  if (req.direction === "lightning_to_onchain") {
+    if (!req.bridge_address) return "waiting";
+    const { data: treasury } = await supabase
+      .from("btc_platform_addresses")
+      .select("derivation_index")
+      .eq("address", req.bridge_address)
+      .maybeSingle();
+    let tipHeight: number;
+    try {
+      const tipRes = await esplora("/blocks/tip/height");
+      if (!tipRes.ok) return "waiting";
+      tipHeight = Number.parseInt(await tipRes.text(), 10);
+    } catch {
+      return "waiting";
+    }
+    let txs;
+    try {
+      txs = await fetchAddressTxs(req.bridge_address);
+    } catch {
+      return "waiting";
+    }
+    // The provider may deduct its on-chain fee from the transfer;
+    // arrival within tolerance counts (the send it unblocks re-checks
+    // the real pool and requests any remainder).
+    const tolerance = Math.max(500, Math.ceil(Number(req.amount_sats) * 0.02));
+    const createdSec = Math.floor(Date.parse(req.created_at) / 1000);
+    for (const tx of txs) {
+      if (req.bridge_txid && tx.txid !== req.bridge_txid) continue;
+      if (!req.bridge_txid) {
+        const blockTime = tx.status?.block_time ?? 0;
+        if (blockTime !== 0 && blockTime < createdSec - 900) continue;
+      }
+      const vouts = tx.vout ?? [];
+      for (let voutIndex = 0; voutIndex < vouts.length; voutIndex++) {
+        const vout = vouts[voutIndex];
+        if (vout.scriptpubkey_address !== req.bridge_address) continue;
+        if (!vout.value || vout.value < Number(req.amount_sats) - tolerance) continue;
+        const confirmations = tx.status?.confirmed && tx.status.block_height
+          ? tipHeight - tx.status.block_height + 1
+          : 0;
+        const required = requiredConfirmationsFor(
+          vout.value,
+          envInt("BTC_DEPOSIT_MEDIUM_SATS", 500_000),
+          envInt("BTC_DEPOSIT_LARGE_SATS", 2_000_000),
+        );
+        if (confirmations >= required) {
+          await updateRebalanceRequest(supabase, req.id, {
+            status: "completed",
+            bridge_txid: tx.txid,
+            received_sats: vout.value,
+            completed_at: new Date().toISOString(),
+          });
+          // The bridged UTXO joins the pool's spendable set now —
+          // and it is NOT credited to any user (platform-internal).
+          if (treasury) {
+            await notePoolUtxo(supabase, {
+              txid: tx.txid,
+              vout: voutIndex,
+              value: vout.value,
+              chain: 0,
+              index: Number(treasury.derivation_index),
+              address: req.bridge_address,
+            });
+          }
+          return "completed";
+        }
+        if (req.status !== "confirming" || req.bridge_txid !== tx.txid) {
+          await updateRebalanceRequest(supabase, req.id, {
+            status: "confirming",
+            bridge_txid: tx.txid,
+          });
+        }
+        return "confirming";
+      }
+    }
+    return "waiting";
+  }
+
+  // onchain_to_lightning: the bridge tx must be confirmed AND the
+  // provider balance must show the arrival.
+  if (!req.bridge_txid) return "waiting";
+  let confirmed = false;
+  try {
+    const res = await esplora(`/tx/${req.bridge_txid}`);
+    if (res.ok) {
+      const tx = await res.json();
+      confirmed = tx?.status?.confirmed === true;
+    }
+  } catch {
+    return "waiting";
+  }
+  if (!confirmed) {
+    if (req.status !== "confirming") {
+      await updateRebalanceRequest(supabase, req.id, { status: "confirming" });
+    }
+    return "confirming";
+  }
+  let balance: number | null = null;
+  try {
+    balance = await providerGetBalance();
+  } catch {
+    return "waiting";
+  }
+  if (balance !== null && req.source_balance_before_sats !== null &&
+      balance >= Number(req.source_balance_before_sats) + Number(req.amount_sats) - 10) {
+    await updateRebalanceRequest(supabase, req.id, {
+      status: "completed",
+      received_sats: Number(req.amount_sats),
+      completed_at: new Date().toISOString(),
+    });
+    return "completed";
+  }
+  if (req.status !== "confirming") {
+    await updateRebalanceRequest(supabase, req.id, { status: "confirming" });
+  }
+  return "confirming";
+}
+
+/**
+ * Resume queued on-chain sends whose bridge completed. Batch
+ * members flip back to 'queued' for the batcher; instant sends
+ * execute immediately through executeReservedWithdrawal — the same
+ * exactly-once path send() uses. A send whose pool is STILL short
+ * after its bridge requests the remainder and keeps waiting.
+ */
+async function resumeAwaitingWithdrawals(supabase: any, policy: RebalancePolicy): Promise<number> {
+  const { data: links } = await supabase
+    .from("btc_rebalance_links")
+    .select("ref_id, btc_rebalance_requests!inner(status)")
+    .eq("kind", "withdrawal")
+    .eq("btc_rebalance_requests.status", "completed")
+    .limit(25);
+  if (!links || links.length === 0) return 0;
+
+  const c = custody();
+  let resumed = 0;
+  for (const link of links) {
+    const { data: row } = await supabase
+      .from("btc_withdrawals")
+      .select("*")
+      .eq("id", link.ref_id)
+      .maybeSingle();
+    if (!row || row.status !== "awaiting_rebalance") continue;
+    if (!c.configured) {
+      console.error("btc-onchain rebalance: cannot resume withdrawals — custody not configured (" + c.reason + ")");
+      break;
+    }
+    const utxos = await gatherUtxos(supabase, c.accountPub);
+    const poolSats = poolTotalSats(utxos);
+    const feeCommitted = row.mode === "batch"
+      ? Number(row.reserved_fee_sats ?? row.fee_sats)
+      : Number(row.fee_sats);
+    if (poolSats < Number(row.amount_sats) + feeCommitted) {
+      // The bridge landed but the pool is still short (partial
+      // bridge, or a concurrent drain): request the remainder; the
+      // request RPC relinks this withdrawal to the new request.
+      const plan = planRebalanceAmount({
+        shortfallSats: Number(row.amount_sats) + feeCommitted - poolSats,
+        bufferSats: policy.bufferSats,
+        sourcePoolSats: (await lightningPoolSatsOrNull()) ?? 0,
+        minSats: 1,
+        maxTxSats: policy.maxTxSats,
+      });
+      if (plan.viable) {
+        await supabase.rpc("btc_request_rebalance", {
+          p_direction: "lightning_to_onchain",
+          p_amount_sats: plan.amountSats,
+          p_reason: "send",
+          p_linked_kind: "withdrawal",
+          p_linked_id: row.id,
+        });
+      }
+      continue;
+    }
+    const { error: resumeErr } = await supabase.rpc("btc_resume_awaiting_withdrawal", {
+      p_withdrawal_id: row.id,
+    });
+    if (resumeErr) {
+      console.error("btc-onchain rebalance: resume flip failed", row.id, resumeErr);
+      continue;
+    }
+    resumed++;
+    if (row.mode === "batch") continue; // the batcher takes it from 'queued'
+    const feeRate = await fetchFeeRateSatVb();
+    if (!feeRate) {
+      console.error("btc-onchain rebalance: resumed withdrawal waits for a fee rate", row.id);
+      continue;
+    }
+    const limits = await withdrawalLimits(supabase);
+    const freshUtxos = await gatherUtxos(supabase, c.accountPub);
+    const { outcome } = await executeReservedWithdrawal(supabase, {
+      userId: row.user_id,
+      withdrawalId: row.id,
+      toAddress: row.to_address,
+      amountSats: Number(row.amount_sats),
+      reservedFeeSats: Number(row.fee_sats),
+      feeRateSatVb: feeRate,
+      utxos: freshUtxos,
+      accountPriv: c.accountPriv,
+      accountPub: c.accountPub,
+      maxDailySats: limits.maxDailySats,
+      dayAgo: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+      adjustFeeOnMismatch: true,
+    });
+    console.log(`btc-onchain rebalance: resumed withdrawal ${row.id} → ${outcome}`);
+  }
+  return resumed;
+}
+
+/** Proactive top-ups: hold each pool at its operator-set target when the other pool can spare the difference. */
+async function proactiveTopups(supabase: any, policy: RebalancePolicy): Promise<number> {
+  let poolOnchain: number | null = null;
+  const r = receiveStatus(Deno.env.get("BTC_XPUB"));
+  if (r.configured) {
+    try {
+      poolOnchain = poolTotalSats(await gatherUtxos(supabase, r.accountPub));
+    } catch {
+      poolOnchain = null;
+    }
+  }
+  if (poolOnchain === null) {
+    const { data: rows } = await supabase
+      .from("btc_pool_utxos")
+      .select("value_sats")
+      .eq("status", "confirmed");
+    if (rows) poolOnchain = rows.reduce((s: number, x: any) => s + Number(x.value_sats), 0);
+  }
+  const poolLightning = await lightningPoolSatsOrNull();
+  if (poolOnchain === null || poolLightning === null) return 0;
+
+  let requested = 0;
+  const directions: Array<{
+    direction: RebalanceDirection;
+    pool: number; target: number; other: number; otherTarget: number;
+  }> = [
+    {
+      direction: "onchain_to_lightning",
+      pool: poolLightning, target: policy.targetLightningSats,
+      other: poolOnchain, otherTarget: policy.targetOnchainSats,
+    },
+    {
+      direction: "lightning_to_onchain",
+      pool: poolOnchain, target: policy.targetOnchainSats,
+      other: poolLightning, otherTarget: policy.targetLightningSats,
+    },
+  ];
+  for (const d of directions) {
+    const need = proactiveRebalanceNeed({
+      poolSats: d.pool, targetSats: d.target,
+      otherPoolSats: d.other, otherTargetSats: d.otherTarget,
+    });
+    if (need <= 0) continue;
+    const plan = planRebalanceAmount({
+      shortfallSats: need,
+      bufferSats: 0,
+      sourcePoolSats: d.other,
+      minSats: policy.minSats,
+      maxTxSats: policy.maxTxSats,
+    });
+    if (!plan.viable) continue;
+    const { error } = await supabase.rpc("btc_request_rebalance", {
+      p_direction: d.direction,
+      p_amount_sats: plan.amountSats,
+      p_reason: "topup",
+      p_linked_kind: null,
+      p_linked_id: null,
+    });
+    if (!error) requested++;
+  }
+  return requested;
+}
+
+/**
+ * One processor tick (cron btc-process-rebalance, every 5 minutes):
+ * enforce the bounded wait, advance/start bridges, resume queued
+ * on-chain sends, and request proactive top-ups.
+ */
+async function processRebalance(supabase: any) {
+  const policy = await rebalancePolicy(supabase);
+  if (!policy.enabled) {
+    return json(200, { skipped: true, reason: "rebalance_disabled" });
+  }
+  const now = Date.now();
+  let timedOut = 0;
+  let started = 0;
+  let completed = 0;
+
+  // 1. Bounded wait: an in-flight request older than the policy
+  //    window fails, and everything queued behind it is released in
+  //    full. A bridge that already broadcast keeps its txid on the
+  //    failed row — its funds still land in the destination pool
+  //    when they confirm (runbook: late bridge arrivals).
+  const { data: inFlight } = await supabase
+    .from("btc_rebalance_requests")
+    .select("*")
+    .in("status", ["requested", "awaiting_operator", "bridging", "confirming"])
+    .order("created_at", { ascending: true })
+    .limit(50);
+  for (const req of (inFlight ?? []) as RebalanceRequestRow[]) {
+    if (rebalanceExpired(Date.parse(req.created_at), now, policy.maxWaitMinutes)) {
+      await failRebalanceRequest(
+        supabase, req.id,
+        `Bounded wait of ${policy.maxWaitMinutes} minutes expired` +
+          (req.bridge_txid ? ` (bridge tx ${req.bridge_txid} may still land in the destination pool)` : ""),
+        REBALANCE_TIMEOUT_MESSAGE,
+      );
+      timedOut++;
+    }
+  }
+
+  // 2. Advance bridges: start the waiting, watch the moving.
+  const { data: active } = await supabase
+    .from("btc_rebalance_requests")
+    .select("*")
+    .in("status", ["requested", "awaiting_operator", "bridging", "confirming"])
+    .order("created_at", { ascending: true })
+    .limit(10);
+  for (const req of (active ?? []) as RebalanceRequestRow[]) {
+    if (req.status === "requested" || req.status === "awaiting_operator") {
+      const outcome = await startBridge(supabase, req, policy);
+      if (outcome === "bridging" || outcome === "bridging_unknown") started++;
+    } else {
+      const outcome = await checkBridgeCompletion(supabase, req);
+      if (outcome === "completed") completed++;
+    }
+  }
+
+  // 3. Resume queued on-chain sends behind completed bridges.
+  const resumed = await resumeAwaitingWithdrawals(supabase, policy);
+
+  // 4. Proactive top-ups toward the per-rail targets.
+  const topups = await proactiveTopups(supabase, policy);
+
+  return json(200, {
+    processed: true,
+    timed_out: timedOut,
+    bridges_started: started,
+    bridges_completed: completed,
+    withdrawals_resumed: resumed,
+    topups_requested: topups,
+  });
+}
+
 // ── consolidate (protection P2b) ─────────────────────────────────────────
 
 /**
@@ -1363,31 +2284,48 @@ async function queueSend(supabase: any, userId: string, body: any) {
       error: "The platform's daily Bitcoin withdrawal limit is reached — please try again tomorrow",
     });
   }
+  // Cross-rail classification (CEO 2026-11-04; queueing since
+  // migration 20261251): a pool refusal where the combined backing
+  // covers the send no longer hard-stops — the withdrawal queues in
+  // 'awaiting_rebalance' behind a bridge request, exactly like the
+  // instant path. True insufficiency stays an honest 409.
+  let queueBehindBridge = false;
+  let rebalanceSourcePool = 0;
   if (!queueGuard.allowed && queueGuard.refusal === "above_pool_balance") {
-    // Cross-rail classification (CEO 2026-11-04): the machine-readable
-    // code distinguishes "this rail is short but combined backing
-    // covers it" from true insufficiency. Hard stop either way today.
     const otherRailPool = await lightningPoolSatsOrNull();
-    return json(409, {
-      error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
-      code: poolShortfallReason(amountSats, poolTotalSats(utxos), otherRailPool),
-    });
+    const code = poolShortfallReason(amountSats, poolTotalSats(utxos), otherRailPool);
+    if (code !== "POOL_SHORT_REBALANCE_NEEDED") {
+      return json(409, {
+        error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
+        code,
+      });
+    }
+    queueBehindBridge = true;
+    rebalanceSourcePool = otherRailPool ?? 0;
   }
   const changeScript = deriveScript(accountPub, 1, 0);
   const selection = selectCoins(utxos, amountSats, feeRate, recipient.script, changeScript);
-  if (!selection) {
+  if (!selection && !queueBehindBridge) {
     return json(409, {
       error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
     });
   }
-  const soloVsize = estimateVsize(selection.selected.length, [recipient.script, changeScript]);
+  // When the send queues behind a bridge, a missing selection is
+  // expected (the pool is short): the reservation is taken at the
+  // upper-bound fee estimate, and the batch settle trues the fee up
+  // against the member's actual share exactly as it does today.
+  const reservedFeeSats = selection?.feeSats ??
+    estimateFeeUpperBound(utxos, feeRate, recipient.script, accountPub);
+  const soloVsize = selection
+    ? estimateVsize(selection.selected.length, [recipient.script, changeScript])
+    : estimateVsize(Math.max(1, utxos.length), [recipient.script, changeScript]);
   const deadline = new Date(Date.now() + policy.maxWaitHours * 3600 * 1000).toISOString();
 
   const { data: rows, error: queueErr } = await supabase.rpc("btc_queue_batched_withdrawal", {
     p_user_id: userId,
     p_to_address: toAddress,
     p_amount_sats: amountSats,
-    p_reserved_fee_sats: selection.feeSats,
+    p_reserved_fee_sats: reservedFeeSats,
     p_solo_vsize: soloVsize,
     p_idempotency_key: idempotencyKey,
     p_max_daily_sats: maxDailySats,
@@ -1400,6 +2338,30 @@ async function queueSend(supabase: any, userId: string, body: any) {
     return json(400, { error: queueErr.message });
   }
   const row = Array.isArray(rows) ? rows[0] : rows;
+
+  if (queueBehindBridge) {
+    // Park the batch member behind the bridge: the batcher claims
+    // only 'queued' rows, so this member waits in
+    // 'awaiting_rebalance' until the bridge lands (the engine flips
+    // it back to 'queued') or the bounded wait refunds it in full.
+    const parked = await parkWithdrawalBehindBridge(supabase, {
+      userId,
+      withdrawalId: row.withdrawal_id,
+      shortfallSats: amountSats + reservedFeeSats - poolTotalSats(utxos),
+      sourcePoolSats: rebalanceSourcePool,
+      failMode: "batch",
+    });
+    if (!parked.ok) return parked.response;
+    return json(202, {
+      withdrawal_id: row.withdrawal_id,
+      status: "awaiting_rebalance",
+      amount_sats: row.amount_sats,
+      reserved_fee_sats: row.fee_sats,
+      batch_deadline: row.batch_deadline,
+      message: AWAITING_REBALANCE_MESSAGE,
+    });
+  }
+
   return json(200, {
     withdrawal_id: row.withdrawal_id,
     status: row.status,
@@ -1828,6 +2790,14 @@ async function send(supabase: any, userId: string, body: any) {
     if (prior.status === "failed") {
       return json(400, { error: `This withdrawal already failed: ${prior.error ?? "unknown"}` });
     }
+    if (prior.status === "awaiting_rebalance") {
+      return json(202, {
+        status: "awaiting_rebalance",
+        withdrawal_id: prior.id,
+        amount_sats: prior.amount_sats,
+        message: AWAITING_REBALANCE_MESSAGE,
+      });
+    }
     return json(409, { error: "This withdrawal is already in progress" });
   }
 
@@ -1884,16 +2854,6 @@ async function send(supabase: any, userId: string, body: any) {
       error: "The platform's daily Bitcoin withdrawal limit is reached — please try again tomorrow",
     });
   }
-  if (!sendGuard.allowed && sendGuard.refusal === "above_pool_balance") {
-    // Cross-rail classification (CEO 2026-11-04): the machine-readable
-    // code distinguishes "this rail is short but combined backing
-    // covers it" from true insufficiency. Hard stop either way today.
-    const otherRailPool = await lightningPoolSatsOrNull();
-    return json(409, {
-      error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
-      code: poolShortfallReason(amountSats, poolTotalSats(utxos), otherRailPool),
-    });
-  }
   // Coin selection needs a change script for fee sizing only — every
   // BIP84 change script has identical length, so index 0 is a valid
   // stand-in. The real change index is allocated after the reservation,
@@ -1903,9 +2863,34 @@ async function send(supabase: any, userId: string, body: any) {
   const selection = selectCoins(
     utxos, amountSats, feeRate, recipient.script, deriveScript(accountPub, 1, 0),
   );
-  if (!selection) {
+  if ((!sendGuard.allowed && sendGuard.refusal === "above_pool_balance") || !selection) {
+    // Cross-rail classification (CEO 2026-11-04): the machine-readable
+    // code distinguishes "this rail is short but combined backing
+    // covers it" from true insufficiency. Since migration 20261251
+    // the first class no longer hard-stops: the send is reserved and
+    // queued in 'awaiting_rebalance' while the platform bridges the
+    // shortfall between its pools; the rebalance engine resumes it
+    // automatically when the bridge confirms, or refunds it in full
+    // when the bounded wait expires. True insufficiency (or the
+    // engine's kill switch) stays an honest 409.
+    const otherRailPool = await lightningPoolSatsOrNull();
+    const poolSats = poolTotalSats(utxos);
+    const feeEstimate = selection?.feeSats ??
+      estimateFeeUpperBound(utxos, feeRate, recipient.script, accountPub);
+    const reason = !selection && sendGuard.allowed
+      ? poolShortfallReason(amountSats + feeEstimate, poolSats, otherRailPool)
+      : poolShortfallReason(amountSats, poolSats, otherRailPool);
+    if (reason === "POOL_SHORT_REBALANCE_NEEDED") {
+      return await queueWithdrawalForRebalance(supabase, {
+        userId, toAddress, amountSats, feeSats: feeEstimate,
+        idempotencyKey, maxDailySats,
+        shortfallSats: amountSats + feeEstimate - poolSats,
+        sourcePoolSats: otherRailPool ?? 0,
+      });
+    }
     return json(409, {
       error: "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
+      code: reason,
     });
   }
 
@@ -1927,6 +2912,52 @@ async function send(supabase: any, userId: string, body: any) {
   const withdrawal = Array.isArray(reserveRows) ? reserveRows[0] : reserveRows;
   const withdrawalId = withdrawal.withdrawal_id;
 
+  return (await executeReservedWithdrawal(supabase, {
+    userId, withdrawalId, toAddress, amountSats,
+    reservedFeeSats: selection.feeSats,
+    feeRateSatVb: feeRate, utxos, accountPriv, accountPub,
+    maxDailySats, dayAgo, adjustFeeOnMismatch: false,
+  })).response;
+}
+
+// ── Reserved-withdrawal execution (send + rebalance resume) ──────────────
+
+/**
+ * Execute a withdrawal whose reservation already exists (status
+ * 'reserved'): change allocation, the M1 concurrency hardening,
+ * build + sign, pre-broadcast re-validation, broadcast, finalize.
+ * Extracted verbatim from send() (2026-11-04) so the cross-rail
+ * rebalancing engine can resume a queued send through the SAME
+ * exactly-once path once its bridge lands — no second send
+ * implementation exists. `adjustFeeOnMismatch` is the single
+ * behavioural delta, and only on the resume path: while a send
+ * waited for its bridge the fee rate may have moved, so the
+ * reservation's fee is trued up via btc_adjust_withdrawal_fee
+ * instead of failing a send the user already waited for.
+ */
+async function executeReservedWithdrawal(
+  supabase: any,
+  args: {
+    userId: string;
+    withdrawalId: string;
+    toAddress: string;
+    amountSats: number;
+    reservedFeeSats: number;
+    feeRateSatVb: number;
+    utxos: Utxo[];
+    accountPriv: any;
+    accountPub: any;
+    maxDailySats: number;
+    dayAgo: string;
+    adjustFeeOnMismatch: boolean;
+  },
+): Promise<{ outcome: "broadcast" | "verifying" | "failed" | "unrecorded"; response: Response }> {
+  const {
+    userId, withdrawalId, toAddress, amountSats, feeRateSatVb, utxos,
+    accountPriv, accountPub, maxDailySats, dayAgo, adjustFeeOnMismatch,
+  } = args;
+  const feeRate = feeRateSatVb;
+  let effectiveFeeSats = args.reservedFeeSats;
   // Allocate the change index now that a withdrawal row exists.
   const { data: changeIdx, error: changeErr } = await supabase.rpc("btc_next_change_index");
   if (changeErr) {
@@ -1934,7 +2965,7 @@ async function send(supabase: any, userId: string, body: any) {
       p_withdrawal_id: withdrawalId,
       p_error: "change index allocation failed",
     });
-    return json(500, { error: "Could not prepare the withdrawal; your balance was refunded" });
+    return { outcome: "failed", response: json(500, { error: "Could not prepare the withdrawal; your balance was refunded" }) };
   }
   const changeIndex = Number(changeIdx);
 
@@ -1954,12 +2985,40 @@ async function send(supabase: any, userId: string, body: any) {
   const reselection = selectCoins(
     spendableUtxos, amountSats, feeRate, recipient.script, deriveScript(accountPub, 1, 0),
   );
-  if (!reselection || reselection.feeSats !== selection.feeSats) {
+  if (!reselection) {
     await supabase.rpc("btc_fail_withdrawal", {
       p_withdrawal_id: withdrawalId,
       p_error: "coin selection changed after reservation",
     });
-    return json(500, { error: "Could not prepare the withdrawal; your balance was refunded" });
+    return { outcome: "failed", response: json(500, { error: "Could not prepare the withdrawal; your balance was refunded" }) };
+  }
+  if (reselection.feeSats !== effectiveFeeSats) {
+    // Resume path only (migration 20261251): the fee rate may have
+    // moved while the send waited for its bridge — true the
+    // reservation up or down to the re-selected fee instead of
+    // failing a send the user already waited for. send()'s own
+    // race path (adjustFeeOnMismatch = false) keeps the proven
+    // fail-on-mismatch behaviour exactly.
+    let adjusted = false;
+    if (adjustFeeOnMismatch) {
+      const { error: adjErr } = await supabase.rpc("btc_adjust_withdrawal_fee", {
+        p_withdrawal_id: withdrawalId,
+        p_new_fee_sats: reselection.feeSats,
+      });
+      if (!adjErr) {
+        effectiveFeeSats = reselection.feeSats;
+        adjusted = true;
+      } else {
+        console.error("btc-onchain: resume fee adjustment failed", withdrawalId, adjErr);
+      }
+    }
+    if (!adjusted) {
+      await supabase.rpc("btc_fail_withdrawal", {
+        p_withdrawal_id: withdrawalId,
+        p_error: "coin selection changed after reservation",
+      });
+      return { outcome: "failed", response: json(500, { error: "Could not prepare the withdrawal; your balance was refunded" }) };
+    }
   }
 
   // Build + sign. A build failure here is safe: nothing was broadcast, so
@@ -1970,7 +3029,7 @@ async function send(supabase: any, userId: string, body: any) {
       accountPriv, accountPub, utxos: spendableUtxos,
       toAddress, amountSats, feeRateSatVb: feeRate, changeIndex,
     });
-    if (built.feeSats !== selection.feeSats) {
+    if (built.feeSats !== effectiveFeeSats) {
       throw new Error("Fee mismatch between selection and built transaction");
     }
   } catch (e) {
@@ -1978,7 +3037,7 @@ async function send(supabase: any, userId: string, body: any) {
       p_withdrawal_id: withdrawalId,
       p_error: e instanceof Error ? e.message : "build failed",
     });
-    return json(500, { error: "Could not build the withdrawal transaction; your balance was refunded" });
+    return { outcome: "failed", response: json(500, { error: "Could not build the withdrawal transaction; your balance was refunded" }) };
   }
 
   // ── Pre-broadcast re-validation (audit M1), the last free exit ──────
@@ -1995,7 +3054,7 @@ async function send(supabase: any, userId: string, body: any) {
       p_withdrawal_id: withdrawalId,
       p_error: "daily withdrawal limit exceeded",
     });
-    return json(400, { error: `Daily withdrawal limit is ${maxDailySats} sats` });
+    return { outcome: "failed", response: json(400, { error: `Daily withdrawal limit is ${maxDailySats} sats` }) };
   }
 
   // (b) Input re-confirmation. Every input of the built transaction
@@ -2016,9 +3075,9 @@ async function send(supabase: any, userId: string, body: any) {
       p_withdrawal_id: withdrawalId,
       p_error: "input already committed to another withdrawal",
     });
-    return json(409, {
+    return { outcome: "failed", response: json(409, {
       error: "Could not complete the withdrawal safely; your balance was refunded — please try again",
-    });
+    }) };
   }
 
   // Broadcast. The outcome is classified by the pure policy in btc-core
@@ -2049,13 +3108,13 @@ async function send(supabase: any, userId: string, body: any) {
       "CRITICAL: broadcast outcome unknown — withdrawal left 'reserved' for reconciliation (do NOT refund)",
       withdrawalId, built.txid, broadcast.detail,
     );
-    return json(202, {
+    return { outcome: "verifying", response: json(202, {
       error:
         "Your withdrawal was sent to the network but its confirmation is delayed — it is being verified, do not retry",
       txid: built.txid,
       withdrawal_id: withdrawalId,
       status: "verifying",
-    });
+    }) };
   }
 
   const { error: finErr } = await supabase.rpc("btc_finalize_withdrawal", {
@@ -2070,17 +3129,17 @@ async function send(supabase: any, userId: string, body: any) {
     // excluded from later coin selections.
     await recordWithdrawalTxid(supabase, withdrawalId, built.txid);
     console.error("CRITICAL: broadcast succeeded but finalize failed", withdrawalId, built.txid, finErr);
-    return json(500, {
+    return { outcome: "unrecorded", response: json(500, {
       error: "Withdrawal broadcast but not yet recorded — support has the txid",
       txid: built.txid,
       withdrawal_id: withdrawalId,
-    });
+    }) };
   }
 
   // Activity-feed ledger row (best-effort; btc_withdrawals is authoritative).
   const { error: txErr } = await supabase.from("transactions").insert({
     user_id: userId,
-    amount: (amountSats + selection.feeSats) / 100_000_000,
+    amount: (amountSats + effectiveFeeSats) / 100_000_000,
     currency: "BTC",
     direction: "outgoing",
     payment_method: "bitcoin_onchain",
@@ -2089,18 +3148,19 @@ async function send(supabase: any, userId: string, body: any) {
     reference: built.txid,
     category: "btc_withdrawal",
     idempotency_key: `btc-wd:${withdrawalId}`,
-    metadata: { type: "withdrawal", txid: built.txid, fee_sats: selection.feeSats },
+    metadata: { type: "withdrawal", txid: built.txid, fee_sats: effectiveFeeSats },
   });
   if (txErr) console.error("Withdrawal ledger row failed:", txErr);
 
-  return json(200, {
+  return { outcome: "broadcast", response: json(200, {
     withdrawal_id: withdrawalId,
     txid: built.txid,
     amount_sats: amountSats,
-    fee_sats: selection.feeSats,
+    fee_sats: effectiveFeeSats,
     status: "broadcast",
-  });
+  }) };
 }
+
 
 // ── send helpers (audit M1) ──────────────────────────────────────────────
 
@@ -2357,6 +3417,16 @@ async function scanPoolUtxos(supabase: any, accountPub: any): Promise<Utxo[]> {
     .limit(1)
     .maybeSingle();
   if (maxCons) maxExternal = Math.max(maxExternal, Number(maxCons.output_derivation_index));
+  // Platform treasury addresses (migration 20261251 — the Coinos
+  // bridge destination) draw from the same sequence; their UTXOs are
+  // pooled funds and must stay inside the scan bound too.
+  const { data: maxPlatform } = await supabase
+    .from("btc_platform_addresses")
+    .select("derivation_index")
+    .order("derivation_index", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (maxPlatform) maxExternal = Math.max(maxExternal, Number(maxPlatform.derivation_index));
 
   // Change outputs can only live at indices the allocator
   // (btc_change_index_seq, behind btc_next_change_index) has actually

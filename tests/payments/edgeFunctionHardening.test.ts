@@ -68,8 +68,17 @@ describe("M1 — btc-onchain send() concurrency hardening", () => {
   });
 
   it("re-selection must reproduce the reserved fee or the withdrawal is failed pre-broadcast", () => {
-    expect(sendBody).toContain("reselection.feeSats !== selection.feeSats");
+    // 20261251: the post-reservation half of send() was extracted
+    // verbatim into executeReservedWithdrawal (inside this slice) so
+    // the rebalance engine resumes queued sends through the same
+    // path. The reserved fee is now `effectiveFeeSats`; the
+    // fail-on-mismatch invariant is unchanged on the send path —
+    // the fee true-up (btc_adjust_withdrawal_fee) is gated behind
+    // adjustFeeOnMismatch, which send() passes as false.
+    expect(sendBody).toContain("reselection.feeSats !== effectiveFeeSats");
     expect(sendBody).toContain("coin selection changed after reservation");
+    expect(sendBody).toContain("adjustFeeOnMismatch: false");
+    expect(sendBody).toContain("if (adjustFeeOnMismatch) {");
   });
 
   it("daily cap is re-checked against reservations (incl. racers) after reserving", () => {

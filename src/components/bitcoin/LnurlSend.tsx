@@ -77,6 +77,7 @@ type Result =
   | { kind: "paid"; sats: number }
   | { kind: "failed"; message: string }
   | { kind: "processing"; paymentId: string }
+  | { kind: "awaiting"; paymentId: string; message: string }
   | { kind: "withdraw_submitted"; paymentId: string; sats: number }
   | { kind: "withdraw_paid"; sats: number };
 
@@ -240,6 +241,21 @@ export function LnurlSend({
         return;
       }
       const paymentId = typeof data?.payment_id === "string" ? data.payment_id : "";
+      if (data?.status === "awaiting_rebalance") {
+        // Queued behind a cross-rail bridge (migration 20261251):
+        // held safely, completes on its own or refunds in full.
+        setResult({
+          kind: "awaiting",
+          paymentId,
+          message: typeof data?.message === "string" && data.message
+            ? data.message
+            : "Your payment is being prepared — we're moving funds between our wallets so it can go through. This usually takes under an hour.",
+        });
+        if (paymentId) startStatusPoll(paymentId, "pay", sats);
+        invalidateMoney();
+        onDone?.();
+        return;
+      }
       setResult({ kind: "processing", paymentId });
       if (paymentId) startStatusPoll(paymentId, "pay", sats);
       invalidateMoney();
@@ -306,6 +322,22 @@ export function LnurlSend({
   };
 
   if (result) {
+    if (result.kind === "awaiting") {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Your payment is being prepared</p>
+          <p className="text-sm text-muted-foreground">{result.message}</p>
+          <p className="text-sm text-muted-foreground">
+            Your Bitcoin is held safely while this completes — please do not pay
+            this address again. If it can't go through in time, the full amount
+            comes straight back to your balance.
+          </p>
+          <Button variant="outline" className="w-full" onClick={reset}>
+            Pay a different address
+          </Button>
+        </div>
+      );
+    }
     if (result.kind === "processing") {
       return (
         <div className="space-y-3">

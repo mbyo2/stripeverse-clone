@@ -50,7 +50,8 @@ type DecodedInvoice = {
 type SendResult =
   | { kind: "paid"; sats: number }
   | { kind: "failed"; message: string }
-  | { kind: "processing"; paymentId: string };
+  | { kind: "processing"; paymentId: string }
+  | { kind: "awaiting"; paymentId: string; message: string };
 
 function newIdempotencyKey(): string {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -271,9 +272,25 @@ export function LightningSend({
         onDone();
         return;
       }
+      const paymentId = typeof data?.payment_id === "string" ? data.payment_id : "";
+      if (data?.status === "awaiting_rebalance") {
+        // Queued behind a cross-rail bridge (migration 20261251):
+        // the sats are held and the payment completes on its own —
+        // or the hold comes back in full. Poll for the resolution.
+        setResult({
+          kind: "awaiting",
+          paymentId,
+          message: typeof data?.message === "string" && data.message
+            ? data.message
+            : "Your payment is being prepared — we're moving funds between our wallets so it can go through. This usually takes under an hour.",
+        });
+        if (paymentId) startProcessingPoll(paymentId);
+        invalidateMoney();
+        onDone();
+        return;
+      }
       // Processing: the outcome isn't known yet — the hold stays and
       // the send must not be repeated. Poll until it resolves.
-      const paymentId = typeof data?.payment_id === "string" ? data.payment_id : "";
       setResult({ kind: "processing", paymentId });
       if (paymentId) startProcessingPoll(paymentId);
       invalidateMoney();
@@ -303,6 +320,22 @@ export function LightningSend({
   };
 
   if (result) {
+    if (result.kind === "awaiting") {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Your payment is being prepared</p>
+          <p className="text-sm text-muted-foreground">{result.message}</p>
+          <p className="text-sm text-muted-foreground">
+            Your Bitcoin is held safely while this completes — please do not pay
+            this invoice again. If it can't go through in time, the full amount
+            comes straight back to your balance.
+          </p>
+          <Button variant="outline" className="w-full" onClick={reset}>
+            Pay a different invoice
+          </Button>
+        </div>
+      );
+    }
     if (result.kind === "processing") {
       return (
         <div className="space-y-3">

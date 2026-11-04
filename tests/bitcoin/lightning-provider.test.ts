@@ -14,12 +14,16 @@ import {
   LightningUpstreamError,
   PROVIDER_PAY_CONFIRMED,
   lightningProviderConfigured,
+  parseCoinosBitcoinAddress,
+  parseCoinosBitcoinSend,
   parseCoinosInvoice,
   parseCoinosInvoiceAmounts,
   parseCoinosInvoiceState,
   parseCoinosOutgoingPayment,
   parseCoinosPaymentHash,
+  providerBitcoinSend,
   providerCreateInvoice,
+  providerGetBitcoinAddress,
   providerGetInvoice,
   providerGetOutgoingPayment,
   providerPayInvoice,
@@ -540,5 +544,83 @@ describe("Coinos invoice amounts (protection P1 — settle on actual received)",
     const res = await providerGetInvoice("inv-uuid-9", CFG);
     expect(res.amountSats).toBe(100);
     expect(res.receivedSats).toBe(99);
+  });
+});
+
+// ── Cross-rail bridge legs (migration 20261251) ─────────────────────────────
+
+describe("parseCoinosBitcoinAddress", () => {
+  const ADDR = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh";
+  it("finds an address at the top level and under user/me nesting", () => {
+    expect(parseCoinosBitcoinAddress({ address: ADDR })).toBe(ADDR);
+    expect(parseCoinosBitcoinAddress({ user: { bitcoin_address: ADDR } })).toBe(ADDR);
+    expect(parseCoinosBitcoinAddress({ me: { btcAddress: ADDR } })).toBe(ADDR);
+  });
+  it("finds an address inside an accounts array entry", () => {
+    expect(parseCoinosBitcoinAddress({
+      accounts: [{ currency: "BTC", balance: 10, deposit_address: ADDR }],
+    })).toBe(ADDR);
+  });
+  it("accepts legacy base58 addresses", () => {
+    expect(parseCoinosBitcoinAddress({ address: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa" }))
+      .toBe("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
+  });
+  it("returns null when no address-shaped value exists (never invents one)", () => {
+    expect(parseCoinosBitcoinAddress({ username: "bmaglass", balance: 10 })).toBeNull();
+    expect(parseCoinosBitcoinAddress({ address: "not-an-address" })).toBeNull();
+    expect(parseCoinosBitcoinAddress({ address: "lnbc1000n1qqqq" })).toBeNull();
+    expect(parseCoinosBitcoinAddress(null)).toBeNull();
+    expect(parseCoinosBitcoinAddress("junk")).toBeNull();
+  });
+});
+
+describe("parseCoinosBitcoinSend", () => {
+  const TXID = "a".repeat(64);
+  it("extracts a 64-hex txid from flat and nested shapes", () => {
+    expect(parseCoinosBitcoinSend({ txid: TXID })).toEqual({ txid: TXID });
+    expect(parseCoinosBitcoinSend({ payment: { hash: TXID } })).toEqual({ txid: TXID });
+    expect(parseCoinosBitcoinSend({ id: TXID.toUpperCase() })).toEqual({ txid: TXID });
+  });
+  it("a non-txid id (e.g. a uuid) is not mistaken for a txid", () => {
+    expect(parseCoinosBitcoinSend({ id: "9b2f4f0e-1a2b-4c3d-8e5f-0123456789ab" }))
+      .toEqual({ txid: null });
+    expect(parseCoinosBitcoinSend({})).toEqual({ txid: null });
+    expect(parseCoinosBitcoinSend(null)).toEqual({ txid: null });
+  });
+});
+
+describe("providerBitcoinSend (stubbed fetch)", () => {
+  const ADDR = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh";
+  it("POSTs the payment body to /bitcoin/send and reports sent + txid on 2xx", async () => {
+    const fetchMock = stubFetch(200, { txid: "b".repeat(64) });
+    const out = await providerBitcoinSend({ address: ADDR, amountSats: 5000 }, CFG);
+    expect(out).toEqual({ kind: "sent", txid: "b".repeat(64) });
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://coinos.test/api/bitcoin/send");
+    expect(JSON.parse(String(init.body))).toEqual({
+      payment: { address: ADDR, amount: 5000, currency: "SAT" },
+    });
+  });
+  it("a structured 400 is a definitive rejection", async () => {
+    stubFetch(400, { error: "Insufficient funds" });
+    const out = await providerBitcoinSend({ address: ADDR, amountSats: 5000 }, CFG);
+    expect(out).toEqual({ kind: "rejected", detail: "Insufficient funds" });
+  });
+  it("a 5xx throws — the outcome is unknown and must never be retried blindly", async () => {
+    stubFetch(500, { error: "boom" });
+    await expect(providerBitcoinSend({ address: ADDR, amountSats: 5000 }, CFG))
+      .rejects.toBeInstanceOf(LightningUpstreamError);
+  });
+});
+
+describe("providerGetBitcoinAddress (stubbed fetch)", () => {
+  it("returns the address the account payload exposes", async () => {
+    stubFetch(200, { user: { address: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" } });
+    await expect(providerGetBitcoinAddress(CFG))
+      .resolves.toBe("bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
+  });
+  it("returns null when the payload exposes none (operator fallback case)", async () => {
+    stubFetch(200, { username: "bmaglass", accounts: [{ currency: "SAT", balance: 10 }] });
+    await expect(providerGetBitcoinAddress(CFG)).resolves.toBeNull();
   });
 });

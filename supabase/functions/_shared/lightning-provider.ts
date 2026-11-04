@@ -642,3 +642,150 @@ export async function providerGetOutgoingPayment(
   const payload = await coinosFetch(cfg, "/payments", "GET");
   return parseCoinosOutgoingPayment(payload, match);
 }
+
+// ── On-chain bridge legs (cross-rail rebalancing, migration 20261251) ─────
+//
+// The rebalancing engine moves funds between the platform's two
+// pools with plain on-chain transfers. The Lightning → on-chain
+// direction sends FROM the Coinos account through its Bitcoin send
+// endpoint (POST /bitcoin/send — route verified live 2026-11-04:
+// it answers 401 unauthenticated like /me and /payments, while
+// non-routes answer 404). The on-chain → Lightning direction needs
+// the Coinos account's own Bitcoin deposit address: it is read from
+// the account payload (GET /me) when the provider exposes one, and
+// the caller falls back to the operator-supplied address in
+// platform_settings when it does not.
+
+const MAINNET_ADDRESS_RE = /^(bc1[ac-hj-np-z02-9]{11,71}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/;
+
+const BITCOIN_ADDRESS_KEYS = [
+  "address",
+  "bitcoin_address",
+  "bitcoinAddress",
+  "btc_address",
+  "btcAddress",
+  "deposit_address",
+  "depositAddress",
+  "onchain_address",
+  "onchainAddress",
+];
+
+/**
+ * Extract the account's Bitcoin deposit address from a GET /me
+ * payload, wherever the provider nests it (top level, a user/me
+ * object, or a per-account entry). Only values shaped like a
+ * mainnet address qualify; anything else is ignored. Pure.
+ */
+export function parseCoinosBitcoinAddress(payload: unknown): string | null {
+  const seen = new Set<unknown>();
+  const visit = (node: unknown, depth: number): string | null => {
+    if (!node || typeof node !== "object" || depth > 4 || seen.has(node)) return null;
+    seen.add(node);
+    const rec = node as Record<string, unknown>;
+    for (const key of BITCOIN_ADDRESS_KEYS) {
+      const v = rec[key];
+      if (typeof v === "string" && MAINNET_ADDRESS_RE.test(v.trim())) {
+        return v.trim();
+      }
+    }
+    for (const v of Object.values(rec)) {
+      const found = visit(v, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  };
+  return visit(payload, 0);
+}
+
+/**
+ * The Coinos account's Bitcoin deposit address, or null when the
+ * provider does not expose one through the API (the caller then
+ * uses the operator-supplied fallback). A transport failure throws
+ * LightningUpstreamError like every other read here.
+ */
+export async function providerGetBitcoinAddress(
+  config?: LightningProviderConfig,
+): Promise<string | null> {
+  const cfg = config ?? readLightningProviderConfig();
+  const payload = await coinosFetch(cfg, "/me", "GET");
+  return parseCoinosBitcoinAddress(payload);
+}
+
+/** Extract a transaction id from a Coinos Bitcoin-send response. Pure. */
+export function parseCoinosBitcoinSend(payload: unknown): { txid: string | null } {
+  if (!payload || typeof payload !== "object") return { txid: null };
+  const rec = payload as Record<string, unknown>;
+  const nested = (rec.payment && typeof rec.payment === "object")
+    ? rec.payment as Record<string, unknown>
+    : (rec.data && typeof rec.data === "object")
+    ? rec.data as Record<string, unknown>
+    : null;
+  for (const src of [rec, nested]) {
+    if (!src) continue;
+    for (const key of ["txid", "tx_id", "txHash", "hash", "id"]) {
+      const v = src[key];
+      if (typeof v === "string" && /^[0-9a-fA-F]{64}$/.test(v.trim())) {
+        return { txid: v.trim().toLowerCase() };
+      }
+    }
+  }
+  return { txid: null };
+}
+
+export type BitcoinSendOutcome =
+  | { kind: "sent"; txid: string | null }
+  | { kind: "rejected"; detail: string };
+
+/**
+ * Send sats out of the Coinos account on-chain (POST /bitcoin/send).
+ * Same outcome discipline as providerPayInvoice: a 2xx is "sent"
+ * (the caller confirms arrival independently — the response alone
+ * never completes a bridge); a structured 400/422 error is a
+ * definitive "rejected"; anything else throws LightningUpstreamError
+ * and the outcome is UNKNOWN — the caller must not retry blindly,
+ * it first looks for the transfer's arrival at the destination.
+ */
+export async function providerBitcoinSend(
+  params: { address: string; amountSats: number },
+  config?: LightningProviderConfig,
+): Promise<BitcoinSendOutcome> {
+  const cfg = config ?? readLightningProviderConfig();
+  let res: Response;
+  try {
+    res = await fetch(`${cfg.base}/bitcoin/send`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${cfg.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        payment: {
+          address: params.address,
+          amount: Math.trunc(params.amountSats),
+          currency: "SAT",
+        },
+      }),
+    });
+  } catch (e) {
+    throw new LightningUpstreamError(
+      `Coinos bitcoin send unreachable: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+  const rawText = await res.text().catch(() => "");
+  let payload: unknown = null;
+  try {
+    payload = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    payload = null;
+  }
+  if (res.ok) {
+    return { kind: "sent", txid: parseCoinosBitcoinSend(payload).txid };
+  }
+  if ((res.status === 400 || res.status === 422) && payload && typeof payload === "object") {
+    const detail = firstString(payload as Record<string, unknown>, ["error", "message"]);
+    if (detail) return { kind: "rejected", detail };
+  }
+  throw new LightningUpstreamError(
+    `Coinos bitcoin send failed (HTTP ${res.status})${rawText ? `: ${rawText.slice(0, 200)}` : ""}`,
+  );
+}

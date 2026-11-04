@@ -14,6 +14,12 @@
 //   POST { action: "reconcile_payment", payment_id, resolution } →
 //        service-role ONLY: ops resolution of a held outbound send
 //        (resolution "paid" settles, "failed" releases the hold)
+//   POST { action: "process_rebalance" } → service-role ONLY:
+//        cross-rail rebalancing (migration 20261251) — a pay whose
+//        pool is short but whose combined backing covers it queues
+//        in 'awaiting_rebalance' behind a bridge; this processor
+//        resumes it when its bridge completes or releases its hold
+//        in full when the bridge fails or the bounded wait expires
 //   POST { action: "lnurl_pay_resolve", input } → resolve a Lightning
 //        address / LNURL endpoint (no money moves): returns the pay
 //        bounds + description, or the withdraw bounds, keyed by kind
@@ -50,7 +56,16 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
-import { decodeBolt11, decodeBolt11Msat, isBolt11Expired, poolShortfallReason } from "../_shared/btc-core.ts";
+import {
+  AWAITING_REBALANCE_MESSAGE,
+  decodeBolt11,
+  decodeBolt11Msat,
+  isBolt11Expired,
+  planRebalanceAmount,
+  poolShortfallReason,
+  REBALANCE_FAILED_MESSAGE,
+  REBALANCE_TIMEOUT_MESSAGE,
+} from "../_shared/btc-core.ts";
 import {
   LightningNotConfiguredError,
   LightningUpstreamError,
@@ -200,33 +215,45 @@ async function lightningSendPolicy(
   };
 }
 
-/** Returns a refusal Response when the send guard blocks, else null. */
+type LightningSendGuardResult =
+  | { refusal: Response }
+  | { queue: { poolBalance: number; onchainPool: number | null } }
+  | null;
+
+/**
+ * The send guard: a refusal when the send is blocked, a queue
+ * instruction when the Lightning pool is short but the platform's
+ * combined backing covers the payment (POOL_SHORT_REBALANCE_NEEDED
+ * — since migration 20261251 the send queues behind a cross-rail
+ * bridge instead of hard-stopping), else null.
+ */
 async function lightningSendGuard(
   admin: any,
   userId: string,
   sats: number,
-): Promise<Response | null> {
+): Promise<LightningSendGuardResult> {
   const policy = await lightningSendPolicy(admin);
   const operator = await isOperatorUser(admin, userId);
   if (!operator && sats < policy.minSats) {
-    return json(400, {
-      error: `Minimum Lightning payment is ${policy.minSats} sats`,
-    });
+    return {
+      refusal: json(400, {
+        error: `Minimum Lightning payment is ${policy.minSats} sats`,
+      }),
+    };
   }
   let poolBalance: number;
   try {
     poolBalance = await providerGetBalance();
   } catch (e) {
     console.error("lightning-service: pool balance read failed closed:", e);
-    return json(503, { error: LIGHTNING_PAYMENTS_UNAVAILABLE });
+    return { refusal: json(503, { error: LIGHTNING_PAYMENTS_UNAVAILABLE }) };
   }
   if (sats > poolBalance) {
     // Cross-rail classification (CEO 2026-11-04): distinguish "the
     // Lightning pool is short but the platform's combined backing
     // covers it" (POOL_SHORT_REBALANCE_NEEDED) from true
     // insufficiency (INSUFFICIENT_PLATFORM_FUNDS) via the persisted
-    // on-chain pool set. Hard stop either way today; the code is
-    // what the follow-on queue-and-rebalance work keys off.
+    // on-chain pool set.
     let onchainPool: number | null = null;
     const { data: utxoRows, error: utxoErr } = await admin
       .from("btc_pool_utxos")
@@ -238,11 +265,17 @@ async function lightningSendGuard(
         0,
       );
     }
-    return json(400, {
-      error:
-        "That payment is larger than the platform's current Lightning balance. Try a smaller amount, or pay on-chain instead.",
-      code: poolShortfallReason(sats, poolBalance, onchainPool),
-    });
+    const reason = poolShortfallReason(sats, poolBalance, onchainPool);
+    if (reason === "POOL_SHORT_REBALANCE_NEEDED") {
+      return { queue: { poolBalance, onchainPool } };
+    }
+    return {
+      refusal: json(400, {
+        error:
+          "That payment is larger than the platform's current Lightning balance. Try a smaller amount, or pay on-chain instead.",
+        code: reason,
+      }),
+    };
   }
   return null;
 }
@@ -366,6 +399,268 @@ async function resolveOutboundSend(
 }
 
 /**
+ * Attempt a reserved outbound payment ('processing'): ask the
+ * provider to pay, then classify — a definitive refusal releases
+ * the hold in full; acceptance settles ONLY on the independent
+ * read-back; an unknown outcome holds. Shared verbatim by
+ * pay_invoice, lnurl_pay, and the rebalance processor's resume, so
+ * a queued payment completes through the same exactly-once path.
+ */
+async function attemptOutboundPayment(
+  admin: ReturnType<typeof getServiceRoleClient>,
+  args: { paymentId: string; bolt11: string; paymentHash: string | null; sats: number },
+): Promise<Response> {
+  const { paymentId, bolt11, paymentHash, sats } = args;
+  const payOutcome = await providerPayInvoice(bolt11);
+  if (payOutcome.kind === "rejected") {
+    console.error("lightning-service: provider refused payment", paymentId, payOutcome.detail);
+    const { error: relErr } = await admin.rpc("btc_release_lightning_send", {
+      p_payment_id: paymentId,
+      p_reason: "Provider refused the payment",
+    });
+    if (relErr) {
+      console.error("CRITICAL: Lightning release after refusal failed", paymentId, relErr);
+      return json(200, {
+        status: "processing",
+        payment_id: paymentId,
+        message: PAYMENT_PROCESSING_MESSAGE,
+      });
+    }
+    return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
+  }
+  if (payOutcome.kind === "unknown") {
+    console.error("lightning-service: payment outcome unknown", paymentId, payOutcome.detail);
+    return json(200, {
+      status: "processing",
+      payment_id: paymentId,
+      message: PAYMENT_PROCESSING_MESSAGE,
+    });
+  }
+  const resolution = await resolveOutboundSend(admin, {
+    id: paymentId,
+    bolt11,
+    payment_hash: paymentHash,
+  });
+  if (resolution === "paid") {
+    return json(200, { status: "paid", paid_sats: sats, payment_id: paymentId });
+  }
+  if (resolution === "failed") {
+    return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
+  }
+  return json(200, {
+    status: "processing",
+    payment_id: paymentId,
+    message: PAYMENT_PROCESSING_MESSAGE,
+  });
+}
+
+/** The cross-rail policy slice this function needs (platform_settings). */
+async function rebalanceLightningPolicy(admin: any): Promise<{
+  enabled: boolean;
+  bufferSats: number;
+  maxTxSats: number;
+}> {
+  const { data: settings } = await admin
+    .from("platform_settings")
+    .select("btc_rebalance_enabled, btc_rebalance_buffer_sats, btc_rebalance_max_tx_sats")
+    .limit(1)
+    .maybeSingle();
+  return {
+    enabled: settings?.btc_rebalance_enabled !== false,
+    bufferSats: Number(settings?.btc_rebalance_buffer_sats ?? 50_000),
+    maxTxSats: Number(settings?.btc_rebalance_max_tx_sats ?? 2_000_000),
+  };
+}
+
+/**
+ * Park a fresh Lightning reservation behind a cross-rail bridge:
+ * flip it to 'awaiting_rebalance' and register the rebalance
+ * request (btc_request_rebalance JOINS any in-flight request for
+ * the direction — a second queued payment never double-executes a
+ * bridge). Any failure releases the hold in full and surfaces the
+ * honest refusal — never a stranded hold.
+ */
+async function queueLightningPaymentBehindBridge(
+  admin: any,
+  args: { paymentId: string; sats: number; poolBalance: number; onchainPool: number | null },
+): Promise<Response> {
+  const releaseAndRefuse = async (status: number, body: Record<string, unknown>) => {
+    const { error } = await admin.rpc("btc_release_lightning_send", {
+      p_payment_id: args.paymentId,
+      p_reason: "Cross-rail preparation could not be registered",
+    });
+    if (error) {
+      console.error("CRITICAL: Lightning release after queue failure failed", args.paymentId, error);
+      return json(200, {
+        status: "processing",
+        payment_id: args.paymentId,
+        message: PAYMENT_PROCESSING_MESSAGE,
+      });
+    }
+    return json(status, body);
+  };
+
+  const policy = await rebalanceLightningPolicy(admin);
+  if (!policy.enabled) {
+    return await releaseAndRefuse(400, {
+      error:
+        "That payment is larger than the platform's current Lightning balance. Try a smaller amount, or pay on-chain instead.",
+      code: "POOL_SHORT_REBALANCE_NEEDED",
+    });
+  }
+  const shortfall = args.sats - args.poolBalance;
+  const plan = planRebalanceAmount({
+    shortfallSats: shortfall,
+    bufferSats: policy.bufferSats,
+    sourcePoolSats: args.onchainPool ?? 0,
+    minSats: 1,
+    maxTxSats: policy.maxTxSats,
+  });
+  if (!plan.viable || plan.amountSats < shortfall) {
+    return await releaseAndRefuse(400, {
+      error:
+        "That payment is larger than the platform's current Lightning balance. Try a smaller amount, or pay on-chain instead.",
+      code: "INSUFFICIENT_PLATFORM_FUNDS",
+    });
+  }
+  const { error: queueErr } = await admin.rpc("btc_queue_lightning_send", {
+    p_payment_id: args.paymentId,
+  });
+  if (queueErr) {
+    console.error("lightning-service: could not queue payment behind bridge", args.paymentId, queueErr);
+    return await releaseAndRefuse(500, {
+      error: "Could not prepare the payment; your balance was refunded",
+    });
+  }
+  const { error: reqErr } = await admin.rpc("btc_request_rebalance", {
+    p_direction: "onchain_to_lightning",
+    p_amount_sats: plan.amountSats,
+    p_reason: "send",
+    p_linked_kind: "lightning_payment",
+    p_linked_id: args.paymentId,
+  });
+  if (reqErr) {
+    console.error("lightning-service: could not register rebalance request", args.paymentId, reqErr);
+    return await releaseAndRefuse(500, {
+      error: "Could not prepare the payment; your balance was refunded",
+    });
+  }
+  return json(200, {
+    status: "awaiting_rebalance",
+    payment_id: args.paymentId,
+    message: AWAITING_REBALANCE_MESSAGE,
+  });
+}
+
+/**
+ * One Lightning-side processor tick (cron
+ * btc-process-rebalance-lightning): payments queued behind a bridge
+ * whose request FAILED are released in full; payments whose bridge
+ * COMPLETED resume through attemptOutboundPayment — or request the
+ * remainder when the pool is still short.
+ */
+async function processLightningRebalance(admin: any): Promise<Response> {
+  const { data: payments } = await admin
+    .from("lightning_payments")
+    .select("id, user_id, amount_sats, bolt11, payment_hash, status")
+    .eq("direction", "outbound")
+    .eq("status", "awaiting_rebalance")
+    .limit(25);
+
+  let released = 0;
+  let resumed = 0;
+  for (const payment of payments ?? []) {
+    const { data: link } = await admin
+      .from("btc_rebalance_links")
+      .select("request_id")
+      .eq("kind", "lightning_payment")
+      .eq("ref_id", payment.id)
+      .maybeSingle();
+    const { data: request } = link
+      ? await admin
+        .from("btc_rebalance_requests")
+        .select("id, status, failure_reason")
+        .eq("id", link.request_id)
+        .maybeSingle()
+      : { data: null };
+    if (!request) {
+      console.error(
+        "CRITICAL: Lightning payment queued without a rebalance request",
+        payment.id,
+      );
+      continue;
+    }
+    if (request.status === "failed") {
+      const timedOut = (request.failure_reason ?? "").includes("Bounded wait");
+      const { error } = await admin.rpc("btc_release_lightning_send", {
+        p_payment_id: payment.id,
+        p_reason: timedOut ? REBALANCE_TIMEOUT_MESSAGE : REBALANCE_FAILED_MESSAGE,
+      });
+      if (error) {
+        console.error("CRITICAL: Lightning release for failed bridge failed", payment.id, error);
+      } else {
+        released++;
+      }
+      continue;
+    }
+    if (request.status !== "completed") continue;
+
+    let poolBalance: number;
+    try {
+      poolBalance = await providerGetBalance();
+    } catch (e) {
+      console.error("lightning-service: rebalance resume pool read failed:", e);
+      continue;
+    }
+    if (poolBalance < Number(payment.amount_sats)) {
+      // Bridge landed but the pool is still short: request the
+      // remainder (the RPC relinks this payment to the new request).
+      const { data: utxoRows } = await admin
+        .from("btc_pool_utxos")
+        .select("value_sats")
+        .eq("status", "confirmed");
+      const onchainPool = (utxoRows ?? []).reduce(
+        (sum: number, r: any) => sum + Number(r.value_sats), 0,
+      );
+      const policy = await rebalanceLightningPolicy(admin);
+      const shortfall = Number(payment.amount_sats) - poolBalance;
+      const plan = planRebalanceAmount({
+        shortfallSats: shortfall,
+        bufferSats: policy.bufferSats,
+        sourcePoolSats: onchainPool,
+        minSats: 1,
+        maxTxSats: policy.maxTxSats,
+      });
+      if (plan.viable && plan.amountSats >= shortfall) {
+        await admin.rpc("btc_request_rebalance", {
+          p_direction: "onchain_to_lightning",
+          p_amount_sats: plan.amountSats,
+          p_reason: "send",
+          p_linked_kind: "lightning_payment",
+          p_linked_id: payment.id,
+        });
+      }
+      continue;
+    }
+    const { error: resumeErr } = await admin.rpc("btc_resume_lightning_send", {
+      p_payment_id: payment.id,
+    });
+    if (resumeErr) {
+      console.error("lightning-service: rebalance resume flip failed", payment.id, resumeErr);
+      continue;
+    }
+    resumed++;
+    await attemptOutboundPayment(admin, {
+      paymentId: payment.id,
+      bolt11: payment.bolt11,
+      paymentHash: payment.payment_hash,
+      sats: Number(payment.amount_sats),
+    });
+  }
+  return json(200, { processed: true, released, resumed });
+}
+
+/**
  * Self-custody sell-to-ZMW (migration 20261235): if this inbound
  * payment is bound to a sell intent, convert its just-settled BTC
  * credit to ZMW via btc_settle_selfcustody_sell. Isolated by design:
@@ -449,6 +744,18 @@ serve(async (req) => {
         outcome: outcome?.outcome ?? null,
         status: outcome?.payment_status ?? null,
       });
+    }
+
+    // ── Cross-rail rebalance processor (service role, migration
+    // 20261251): resume or release Lightning payments queued behind
+    // a bridge. Authorised by the service-role key itself, exactly
+    // like reconcile_payment.
+    if (action === "process_rebalance") {
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+      if (!serviceKey || token !== serviceKey) {
+        return json(403, { error: "Service role required" });
+      }
+      return await processLightningRebalance(admin);
     }
 
     const supabase = getSupabaseClient(req);
@@ -564,9 +871,13 @@ serve(async (req) => {
 
       // Send guard (research step 0): minimum for regular users and
       // the pool cap against the provider account's actual balance —
-      // still before anything is reserved.
-      const guardRefusal = await lightningSendGuard(admin, user.id, sats);
-      if (guardRefusal) return guardRefusal;
+      // still before anything is reserved. A queue verdict means the
+      // Lightning pool is short but the combined backing covers the
+      // payment: reserve as usual, then park the payment behind a
+      // cross-rail bridge (migration 20261251).
+      const guard = await lightningSendGuard(admin, user.id, sats);
+      if (guard?.refusal) return guard.refusal;
+      const guardQueue = guard?.queue;
       const sendPolicy = await lightningSendPolicy(admin);
 
       // Reserve the amount and record the send atomically
@@ -611,36 +922,13 @@ serve(async (req) => {
         if (reserve.status === "failed") {
           return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
         }
-        return json(200, {
-          status: "processing",
-          payment_id: paymentId,
-          message: PAYMENT_PROCESSING_MESSAGE,
-        });
-      }
-
-      // Fresh reservation — ask the provider to pay. The classified
-      // outcome decides: a definitive refusal releases the hold in
-      // full; acceptance triggers an independent read-back (the POST
-      // response alone never settles); an unknown outcome holds.
-      const payOutcome = await providerPayInvoice(bolt11.trim());
-      if (payOutcome.kind === "rejected") {
-        console.error("lightning-service: provider refused payment", paymentId, payOutcome.detail);
-        const { error: relErr } = await admin.rpc("btc_release_lightning_send", {
-          p_payment_id: paymentId,
-          p_reason: "Provider refused the payment",
-        });
-        if (relErr) {
-          console.error("CRITICAL: Lightning release after refusal failed", paymentId, relErr);
+        if (reserve.status === "awaiting_rebalance") {
           return json(200, {
-            status: "processing",
+            status: "awaiting_rebalance",
             payment_id: paymentId,
-            message: PAYMENT_PROCESSING_MESSAGE,
+            message: AWAITING_REBALANCE_MESSAGE,
           });
         }
-        return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
-      }
-      if (payOutcome.kind === "unknown") {
-        console.error("lightning-service: payment outcome unknown", paymentId, payOutcome.detail);
         return json(200, {
           status: "processing",
           payment_id: paymentId,
@@ -648,22 +936,24 @@ serve(async (req) => {
         });
       }
 
-      // Accepted: confirm via read-back before settling anything.
-      const resolution = await resolveOutboundSend(admin, {
-        id: paymentId,
+      // Queued behind a cross-rail bridge: park the fresh
+      // reservation and register the rebalance request instead of
+      // attempting the payment now.
+      if (guardQueue) {
+        return await queueLightningPaymentBehindBridge(admin, {
+          paymentId,
+          sats,
+          poolBalance: guardQueue.poolBalance,
+          onchainPool: guardQueue.onchainPool,
+        });
+      }
+
+      // Fresh reservation — ask the provider to pay.
+      return await attemptOutboundPayment(admin, {
+        paymentId,
         bolt11: bolt11.trim(),
-        payment_hash: details.paymentHash,
-      });
-      if (resolution === "paid") {
-        return json(200, { status: "paid", paid_sats: sats, payment_id: paymentId });
-      }
-      if (resolution === "failed") {
-        return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
-      }
-      return json(200, {
-        status: "processing",
-        payment_id: paymentId,
-        message: PAYMENT_PROCESSING_MESSAGE,
+        paymentHash: details.paymentHash,
+        sats,
       });
     }
 
@@ -684,6 +974,12 @@ serve(async (req) => {
       if (payment.direction === "outbound") {
         if (payment.status === "paid") return json(200, { status: "paid" });
         if (payment.status === "failed") return json(200, { status: "failed" });
+        if (payment.status === "awaiting_rebalance") {
+          return json(200, {
+            status: "awaiting_rebalance",
+            message: AWAITING_REBALANCE_MESSAGE,
+          });
+        }
         if (payment.status !== "processing") {
           return json(200, { status: payment.status });
         }
@@ -832,8 +1128,9 @@ serve(async (req) => {
 
       // Send guard (research step 0), as in pay_invoice: minimum
       // for regular users + the provider-pool cap, before reserving.
-      const guardRefusal = await lightningSendGuard(admin, user.id, sats);
-      if (guardRefusal) return guardRefusal;
+      const guard = await lightningSendGuard(admin, user.id, sats);
+      if (guard?.refusal) return guard.refusal;
+      const guardQueue = guard?.queue;
       const sendPolicy = await lightningSendPolicy(admin);
 
       // Reserve-first, exactly as pay_invoice: the hold, the
@@ -873,6 +1170,13 @@ serve(async (req) => {
         if (reserve.status === "failed") {
           return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
         }
+        if (reserve.status === "awaiting_rebalance") {
+          return json(200, {
+            status: "awaiting_rebalance",
+            payment_id: paymentId,
+            message: AWAITING_REBALANCE_MESSAGE,
+          });
+        }
         return json(200, {
           status: "processing",
           payment_id: paymentId,
@@ -880,46 +1184,20 @@ serve(async (req) => {
         });
       }
 
-      const payOutcome = await providerPayInvoice(lnurlBolt11.trim());
-      if (payOutcome.kind === "rejected") {
-        console.error("lightning-service: provider refused LNURL payment", paymentId, payOutcome.detail);
-        const { error: relErr } = await admin.rpc("btc_release_lightning_send", {
-          p_payment_id: paymentId,
-          p_reason: "Provider refused the payment",
-        });
-        if (relErr) {
-          console.error("CRITICAL: Lightning release after refusal failed", paymentId, relErr);
-          return json(200, {
-            status: "processing",
-            payment_id: paymentId,
-            message: PAYMENT_PROCESSING_MESSAGE,
-          });
-        }
-        return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
-      }
-      if (payOutcome.kind === "unknown") {
-        console.error("lightning-service: LNURL payment outcome unknown", paymentId, payOutcome.detail);
-        return json(200, {
-          status: "processing",
-          payment_id: paymentId,
-          message: PAYMENT_PROCESSING_MESSAGE,
+      if (guardQueue) {
+        return await queueLightningPaymentBehindBridge(admin, {
+          paymentId,
+          sats,
+          poolBalance: guardQueue.poolBalance,
+          onchainPool: guardQueue.onchainPool,
         });
       }
-      const resolution = await resolveOutboundSend(admin, {
-        id: paymentId,
+
+      return await attemptOutboundPayment(admin, {
+        paymentId,
         bolt11: lnurlBolt11.trim(),
-        payment_hash: details.paymentHash,
-      });
-      if (resolution === "paid") {
-        return json(200, { status: "paid", paid_sats: sats, payment_id: paymentId });
-      }
-      if (resolution === "failed") {
-        return json(200, { status: "failed", payment_id: paymentId, error: PAYMENT_REFUSED });
-      }
-      return json(200, {
-        status: "processing",
-        payment_id: paymentId,
-        message: PAYMENT_PROCESSING_MESSAGE,
+        paymentHash: details.paymentHash,
+        sats,
       });
     }
 

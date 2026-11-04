@@ -94,4 +94,26 @@ describe("interpretOnchainSendResponse", () => {
     });
     expect(interpretOnchainSendResponse({})).toEqual({ kind: "unexpected" });
   });
+
+  it("interprets the 202 awaiting_rebalance shape (cross-rail queue, migration 20261251)", () => {
+    expect(
+      interpretOnchainSendResponse({
+        status: "awaiting_rebalance",
+        withdrawal_id: "wd-1",
+        amount_sats: 5000,
+        message: "Your payment is being prepared — we're moving funds between our wallets so it can go through. This usually takes under an hour.",
+      }),
+    ).toEqual({
+      kind: "awaiting",
+      message: "Your payment is being prepared — we're moving funds between our wallets so it can go through. This usually takes under an hour.",
+    });
+  });
+
+  it("falls back to the crafted copy when an awaiting body carries no message", () => {
+    const out = interpretOnchainSendResponse({ status: "awaiting_rebalance" });
+    expect(out.kind).toBe("awaiting");
+    if (out.kind === "awaiting") {
+      expect(out.message).toContain("being prepared");
+    }
+  });
 });

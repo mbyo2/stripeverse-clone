@@ -337,6 +337,7 @@ function SendOnchain({
     | { kind: "broadcast"; txid: string; fee_sats: number }
     | { kind: "verifying"; txid: string | null; message: string }
     | { kind: "queued"; deadline: string | null; reservedFeeSats: number }
+    | { kind: "awaiting"; message: string }
     | null
   >(null);
   // Protection P3: a live, read-only fee estimate for the entered
@@ -538,6 +539,16 @@ function SendOnchain({
       // must NOT be retried. Route every response through the
       // interpreter rather than assuming success fields exist.
       const outcome = interpretOnchainSendResponse(data);
+      if (outcome.kind === "awaiting") {
+        // Queued behind a cross-rail bridge (migration 20261251):
+        // the sats are reserved and the send completes on its own —
+        // or is refunded in full. Idempotency key NOT rotated.
+        setResult({ kind: "awaiting", message: outcome.message });
+        toast({ title: "Payment being prepared", description: outcome.message });
+        invalidateMoney();
+        onDone();
+        return;
+      }
       if (outcome.kind === "verifying") {
         setResult({ kind: "verifying", txid: outcome.txid, message: outcome.message });
         toast({ title: "Withdrawal being verified", description: outcome.message });
@@ -589,6 +600,20 @@ function SendOnchain({
         },
       });
       if (error) throw error;
+      if (data?.status === "awaiting_rebalance") {
+        // Queued behind a cross-rail bridge instead of the batch:
+        // same promise — it completes on its own or refunds in full.
+        setResult({
+          kind: "awaiting",
+          message: typeof data?.message === "string" && data.message
+            ? data.message
+            : "Your payment is being prepared — we're moving funds between our wallets so it can go through. This usually takes under an hour.",
+        });
+        toast({ title: "Payment being prepared", description: "We're moving funds between our wallets so it can go through." });
+        invalidateMoney();
+        onDone();
+        return;
+      }
       setResult({
         kind: "queued",
         deadline: data?.batch_deadline ?? null,
@@ -627,6 +652,20 @@ function SendOnchain({
           <p className="text-sm text-muted-foreground">
             Changed your mind? You can cancel it from your Bitcoin wallet for a full
             refund any time before it sends.
+          </p>
+        </div>
+      );
+    }
+    if (result.kind === "awaiting") {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Your payment is being prepared</p>
+          <p className="text-sm text-muted-foreground">{result.message}</p>
+          <p className="text-sm text-muted-foreground">
+            {Number(sats).toLocaleString()} sats to {address.trim()} — the amount is
+            reserved from your balance while this completes. If it can't go through in
+            time, the full amount comes straight back to your balance. You don't need
+            to do anything, and you don't need to send it again.
           </p>
         </div>
       );
@@ -973,7 +1012,7 @@ function PendingBtcWithdrawals({ refreshKey }: { refreshKey: number }) {
       .from("btc_withdrawals" as any)
       .select("id, to_address, amount_sats, fee_sats, status, txid, batch_deadline, created_at")
       .eq("mode", "batch")
-      .in("status", ["queued", "batched"])
+      .in("status", ["queued", "batched", "awaiting_rebalance"])
       .order("created_at", { ascending: true });
     setRows(data ?? []);
   };
@@ -1025,7 +1064,17 @@ function PendingBtcWithdrawals({ refreshKey }: { refreshKey: number }) {
         <ul className="divide-y divide-border">
           {rows.map((row) => (
             <li key={row.id} className="py-3 space-y-1">
-              {row.status === "queued" ? (
+              {row.status === "awaiting_rebalance" ? (
+                <>
+                  <p className="text-sm font-medium">Bitcoin withdrawal — being prepared</p>
+                  <p className="text-sm text-muted-foreground">
+                    {Number(row.amount_sats).toLocaleString()} sats to {shortAddress(row.to_address)}
+                    {" "}· we're moving funds between our wallets so this can go through —
+                    it usually takes under an hour. If it can't complete in time, your
+                    sats come back to your balance in full automatically.
+                  </p>
+                </>
+              ) : row.status === "queued" ? (
                 <>
                   <p className="text-sm font-medium">Bitcoin withdrawal — waiting for a low-fee window</p>
                   <p className="text-sm text-muted-foreground">
