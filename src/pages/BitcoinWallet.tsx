@@ -1088,6 +1088,9 @@ export default function BitcoinWallet() {
   const { wallet, isLoading, walletError, isWalletError, refetchWallet, transactions, isTxLoading, refetchTx } = useBitcoinWallet();
   const retryWithRecovery = useRecoveringRetry();
   const { toast } = useToast();
+  // Custodial Send follows the feature registry (CEO order
+  // 2026-11-04, below at the Send dialog).
+  const { canSee } = useFeatureVisibility();
   const [open, setOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   // Bumped on every money-state refresh so the P4 queued-withdrawals
@@ -1224,6 +1227,20 @@ export default function BitcoinWallet() {
                 </DialogContent>
               </Dialog>
 
+              {/* Custodial Send is gated off for regular users by CEO
+                  order 2026-11-04 ("Remove Send until it actually
+                  settles"): the live proof that day showed neither
+                  rail can settle — the Lightning provider pool holds
+                  0 sats, and on-chain sends fail before any money
+                  logic (UTXO scan defect + empty hot wallet). The
+                  switch is the registry's `custodialSend` entry in
+                  src/lib/featureVisibility.ts: retire it there once
+                  BOTH rails are proven settling with real sats and
+                  this dialog returns exactly as-is. The admin tier
+                  keeps the dialog for operating and testing the rail.
+                  Deposit (above), the Sell panel and the queued-
+                  withdrawal view are working surfaces and stay. */}
+              {canSee("custodialSend") && (
               <Dialog
                 open={sendOpen}
                 onOpenChange={(next) => {
@@ -1273,6 +1290,7 @@ export default function BitcoinWallet() {
                   )}
                 </DialogContent>
               </Dialog>
+              )}
               </div>
             </CardContent>
           </Card>

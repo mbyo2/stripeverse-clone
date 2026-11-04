@@ -300,3 +300,48 @@ describe("surface pins — entry points consult the registry", () => {
     expect(checkout).not.toContain("available: false");
   });
 });
+
+describe("custodialSend — removed until it settles (CEO order 2026-11-04)", () => {
+  it("is registered flag-less: hidden from users and guests under every flag state", () => {
+    expect(ALL_FEATURES).toContain("custodialSend");
+    expect(flagsOf("custodialSend")).toEqual([]);
+    for (const flags of [ALL_OFF, ALL_ON]) {
+      expect(isFeatureVisible("custodialSend", USER, flags)).toBe(false);
+      expect(isFeatureVisible("custodialSend", GUEST, flags)).toBe(false);
+    }
+  });
+
+  it("stays visible to the admin tier, who operate and test the rail", () => {
+    expect(isFeatureVisible("custodialSend", ADMIN, ALL_OFF)).toBe(true);
+    expect(isFeatureVisible("custodialSend", SUPER_ADMIN, ALL_OFF)).toBe(true);
+  });
+
+  it("the registry note records why, and the restore condition", () => {
+    const note = FEATURE_REGISTRY.custodialSend.note;
+    expect(note).toContain("2026-11-04");
+    expect(note).toContain("BOTH rails");
+    expect(note).toContain("real sats");
+  });
+
+  it("the custodial page gates the Send dialog on the registry — Deposit and Sell are not gated", () => {
+    const page = read("../../src/pages/BitcoinWallet.tsx");
+    const gate = page.indexOf('canSee("custodialSend")');
+    const depositTitle = page.indexOf("<DialogTitle>Deposit Bitcoin</DialogTitle>");
+    const sendTitle = page.indexOf("<DialogTitle>Send Bitcoin</DialogTitle>");
+    expect(gate).toBeGreaterThan(-1);
+    expect(depositTitle).toBeGreaterThan(-1);
+    // The gate sits between the Deposit dialog and the Send dialog
+    // it wraps: it cannot be hiding Deposit by construction.
+    expect(gate).toBeGreaterThan(depositTitle);
+    expect(sendTitle).toBeGreaterThan(gate);
+    // Exactly one gate in the page — the Sell panel and the rest of
+    // the page render unconditionally, as before.
+    expect(page.split('canSee("custodialSend")')).toHaveLength(2);
+    expect(page).toContain("Sell Bitcoin");
+  });
+
+  it("the self-custody wallet is a different, working rail: it never consults this gate", () => {
+    const selfCustody = read("../../src/pages/SelfCustodyWallet.tsx");
+    expect(selfCustody).not.toContain("custodialSend");
+  });
+});
