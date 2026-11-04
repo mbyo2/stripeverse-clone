@@ -26,14 +26,14 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 pt-14 md:pt-[88px] pb-14 md:pb-[72px] text-center">
         <FadeIn delay={0.1} duration={0.6} distance={16}>
           <h1 className="font-display font-extrabold text-black dark:text-white tracking-[-0.03em] leading-[1.05] text-[42px] sm:text-[58px] lg:text-[76px] max-w-6xl mx-auto">
-            Your Bitcoin wallet, built for Zambia
+            Your Bitcoin wallet, built for everyone
           </h1>
         </FadeIn>
 
         <FadeIn delay={0.18} duration={0.6} distance={16}>
           <p className="mt-6 text-[17px] md:text-[19px] leading-[1.55] text-black dark:text-white/80 max-w-2xl mx-auto">
-            Deposit kwacha, buy and sell Bitcoin, and withdraw whenever you
-            like.
+            Buy and sell Bitcoin, send it anywhere in the world, and withdraw
+            whenever you like.
           </p>
         </FadeIn>
 

@@ -162,8 +162,8 @@ const CollectPayments = () => {
               </div>
               <div className="p-4 rounded-lg bg-muted/50 text-center">
                 <Globe className="h-8 w-8 mx-auto mb-2 text-primary" />
-                <p className="font-semibold text-sm">Built for Zambia</p>
-                <p className="text-xs text-muted-foreground">Kwacha-first payments</p>
+                <p className="font-semibold text-sm">Built for Everyone</p>
+                <p className="text-xs text-muted-foreground">Collect payments from anywhere</p>
               </div>
               <div className="p-4 rounded-lg bg-muted/50 text-center">
                 <BarChart3 className="h-8 w-8 mx-auto mb-2 text-primary" />

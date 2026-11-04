@@ -68,7 +68,7 @@ const Contact = () => {
                 Stay Connected
               </h2>
               <p className="body-text text-center mb-8">
-                Subscribe to receive updates on BMaGlass Pay's new features, payment solutions, and financial insights for Zambian businesses.
+                Subscribe to receive updates on BMaGlass Pay's new features, payment solutions, and financial insights for businesses everywhere.
               </p>
               
               <form onSubmit={handleSubmit} className="max-w-md mx-auto">

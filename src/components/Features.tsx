@@ -24,13 +24,13 @@ const PaymentSolutions = () => {
       <FadeIn duration={0.6} distance={20}>
         <div className="text-center mb-16">
           <span className="inline-block px-3 py-1 rounded-full bg-secondary text-sm font-medium text-secondary-foreground mb-4">
-            Zambia's Premier Payment Gateway
+            Bitcoin Wallet & Payments for Everyone
           </span>
           <h2 className="heading-2 mb-4">
-            The Heartbeat of Zambian Digital Commerce
+            The Bitcoin Wallet at the Heart of Every Payment
           </h2>
           <p className="body-text max-w-2xl mx-auto">
-            Founded by Mabvuto Banda, BMaGlass Pay is built from the ground up to serve Zambian businesses with payment technology that understands local market needs and challenges.
+            Founded by Mabvuto Banda, BMaGlass Pay is built from the ground up in Zambia to serve people and businesses everywhere — a Bitcoin wallet first, with payment technology that works wherever you are.
           </p>
         </div>
       </FadeIn>

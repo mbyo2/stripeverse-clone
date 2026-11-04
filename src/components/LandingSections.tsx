@@ -61,7 +61,7 @@ export const PhotoBand = () => {
       <div className="relative max-w-[1200px] mx-auto px-4 sm:px-6 h-[460px] md:h-[520px] flex items-end pb-14 md:pb-20">
         <FadeIn duration={0.6} distance={20}>
           <p className="font-display font-extrabold text-white tracking-[-0.025em] leading-[1.08] text-[36px] md:text-[56px] max-w-2xl">
-            Buy and sell Bitcoin in Zambia — in kwacha, from your phone.
+            Buy and sell Bitcoin from your phone — wherever you are in the world.
           </p>
         </FadeIn>
       </div>
@@ -73,8 +73,8 @@ export const BitcoinSection = () => (
   <SplitSection
     image="https://images.unsplash.com/photo-1518546305927-5a555bb7020d?q=80&w=1600&auto=format&fit=crop"
     imageAlt="A physical Bitcoin coin in front of a live trading chart"
-    headline="Bitcoin, right beside your kwacha"
-    copy="Buy and sell Bitcoin with kwacha, hold it next to your everyday balance, and send it on-chain or over Lightning. Keep it in your BMaGlass wallet — or hold your own keys with a seed-phrase wallet. The choice is yours."
+    headline="Bitcoin, right beside your everyday money"
+    copy="Buy and sell Bitcoin, hold it next to your everyday balance, and send it on-chain or over Lightning — to anyone, anywhere. Keep it in your BMaGlass wallet — or hold your own keys with a seed-phrase wallet. The choice is yours."
     linkTo="/bitcoin-wallet"
     linkLabel="Open the Bitcoin wallet"
   />
@@ -110,7 +110,7 @@ export const MobileMoneySection = () => (
     image="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?q=80&w=1600&auto=format&fit=crop"
     imageAlt="Portrait of a young woman in a colourful Ankara print outfit"
     headline="Send money from your wallet, the simple way"
-    copy="Send money from your wallet to any phone number on BMaGlass — the way Zambia already moves money, now in one place, with the fee shown before you confirm. Mobile money is coming soon; when it is live, we will say so here."
+    copy="Send money from your wallet to any phone number on BMaGlass — simple, fast, and all in one place. Mobile money is coming soon; when it is live, we will say so here."
     linkTo="/send-money"
     linkLabel="See how sending works"
   />
@@ -185,7 +185,6 @@ export const FinalCta = () => {
           <p className="text-[17px] leading-[1.55] text-[#44464A] dark:text-white/70 mb-9">
             Create your free account in minutes and hold Bitcoin your way —
             in a wallet we secure for you, or with your own seed phrase.
-            No setup fees or monthly charges.
           </p>
           <Link
             to="/register"

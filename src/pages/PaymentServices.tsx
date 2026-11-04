@@ -51,7 +51,7 @@ const PaymentServices = () => {
             <div className="text-center mb-12">
               <h1 className="text-4xl font-bold mb-4">Payment Services</h1>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                A payment platform offering payment solutions for businesses of all sizes in Zambia.
+                A payment platform offering payment solutions for businesses of all sizes, everywhere.
               </p>
             </div>
             

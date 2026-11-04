@@ -234,9 +234,9 @@ describe("share metadata — the preview leads with Bitcoin (source pins)", () =
   const html = read("../../index.html");
 
   it("titles the page as the Bitcoin wallet", () => {
-    expect(html).toContain("<title>BMaGlass Pay — Your Bitcoin Wallet, Built for Zambia</title>");
-    expect(html).toContain('property="og:title" content="BMaGlass Pay — Your Bitcoin Wallet, Built for Zambia"');
-    expect(html).toContain('name="twitter:title" content="BMaGlass Pay — Your Bitcoin Wallet, Built for Zambia"');
+    expect(html).toContain("<title>BMaGlass Pay — Bitcoin Wallet & Payments for Everyone</title>");
+    expect(html).toContain('property="og:title" content="BMaGlass Pay — Bitcoin Wallet & Payments for Everyone"');
+    expect(html).toContain('name="twitter:title" content="BMaGlass Pay — Bitcoin Wallet & Payments for Everyone"');
   });
 
   it("describes Bitcoin before any other rail in the social descriptions", () => {

@@ -112,11 +112,11 @@ const Pricing = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="text-center p-4">
               <h4 className="font-medium mb-2">Zambian Owned</h4>
-              <p className="text-sm text-muted-foreground">Built by Zambians for Zambian businesses, with full understanding of local market needs.</p>
+              <p className="text-sm text-muted-foreground">Built in Zambia by Zambians, for businesses everywhere.</p>
             </div>
             <div className="text-center p-4">
-              <h4 className="font-medium mb-2">Local Support</h4>
-              <p className="text-sm text-muted-foreground">Lusaka-based team providing personalized support in your local language.</p>
+              <h4 className="font-medium mb-2">Human Support</h4>
+              <p className="text-sm text-muted-foreground">Lusaka-based team providing personal support, wherever you are.</p>
             </div>
             <div className="text-center p-4">
               <h4 className="font-medium mb-2">Easy Integration</h4>

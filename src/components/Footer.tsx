@@ -72,7 +72,7 @@ const Footer = () => {
               <Logo variant="white" />
             </div>
             <p className="text-sm text-white/60 mb-4 max-w-xs">
-              Zambia's trusted payment gateway. Secure, fast, and built for African businesses.
+              Your Bitcoin wallet and payments platform. Secure, fast, and built for everyone, everywhere.
             </p>
             <div className="space-y-2 text-sm text-white/60">
               <div className="flex items-center gap-2">

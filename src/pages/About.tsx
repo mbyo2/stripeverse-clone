@@ -11,7 +11,7 @@ const About = () => {
     { icon: Shield, title: "Security", description: "Encryption and tokenisation protect every transaction and customer data point." },
     { icon: Users, title: "Accessibility", description: "Solutions designed for everyone — from smartphone users to USSD on feature phones." },
     { icon: Lightbulb, title: "Innovation", description: "Continuously pushing boundaries with mobile money, virtual cards, Bitcoin, and API-first architecture." },
-    { icon: Eye, title: "Transparency", description: "Clear, honest communication about fees, policies, and how we handle your data." },
+    { icon: Eye, title: "Transparency", description: "Clear, honest communication about our policies and how we handle your data." },
   ];
 
   const stats = [
@@ -28,7 +28,7 @@ const About = () => {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4">About BMaGlass Pay</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Zambia's trusted payment gateway — making digital payments secure, accessible, and instant for everyone.
+            A Bitcoin wallet and payments platform — making digital payments secure, accessible, and instant for everyone, everywhere.
           </p>
         </div>
 
@@ -48,7 +48,7 @@ const About = () => {
         <section className="mb-12">
           <h2 className="text-2xl font-semibold mb-4">Our Mission</h2>
           <p className="text-muted-foreground leading-relaxed">
-            At BMaGlass Pay, we believe financial inclusion is a right, not a privilege. Our mission is to provide secure, reliable, and accessible payment solutions for individuals and businesses across Zambia and beyond — bridging the gap between traditional banking, mobile money, and emerging payment technologies.
+            At BMaGlass Pay, we believe financial inclusion is a right, not a privilege. Our mission is to provide secure, reliable, and accessible payment solutions for individuals and businesses across the world — bridging the gap between traditional banking, mobile money, and emerging payment technologies.
           </p>
         </section>
 
@@ -59,7 +59,7 @@ const About = () => {
             Founded in 2023 by Mabvuto Banda in Lusaka, BMaGlass Pay emerged from a recognition of the challenges facing the payment ecosystem in Africa. With backgrounds in fintech and telecommunications, our founding team set out to create a platform that works for everyone — from urban merchants processing card payments to rural users transacting via USSD.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            Today, we're building BMaGlass Pay into a home-grown Zambian payment platform, serving businesses and individuals with a commitment to innovation, security, and customer satisfaction.
+            Today, we're building BMaGlass Pay into a payment platform for everyone in the world — built in Zambia, serving businesses and individuals everywhere, with a commitment to innovation, security, and customer satisfaction.
           </p>
         </section>
 

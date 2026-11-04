@@ -79,7 +79,7 @@ export function phonesMatch(
 }
 
 export const INVALID_RECIPIENT_MESSAGE =
-  "That doesn't look like a valid phone number. Enter a Zambian number " +
+  "That doesn't look like a valid phone number. Enter a phone number " +
   "(e.g. 097 000 0000 or +260 97 000 0000) or the recipient's email address.";
 
 export type PreparedRecipientQuery =
