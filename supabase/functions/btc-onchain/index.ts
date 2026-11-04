@@ -69,6 +69,7 @@ import {
   estimateVsize,
   filterUncommittedUtxos,
   planConsolidation,
+  planUtxoScan,
   receiveStatus,
   requiredConfirmationsFor,
   selectCoins,
@@ -1135,9 +1136,10 @@ const BATCH_MAX_MEMBERS = 50;
  * Form and broadcast ONE withdrawal batch when the fee window is
  * open (live halfHourFee at/under the batch cap in platform_settings)
  * or the oldest queued withdrawal has waited the hard maximum — then
- * at market. Every invocation writes a btc_withdrawal_batches audit
- * row saying what was decided and why (the consolidation duty's
- * standard). Members were reserved at their solo estimates at queue
+ * at market. Every invocation that decides anything writes a
+ * btc_withdrawal_batches audit row saying what was decided and why
+ * (the consolidation duty's standard) — with ONE exception: the
+ * routine empty-queue no-op writes nothing (see that call site). Members were reserved at their solo estimates at queue
  * time; at settle each pays a proportional share of the ACTUAL fee
  * (allocateBatchFeeShares), capped at their reserve, and the unused
  * reserve is refunded by btc_settle_withdrawal_batch. A broadcast
@@ -1158,8 +1160,13 @@ async function runBatch(supabase: any) {
     if (error) console.error("btc-onchain run_batch: audit row failed:", error);
     return data?.id as string | undefined;
   };
-  const skip = async (status: string, reason: string, extra: Record<string, unknown> = {}) => {
-    const runId = await recordRun(status, reason, extra);
+  const skip = async (
+    status: string,
+    reason: string,
+    extra: Record<string, unknown> = {},
+    record = true,
+  ) => {
+    const runId = record ? await recordRun(status, reason, extra) : undefined;
     return json(200, { batched: false, status, reason, run_id: runId ?? null });
   };
 
@@ -1185,7 +1192,17 @@ async function runBatch(supabase: any) {
     .order("created_at", { ascending: true })
     .limit(BATCH_MAX_MEMBERS);
   if (!queued || queued.length === 0) {
-    return await skip("skipped_empty", "No queued withdrawals");
+    // The 5-minute batcher cron lands here on almost every run, and
+    // this no-op is deliberately NOT audited: one btc_withdrawal_
+    // batches row per cron tick is ~288 rows/day of pure noise —
+    // 2,588 rows by 2026-11-04 — and counting rows like these is what
+    // pushed gatherUtxos' old scan bound past its limit and broke
+    // every on-chain send (see planUtxoScan in btc-core and migration
+    // 20261249). Every non-routine outcome — a formed batch, a
+    // fee-window / in-flight / disabled / no-custody skip, any
+    // failure — still writes its audit row; only "nothing was
+    // queued" is silent.
+    return await skip("skipped_empty", "No queued withdrawals", {}, false);
   }
   const oldestAgeHours =
     (Date.now() - new Date(queued[0].created_at).getTime()) / 3600_000;
@@ -1534,8 +1551,9 @@ async function send(supabase: any, userId: string, body: any) {
   // Coin selection needs a change script for fee sizing only — every
   // BIP84 change script has identical length, so index 0 is a valid
   // stand-in. The real change index is allocated after the reservation,
-  // which keeps "one allocated index per withdrawal row" true and lets
-  // gatherUtxos bound its change scan by the withdrawals count.
+  // which keeps "one allocated index per withdrawal row" true;
+  // gatherUtxos bounds its change scan by the allocator's high-water
+  // mark (btc_change_index_high_water), never by row counts.
   const selection = selectCoins(
     utxos, amountSats, feeRate, recipient.script, deriveScript(accountPub, 1, 0),
   );
@@ -1872,23 +1890,33 @@ async function gatherUtxos(supabase: any, accountPub: any): Promise<Utxo[]> {
     .maybeSingle();
   if (maxCons) maxExternal = Math.max(maxExternal, Number(maxCons.output_derivation_index));
 
-  const { count: withdrawalCount } = await supabase
-    .from("btc_withdrawals")
-    .select("id", { count: "exact", head: true });
-  // Batched withdrawals (P4) consume one change index per broadcast
-  // batch, not one per member — count batch rows alongside.
-  const { count: batchCount } = await supabase
-    .from("btc_withdrawal_batches")
-    .select("id", { count: "exact", head: true });
-  // Every allocated change index belongs to exactly one withdrawal row
-  // (or one batch), so change outputs can only live at indices
-  // 0..(row count). Scan with a small margin.
-  const maxChange = (withdrawalCount ?? 0) + (batchCount ?? 0) + 1;
+  // Change outputs can only live at indices the allocator
+  // (btc_change_index_seq, behind btc_next_change_index) has actually
+  // handed out — one per solo send and one per FORMED batch — so the
+  // scan bound is the allocator's high-water mark, read via
+  // btc_change_index_high_water (migration 20261249). The previous
+  // bound counted btc_withdrawal_batches ROWS, but that table also
+  // holds one audit row per run_batch invocation: the 5-minute
+  // batcher cron's never-broadcast `skipped_empty` rows (2,588 by
+  // 2026-11-04, zero batches ever formed) pushed the computed bound
+  // past MAX_SCAN_ADDRESSES and broke EVERY on-chain send. The plan
+  // itself is the pure planUtxoScan policy in btc-core.
+  const { data: highWater, error: hwErr } = await supabase
+    .rpc("btc_change_index_high_water");
+  if (hwErr) throw hwErr;
+  const highestChange = highWater === null || highWater === undefined
+    ? -1
+    : Number(highWater);
+  const scan = planUtxoScan({
+    highestExternalIndex: maxExternal,
+    highestAllocatedChangeIndex: highestChange,
+    maxScanAddresses: MAX_SCAN_ADDRESSES,
+  });
 
   const targets: Array<{ chain: 0 | 1; index: number }> = [];
-  for (let i = 0; i <= maxExternal; i++) targets.push({ chain: 0, index: i });
-  for (let i = 0; i <= maxChange; i++) targets.push({ chain: 1, index: i });
-  if (targets.length > MAX_SCAN_ADDRESSES) {
+  for (let i = 0; i <= scan.maxExternalIndex; i++) targets.push({ chain: 0, index: i });
+  for (let i = 0; i <= scan.maxChangeIndex; i++) targets.push({ chain: 1, index: i });
+  if (!scan.withinLimit) {
     throw new Error("Wallet UTXO scan limit reached — see custody runbook (scaling)");
   }
 

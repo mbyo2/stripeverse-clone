@@ -169,6 +169,12 @@ Lightning stays honestly unavailable while the failure is investigated
 
 To change one: write down the reason in your operations notes, update the secret by its exact name, save, then run one small test transaction. **Never raise withdrawal limits casually or under pressure from a single user request** — a raise increases what a bug or compromised account can drain (Section 11).
 
+### UTXO scan bound (the "Wallet UTXO scan limit reached" error)
+
+Every send first scans the pooled wallet's addresses for confirmed UTXOs (`gatherUtxos` in `btc-onchain`). The scan covers chain-0 indices up to the highest ever assigned, and chain-1 (change) indices up to the change allocator's high-water mark — the highest index `btc_next_change_index()` has handed out, read via the `btc_change_index_high_water()` RPC (migration 20261249) — plus a margin of 1. If the total exceeds `MAX_SCAN_ADDRESSES` (2,000) the send refuses with "Wallet UTXO scan limit reached". That error is a **scaling tripwire**: it should only ever fire when the wallet has genuinely used ~2,000 addresses, at which point the fix is a scan redesign (address-index windowing), not a bigger constant.
+
+Nov 2026 incident (fixed): the change bound used to be computed from `btc_withdrawal_batches` ROW COUNTS, but that table also holds one audit row per `run_batch` invocation — the 5-minute batcher cron accumulated 2,588 never-broadcast `skipped_empty` rows, the bound crossed 2,000, and every on-chain send failed. Two defences now stand: the bound reads the allocator sequence, never row counts; and `run_batch` no longer writes an audit row for the routine empty-queue no-op (all non-routine outcomes are still audited). If this error ever appears again, check `SELECT last_value, is_called FROM btc_change_index_seq` and the max `derivation_index` in `btc_address_assignments` — if both are small, suspect a regression to count-based bounding, not real growth.
+
 ## 6. Funding the Hot Wallet and Setting the Float
 
 The float must match real BTC actually sent in. Setting `float_sats` without funding first creates promises the wallet cannot keep.

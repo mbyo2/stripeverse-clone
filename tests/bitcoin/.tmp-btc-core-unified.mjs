@@ -348,6 +348,46 @@ export function filterUncommittedUtxos(utxos, committed) {
     return utxos.filter((u) => !spent.has(outpointKey(u.txid, u.vout)));
 }
 /**
+ * Plan the pooled-wallet UTXO scan: which derivation indices can
+ * possibly hold spendable outputs, and whether scanning them stays
+ * within the esplora fan-out guard.
+ *
+ * The change bound is the ALLOCATOR's high-water mark — the highest
+ * index `btc_next_change_index()` has ever handed out (one per solo
+ * send, one per formed batch) — never a table row count. The previous
+ * bound counted btc_withdrawal_batches rows, but that table also
+ * holds one audit row per run_batch invocation; the 5-minute batcher
+ * cron's `skipped_empty` rows (2,588 by 2026-11-04, zero batches ever
+ * formed) inflated the "bound" past the scan limit and broke every
+ * on-chain send. Audit/no-op rows allocate no change index, so they
+ * contribute nothing here — while a genuinely huge number of real
+ * allocations still trips the guard, which remains the scaling
+ * tripwire it was designed to be (see the custody runbook).
+ *
+ * A `changeMargin` (default 1) covers one allocation past the
+ * high-water mark: an index allocated a moment ago whose transaction
+ * may already be on the network.
+ */
+export function planUtxoScan(params) {
+    const maxExternalIndex = Number.isFinite(params.highestExternalIndex)
+        ? Math.max(-1, Math.trunc(params.highestExternalIndex))
+        : -1;
+    const highestChange = Number.isFinite(params.highestAllocatedChangeIndex)
+        ? Math.max(-1, Math.trunc(params.highestAllocatedChangeIndex))
+        : -1;
+    const margin = params.changeMargin === undefined
+        ? 1
+        : Math.max(0, Math.trunc(params.changeMargin));
+    const maxChangeIndex = Math.max(0, highestChange + margin);
+    const targetCount = (maxExternalIndex + 1) + (maxChangeIndex + 1);
+    return {
+        maxExternalIndex,
+        maxChangeIndex,
+        targetCount,
+        withinLimit: targetCount <= params.maxScanAddresses,
+    };
+}
+/**
  * Build and sign an on-chain withdrawal from platform UTXOs.
  * `accountPriv` must carry private keys (from accountKeyFromMnemonic).
  * Change goes to chain 1 / `changeIndex`. Throws on insufficient funds.
