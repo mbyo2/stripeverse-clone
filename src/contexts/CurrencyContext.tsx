@@ -29,15 +29,75 @@ const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined
 const STORAGE_KEY = 'preferred_currency';
 const DEFAULT_CURRENCY: SupportedCurrency = 'ZMW';
 
+// Region → currency fallback, seeded from the supported list's own
+// locales and extended to the euro area and Crown dependencies (used
+// only when Intl.Locale cannot report a currency list itself).
+const REGION_TO_CURRENCY: Record<string, SupportedCurrency> = {
+  ...Object.fromEntries(
+    SUPPORTED_CURRENCIES.map((c) => {
+      const region = c.locale.split('-').pop()?.toUpperCase() ?? '';
+      return [region, c.code];
+    }),
+  ),
+  ...Object.fromEntries(
+    [
+      'AT', 'BE', 'CY', 'EE', 'FI', 'FR', 'GR', 'HR', 'IE', 'IT', 'LT',
+      'LU', 'LV', 'MT', 'NL', 'PT', 'SI', 'SK', 'AD', 'MC', 'SM', 'VA',
+      'ME',
+    ].map((region) => [region, 'EUR' as SupportedCurrency]),
+  ),
+  GG: 'GBP',
+  JE: 'GBP',
+  IM: 'GBP',
+};
+
+/**
+ * First-visit display currency for a visitor with NO saved preference,
+ * derived from their browser locale: a Zambian locale → ZMW; a locale
+ * whose currency is one of the other supported currencies → that
+ * currency; anything else (including no/unparsable locale) → USD.
+ * BMaGlass Pay is global — ZMW is home, not a worldwide default.
+ */
+export function detectDefaultCurrency(
+  locale?: string | null,
+): SupportedCurrency {
+  if (!locale) return 'USD';
+  try {
+    const parsed = new Intl.Locale(locale);
+    if (parsed.region === 'ZM') return 'ZMW';
+    const withCurrencies = parsed as Intl.Locale & {
+      getCurrencies?: () => string[];
+    };
+    const fromIntl =
+      typeof withCurrencies.getCurrencies === 'function'
+        ? withCurrencies.getCurrencies()[0]
+        : undefined;
+    const candidate =
+      fromIntl ?? (parsed.region ? REGION_TO_CURRENCY[parsed.region] : undefined);
+    if (
+      candidate &&
+      candidate !== 'ZMW' &&
+      SUPPORTED_CURRENCIES.some((c) => c.code === candidate)
+    ) {
+      return candidate as SupportedCurrency;
+    }
+    return 'USD';
+  } catch {
+    return 'USD';
+  }
+}
+
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currency, setCurrencyState] = useState<SupportedCurrency>(() => {
     if (typeof window !== 'undefined') {
+      // A saved preference ALWAYS wins over the locale default.
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored && SUPPORTED_CURRENCIES.some(c => c.code === stored)) {
         return stored as SupportedCurrency;
       }
+      return detectDefaultCurrency(navigator.language);
     }
-    return DEFAULT_CURRENCY;
+    return detectDefaultCurrency(undefined);
   });
 
   const currencyConfig = SUPPORTED_CURRENCIES.find(c => c.code === currency) || SUPPORTED_CURRENCIES[0];

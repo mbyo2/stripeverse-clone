@@ -26,6 +26,8 @@ const businessSettingsSchema = z.object({
   contactPhone: z.string().min(10, "Please enter a valid phone number."),
   notificationPreference: z.enum(["email", "sms", "both"]),
   businessAddress: z.string().min(5, "Please enter your business address."),
+  businessCity: z.string().min(2, "Please enter your city."),
+  businessCountry: z.string().min(2, "Please enter your country."),
   autoSettlement: z.boolean().default(false),
   settlementFrequency: z.enum(["daily", "weekly", "monthly"]),
 });
@@ -51,6 +53,8 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
       contactPhone: "",
       notificationPreference: "email",
       businessAddress: "",
+      businessCity: "Lusaka",
+      businessCountry: "Zambia",
       autoSettlement: true,
       settlementFrequency: "weekly",
     },
@@ -75,6 +79,8 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
           contactPhone: contact.phone || "",
           notificationPreference: contact.notification_preference || "email",
           businessAddress: address.street || "",
+          businessCity: address.city || "Lusaka",
+          businessCountry: address.country || "Zambia",
           autoSettlement: contact.auto_settlement ?? true,
           settlementFrequency: contact.settlement_frequency || "weekly",
         });
@@ -85,6 +91,8 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
           contactPhone: "",
           notificationPreference: "email",
           businessAddress: "",
+          businessCity: "Lusaka",
+          businessCountry: "Zambia",
           autoSettlement: true,
           settlementFrequency: "weekly",
         });
@@ -106,7 +114,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
         auto_settlement: data.autoSettlement,
         settlement_frequency: data.settlementFrequency,
       };
-      const address = { street: data.businessAddress, city: "Lusaka", country: "Zambia" };
+      const address = { street: data.businessAddress, city: data.businessCity, country: data.businessCountry };
 
       const { data: existing } = await supabase
         .from('merchant_accounts')
@@ -172,6 +180,15 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
                 <FormField control={form.control} name="businessAddress" render={({ field }) => (
                   <FormItem><FormLabel>Business Address</FormLabel><FormControl><Textarea {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                 )} />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="businessCity" render={({ field }) => (
+                    <FormItem><FormLabel>City</FormLabel><FormControl><Input {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="businessCountry" render={({ field }) => (
+                    <FormItem><FormLabel>Country</FormLabel><FormControl><Input {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField control={form.control} name="contactEmail" render={({ field }) => (
