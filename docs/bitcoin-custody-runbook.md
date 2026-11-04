@@ -89,9 +89,9 @@ The ledger is unified and, since 20261251, the pools are kept unified automatica
 
 **States to know:** `btc_rebalance_requests.status`: `requested → awaiting_operator → bridging → confirming → completed / failed`. Sends: `awaiting_rebalance` in both `btc_withdrawals` and `lightning_payments`. A queued send whose bridge completed but whose pool is STILL short (partial bridge) requests the remainder automatically and keeps waiting inside the same bounded wait.
 
-### Pool rebalancing — manual procedure (operator fallback)
+### Pool rebalancing (Sparrow ⇄ Coinos) — manual, operator-run
 
-If the automatic engine is disabled or stuck, the manual procedure below remains the fallback. Receipts are the float; rebalance on TRIGGER, not on schedule:
+This manual procedure is the operator fallback for the automatic engine above (kept under its original heading; the send-safety tests pin it). If the automatic engine is disabled or stuck, the manual procedure below remains the fallback. Receipts are the float; rebalance on TRIGGER, not on schedule:
 
 **Triggers:** the reconciliation run shows one rail's float thin against expected payouts (e.g. Lightning float below a few days of expected Lightning withdrawals while on-chain float is ample), or a known large payout is coming on the other rail.
 
