@@ -94,6 +94,11 @@ import {
   loadShowFiatPreference,
   saveShowFiatPreference,
   formatFiatEquivalent,
+  toSparkUserFacingError,
+  SPARK_SELF_PAYMENT_MESSAGE,
+  SPARK_INSUFFICIENT_BALANCE_MESSAGE,
+  sparkSendExceedsBalance,
+  isSelfSparkAddress,
   type PreparedSend,
   type PreparedLnurlPay,
   type PaymentSummary,
@@ -220,6 +225,11 @@ function SelfCustodyWallet() {
   const [sendSpeed, setSendSpeed] = useState<ChainSpeed>("halfHour");
   const [sendMax, setSendMax] = useState(false);
   const [preparedChainSend, setPreparedChainSend] = useState<PreparedChainSend | null>(null);
+  // Persistent inline error for the on-chain Send card (defect fix,
+  // 2026-11-04): a prepare failure must never read as a silent
+  // stall-and-revert — the toast can expire, this stays in the card
+  // until the user edits the form or retries.
+  const [chainSendError, setChainSendError] = useState<string | null>(null);
   // Locked-screen removal: two explicit confirmations, both required.
   const [confirmRemoveLocked, setConfirmRemoveLocked] = useState(false);
   const [confirmRemoveLockedFinal, setConfirmRemoveLockedFinal] = useState(false);
@@ -232,6 +242,16 @@ function SelfCustodyWallet() {
   // Self-custody Lightning & Spark (Breez SDK – Spark) state.
   const [spBalance, setSpBalance] = useState<number | null>(null);
   const [spBusy, setSpBusy] = useState(false);
+  // Spark auto-connect bookkeeping (defect fix, 2026-11-04): the
+  // mnemonic whose Spark pot has already been auto-connected for this
+  // unlock, so the load/unlock effect fires once per unlock instead of
+  // looping on a failed connect. Reset when the wallet locks.
+  const sparkAutoConnectRef = useRef<string | null>(null);
+  // Persistent inline error for the unified Spark send panel (defect
+  // fix, 2026-11-04): parse / prepare / confirm failures render here,
+  // in the panel, never as raw SDK text and never as a toast that can
+  // expire unnoticed.
+  const [spSendError, setSpSendError] = useState<string | null>(null);
   const [spPayments, setSpPayments] = useState<PaymentSummary[] | null>(null);
   // Receive: one of three destination types, each rendered with a QR.
   const [receiveKind, setReceiveKind] = useState<"bolt11" | "bitcoin" | "spark">("bolt11");
@@ -334,6 +354,7 @@ function SelfCustodyWallet() {
       // leaves no SDK wallet state behind in this browser (it is
       // re-derived from the seed phrase on the next unlock).
       disconnectSparkAndWipeStorage();
+      sparkAutoConnectRef.current = null;
       setSpBalance(null);
       setSpPayments(null);
       setUnclaimed(null);
@@ -586,10 +607,12 @@ function SelfCustodyWallet() {
 
   const doPrepareChainSend = async () => {
     if (!account || !scan) return;
+    setChainSendError(null);
     const toAddress = sendTo.trim();
     try {
       assertValidAddress(toAddress);
     } catch {
+      setChainSendError("Enter a valid Bitcoin destination address");
       toast.error("Enter a valid Bitcoin destination address");
       return;
     }
@@ -599,10 +622,32 @@ function SelfCustodyWallet() {
     } else {
       const amount = Number(sendAmount);
       if (!Number.isSafeInteger(amount) || amount <= 0) {
+        setChainSendError("Enter an amount in sats, or choose Send max");
         toast.error("Enter an amount in sats, or choose Send max");
         return;
       }
       amountSats = BigInt(amount);
+    }
+    // Balance pre-check BEFORE the network fee quote (defect fix,
+    // 2026-11-04): on an empty or too-small balance the old flow ran
+    // the full fee fetch first — up to two 15-second endpoint timeouts
+    // sitting on "Preparing…" — and only then refused, which read as a
+    // silent stall-and-revert on the first click. Refuse here,
+    // instantly and in plain language. Together with the inline error
+    // in the catch below, the preparing state now ALWAYS resolves:
+    // the review step, or a visible message in the card.
+    if (sendMax && scan.balanceSats <= 0) {
+      const msg =
+        "Your on-chain balance is 0 sats, so there is nothing to send from this pot yet. Receive some Bitcoin into this wallet first.";
+      setChainSendError(msg);
+      toast.error(msg);
+      return;
+    }
+    if (!sendMax && amountSats > BigInt(scan.balanceSats)) {
+      const msg = `That amount is more than this pot holds — your on-chain balance is ${scan.balanceSats.toLocaleString()} sats, and the network fee comes on top. Lower the amount, or choose Send max.`;
+      setChainSendError(msg);
+      toast.error(msg);
+      return;
     }
     setSending(true);
     try {
@@ -624,6 +669,7 @@ function SelfCustodyWallet() {
         changeIndex: scan.nextChangeIndex,
         sendMax,
       });
+      setChainSendError(null);
       setPreparedChainSend({
         toAddress,
         amountSats,
@@ -633,7 +679,11 @@ function SelfCustodyWallet() {
         hex: built.hex,
       });
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "Could not prepare that send"));
+      // Never a silent revert: the message lives in the card (inline)
+      // as well as in the toast.
+      const msg = toUserFacingError(e, "Could not prepare that send");
+      setChainSendError(msg);
+      toast.error(msg);
     } finally {
       setSending(false);
     }
@@ -685,7 +735,7 @@ function SelfCustodyWallet() {
       if (payments) setSpPayments(payments);
       if (deposits) setUnclaimed(deposits);
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "Could not connect the Spark wallet"));
+      toast.error(toSparkUserFacingError(e, "Could not connect the Spark wallet"));
     } finally {
       setSpBusy(false);
       touchSession();
@@ -755,6 +805,23 @@ function SelfCustodyWallet() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, session.mnemonic, spBalance]);
 
+  // Auto-connect on unlock/load (defect fix, 2026-11-04): the Spark pot
+  // used to sit at "Spark balance: —" until the user pressed
+  // Connect / refresh by hand. As soon as the wallet view opens
+  // unlocked, connect once so the balance renders its real value on
+  // its own. The ref makes it once per unlock: a failed connect
+  // reports through refreshSpark's own error message and can be
+  // retried by the focus/visibility reconnect above or the manual
+  // button — never by an effect loop.
+  useEffect(() => {
+    if (stage !== "wallet" || !session.mnemonic || !sparkEnabled()) return;
+    if (spBalance !== null || spBusyRef.current) return;
+    if (sparkAutoConnectRef.current === session.mnemonic) return;
+    sparkAutoConnectRef.current = session.mnemonic;
+    void refreshSpark();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, session.mnemonic, spBalance]);
+
   // ── Automatic Claims settings + manual claims ──────────────────────────
   const applyAutoClaimPref = (next: AutoClaimPreference) => {
     saveAutoClaimPreference(next);
@@ -795,7 +862,7 @@ function SelfCustodyWallet() {
       toast.success("Deposit claimed into your Spark balance");
       refreshSpark();
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "Could not claim that deposit"));
+      toast.error(toSparkUserFacingError(e, "Could not claim that deposit"));
     } finally {
       setClaimingKey(null);
     }
@@ -827,7 +894,7 @@ function SelfCustodyWallet() {
       setReceiveDest(result.destination);
       setReceiveFee(result.feeSats);
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "Could not create that receive destination"));
+      toast.error(toSparkUserFacingError(e, "Could not create that receive destination"));
     } finally {
       setSpBusy(false);
       touchSession();
@@ -852,6 +919,7 @@ function SelfCustodyWallet() {
     setParsedInput(null);
     setPreparedSend(null);
     setPreparedLnurl(null);
+    setSpSendError(null);
     if (payload.kind === "bip21" && payload.amountSats !== undefined) {
       setSendAmountSats(String(payload.amountSats));
     }
@@ -862,6 +930,7 @@ function SelfCustodyWallet() {
   const doParseSend = async () => {
     if (!session.mnemonic || !sendText.trim()) return;
     setSpBusy(true);
+    setSpSendError(null);
     setParsedInput(null);
     setPreparedSend(null);
     setPreparedLnurl(null);
@@ -870,7 +939,12 @@ function SelfCustodyWallet() {
       setParsedInput(parsed);
       setSendParsedText(sendText.trim());
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "That destination could not be recognised"));
+      setSpSendError(
+        toSparkUserFacingError(
+          e,
+          "That destination could not be recognised. Check it for missing or extra characters, then try again.",
+        ),
+      );
     } finally {
       setSpBusy(false);
     }
@@ -882,15 +956,37 @@ function SelfCustodyWallet() {
     const flow = parsedFlow(parsedInput);
     const amount = sendAmountSats ? Number(sendAmountSats) : undefined;
     setSpBusy(true);
-    // A fresh prepare starts from the default speed; the user picks
-    // another on the confirmation step if they want one.
-    setSparkSpeed("medium");
+    setSpSendError(null);
+    // NOTE (defect fix, 2026-11-04): the chosen confirmation speed is
+    // deliberately NOT reset here — the speed picked at the parse step
+    // (or left at the medium default) carries through Prepare into the
+    // confirmation step and the send itself.
     try {
+      // Self-payment pre-check (defect fix, 2026-11-04): paying this
+      // wallet's OWN Spark address used to sail through prepare and
+      // fail at send time with the raw SDK text "SparkSdkError: Self
+      // payment not allowed" on screen. Refuse here, in plain
+      // language, before anything is attempted. Other self-payment
+      // shapes (an own Lightning invoice, LNURL-to-self) are caught at
+      // confirm time by toSparkUserFacingError.
+      if (parsedInput.type === "sparkAddress") {
+        const own = await sparkReceiveSparkAddress(session.mnemonic).catch(() => null);
+        if (own && isSelfSparkAddress(own.destination, sendParsedText)) {
+          setSpSendError(SPARK_SELF_PAYMENT_MESSAGE);
+          return;
+        }
+      }
+      // Insufficient-balance pre-check: never ask the SDK to prepare a
+      // payment this pot already cannot cover.
+      if (amount !== undefined && sparkSendExceedsBalance(amount, 0, spBalance)) {
+        setSpSendError(SPARK_INSUFFICIENT_BALANCE_MESSAGE);
+        return;
+      }
       if (flow === "lnurlPay") {
         const details = lnurlPayDetails(parsedInput);
         if (!details) throw new Error("That input has no LNURL payment details");
         if (amount === undefined) {
-          toast.error("Enter an amount in sats for this payment");
+          setSpSendError("Enter an amount in sats for this payment");
           return;
         }
         setPreparedLnurl(await sparkPrepareLnurlPay(session.mnemonic, details, amount));
@@ -898,7 +994,12 @@ function SelfCustodyWallet() {
         setPreparedSend(await sparkPrepareSend(session.mnemonic, sendParsedText, amount));
       }
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "Could not prepare that payment"));
+      setSpSendError(
+        toSparkUserFacingError(
+          e,
+          "Could not prepare that payment. Check the destination and amount, then try again.",
+        ),
+      );
     } finally {
       setSpBusy(false);
     }
@@ -907,7 +1008,25 @@ function SelfCustodyWallet() {
   /** Step 3: execute exactly what was previewed. */
   const doConfirmSend = async () => {
     if (!session.mnemonic) return;
+    // Final balance check before attempting (defect fix, 2026-11-04):
+    // the prepared amount plus its quoted fee against the balance we
+    // already know — a clean refusal instead of an SDK failure.
+    if (
+      preparedLnurl &&
+      sparkSendExceedsBalance(preparedLnurl.amountSats, preparedLnurl.feeSats, spBalance)
+    ) {
+      setSpSendError(SPARK_INSUFFICIENT_BALANCE_MESSAGE);
+      return;
+    }
+    if (
+      preparedSend &&
+      sparkSendExceedsBalance(preparedSend.amountSats, preparedSend.fee.primaryFeeSats ?? 0, spBalance)
+    ) {
+      setSpSendError(SPARK_INSUFFICIENT_BALANCE_MESSAGE);
+      return;
+    }
     setSpBusy(true);
+    setSpSendError(null);
     try {
       if (preparedLnurl) {
         await sparkSendLnurlPay(session.mnemonic, preparedLnurl);
@@ -926,7 +1045,16 @@ function SelfCustodyWallet() {
       setPreparedLnurl(null);
       refreshSpark();
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "Payment failed"));
+      // The whole class of SDK failures lands here — self-payment,
+      // insufficient balance, expired invoices, engine dumps — and
+      // every one of them is presented by toSparkUserFacingError as
+      // plain language in the panel. Raw SDK text never reaches the UI.
+      setSpSendError(
+        toSparkUserFacingError(
+          e,
+          "Payment failed — nothing was sent. Check the destination and your balance, then try again.",
+        ),
+      );
     } finally {
       setSpBusy(false);
     }
@@ -948,7 +1076,7 @@ function SelfCustodyWallet() {
       setSendAmountSats("");
       refreshSpark();
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "Withdrawal failed"));
+      toast.error(toSparkUserFacingError(e, "Withdrawal failed"));
     } finally {
       setSpBusy(false);
     }
@@ -963,7 +1091,7 @@ function SelfCustodyWallet() {
       setParsedInput(null);
       setSendText("");
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "Sign-in failed"));
+      toast.error(toSparkUserFacingError(e, "Sign-in failed"));
     } finally {
       setSpBusy(false);
     }
@@ -995,13 +1123,22 @@ function SelfCustodyWallet() {
       }
     } catch (e: any) {
       if (tab) tab.close();
-      toast.error(toUserFacingError(e, "Could not start the MoonPay purchase"));
+      toast.error(toSparkUserFacingError(e, "Could not start the MoonPay purchase"));
     } finally {
       setSpBusy(false);
     }
   };
 
   // ── Sell to ZMW ────────────────────────────────────────────────────────
+
+  // Sell guard (defect fix, 2026-11-04): with a zero balance across BOTH
+  // pots there is nothing to sell, yet "Lock quote & create sell" stayed
+  // enabled and the flow only failed later. The create button is now
+  // disabled in that state, with the reason stated in the panel.
+  const sellWalletBalanceSats = (scan?.balanceSats ?? 0) + (spBalance ?? 0);
+  const sellBlockedByZeroBalance = sellPreview !== null && scan !== null && sellWalletBalanceSats <= 0;
+  const SELL_ZERO_BALANCE_MESSAGE =
+    "Your wallet balance is 0 sats, so there is nothing to sell yet. Receive some Bitcoin into this wallet first, then come back to sell it.";
 
   const doSellPreview = async () => {
     const value = Number(sellInput);
@@ -1024,6 +1161,10 @@ function SelfCustodyWallet() {
 
   const doCreateSell = async () => {
     if (!sellPreview) return;
+    if (sellBlockedByZeroBalance) {
+      toast.error(SELL_ZERO_BALANCE_MESSAGE);
+      return;
+    }
     setSellBusy(true);
     setSellPrepared(null);
     setSellSent(false);
@@ -1072,7 +1213,7 @@ function SelfCustodyWallet() {
       );
       setSellPrepared(prepared);
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "Could not prepare the in-app send"));
+      toast.error(toSparkUserFacingError(e, "Could not prepare the in-app send"));
     } finally {
       setSellBusy(false);
     }
@@ -1088,7 +1229,7 @@ function SelfCustodyWallet() {
       toast.success("Bitcoin sent from this wallet — waiting for it to arrive");
       refreshSpark();
     } catch (e: any) {
-      toast.error(toUserFacingError(e, "The in-app send failed — nothing was settled. You can try again or send from another wallet."));
+      toast.error(toSparkUserFacingError(e, "The in-app send failed — nothing was settled. You can try again or send from another wallet."));
     } finally {
       setSellBusy(false);
     }
@@ -1166,6 +1307,43 @@ function SelfCustodyWallet() {
     [account, scan?.nextReceiveIndex, lastKnown?.receiveIndex],
   );
   const vaultMeta = useMemo(() => getVaultMeta(), [hasVault]);
+
+  // The Spark on-chain confirmation-speed selector (slow / medium /
+  // fast). Ground truth (defect fix, 2026-11-04): the selector wired
+  // in 4e4b469 only ever rendered AFTER Prepare, inside the prepared
+  // panel, and only for bitcoinAddress payments — so a rendered pass
+  // through the unified Send box never saw it in the send path (and
+  // for Spark/Lightning destinations it correctly never appears:
+  // confirmation speed exists only for on-chain sends, which is why
+  // sparkSendPrepared passes it only for bitcoinAddress). It now
+  // renders from this one helper TWICE: as soon as a Bitcoin-address
+  // destination is recognised (before Prepare), and again on the
+  // confirmation step. One state — the choice carries through.
+  const renderSparkSpeedSelector = () => (
+    <div className="space-y-1">
+      <Label>Confirmation speed for this on-chain send</Label>
+      <div className="grid grid-cols-3 gap-1 rounded-full bg-muted p-1" role="group" aria-label="Confirmation speed">
+        {(["slow", "medium", "fast"] as const).map((speed) => (
+          <Button
+            key={speed}
+            type="button"
+            size="sm"
+            variant={sparkSpeed === speed ? "default" : "ghost"}
+            className="h-9 rounded-full capitalize"
+            aria-pressed={sparkSpeed === speed}
+            disabled={spBusy}
+            onClick={() => setSparkSpeed(speed)}
+          >
+            {speed}
+          </Button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Faster speeds cost a higher network fee. The exact fee for the speed you
+        choose is shown before anything is sent.
+      </p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background" onClick={touchSession}>
@@ -1680,6 +1858,7 @@ function SelfCustodyWallet() {
                       onChange={(e) => {
                         setSendTo(e.target.value);
                         setPreparedChainSend(null);
+                        setChainSendError(null);
                       }}
                       autoComplete="off"
                     />
@@ -1694,6 +1873,7 @@ function SelfCustodyWallet() {
                           onChange={(e) => {
                             setSendMax(e.target.checked);
                             setPreparedChainSend(null);
+                            setChainSendError(null);
                           }}
                         />
                         Send max (whole balance, minus the fee)
@@ -1709,6 +1889,7 @@ function SelfCustodyWallet() {
                       onChange={(e) => {
                         setSendAmount(e.target.value);
                         setPreparedChainSend(null);
+                        setChainSendError(null);
                       }}
                     />
                   </div>
@@ -1726,6 +1907,7 @@ function SelfCustodyWallet() {
                           onClick={() => {
                             setSendSpeed(tier.key);
                             setPreparedChainSend(null);
+                            setChainSendError(null);
                           }}
                         >
                           <span className="flex flex-col items-center leading-tight">
@@ -1791,6 +1973,11 @@ function SelfCustodyWallet() {
                       </p>
                     </div>
                   )}
+                  {chainSendError && !preparedChainSend && (
+                    <p role="alert" className="text-sm text-destructive flex items-start gap-1">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /> {chainSendError}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     To move Bitcoin to your custodial account, paste a deposit address from the
                     custodial wallet's Receive tab.
@@ -1805,9 +1992,9 @@ function SelfCustodyWallet() {
                   Lightning &amp; Spark <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY</Badge>
                 </CardTitle>
                 <CardDescription>
-                  Lightning, on-chain deposits and Spark transfers in one balance, running entirely in
-                  your browser under the same seed phrase as this wallet — no BMaGlass server is
-                  involved.
+                  Lightning, on-chain deposits and Spark transfers, running entirely in your
+                  browser under the same seed phrase as this wallet — no BMaGlass server is
+                  involved. The balance here is a second pot, separate from the on-chain pot above.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -2041,12 +2228,17 @@ function SelfCustodyWallet() {
                           rows={3}
                           placeholder="Lightning invoice, Lightning address, LNURL, Bitcoin address, Spark address…"
                           value={sendText}
-                          onChange={(e) => { setSendText(e.target.value); setParsedInput(null); setPreparedSend(null); setPreparedLnurl(null); }}
+                          onChange={(e) => { setSendText(e.target.value); setParsedInput(null); setPreparedSend(null); setPreparedLnurl(null); setSpSendError(null); }}
                         />
                       </div>
                       <Button variant="outline" className="w-full" disabled={spBusy || !session.mnemonic || !sendText.trim()} onClick={doParseSend}>
                         Review destination
                       </Button>
+                      {spSendError && (
+                        <p role="alert" className="text-sm text-destructive flex items-start gap-1">
+                          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /> {spSendError}
+                        </p>
+                      )}
                       {parsedInput && (
                         <div className="space-y-3 rounded border p-3">
                           <p className="text-sm">
@@ -2079,6 +2271,9 @@ function SelfCustodyWallet() {
                                 <Label htmlFor="sp-amt">Amount (sats{parsedFlow(parsedInput) === "lnurlPay" ? "" : " — only for destinations without a fixed amount"})</Label>
                                 <Input id="sp-amt" type="number" min="1" value={sendAmountSats} onChange={(e) => setSendAmountSats(e.target.value)} />
                               </div>
+                              {(parsedInput.type === "bitcoinAddress" || parsedInput.type === "bip21") &&
+                                !preparedSend &&
+                                renderSparkSpeedSelector()}
                               {!preparedSend && !preparedLnurl && (
                                 <Button variant="outline" className="w-full" disabled={spBusy} onClick={doPrepareSend}>
                                   Prepare — show me the fee first
@@ -2102,31 +2297,8 @@ function SelfCustodyWallet() {
                                   {preparedSend.fee.isEstimate && (
                                     <p className="text-xs text-amber-600">Fee shown is an estimate — the final fee is confirmed by the network when sending.</p>
                                   )}
-                                  {preparedSend.prepareResponse.paymentMethod.type === "bitcoinAddress" && (
-                                    <div className="space-y-1">
-                                      <Label>Confirmation speed for this on-chain send</Label>
-                                      <div className="grid grid-cols-3 gap-1 rounded-full bg-muted p-1" role="group" aria-label="Confirmation speed">
-                                        {(["slow", "medium", "fast"] as const).map((speed) => (
-                                          <Button
-                                            key={speed}
-                                            type="button"
-                                            size="sm"
-                                            variant={sparkSpeed === speed ? "default" : "ghost"}
-                                            className="h-9 rounded-full capitalize"
-                                            aria-pressed={sparkSpeed === speed}
-                                            disabled={spBusy}
-                                            onClick={() => setSparkSpeed(speed)}
-                                          >
-                                            {speed}
-                                          </Button>
-                                        ))}
-                                      </div>
-                                      <p className="text-xs text-muted-foreground">
-                                        The fee charged is the matching on-chain fee line above
-                                        for the speed you choose.
-                                      </p>
-                                    </div>
-                                  )}
+                                  {preparedSend.prepareResponse.paymentMethod.type === "bitcoinAddress" &&
+                                    renderSparkSpeedSelector()}
                                   <Button className="w-full rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90" disabled={spBusy} onClick={doConfirmSend}>
                                     Confirm &amp; send
                                   </Button>
@@ -2311,11 +2483,16 @@ function SelfCustodyWallet() {
                         </div>
                         <div className="flex gap-2">
                           <Button variant="outline" className="flex-1" disabled={sellBusy} onClick={() => setSellPreview(null)}>Back</Button>
-                          <Button className="flex-1 rounded-full bg-[#F7931A] text-black font-semibold hover:bg-[#DE830A]" disabled={sellBusy} onClick={doCreateSell}>
+                          <Button className="flex-1 rounded-full bg-[#F7931A] text-black font-semibold hover:bg-[#DE830A]" disabled={sellBusy || sellBlockedByZeroBalance} onClick={doCreateSell}>
                             {sellBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                             Lock quote &amp; create sell
                           </Button>
                         </div>
+                        {sellBlockedByZeroBalance && (
+                          <p className="text-sm text-muted-foreground flex items-start gap-1">
+                            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /> {SELL_ZERO_BALANCE_MESSAGE}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

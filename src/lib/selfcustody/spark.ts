@@ -7,10 +7,11 @@
  *
  * The SDK runs the user's own Spark wallet in the page, under the SAME
  * mnemonic as the on-chain self-custody wallet (passed from the in-memory
- * session straight into the SDK). One wallet, one balance: Lightning
- * invoices, on-chain Bitcoin deposits and Spark transfers all settle into
- * `getInfo().balanceSats`. No BMaGlass server is involved and no key
- * material leaves the device.
+ * session straight into the SDK). One wallet (one seed phrase), TWO
+ * balances: the BIP84 on-chain pot lives in wallet.ts/chain.ts, while
+ * Lightning invoices, on-chain Bitcoin deposits claimed through the SDK
+ * and Spark transfers settle into THIS pot — `getInfo().balanceSats`.
+ * No BMaGlass server is involved and no key material leaves the device.
  *
  * Documented web init pattern (Breez SDK – Spark, package README +
  * sdk-doc-spark.breez.technology):
@@ -381,6 +382,117 @@ export async function sparkIdentityPubkey(mnemonic: string): Promise<string> {
   const sdk = await connectSpark(mnemonic);
   const info = await sdk.getInfo({});
   return info.identityPubkey;
+}
+
+// ── User-facing Spark errors ───────────────────────────────────────────
+//
+// The CEO's error-presentation rule (2026-10-22) applies with full force
+// here: Breez/Spark SDK failures reach JS as raw engine strings — the
+// unified send showed "SparkSdkError: Self payment not allowed" verbatim
+// (rendered check, 2026-11-04). Every Spark failure the UI surfaces goes
+// through this mapper first: known outcomes get a crafted plain-language
+// message, anything carrying an SDK/engine fingerprint collapses to the
+// caller's fallback, and everything else delegates to the app-wide
+// mapper. A raw SDK string can never reach the screen through here.
+
+export const SPARK_SELF_PAYMENT_MESSAGE =
+  "You can't send to your own wallet — that destination belongs to this wallet. Paste a different destination to pay someone else.";
+
+export const SPARK_INSUFFICIENT_BALANCE_MESSAGE =
+  "Your Spark balance isn't enough for that payment — the amount plus the fee comes to more than this pot holds. Lower the amount, or move more Bitcoin into this pot first.";
+
+const SPARK_EXPIRED_MESSAGE =
+  "That payment request has expired. Ask for a fresh invoice or address, then try again.";
+
+const SPARK_UNRECOGNISED_MESSAGE =
+  "That destination could not be recognised. Check it for missing or extra characters, then try again.";
+
+const SPARK_AMOUNT_TOO_SMALL_MESSAGE =
+  "That amount is too small to send — it is below the minimum the network will accept. Try a larger amount.";
+
+const SPARK_FEE_LIMIT_MESSAGE =
+  "The network fee for that payment is above the limit set for this wallet right now. Wait for fees to fall, or try again later.";
+
+function extractSparkErrorMessage(error: unknown): string | null {
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const candidate = error as { message?: unknown; error?: unknown };
+    if (typeof candidate.message === "string") return candidate.message;
+    if (typeof candidate.error === "string") return candidate.error;
+  }
+  return null;
+}
+
+/** True when `text` carries an SDK/engine fingerprint that must never be shown raw. */
+function hasSdkFingerprint(text: string): boolean {
+  return (
+    /spark\s?sdk\s?error|breez\s?sdk\s?error|sdkerror/i.test(text) ||
+    /^[A-Z][A-Za-z0-9]*Error[:\s]/.test(text.trim()) ||
+    /\bwasm\b|panicked at|__wbindgen|\.rs:\d/i.test(text)
+  );
+}
+
+/**
+ * The ONLY way a Spark/Breez SDK failure should reach the UI. Known
+ * outcomes map to crafted messages; unrecognised SDK-shaped errors
+ * collapse to `fallback`; anything else goes through the app-wide
+ * mapper (network/session/etc.) with a final fingerprint guard.
+ * Pure — unit-tested.
+ */
+export function toSparkUserFacingError(error: unknown, fallback: string): string {
+  const raw = extractSparkErrorMessage(error);
+  if (!raw || !raw.trim()) return fallback;
+  const t = raw.trim();
+  if (
+    /self[-\s]?payment|pay(ment)?\s+to\s+(yourself|own)|to\s+your\s+own\s+(wallet|address)|own\s+wallet/i.test(t)
+  ) {
+    return SPARK_SELF_PAYMENT_MESSAGE;
+  }
+  if (/insufficient|not\s+enough|balance\s+(is\s+)?too\s+low|exceeds\s+(the\s+)?balance/i.test(t)) {
+    return SPARK_INSUFFICIENT_BALANCE_MESSAGE;
+  }
+  if (/expired/i.test(t)) return SPARK_EXPIRED_MESSAGE;
+  if (/too\s+small|below\s+(the\s+)?minimum|dust/i.test(t)) return SPARK_AMOUNT_TOO_SMALL_MESSAGE;
+  if (/fee.*(exceed|too\s+high|above\s+the\s+limit)|max\s?fee/i.test(t)) return SPARK_FEE_LIMIT_MESSAGE;
+  if (/invalid|malformed|could\s+not\s+parse|failed\s+to\s+parse|unrecognis|unknown\s+input/i.test(t)) {
+    return SPARK_UNRECOGNISED_MESSAGE;
+  }
+  if (hasSdkFingerprint(t)) return fallback;
+  const mapped = toUserFacingError(error, fallback);
+  return hasSdkFingerprint(mapped) ? fallback : mapped;
+}
+
+/**
+ * Pre-flight balance check for a Spark send: true when the amount plus
+ * the (already quoted) fee exceeds the balance we KNOW. An unknown
+ * balance (null — not connected yet) never blocks here; the send itself
+ * remains the backstop and its failure is mapped by
+ * toSparkUserFacingError. Pure — unit-tested.
+ */
+export function sparkSendExceedsBalance(
+  amountSats: number,
+  feeSats: number,
+  balanceSats: number | null,
+): boolean {
+  if (balanceSats === null) return false;
+  if (!Number.isFinite(amountSats) || !Number.isFinite(feeSats)) return false;
+  return amountSats + feeSats > balanceSats;
+}
+
+/**
+ * True when `destination` IS this wallet's own Spark address (the
+ * self-payment the SDK refuses with a raw error). Comparison is
+ * formatting-insensitive (trim + case). Pure — unit-tested.
+ */
+export function isSelfSparkAddress(
+  ownAddress: string | null | undefined,
+  destination: string | null | undefined,
+): boolean {
+  if (!ownAddress || !destination) return false;
+  const own = ownAddress.trim().toLowerCase();
+  const dest = destination.trim().toLowerCase();
+  return own.length > 0 && own === dest;
 }
 
 // ── Receive ────────────────────────────────────────────────────────────
