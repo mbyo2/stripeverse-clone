@@ -30,7 +30,7 @@ const VirtualCardFund = () => {
   const [loading, setLoading] = useState(false);
 
   // Fetch the real card from the database
-  const { data: card, isLoading: cardLoading } = useQuery({
+  const { data: card, isLoading: cardLoading, isError: cardError, refetch: refetchCard } = useQuery({
     queryKey: ['virtualCard', cardId],
     queryFn: async () => {
       if (!cardId) return null;
@@ -146,12 +146,37 @@ const VirtualCardFund = () => {
     );
   }
 
-  if (cardLoading || !card) {
+  if (cardLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-secondary/10">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <CardPageSkeleton />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // A failed or missing card must not spin the skeleton forever:
+  // say what happened and offer a way forward.
+  if (cardError || !card) {
+    return (
+      <div className="min-h-screen flex flex-col bg-secondary/10">
+        <Header />
+        <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
+          <Card>
+            <CardContent className="py-12 text-center space-y-4">
+              <p className="font-medium">We couldn't load this card.</p>
+              <p className="text-sm text-muted-foreground">
+                Check your connection and try again. If the card was removed, it will no longer appear in your wallet.
+              </p>
+              <div className="flex justify-center gap-3">
+                <Button onClick={() => void refetchCard()}>Try again</Button>
+                <Button variant="outline" onClick={() => navigate("/wallet")}>Back to wallet</Button>
+              </div>
+            </CardContent>
+          </Card>
         </main>
         <Footer />
       </div>

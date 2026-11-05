@@ -80,11 +80,11 @@ const UserDashboard = () => {
                           <span className="text-sm font-medium">{action.title}</span>
                         </div>
                       </Link>
-                      {!action.available && (
-                        <Badge variant="secondary" className="absolute -top-2 -right-2 text-xs">
-                          Upgrade
-                        </Badge>
-                      )}
+                      {/* No badge here: the product has no paid-tier
+                          path to point at (subscriptions were removed),
+                          so a badge would promise a remedy that does
+                          not exist. The dimmed state alone marks the
+                          action unavailable. */}
                     </div>
                   ))}
                 </div>

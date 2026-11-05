@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBitcoinWallet } from "@/hooks/useBitcoinWallet";
 import { useInvalidateMoneyState } from "@/utils/moneyFreshness";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useToast } from "@/hooks/use-toast";
 import { Zap, Loader2, Send, Download } from "lucide-react";
 
@@ -233,7 +234,7 @@ export function LnurlSend({
         setResult({
           kind: "failed",
           message: typeof data?.error === "string"
-            ? data.error
+            ? toUserFacingError(data.error, "This payment didn't go through. Nothing was sent.")
             : "This payment didn't go through. Nothing was sent.",
         });
         invalidateMoney();
@@ -248,7 +249,7 @@ export function LnurlSend({
           kind: "awaiting",
           paymentId,
           message: typeof data?.message === "string" && data.message
-            ? data.message
+            ? toUserFacingError(data.message, "Your payment is being prepared — we're moving funds between our wallets so it can go through. This usually takes under an hour.")
             : "Your payment is being prepared — we're moving funds between our wallets so it can go through. This usually takes under an hour.",
         });
         if (paymentId) startStatusPoll(paymentId, "pay", sats);

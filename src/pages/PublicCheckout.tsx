@@ -114,7 +114,10 @@ const PublicCheckout = () => {
       }
 
       if (failure) {
-        setError(failure);
+        // The function's error strings are crafted today, but this is
+        // a guest-facing surface: route them through the mapper so a
+        // technical string can never be rendered raw (CEO rule).
+        setError(toUserFacingError(failure, 'Payment link not found or expired'));
       } else {
         setLinkData(described.link as PaymentLinkData);
         setBitcoinAvailable(described.bitcoin_available === true);
@@ -131,7 +134,13 @@ const PublicCheckout = () => {
   // unconnected methods (card / mobile money / bank) are not listed
   // at all, so they can never be clicked through to a failure.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setPayerId(data.session?.user.id ?? null));
+    supabase.auth.getSession().then(({ data }) => {
+      setPayerId(data.session?.user.id ?? null);
+      // A signed-in payer's receipt email is already known — prefill
+      // it instead of asking them to type it again.
+      const knownEmail = data.session?.user.email;
+      if (knownEmail) setEmail((current) => current || knownEmail);
+    });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setPayerId(session?.user.id ?? null);
     });
@@ -232,7 +241,10 @@ const PublicCheckout = () => {
         <CardContent className="pt-6 text-center">
           <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
           <h2 className="text-lg font-semibold mb-2">Payment Unavailable</h2>
-          <p className="text-muted-foreground">{error}</p>
+          <p className="text-muted-foreground mb-6">{error}</p>
+          <Button onClick={() => window.location.reload()} className="w-full">
+            Try Again
+          </Button>
         </CardContent>
       </Card>
     </div>
@@ -279,11 +291,15 @@ const PublicCheckout = () => {
             </div>
           )}
           <p className="text-sm text-muted-foreground">A receipt has been sent to {email}</p>
-          {linkData?.redirect_url && (
+          {linkData?.redirect_url ? (
             <Button asChild className="w-full">
               <a href={linkData.redirect_url}>
                 <Store className="mr-2 h-4 w-4" /> Return to store
               </a>
+            </Button>
+          ) : (
+            <Button asChild variant="outline" className="w-full">
+              <a href="/">Go to BMaGlass Pay</a>
             </Button>
           )}
         </CardContent>
@@ -390,7 +406,7 @@ const PublicCheckout = () => {
               </div>
             )}
 
-            {!bitcoinSelected && (
+            {!bitcoinSelected && methods.length > 0 && (
               <div>
                 <Label>Email Address</Label>
                 <Input type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
@@ -401,6 +417,18 @@ const PublicCheckout = () => {
 
             <div className="space-y-3">
               <Label>Payment Method</Label>
+              {methods.length === 0 ? (
+                <div className="flex gap-3 rounded-lg border border-border bg-muted/50 p-3 text-sm">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <p>
+                    <span className="font-medium">No way to pay is available for this link right now.</span>
+                    {' '}Bitcoin payments are temporarily unavailable, and no other payment
+                    method has been set up for this checkout yet. Please try again later, or
+                    contact the seller for another way to pay.
+                  </p>
+                </div>
+              ) : (
+              <>
               {!payerId && (
                 <div className="flex gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
                   <Bitcoin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -451,6 +479,8 @@ const PublicCheckout = () => {
                   <Link to="/login" className="text-primary underline underline-offset-2">Sign in</Link>{' '}
                   to pay instantly from your wallet balance.
                 </p>
+              )}
+              </>
               )}
             </div>
 

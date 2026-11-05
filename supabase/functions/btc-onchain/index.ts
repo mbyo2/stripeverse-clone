@@ -3148,7 +3148,11 @@ async function executeReservedWithdrawal(
     reference: built.txid,
     category: "btc_withdrawal",
     idempotency_key: `btc-wd:${withdrawalId}`,
-    metadata: { type: "withdrawal", txid: built.txid, fee_sats: effectiveFeeSats },
+    // sats = the row's true total (amount + fee), matching the batch
+    // writer's convention (migration 20261253): the amount column is
+    // numeric(12,2) BTC and rounds this to 0.00, so history renders
+    // from metadata.sats.
+    metadata: { type: "withdrawal", txid: built.txid, fee_sats: effectiveFeeSats, sats: amountSats + effectiveFeeSats },
   });
   if (txErr) console.error("Withdrawal ledger row failed:", txErr);
 

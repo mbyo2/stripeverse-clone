@@ -45,6 +45,7 @@ import { useProfile, resolveFirstName } from "@/hooks/useProfile";
 import FrozenAccountBanner from "@/components/FrozenAccountBanner";
 import { shouldShowFrozenBanner } from "@/utils/frozenBanner";
 import { useCurrency, toSupportedCurrency } from "@/contexts/CurrencyContext";
+import { formatBtcRowAmount } from "@/lib/btcHistory";
 import { useAccount } from "@/contexts/AccountContext";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { groupWalletsByAccount } from "@/utils/accountGrouping";
@@ -110,7 +111,7 @@ const Dashboard = () => {
 
   const quickActions = [
     { label: 'Send', icon: Send, action: () => navigate('/transfer'), color: 'bg-primary' },
-    { label: 'Request', icon: ArrowDownRight, action: () => navigate('/wallet'), color: 'bg-success' },
+    { label: 'Request', icon: ArrowDownRight, action: () => navigate('/request-money'), color: 'bg-success' },
     { label: 'Cards', icon: CreditCard, action: () => navigate('/card/new'), color: 'bg-paypal-gold', feature: 'virtualCards' as const },
     { label: 'Add Money', icon: Plus, action: () => navigate('/wallet'), color: 'bg-primary' },
   ];
@@ -191,7 +192,11 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 mt-5">
-              {["Deposit", "Buy", "Sell", "Withdraw"].map((action) => (
+              {/* Only actions the custodial wallet actually offers
+                  this viewer: Buy was removed from the wallet page,
+                  and Withdraw (custodial send) is visible only to
+                  the tier the registry shows it to. */}
+              {["Deposit", "Sell", ...(canSeeFeature("custodialSend") ? ["Withdraw"] : [])].map((action) => (
                 <Link
                   key={action}
                   to="/bitcoin-wallet"
@@ -257,9 +262,14 @@ const Dashboard = () => {
                         transaction.direction === "outgoing" ? "text-destructive" : "text-success"
                       }`}>
                         {transaction.direction === "outgoing" ? "-" : "+"}
-                        {/* The row's own currency (a USD row reads
-                            $5.00, not K5.00). */}
-                        {formatAmount(transaction.amount, toSupportedCurrency(transaction.currency))}
+                        {/* BTC rows resolve their true amount from
+                            metadata.sats (the amount column rounds
+                            small movements to 0.00); other rows use
+                            their own currency (a USD row reads $5.00,
+                            not K5.00). */}
+                        {transaction.currency === "BTC"
+                          ? formatBtcRowAmount(transaction)
+                          : formatAmount(transaction.amount, toSupportedCurrency(transaction.currency))}
                       </span>
                     </div>
                   ))}

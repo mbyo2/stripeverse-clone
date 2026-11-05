@@ -20,6 +20,8 @@ import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { interpretOnchainSendResponse } from "@/utils/btcSend";
 import { useMultiCurrencyWallets } from "@/hooks/useMultiCurrency";
 import { formatBitcoinAmount, formatCurrency } from "@/lib/utils";
+import { formatBtcRowAmount, friendlyTxStatus } from "@/lib/btcHistory";
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import QRCode from "qrcode.react";
@@ -313,11 +315,14 @@ function LnurlIntentPanel({
 
 function SendOnchain({
   onDone,
+  onClose,
   initialDestination,
   onRouteBolt11,
   onLnurlIntent,
 }: {
   onDone: () => void;
+  /** Closes the Send dialog (the result panels' Done button). */
+  onClose?: () => void;
   /** Unified routing: an address handed over from the Lightning tab. */
   initialDestination?: { address: string; amountSats?: number; key: number } | null;
   /** Called when the entered destination is a Lightning invoice. */
@@ -606,7 +611,7 @@ function SendOnchain({
         setResult({
           kind: "awaiting",
           message: typeof data?.message === "string" && data.message
-            ? data.message
+            ? toUserFacingError(data.message, "Your payment is being prepared — we're moving funds between our wallets so it can go through. This usually takes under an hour.")
             : "Your payment is being prepared — we're moving funds between our wallets so it can go through. This usually takes under an hour.",
         });
         toast({ title: "Payment being prepared", description: "We're moving funds between our wallets so it can go through." });
@@ -653,6 +658,7 @@ function SendOnchain({
             Changed your mind? You can cancel it from your Bitcoin wallet for a full
             refund any time before it sends.
           </p>
+          <Button onClick={() => { setResult(null); onClose?.(); }} className="w-full">Done</Button>
         </div>
       );
     }
@@ -667,6 +673,7 @@ function SendOnchain({
             time, the full amount comes straight back to your balance. You don't need
             to do anything, and you don't need to send it again.
           </p>
+          <Button onClick={() => { setResult(null); onClose?.(); }} className="w-full">Done</Button>
         </div>
       );
     }
@@ -681,6 +688,7 @@ function SendOnchain({
           <p className="text-sm text-muted-foreground">
             Your Bitcoin is held safely while this is checked — please do not send it again.
           </p>
+          <Button onClick={() => { setResult(null); onClose?.(); }} className="w-full">Done</Button>
         </div>
       );
     }
@@ -689,6 +697,7 @@ function SendOnchain({
         <p className="text-sm">Your withdrawal is on its way. Transaction ID:</p>
         <div className="p-3 rounded-lg bg-muted font-mono text-xs break-all">{result.txid}</div>
         <p className="text-sm text-muted-foreground">Network fee paid: {result.fee_sats.toLocaleString()} sats</p>
+        <Button onClick={() => { setResult(null); onClose?.(); }} className="w-full">Done</Button>
       </div>
     );
   }
@@ -1321,6 +1330,7 @@ export default function BitcoinWallet() {
                       <TabsContent value="onchain" className="pt-4">
                         <SendOnchain
                           onDone={handleDone}
+                          onClose={() => setSendOpen(false)}
                           initialDestination={routedAddress}
                           onRouteBolt11={routeBolt11}
                           onLnurlIntent={setLnurlIntent}
@@ -1391,8 +1401,8 @@ export default function BitcoinWallet() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold tabular-nums">{outgoing ? "−" : "+"}{formatBitcoinAmount(Math.abs(Number(t.amount || 0)))}</p>
-                          <p className="text-[13px] text-muted-foreground">{t.status}</p>
+                          <p className="font-semibold tabular-nums">{outgoing ? "−" : "+"}{formatBtcRowAmount(t)}</p>
+                          <p className="text-[13px] text-muted-foreground">{friendlyTxStatus(t.status)}</p>
                         </div>
                       </li>
                     );

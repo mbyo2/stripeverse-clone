@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { trackRender } from "@/lib/performance";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { transactionTitle } from "@/utils/transactionLabels";
+import { btcRowSats, formatSatsAmount } from "@/lib/btcHistory";
 import { SkeletonListRows } from "@/components/ui/skeletons";
 
 interface TransactionItemProps {
@@ -64,7 +65,9 @@ const TransactionItem = React.memo(({ transaction, style }: TransactionItemProps
         transaction.direction === 'outgoing' ? "text-blue-600" : "text-green-600"
       }`}>
         {transaction.direction === 'outgoing' ? "-" : "+"}
-        {formatAmount(transaction.amount)}
+        {btcRowSats(transaction) !== null
+          ? formatSatsAmount(btcRowSats(transaction)!)
+          : formatAmount(transaction.amount)}
       </div>
     </div>
   );

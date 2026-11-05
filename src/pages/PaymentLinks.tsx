@@ -18,6 +18,7 @@ import { usePlatformSettings } from '@/hooks/useSubaccounts';
 import { computePaymentLinkBreakdown, type FeePayer } from '@/utils/splitPayments';
 import { settlementTargetLabel, selectableSettlementAccounts } from '@/utils/paymentLinkSettlement';
 import { toast } from 'sonner';
+import PageErrorState from '@/components/PageErrorState';
 import { format } from 'date-fns';
 
 /** Sentinel for the Main account in the settlement picker (Radix Select needs a non-empty value). */
@@ -83,7 +84,7 @@ const FeePayerChoice = ({ amount, rate, value, onChange, fmtFee }: {
 };
 
 const PaymentLinks = () => {
-  const { data: links, isLoading } = usePaymentLinks();
+  const { data: links, isLoading, isError: linksError, refetch: refetchLinks } = usePaymentLinks();
   const { data: accounts } = useAccounts();
   const createLink = useCreatePaymentLink();
   const updateLink = useUpdatePaymentLink();
@@ -238,6 +239,11 @@ const PaymentLinks = () => {
 
         {isLoading ? (
           <PaymentLinksSkeleton />
+        ) : linksError ? (
+          <PageErrorState
+            message="We couldn't load your payment links. Please try again."
+            onRetry={() => void refetchLinks()}
+          />
         ) : (
         <>
         {/* Summary + Stats */}

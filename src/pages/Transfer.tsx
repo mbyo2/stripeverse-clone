@@ -9,6 +9,7 @@ import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPhoneForDisplay } from "@/lib/utils";
 import { useWallet } from "@/hooks/useWallet";
+import { useProfile } from "@/hooks/useProfile";
 
 const Transfer = () => {
   const [transferComplete, setTransferComplete] = useState(false);
@@ -20,6 +21,13 @@ const Transfer = () => {
   
   const navigate = useNavigate();
   const { wallet } = useWallet();
+  // The self-transfer guard must compare against the SIGNED-IN user's
+  // own phone (collected at KYC, stored on profiles.phone) — this page
+  // previously passed a hardcoded placeholder number, so the guard
+  // compared every user's recipient against a stranger's number.
+  // Unknown yet (no KYC phone on file): pass "" and the client check
+  // is skipped; the server-side identity check remains the backstop.
+  const { data: profile } = useProfile();
   
   const handleTransferSuccess = (details: {
     transferId: string;
@@ -59,8 +67,8 @@ const Transfer = () => {
                 <p className="text-2xl font-bold text-primary">{formatCurrency(wallet?.balance || 0)}</p>
               </div>
               
-              <TransferForm 
-                senderPhone={"+260971234567"}
+              <TransferForm
+                senderPhone={profile?.phone ?? ""}
                 walletBalance={wallet?.balance || 0}
                 onSuccess={handleTransferSuccess}
                 onCancel={handleCancel}

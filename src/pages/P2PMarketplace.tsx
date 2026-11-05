@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SkeletonCardRow } from "@/components/ui/skeletons";
@@ -37,6 +38,7 @@ import { formatDistanceToNow } from "date-fns";
  */
 export default function P2PMarketplace() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [intent, setIntent] = useState<"buy" | "sell">("buy");
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const adsQuery = useP2pAds();
@@ -182,6 +184,7 @@ export default function P2PMarketplace() {
               ? "P2P trading is paused — ads will appear again when it reopens."
               : "Try a different payment method, or post your own ad and let traders come to you."
           }
+          action={paused ? undefined : { label: "Post an Ad", onClick: () => navigate("/p2p/ads/new") }}
         />
       ) : (
         <div className="space-y-3">

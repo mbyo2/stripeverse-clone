@@ -34,6 +34,7 @@ interface RecentTransaction {
   status: string;
   virtual_card_id?: string | null;
   card_masked_number?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface UserRewards {
@@ -167,7 +168,7 @@ export const useDashboardData = () => {
       // needs the raw fields.
       const { data, error } = await supabase
         .from('transactions')
-        .select('id, direction, recipient_name, description, category, amount, currency, created_at, status, virtual_card_id')
+        .select('id, direction, recipient_name, description, category, amount, currency, created_at, status, virtual_card_id, metadata')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(4);

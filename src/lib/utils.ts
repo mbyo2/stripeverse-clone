@@ -160,8 +160,11 @@ export const validateWalletTransfer = (
 ): { valid: boolean; message?: string } => {
   // Check if sender and receiver are the same — compared canonically,
   // so the same number typed in a different format (097… vs +260 97…)
-  // is still recognised as a self-transfer.
-  if (senderPhone === receiverPhone || phonesMatch(senderPhone, receiverPhone)) {
+  // is still recognised as a self-transfer. Skipped when the sender's
+  // own number is unknown (no KYC phone on file): comparing against
+  // an empty or placeholder number would refuse strangers at random,
+  // and the server enforces the real self-transfer rule by identity.
+  if (senderPhone && (senderPhone === receiverPhone || phonesMatch(senderPhone, receiverPhone))) {
     return { 
       valid: false, 
       message: "You cannot transfer money to yourself" 

@@ -1980,7 +1980,7 @@ function SelfCustodyWallet() {
                   )}
                   <p className="text-xs text-muted-foreground">
                     To move Bitcoin to your custodial account, paste a deposit address from the
-                    custodial wallet's Receive tab.
+                    custodial wallet — open it and tap Deposit BTC.
                   </p>
                 </CardContent>
               </Card>

@@ -16,6 +16,14 @@
 // toast and a render crash on fee_sats.toLocaleString() — and the
 // server's "do not retry" message was never shown. Every caller must
 // route the response through this interpreter instead.
+//
+// Server message/error strings are additionally passed through
+// toUserFacingError (pre-launch sweep 2026-11-05): they are crafted
+// plain language today and pass through unchanged, but a technical
+// string forwarded by an upstream provider must never reach the
+// user's screen raw (CEO error-presentation rule, 2026-10-22).
+
+import { toUserFacingError } from "@/utils/userFacingError";
 
 export type OnchainSendOutcome =
   | { kind: "broadcast"; txid: string; feeSats: number }
@@ -43,7 +51,7 @@ export function interpretOnchainSendResponse(data: unknown): OnchainSendOutcome 
       kind: "awaiting",
       message:
         typeof d.message === "string" && d.message
-          ? d.message
+          ? toUserFacingError(d.message, BTC_SEND_AWAITING_FALLBACK_MESSAGE)
           : BTC_SEND_AWAITING_FALLBACK_MESSAGE,
     };
   }
@@ -54,7 +62,7 @@ export function interpretOnchainSendResponse(data: unknown): OnchainSendOutcome 
       txid: typeof d.txid === "string" && d.txid ? d.txid : null,
       message:
         typeof d.error === "string" && d.error
-          ? d.error
+          ? toUserFacingError(d.error, BTC_SEND_VERIFYING_FALLBACK_MESSAGE)
           : BTC_SEND_VERIFYING_FALLBACK_MESSAGE,
     };
   }

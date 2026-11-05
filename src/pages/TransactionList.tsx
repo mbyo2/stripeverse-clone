@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { transactionTitle } from "@/utils/transactionLabels";
+import { btcRowSats, formatSatsAmount, friendlyTxStatus } from "@/lib/btcHistory";
 
 type DisplayType = 'send' | 'receive' | 'deposit' | 'withdrawal' | 'card_payment';
 
@@ -29,6 +30,7 @@ interface TransactionRow {
   direction: string;
   payment_method: string;
   virtual_card_id?: string | null;
+  metadata?: Record<string, unknown> | null;
   card_masked_number?: string | null;
   recipient_name: string | null;
   reference: string | null;
@@ -40,6 +42,9 @@ interface Transaction {
   id: string;
   type: DisplayType;
   amount: number;
+  /** True satoshis for BTC rows (metadata.sats) — the amount column
+   * alone rounds sub-0.005 BTC movements to 0.00. */
+  sats: number | null;
   currency: string;
   status: string;
   description: string;
@@ -61,10 +66,14 @@ const deriveType = (row: TransactionRow): DisplayType => {
 
 const mapRow = (row: TransactionRow): Transaction => {
   const type = deriveType(row);
+  const sats = btcRowSats(row);
   return {
     id: String(row.id),
     type,
-    amount: Number(row.amount),
+    // For BTC rows the true decimal amount derives from the sats, so
+    // exports and any numeric use agree with the rendered figure.
+    amount: sats !== null ? sats / 100_000_000 : Number(row.amount),
+    sats,
     currency: row.currency,
     status: row.status,
     // Incoming rows use the shared direction-aware labelling (a
@@ -101,7 +110,7 @@ const TransactionList = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transactions')
-        .select('id, amount, currency, status, description, category, direction, payment_method, recipient_name, reference, transaction_id, created_at, virtual_card_id')
+        .select('id, amount, currency, status, description, category, direction, payment_method, recipient_name, reference, transaction_id, created_at, virtual_card_id, metadata')
         .eq('user_id', user!.id)
         .order('created_at', { ascending: false })
         .limit(500);
@@ -205,7 +214,7 @@ const TransactionList = () => {
         new Date(tx.date).toISOString(),
         `"${tx.description.replace(/"/g, '""')}"`,
         tx.type,
-        tx.amount.toFixed(2),
+        tx.sats !== null ? (tx.sats / 100_000_000).toFixed(8) : tx.amount.toFixed(2),
         tx.currency,
         tx.status,
         tx.reference,
@@ -362,11 +371,11 @@ const TransactionList = () => {
 
                       <div className="text-right">
                         <div className={`font-semibold tabular-nums ${getAmountColor(transaction.type)}`}>
-                          {getAmountPrefix(transaction.type)}{formatCurrency(transaction.amount, transaction.currency)}
+                          {getAmountPrefix(transaction.type)}{transaction.sats !== null ? formatSatsAmount(transaction.sats) : formatCurrency(transaction.amount, transaction.currency)}
                         </div>
                         <div className="flex items-center space-x-2">
                           <Badge className={getStatusColor(transaction.status)}>
-                            {transaction.status}
+                            {friendlyTxStatus(transaction.status)}
                           </Badge>
                         </div>
                       </div>

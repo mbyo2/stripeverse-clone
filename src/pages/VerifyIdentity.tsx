@@ -79,10 +79,11 @@ import {
   type FrameSignals,
 } from "@/lib/faceEngine";
 
+// Product rule: identity documents are NRC + Passport only — a
+// driving licence was previously offered here by mistake.
 const DOCUMENT_TYPE_OPTIONS = [
   { value: "national_id", label: "National ID (NRC)" },
   { value: "passport", label: "Passport" },
-  { value: "driver_licence", label: "Driving licence" },
 ] as const;
 
 function errorText(e: unknown, fallback: string): string {
