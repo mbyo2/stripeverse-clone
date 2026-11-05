@@ -58,6 +58,12 @@ describe("render sites resolve BTC amounts from metadata.sats", () => {
     expect(src).toContain("friendlyTxStatus");
   });
 
+  it("the wallet history query actually fetches currency + metadata (the resolver's inputs)", () => {
+    const src = read("src/hooks/useBitcoinWallet.ts");
+    expect(src).toContain("amount, currency, status");
+    expect(src).toContain("metadata");
+  });
+
   it("TransactionList fetches metadata and renders BTC rows in sats", () => {
     const src = read("src/pages/TransactionList.tsx");
     expect(src).toContain("metadata");
