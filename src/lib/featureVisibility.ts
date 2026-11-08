@@ -64,7 +64,6 @@ export type FeatureKey =
   | "paypalPayouts"
   | "receivingAccounts"
   | "custodialMoonpay"
-  | "custodialSend"
   | "mobileMoney"
   | "virtualCards"
   | "bankTransfers"
@@ -111,13 +110,6 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   custodialMoonpay: {
     flag: "moonpay_enabled",
     note: "Custodial card buy waits on MoonPay KYB; the buy entries only ever rendered disabled as 'Coming soon'. (The SELF-custody MoonPay buy is a different, live rail — moonpay_selfcustody_enabled — and is NOT gated here.)",
-  },
-  custodialSend: {
-    // No platform flag exists for this rail, so — like the other
-    // flag-less entries — this registry entry IS the switch: the
-    // feature stays hidden from regular users until the entry is
-    // retired here, and this file is the only place that changes.
-    note: "Custodial BTC send (on-chain + Lightning) cannot settle today — proven live 2026-11-04: the pooled Lightning provider account holds 0 sats (a 100-sat test payment never arrived at the destination; the hold was released in full), and every on-chain send fails before any money logic (btc-onchain UTXO scan bound tripped by empty batch audit rows; the hot wallet also holds zero UTXOs). Removed from the custodial wallet page by CEO order 2026-11-04 ('Remove Send until it actually settles'). RESTORE CONDITION: retire this entry once BOTH rails — Lightning and on-chain — are proven settling end-to-end with real sats. (The SELF-custody wallet's send is a different, working rail and is NOT gated here.)",
   },
   mobileMoney: {
     flag: ["mtn_momo_enabled", "airtel_money_enabled"],
@@ -166,6 +158,25 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
     note: "Settings blocks that are disabled switches saving nothing ('Not yet available' — transaction limits and international payments).",
   },
 };
+
+/**
+ * Standing rule (CEO, 2026-11-08): custodial Send and
+ * Receive/Deposit are ALWAYS visible to every viewer — regular
+ * users, guests and the admin tier alike. They are the wallet's
+ * core entry points and must never be tier-gated or hidden again:
+ * whether a send can settle right now is the server's concern
+ * (withdrawal guard, rebalance queue, honest refusal inside the
+ * flow), never a reason to hide the entry point. Neither action
+ * may be added to FEATURE_REGISTRY or FEATURE_ROUTE_MAP; the
+ * keys are named here so the test suite can pin their absence
+ * from the gate. (Custodial Send was registry-gated from
+ * 2026-11-04 to 2026-11-08 under the since-superseded "remove
+ * until it settles" order.)
+ */
+export const ALWAYS_VISIBLE_WALLET_ACTIONS = [
+  "custodialSend",
+  "custodialDeposit",
+] as const;
 
 /**
  * Whether `feature` is visible to a viewer holding `roles` with the

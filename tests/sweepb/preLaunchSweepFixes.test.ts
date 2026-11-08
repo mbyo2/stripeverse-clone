@@ -10,10 +10,10 @@ const read = (p: string) => readFileSync(resolve(__dirname, "../../", p), "utf8"
 
 describe("Dashboard truthfulness", () => {
   const src = read("src/pages/Dashboard.tsx");
-  it("no longer promises Buy/Withdraw chips to everyone", () => {
+  it("chips: Buy absent; Deposit, Sell and Withdraw always offered (Send restored — CEO standing rule 2026-11-08)", () => {
     expect(src).not.toContain('["Deposit", "Buy", "Sell", "Withdraw"]');
-    expect(src).toContain('canSeeFeature("custodialSend")');
-    expect(src).toContain('"Deposit", "Sell"');
+    expect(src).not.toContain('canSeeFeature("custodialSend")');
+    expect(src).toContain('["Deposit", "Sell", "Withdraw"]');
   });
   it("Request quick action goes to the request-money page", () => {
     expect(src).toContain("navigate('/request-money')");

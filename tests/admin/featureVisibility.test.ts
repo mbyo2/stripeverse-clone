@@ -29,6 +29,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  ALWAYS_VISIBLE_WALLET_ACTIONS,
   FEATURE_REGISTRY,
   FEATURE_ROUTE_MAP,
   WORKING_FEATURE_ROUTES,
@@ -301,46 +302,31 @@ describe("surface pins — entry points consult the registry", () => {
   });
 });
 
-describe("custodialSend — removed until it settles (CEO order 2026-11-04)", () => {
-  it("is registered flag-less: hidden from users and guests under every flag state", () => {
-    expect(ALL_FEATURES).toContain("custodialSend");
-    expect(flagsOf("custodialSend")).toEqual([]);
-    for (const flags of [ALL_OFF, ALL_ON]) {
-      expect(isFeatureVisible("custodialSend", USER, flags)).toBe(false);
-      expect(isFeatureVisible("custodialSend", GUEST, flags)).toBe(false);
+describe("custodial Send + Receive/Deposit — always visible (CEO standing rule 2026-11-08)", () => {
+  it("neither action is in the registry or the route gate: the gate can never hide them, for any role or flag state", () => {
+    expect(ALWAYS_VISIBLE_WALLET_ACTIONS).toEqual(["custodialSend", "custodialDeposit"]);
+    for (const key of ALWAYS_VISIBLE_WALLET_ACTIONS) {
+      expect(ALL_FEATURES).not.toContain(key);
+      expect(FEATURE_REGISTRY).not.toHaveProperty(key);
+      expect(Object.values(FEATURE_ROUTE_MAP)).not.toContain(key);
     }
   });
 
-  it("stays visible to the admin tier, who operate and test the rail", () => {
-    expect(isFeatureVisible("custodialSend", ADMIN, ALL_OFF)).toBe(true);
-    expect(isFeatureVisible("custodialSend", SUPER_ADMIN, ALL_OFF)).toBe(true);
-  });
-
-  it("the registry note records why, and the restore condition", () => {
-    const note = FEATURE_REGISTRY.custodialSend.note;
-    expect(note).toContain("2026-11-04");
-    expect(note).toContain("BOTH rails");
-    expect(note).toContain("real sats");
-  });
-
-  it("the custodial page gates the Send dialog on the registry — Deposit and Sell are not gated", () => {
+  it("the custodial page renders the Send and Deposit dialogs ungated", () => {
     const page = read("../../src/pages/BitcoinWallet.tsx");
-    const gate = page.indexOf('canSee("custodialSend")');
-    const depositTitle = page.indexOf("<DialogTitle>Deposit Bitcoin</DialogTitle>");
-    const sendTitle = page.indexOf("<DialogTitle>Send Bitcoin</DialogTitle>");
-    expect(gate).toBeGreaterThan(-1);
-    expect(depositTitle).toBeGreaterThan(-1);
-    // The gate sits between the Deposit dialog and the Send dialog
-    // it wraps: it cannot be hiding Deposit by construction.
-    expect(gate).toBeGreaterThan(depositTitle);
-    expect(sendTitle).toBeGreaterThan(gate);
-    // Exactly one gate in the page — the Sell panel and the rest of
-    // the page render unconditionally, as before.
-    expect(page.split('canSee("custodialSend")')).toHaveLength(2);
+    expect(page).not.toContain("custodialSend");
+    expect(page).toContain("<DialogTitle>Send Bitcoin</DialogTitle>");
+    expect(page).toContain("<DialogTitle>Deposit Bitcoin</DialogTitle>");
     expect(page).toContain("Sell Bitcoin");
   });
 
-  it("the self-custody wallet is a different, working rail: it never consults this gate", () => {
+  it("the dashboard always offers Deposit, Sell and Withdraw", () => {
+    const dashboard = read("../../src/pages/Dashboard.tsx");
+    expect(dashboard).not.toContain("custodialSend");
+    expect(dashboard).toContain('["Deposit", "Sell", "Withdraw"]');
+  });
+
+  it("the self-custody wallet is a different rail: it never consulted this gate either", () => {
     const selfCustody = read("../../src/pages/SelfCustodyWallet.tsx");
     expect(selfCustody).not.toContain("custodialSend");
   });

@@ -14,7 +14,9 @@
 //   - the processors resume through the existing exactly-once
 //     paths (executeReservedWithdrawal / attemptOutboundPayment),
 //     never a second send implementation;
-//   - the custodial Send visibility gate is untouched.
+//   - the custodial Send visibility gate was retired by the CEO
+//     standing rule 2026-11-08 (Send always visible); the queue and
+//     refusal behaviour this file pins is unchanged by that.
 
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
@@ -212,8 +214,9 @@ describe("lightning-provider — bridge legs", () => {
   });
 });
 
-describe("custodial Send gate — untouched by this mission", () => {
-  it("still carries the flag-less custodialSend registry entry", () => {
-    expect(visibility).toContain("custodialSend");
+describe("custodial Send gate — retired (CEO standing rule 2026-11-08)", () => {
+  it("no longer carries a custodialSend registry entry: Send is always visible, settlement stays server-side", () => {
+    expect(visibility).not.toMatch(/custodialSend:\s*\{/);
+    expect(visibility).toContain("ALWAYS_VISIBLE_WALLET_ACTIONS");
   });
 });

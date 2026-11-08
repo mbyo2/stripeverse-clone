@@ -1285,20 +1285,13 @@ export default function BitcoinWallet() {
                 </DialogContent>
               </Dialog>
 
-              {/* Custodial Send is gated off for regular users by CEO
-                  order 2026-11-04 ("Remove Send until it actually
-                  settles"): the live proof that day showed neither
-                  rail can settle — the Lightning provider pool holds
-                  0 sats, and on-chain sends fail before any money
-                  logic (UTXO scan defect + empty hot wallet). The
-                  switch is the registry's `custodialSend` entry in
-                  src/lib/featureVisibility.ts: retire it there once
-                  BOTH rails are proven settling with real sats and
-                  this dialog returns exactly as-is. The admin tier
-                  keeps the dialog for operating and testing the rail.
-                  Deposit (above), the Sell panel and the queued-
-                  withdrawal view are working surfaces and stay. */}
-              {canSee("custodialSend") && (
+              {/* Send and Deposit are always visible to every
+                  viewer (CEO standing rule 2026-11-08: 'Send and
+                  receive/deposit should always be there'). Whether
+                  a send can settle right now is decided inside the
+                  flow by the server — withdrawal guard, rebalance
+                  queue, plain-language refusal — never by hiding
+                  this dialog. */}
               <Dialog
                 open={sendOpen}
                 onOpenChange={(next) => {
@@ -1349,7 +1342,6 @@ export default function BitcoinWallet() {
                   )}
                 </DialogContent>
               </Dialog>
-              )}
               </div>
             </CardContent>
           </Card>

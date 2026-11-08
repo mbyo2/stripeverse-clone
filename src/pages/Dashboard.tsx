@@ -192,11 +192,12 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 mt-5">
-              {/* Only actions the custodial wallet actually offers
-                  this viewer: Buy was removed from the wallet page,
-                  and Withdraw (custodial send) is visible only to
-                  the tier the registry shows it to. */}
-              {["Deposit", "Sell", ...(canSeeFeature("custodialSend") ? ["Withdraw"] : [])].map((action) => (
+              {/* The custodial wallet's own actions, always shown
+                  to every viewer (CEO standing rule 2026-11-08:
+                  Deposit and Withdraw — the send — are never
+                  hidden). Buy is absent because the wallet page
+                  does not offer it. */}
+              {["Deposit", "Sell", "Withdraw"].map((action) => (
                 <Link
                   key={action}
                   to="/bitcoin-wallet"
