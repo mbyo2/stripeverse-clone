@@ -280,6 +280,72 @@ async function lightningSendGuard(
   return null;
 }
 
+// ── The user's own balance, validated FIRST (ordering fix, 2026-11-08) ──
+//
+// Both send actions (pay_invoice, lnurl_pay) run this BEFORE the
+// send guard above. The guard's pool leg speaks about the PLATFORM
+// ("larger than the platform's current Lightning balance — try a
+// smaller amount"), which is the wrong refusal — and unusable advice
+// — for a user whose own balance cannot cover the payment at ANY
+// amount: until this check existed, a zero-balance user paying into
+// a short pool was told the platform was the problem and to try a
+// smaller amount, when every amount would have failed on their own
+// balance. The user's balance is the first question a send must
+// answer; pool state is only meaningful for a payment the user can
+// actually fund.
+//
+// The check mirrors btc_reserve_lightning_send exactly, so it can
+// never disagree with the atomic hold that follows it:
+//   - the spendable figure is crypto_wallets.available_sats (BTC) —
+//     a missing wallet row is zero, exactly as the reserve's upsert
+//     sees it; the hold is the amount alone (Lightning sends carry
+//     no fee on top), so `sats > available` is precisely the
+//     reserve's refusal condition, in the same words the reserve's
+//     "Insufficient BTC balance" raise produces;
+//   - REPLAYS report their recorded state, never a fresh balance
+//     verdict: an existing row under this idempotency key, or a
+//     live/paid outbound payment for the same invoice hash (the
+//     reserve RPC's two replay lookups, in its order), skips the
+//     check entirely and lets the reserve return the original
+//     attempt's state — a retried click after a successful pay must
+//     not be told the balance it just spent is "insufficient".
+// Read-only: on a balance pass nothing is written; the reserve RPC
+// re-checks under its per-user advisory lock, so a concurrent drain
+// between this read and the reserve still resolves to the same
+// insufficient-balance refusal from the RPC itself.
+async function userBalanceRefusal(
+  admin: any,
+  userId: string,
+  sats: number,
+  replay: { idempotencyKey: string; paymentHash: string },
+): Promise<Response | null> {
+  const { data: byKey } = await admin
+    .from("lightning_payments")
+    .select("id")
+    .eq("idempotency_key", replay.idempotencyKey)
+    .limit(1);
+  if ((byKey ?? []).length > 0) return null;
+  const { data: byHash } = await admin
+    .from("lightning_payments")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("direction", "outbound")
+    .eq("payment_hash", replay.paymentHash)
+    .in("status", ["processing", "paid", "awaiting_rebalance"])
+    .limit(1);
+  if ((byHash ?? []).length > 0) return null;
+  const { data: wallet } = await admin
+    .from("crypto_wallets")
+    .select("available_sats")
+    .eq("user_id", userId)
+    .eq("asset", "BTC")
+    .maybeSingle();
+  if (sats > Number(wallet?.available_sats ?? 0)) {
+    return json(400, { error: "Insufficient BTC balance" });
+  }
+  return null;
+}
+
 // Returns the designed 503 refusal while the provider is not
 // configured, else null.
 function lightningProviderGate(refusal: string): Response | null {
@@ -869,6 +935,16 @@ serve(async (req) => {
       if ("refusal" in decoded) return decoded.refusal;
       const { details, sats } = decoded;
 
+      // The user's own balance is validated FIRST (ordering fix,
+      // 2026-11-08): an under-balance payment gets the
+      // insufficient-balance refusal here, never the guard's
+      // platform-pool message below.
+      const balanceRefusal = await userBalanceRefusal(admin, user.id, sats, {
+        idempotencyKey: idempotency_key.trim(),
+        paymentHash: details.paymentHash,
+      });
+      if (balanceRefusal) return balanceRefusal;
+
       // Send guard (research step 0): minimum for regular users and
       // the pool cap against the provider account's actual balance —
       // still before anything is reserved. A queue verdict means the
@@ -1125,6 +1201,16 @@ serve(async (req) => {
         console.error("lightning-service: LNURL callback issued a mismatched amount", sats, amountSats);
         return json(400, { error: LNURL_AMOUNT_MISMATCH });
       }
+
+      // The user's own balance is validated FIRST (ordering fix,
+      // 2026-11-08), exactly as in pay_invoice: an under-balance
+      // payment gets the insufficient-balance refusal here, never
+      // the guard's platform-pool message below.
+      const balanceRefusal = await userBalanceRefusal(admin, user.id, sats, {
+        idempotencyKey: idempotency_key.trim(),
+        paymentHash: details.paymentHash,
+      });
+      if (balanceRefusal) return balanceRefusal;
 
       // Send guard (research step 0), as in pay_invoice: minimum
       // for regular users + the provider-pool cap, before reserving.

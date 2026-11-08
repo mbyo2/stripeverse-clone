@@ -35,7 +35,10 @@
 // evaluate the btc-core checkWithdrawalGuard BEFORE reserving —
 // minimums (regular users; operators exempt), per-tx cap, per-user
 // and platform-wide daily caps, and the pool cap (never more than
-// the confirmed UTXO total). Policy values live on platform_settings
+// the confirmed UTXO total). Ahead of the guard, both paths first
+// validate the user's OWN balance (ordering fix, 2026-11-08): a
+// user who cannot cover the amount gets the insufficient-balance
+// refusal, never the platform-pool one. Policy values live on platform_settings
 // (migration 20261250) with env fallback. The UTXO set itself is
 // persisted in Postgres (btc_pool_utxos) and only rescanned when
 // stale; fee rates are cached and Esplora reads fail over between
@@ -1004,6 +1007,23 @@ async function sumRecentPlatformWithdrawalSats(supabase: any, sinceIso: string):
     .in("status", ["reserved", "broadcast", "confirmed", "queued", "batched"])
     .gte("created_at", sinceIso);
   return (data ?? []).reduce((sum: number, r: any) => sum + Number(r.amount_sats), 0);
+}
+
+/**
+ * The user's spendable BTC balance (crypto_wallets.available_sats;
+ * a missing wallet row is zero, exactly as the reserve's upsert
+ * sees it). Read by send()/queueSend() to validate the user's own
+ * balance BEFORE the pool guard (ordering fix, 2026-11-08 — see the
+ * call sites).
+ */
+async function userAvailableSats(supabase: any, userId: string): Promise<number> {
+  const { data } = await supabase
+    .from("crypto_wallets")
+    .select("available_sats")
+    .eq("user_id", userId)
+    .eq("asset", "BTC")
+    .maybeSingle();
+  return Number(data?.available_sats ?? 0);
 }
 
 async function estimateSend(supabase: any, userId: string, body: any) {
@@ -2242,6 +2262,16 @@ async function queueSend(supabase: any, userId: string, body: any) {
     });
   }
 
+  // The user's own balance is validated FIRST — before the limits
+  // and the pool guard below (ordering fix, 2026-11-08; see send()
+  // for the full rationale). Amount-only here: the exact hold is
+  // amount + the reserved fee, enforced atomically inside
+  // btc_queue_batched_withdrawal, whose refusal is this same
+  // "Insufficient BTC balance" message.
+  if (amountSats > (await userAvailableSats(supabase, userId))) {
+    return json(400, { error: "Insufficient BTC balance" });
+  }
+
   const maxTxSats = limits.maxTxSats;
   const maxDailySats = limits.maxDailySats;
   if (!operator && amountSats < limits.minOnchainSats) {
@@ -2799,6 +2829,23 @@ async function send(supabase: any, userId: string, body: any) {
       });
     }
     return json(409, { error: "This withdrawal is already in progress" });
+  }
+
+  // The user's own balance is validated FIRST — before the limits
+  // and the pool guard below (ordering fix, 2026-11-08, the same
+  // defect as the Lightning paths): a user who cannot cover the
+  // amount must hear "Insufficient BTC balance", never the
+  // platform-pool refusal further down, which blames the platform
+  // for the user's own shortfall (and implies a smaller amount
+  // would work when ANY amount fails). The check is amount-only
+  // here: the exact hold is amount + fee, enforced atomically
+  // inside btc_reserve_withdrawal, whose refusal is this same
+  // message — so a balance that covers the amount but not
+  // amount + fee still resolves at reserve with the
+  // insufficient-balance outcome, and no send the balance genuinely
+  // covers (amount + its selected fee) is refused here.
+  if (amountSats > (await userAvailableSats(supabase, userId))) {
+    return json(400, { error: "Insufficient BTC balance" });
   }
 
   // Limits: operator-configurable on platform_settings (migration

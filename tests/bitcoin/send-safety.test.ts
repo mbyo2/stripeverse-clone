@@ -425,3 +425,62 @@ describe("send-safety wiring (source pins)", () => {
     expect(runbook).toContain("btc_reconciliation_runs");
   });
 });
+
+describe("on-chain balance-before-pool ordering (2026-11-08 fix, source pins)", () => {
+  // The same defect as the Lightning paths: send()/queueSend()
+  // evaluated the pool guard before anything looked at the user's
+  // own balance, so a zero-balance user sending into an empty pool
+  // got the platform refusal (409 "Platform funds are not yet
+  // available…") instead of "Insufficient BTC balance". Both paths
+  // now read the user's available sats and refuse on their balance
+  // before the limits and the guard.
+  const onchain = fs.readFileSync(
+    path.join(repoRoot, "supabase/functions/btc-onchain/index.ts"),
+    "utf8",
+  );
+
+  it("reads the user's spendable balance from crypto_wallets", () => {
+    expect(onchain).toContain("async function userAvailableSats");
+    const helper = onchain.slice(
+      onchain.indexOf("async function userAvailableSats"),
+      onchain.indexOf("async function estimateSend"),
+    );
+    expect(helper).toContain('.from("crypto_wallets")');
+    expect(helper).toContain('.select("available_sats")');
+    expect(helper).toContain('.eq("asset", "BTC")');
+  });
+
+  it("send() refuses on the user's balance before the pool guard", () => {
+    const body = onchain.slice(
+      onchain.indexOf("async function send("),
+      onchain.indexOf("async function executeReservedWithdrawal"),
+    );
+    const balanceAt = body.indexOf("userAvailableSats(supabase, userId)");
+    const guardAt = body.indexOf("checkWithdrawalGuard({");
+    const reserveAt = body.indexOf('rpc("btc_reserve_withdrawal"');
+    expect(balanceAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeGreaterThan(balanceAt);
+    expect(reserveAt).toBeGreaterThan(guardAt);
+    expect(body).toContain('error: "Insufficient BTC balance"');
+  });
+
+  it("queueSend() refuses on the user's balance before the pool guard", () => {
+    const body = onchain.slice(
+      onchain.indexOf("async function queueSend("),
+      onchain.indexOf("async function cancelBatchSend"),
+    );
+    const balanceAt = body.indexOf("userAvailableSats(supabase, userId)");
+    const guardAt = body.indexOf("checkWithdrawalGuard({");
+    const reserveAt = body.indexOf('rpc("btc_queue_batched_withdrawal"');
+    expect(balanceAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeGreaterThan(balanceAt);
+    expect(reserveAt).toBeGreaterThan(guardAt);
+    expect(body).toContain('error: "Insufficient BTC balance"');
+  });
+
+  it("the platform-pool refusal copy is unchanged for sends the balance covers", () => {
+    expect(onchain).toContain(
+      "Platform funds are not yet available for withdrawal (awaiting confirmations or insufficient confirmed balance)",
+    );
+  });
+});

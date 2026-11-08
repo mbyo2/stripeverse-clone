@@ -199,3 +199,73 @@ describe("BitcoinWallet send dialog (source proof)", () => {
     expect(walletPage).toContain("We've opened the Lightning tab with it filled in");
   });
 });
+
+describe("balance-before-pool ordering (2026-11-08 fix, source proof)", () => {
+  // The defect: a zero-balance user paying a Lightning address was
+  // refused with the PLATFORM-pool message ("larger than the
+  // platform's current Lightning balance — try a smaller amount")
+  // because lightningSendGuard ran before anything looked at the
+  // user's own balance (the reserve RPC's "Insufficient BTC balance"
+  // was never reached). userBalanceRefusal now runs first in both
+  // send actions; these pins keep that ordering from regressing.
+  const helperAt = service.indexOf("async function userBalanceRefusal");
+  const helper = service.slice(
+    helperAt,
+    service.indexOf("function lightningProviderGate", helperAt),
+  );
+
+  it("the balance helper exists and refuses in the reserve's own words", () => {
+    expect(helperAt).toBeGreaterThan(-1);
+    expect(helper).toContain('error: "Insufficient BTC balance"');
+    expect(helper).toContain("sats > Number(wallet?.available_sats ?? 0)");
+  });
+
+  it("the helper reads the spendable figure the reserve holds against", () => {
+    expect(helper).toContain('.from("crypto_wallets")');
+    expect(helper).toContain('.select("available_sats")');
+    expect(helper).toContain('.eq("asset", "BTC")');
+  });
+
+  it("replays skip the balance check (reserve replay lookups, in its order)", () => {
+    const keyAt = helper.indexOf('.eq("idempotency_key", replay.idempotencyKey)');
+    const hashAt = helper.indexOf('.eq("payment_hash", replay.paymentHash)');
+    const walletAt = helper.indexOf('.from("crypto_wallets")');
+    expect(keyAt).toBeGreaterThan(-1);
+    expect(hashAt).toBeGreaterThan(keyAt);
+    expect(walletAt).toBeGreaterThan(hashAt);
+    expect(helper).toContain('"processing", "paid", "awaiting_rebalance"');
+  });
+
+  it("pay_invoice validates the user's balance before the pool guard and the reserve", () => {
+    const body = service.slice(
+      service.indexOf('action === "pay_invoice"'),
+      service.indexOf('action === "check_status"'),
+    );
+    const balanceAt = body.indexOf("userBalanceRefusal(admin, user.id, sats");
+    const guardAt = body.indexOf("lightningSendGuard(admin, user.id, sats)");
+    const reserveAt = body.indexOf("btc_reserve_lightning_send");
+    expect(balanceAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeGreaterThan(balanceAt);
+    expect(reserveAt).toBeGreaterThan(guardAt);
+  });
+
+  it("lnurl_pay validates the user's balance before the pool guard and the reserve", () => {
+    const body = service.slice(
+      service.indexOf('action === "lnurl_pay"'),
+      service.indexOf('action === "lnurl_withdraw"'),
+    );
+    const balanceAt = body.indexOf("userBalanceRefusal(admin, user.id, sats");
+    const guardAt = body.indexOf("lightningSendGuard(admin, user.id, sats)");
+    const reserveAt = body.indexOf("btc_reserve_lightning_send");
+    expect(balanceAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeGreaterThan(balanceAt);
+    expect(reserveAt).toBeGreaterThan(guardAt);
+  });
+
+  it("the pool refusal copy is unchanged for sends the balance covers", () => {
+    expect(service).toContain(
+      "That payment is larger than the platform's current Lightning balance. Try a smaller amount, or pay on-chain instead.",
+    );
+    expect(service).toContain("POOL_SHORT_REBALANCE_NEEDED");
+  });
+});
