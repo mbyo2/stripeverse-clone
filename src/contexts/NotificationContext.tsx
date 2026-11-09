@@ -53,9 +53,14 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         } as any);
       
       if (error) throw error;
-      
+
     } catch (error: any) {
       console.error("Error creating notification:", error);
+      toast({
+        title: "Couldn't save that notification",
+        description: toUserFacingError(error),
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }

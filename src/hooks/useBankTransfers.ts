@@ -53,33 +53,3 @@ export const useDeleteBankAccount = () => {
   });
 };
 
-export const useInitiateBankTransfer = () => {
-  const { user } = useAuth();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (transfer: {
-      bank_account_id: string; amount: number; currency?: string;
-      description?: string; recipient_name: string; recipient_account: string; recipient_bank: string;
-    }) => {
-      const { data, error } = await supabase.from('transactions').insert({
-        user_id: user!.id,
-        amount: transfer.amount,
-        currency: transfer.currency || 'ZMW',
-        direction: 'outgoing',
-        payment_method: 'bank_transfer',
-        status: 'pending',
-        recipient_name: transfer.recipient_name,
-        recipient_account: transfer.recipient_account,
-        recipient_bank: transfer.recipient_bank,
-        description: transfer.description,
-      }).select().single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['transactions'] });
-      toast.success('Bank transfer initiated');
-    },
-    onError: (e: Error) => toast.error(toUserFacingError(e)),
-  });
-};

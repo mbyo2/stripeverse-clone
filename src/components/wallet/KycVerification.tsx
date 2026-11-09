@@ -462,8 +462,10 @@ const KycVerification = () => {
         try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
       }
       
-      // Update the notification context to create a system notification
-      await supabase
+      // Update the notification context to create a system notification.
+      // The submission itself has already succeeded, so a notification
+      // failure must not fail the flow — but it is recorded, not ignored.
+      const { error: notificationError } = await supabase
         .from("notifications")
         .insert({
           user_id: userData.user.id,
@@ -472,6 +474,9 @@ const KycVerification = () => {
           type: "system",
           read: false
         });
+      if (notificationError) {
+        console.error("KYC submission notification failed:", notificationError);
+      }
       
       toast({
         title: "Verification submitted",
