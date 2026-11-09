@@ -1,41 +1,58 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-// Truth pass (2026-10-26): there is no fake sandbox with test cards or
-// test phone numbers — this guide now describes how testing honestly
-// works against this API.
+// Environments guide (2026-11-09): the API ships in two environments.
+// Sandbox keys run the full API on mainnet formats with simulated
+// money — objects are segregated per environment and sandbox payments
+// settle only through the simulation endpoints. Nothing here invents
+// test cards or test phone numbers; the sandbox is the API itself,
+// with simulated settlement.
 export function TestingGuide() {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Testing Guide</CardTitle>
-        <CardDescription>How to test against the BMaGlass Pay developer API — honestly.</CardDescription>
+        <CardDescription>How the sandbox environment works — and how to test against it.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <p>
-          <strong>Use a test key for reads.</strong> Create a <code>bmp_test_</code> key on the API page.
-          Every read endpoint works with it and returns your real account data (wallets, transactions,
-          payment links, Bitcoin balance).
+          <strong>Use a sandbox key to build.</strong> Create a <code>bmg_sandbox_</code> key on the API
+          page (older <code>bmp_test_</code> keys are sandbox keys too). A sandbox key puts every SDK and
+          plugin into sandbox mode automatically — the environment comes from the key, never from a
+          setting. Reads return your real account data (wallets, transactions, Bitcoin balance).
         </p>
         <p>
-          <strong>Writes with a test key are refused, by design.</strong> This app has no test-mode ledger
-          and no transaction is ever marked as test data, so a test key can never move real money:
-          transfers and payment-link creation answer <code>403 test_mode_read_only</code>. There are no
-          test card numbers, test phone numbers or simulated balances.
+          <strong>Sandbox writes are simulated, not refused.</strong> With a sandbox key you can create
+          invoices and payment links end-to-end. They live in the sandbox environment only: production
+          keys never see them, the hosted checkout refuses sandbox links, and no real wallet, ledger or
+          chain is ever touched. Real-money transfers are the one exception — a sandbox key attempting
+          one answers <code>403 test_mode_read_only</code>.
         </p>
         <p>
-          <strong>Webhooks can be tested safely.</strong> Register an endpoint with a test key, then
-          <code> POST /webhooks/{"{id}"}/test</code> sends a real signed <code>webhook.test</code> event and
-          records the attempt in the delivery log — verify your signature handling against it.
+          <strong>Drive a sandbox payment to paid.</strong> Call
+          <code> POST /invoices/{"{id}"}/simulate-payment</code> or
+          <code> POST /payment-links/{"{id}"}/simulate-payment</code> with the same sandbox key. The
+          object settles and the normal webhook flow fires to your sandbox webhook endpoints, with
+          <code> simulated: true</code> in the payload — so your full integration, webhooks included,
+          runs before you ever take a real payment. Production keys are refused at these endpoints
+          (<code>403 simulation_not_available</code>).
         </p>
         <p>
-          <strong>Quotes are safe to test.</strong> <code>POST /bitcoin/quote</code> creates a 60-second
-          price quote and moves no money; execution only happens in the app.
+          <strong>Webhooks are per environment.</strong> Endpoints registered with a sandbox key only
+          receive sandbox events; <code>POST /webhooks/{"{id}"}/test</code> sends a signed
+          <code> webhook.test</code> event so you can verify signature handling.
         </p>
         <p>
-          <strong>When you must test a live write,</strong> use a live key on your own account with the
-          smallest amount and an <code>Idempotency-Key</code> header, and check the delivery log and
-          transaction list afterwards. Live writes move real money.
+          <strong>Check what your key unlocks.</strong> <code>GET /connector/config</code> answers with
+          the key alone and returns your environment, business country and currency, feature states
+          (including mobile money, which is available to businesses registered in Zambia) and your
+          settlement type — exactly what the plugins and SDKs render from.
+        </p>
+        <p>
+          <strong>Go live by swapping the key.</strong> Use a production key (<code>bmg_live_</code>, or
+          an older <code>bmp_live_</code> key) on your own account with the smallest amount and an
+          <code> Idempotency-Key</code> header, and check the delivery log and transaction list
+          afterwards. Production writes move real money.
         </p>
         <p>
           <strong>Run the SDK contract tests</strong> before integrating: <code>sdk/tests/</code> in the

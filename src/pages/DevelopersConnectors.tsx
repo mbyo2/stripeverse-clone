@@ -159,12 +159,12 @@ export default function DevelopersConnectors() {
               <Key className="h-4 w-4 mt-0.5 shrink-0" />
               <span>
                 Each connector talks to the merchant's own BMaGlass Pay account with
-                an API key (<code>bmp_live_…</code> / <code>bmp_test_…</code>) issued
+                an API key (<code>bmg_live_…</code> / <code>bmg_sandbox_…</code>; legacy bmp_ keys still work) issued
                 from the dashboard — create one on the{" "}
                 <Link className="underline" to="/api">
                   API page
                 </Link>
-                . Test keys are read-only by design: they can never move money.
+                . A sandbox key puts the connector in sandbox mode automatically — simulated money, real API behaviour — and the connector reads its feature availability from the API: paste the key and it configures itself. Mobile money appears for businesses registered in Zambia.
               </span>
             </p>
           </CardContent>

@@ -8,8 +8,8 @@ import { Play, Loader2 } from "lucide-react";
 
 // The playground makes REAL calls to the shipped developer-api with a key
 // you paste in. The response below is exactly what the
-// API returned. Use a test key (bmp_test_…) — reads work, writes are
-// refused with test_mode_read_only, by design.
+// API returned. Use a sandbox key (bmg_sandbox_…) — reads work and
+// sandbox writes simulate; real-money transfers stay production-only.
 const BASE = "https://hhxwwozpvgktuqutfkhc.supabase.co/functions/v1/developer-api";
 
 const ROUTES = [
@@ -58,13 +58,13 @@ export default function ApiPlayground() {
         <CardTitle className="flex items-center gap-2"><Play className="h-5 w-5" /> API Playground</CardTitle>
         <CardDescription>
           Live calls to the real developer-api — no simulated responses. Paste an API key
-          (create one on the API page). Test keys are read-only.
+          (create one on the API page). Sandbox keys simulate; production keys move real money.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
           <Label htmlFor="pg-key">API key</Label>
-          <Input id="pg-key" type="password" placeholder="bmp_test_… or bmp_live_…" value={apiKey}
+          <Input id="pg-key" type="password" placeholder="bmg_sandbox_… or bmg_live_…" value={apiKey}
             onChange={(e) => setApiKey(e.target.value)} className="mt-1 font-mono" autoComplete="off" />
           <p className="text-xs text-muted-foreground mt-1">The key is sent only to the developer-api function, from your browser. It is never stored.</p>
         </div>

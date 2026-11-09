@@ -30,6 +30,8 @@ export const KNOWN_DEVELOPER_EVENTS = [
   "transaction.completed",
   "payment_link.created",
   "payment_link.paid",
+  "invoice.created",
+  "invoice.paid",
   "webhook.test",
 ];
 
@@ -66,11 +68,18 @@ export async function dispatchEvent(
   eventType: string,
   // deno-lint-ignore no-explicit-any
   data: any,
+  // Environment segregation (2026-11-09): when given ('test' |
+  // 'live'), only endpoints registered in that environment receive
+  // the event. Omitted = legacy behaviour (all of the account's
+  // endpoints), used by production settlement paths whose endpoints
+  // predate environments.
+  environment?: string,
 ): Promise<WebhookDispatchResult[]> {
   const { data: hooks } = await db.from("developer_webhooks")
     .select("*").eq("user_id", userId).eq("is_active", true);
   const results: WebhookDispatchResult[] = [];
   for (const hook of hooks ?? []) {
+    if (environment && hook.environment && hook.environment !== environment) continue;
     if (Array.isArray(hook.events) && hook.events.length > 0 && !hook.events.includes(eventType)) continue;
     const event = {
       id: `evt_${crypto.randomUUID()}`,

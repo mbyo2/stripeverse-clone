@@ -17,14 +17,14 @@ export function SdkDocs() {
         <div>
           <p className="font-medium">TypeScript / JavaScript <Badge variant="outline">@bmaglass/sdk v1.0.0 · sdk/typescript</Badge></p>
           <pre className="bg-muted p-4 rounded-lg overflow-x-auto mt-2">{`import { BMaGlass } from "@bmaglass/sdk";
-const client = new BMaGlass({ apiKey: "bmp_test_…" });
+const client = new BMaGlass({ apiKey: "bmg_sandbox_…" });
 const wallets = await client.wallets.list();
 const quote = await client.bitcoin.quote({ side: "buy", amount_zmw: 100 });`}</pre>
         </div>
         <div>
           <p className="font-medium">Python <Badge variant="outline">bmaglass-sdk v1.0.0 · sdk/python</Badge></p>
           <pre className="bg-muted p-4 rounded-lg overflow-x-auto mt-2">{`from bmaglass_sdk import BMaGlass
-client = BMaGlass("bmp_test_...")
+client = BMaGlass("bmg_sandbox_...")
 wallets = client.wallets.list()`}</pre>
         </div>
         <div>
@@ -36,13 +36,13 @@ $wallets = $client->wallets();`}</pre>
         <div>
           <p className="font-medium">React Native / Expo <Badge variant="outline">@bmaglass/sdk-react-native v1.0.0 · sdk/react-native</Badge></p>
           <pre className="bg-muted p-4 rounded-lg overflow-x-auto mt-2">{`import { BMaGlass } from "@bmaglass/sdk-react-native";
-const client = new BMaGlass({ apiKey: "bmp_test_…" });
+const client = new BMaGlass({ apiKey: "bmg_sandbox_…" });
 const wallets = await client.wallets.list();`}</pre>
         </div>
         <div>
           <p className="font-medium">Flutter (Dart) <Badge variant="outline">bmaglass_sdk v1.0.0 · sdk/flutter</Badge></p>
           <pre className="bg-muted p-4 rounded-lg overflow-x-auto mt-2">{`import 'package:bmaglass_sdk/bmaglass_sdk.dart';
-final client = BMaGlass(apiKey: 'bmp_test_…');
+final client = BMaGlass(apiKey: 'bmg_sandbox_…');
 final wallets = await client.wallets();`}</pre>
         </div>
         <p className="text-muted-foreground">

@@ -26,16 +26,27 @@ describe("developer-api contract", () => {
     expect(paths).toContain("/bitcoin/quote");
     expect(paths).toContain("/webhooks");
     expect(paths).toContain("/webhook-deliveries");
+    expect(paths).toContain("/connector/config");
+    expect(paths).toContain("/invoices");
+    expect(paths).toContain("/invoices/{id}");
+    expect(paths).toContain("/invoices/{id}/simulate-payment");
+    expect(paths).toContain("/payment-links/{id}/simulate-payment");
     for (const route of ['resource === "wallets"', 'resource === "transactions"', 'resource === "transfers"',
       'resource === "payment-links"', 'resource === "bitcoin"', 'resource === "webhooks"',
+      'resource === "connector"', 'resource === "invoices"',
       'resource === "webhook-deliveries"']) {
       expect(router).toContain(route);
     }
   });
 
-  it("test mode is honestly read-only in the router", () => {
+  it("sandbox keys can never move real money, and sandbox settlement is simulation-only", () => {
+    // Real-money transfers stay production-only…
     expect(router).toContain("test_mode_read_only");
     expect(router).toContain("execute_transfer_with_fee");
+    // …while sandbox payments settle ONLY through the simulation
+    // endpoints, which production keys are refused at.
+    expect(router).toContain("simulate-payment");
+    expect(router).toContain("simulation_not_available");
   });
 
   it("payment_link.paid is a real, subscribable event dispatched from settlement", () => {
@@ -58,18 +69,26 @@ describe("developer-api contract", () => {
     expect(JSON.stringify(spec)).toContain("payment_link.paid");
   });
 
-  it("public/openapi.json is the complete served contract (13 path templates)", () => {
+  it("public/openapi.json is the complete served contract (18 path templates)", () => {
     // This replaces the old sdk-copy byte-identity pin: the second copy
     // moved to the bmaglasspay-connectors repo, so the guard now pins
     // the served copy itself — complete and self-contained.
     // /payment-links/{id}/attempts joined with Pay-with-Bitcoin
     // (2026-10-26): a link's Bitcoin payment attempts, read-only.
+    // The connector config endpoint, invoices and the two
+    // simulate-payment endpoints joined with the API key environments
+    // build (2026-11-09).
     expect(Object.keys(spec.paths).sort()).toEqual([
       "/bitcoin/balance",
       "/bitcoin/deposit-address",
       "/bitcoin/quote",
+      "/connector/config",
+      "/invoices",
+      "/invoices/{id}",
+      "/invoices/{id}/simulate-payment",
       "/payment-links",
       "/payment-links/{id}/attempts",
+      "/payment-links/{id}/simulate-payment",
       "/settings",
       "/transactions",
       "/transfers",

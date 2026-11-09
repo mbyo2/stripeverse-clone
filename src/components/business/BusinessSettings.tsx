@@ -30,6 +30,7 @@ const businessSettingsSchema = z.object({
   businessCountry: z.string().min(2, "Please enter your country."),
   autoSettlement: z.boolean().default(false),
   settlementFrequency: z.enum(["daily", "weekly", "monthly"]),
+  mobileMoney: z.boolean().default(false),
 });
 
 type BusinessSettingsFormValues = z.infer<typeof businessSettingsSchema>;
@@ -57,6 +58,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
       businessCountry: "Zambia",
       autoSettlement: true,
       settlementFrequency: "weekly",
+      mobileMoney: false,
     },
   });
 
@@ -83,6 +85,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
           businessCountry: address.country || "Zambia",
           autoSettlement: contact.auto_settlement ?? true,
           settlementFrequency: contact.settlement_frequency || "weekly",
+          mobileMoney: data.mobile_money_enabled ?? false,
         });
       } else {
         form.reset({
@@ -95,6 +98,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
           businessCountry: "Zambia",
           autoSettlement: true,
           settlementFrequency: "weekly",
+          mobileMoney: false,
         });
       }
       setIsLoading(false);
@@ -129,6 +133,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
             business_name: data.businessName,
             contact_info: contactInfo,
             address: address,
+            mobile_money_enabled: data.mobileMoney,
           })
           .eq('user_id', user.id);
         if (error) throw error;
@@ -141,6 +146,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
             business_type: 'general',
             contact_info: contactInfo,
             address: address,
+            mobile_money_enabled: data.mobileMoney,
           });
         if (error) throw error;
       }
@@ -148,7 +154,18 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
       toast({ title: "Settings saved", description: "Your business settings have been updated." });
       onClose();
     } catch (error: any) {
-      toast({ title: "Save failed", description: toUserFacingError(error), variant: "destructive" });
+      // The database refuses the mobile-money toggle for businesses
+      // outside Zambia even if a client asks for it — translate that
+      // refusal into plain language, never the raw error.
+      if (typeof error?.message === 'string' && error.message.includes('mobile_money_zambia_only')) {
+        toast({
+          title: "Mobile money isn't available for your country yet",
+          description: "Mobile money can only be switched on for businesses registered in Zambia.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Save failed", description: toUserFacingError(error), variant: "destructive" });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -244,6 +261,37 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
                     </FormItem>
                   )} />
                 )}
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-md font-medium">Payment Features</h3>
+                <FormField control={form.control} name="mobileMoney" render={({ field }) => {
+                  // Mobile money is a Zambia-only feature for now: the
+                  // switch is only available when the business country
+                  // above is Zambia. The server enforces the same rule
+                  // — this state is presentation, not the gate.
+                  const country = (form.watch("businessCountry") || "").trim().toLowerCase();
+                  const isZambia = country === "zambia" || country === "zm";
+                  return (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                      <div className="space-y-0.5 pr-3">
+                        <FormLabel className="text-base">Mobile money</FormLabel>
+                        <FormDescription>
+                          {isZambia
+                            ? "Let customers pay with mobile money. Your shop plugins, SDKs and API pick this up automatically from your business profile."
+                            : "Mobile money is currently available to businesses registered in Zambia."}
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={isZambia && field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={isSubmitting || !isZambia}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  );
+                }} />
               </div>
 
               <SheetFooter>

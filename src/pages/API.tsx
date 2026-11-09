@@ -379,14 +379,16 @@ const API = () => {
                     <p className="text-sm text-muted-foreground mb-2">
                       Authenticate with your API key in the X-Api-Key header against the
                       developer-api base URL below. Sign in and open the API Keys tab to
-                      create one — keys are shown only once. Test keys (bmp_test_) are
-                      read-only: this app has no test-mode ledger, so a test key can
-                      never move real money. Live keys (bmp_live_) move real money.
+                      create one — keys are shown only once. Sandbox keys (bmg_sandbox_,
+                      legacy bmp_test_) run on mainnet formats with simulated money:
+                      they create sandbox invoices and payment links and settle them
+                      through simulation, but can never move real money. Production
+                      keys (bmg_live_, legacy bmp_live_) move real money.
                     </p>
                     <div className="bg-muted p-4 rounded-lg">
                       <pre className="text-sm overflow-x-auto">
 {`curl https://hhxwwozpvgktuqutfkhc.supabase.co/functions/v1/developer-api/wallets \\
-  -H "X-Api-Key: bmp_test_your_key_here"`}
+  -H "X-Api-Key: bmg_sandbox_your_key_here"`}
                       </pre>
                     </div>
                   </div>
@@ -559,11 +561,11 @@ const API = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="live">Live</SelectItem>
-                    <SelectItem value="test">Test</SelectItem>
+                    <SelectItem value="live">Production</SelectItem>
+                    <SelectItem value="test">Sandbox</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">Test keys are always read-only in practice — writes with a test key are refused, whatever scopes are selected.</p>
+                <p className="text-xs text-muted-foreground mt-1">Sandbox keys create sandbox objects and settle them through simulation; real-money transfers stay production-only, whatever scopes are selected.</p>
               </div>
               <div>
                 <Label>Scopes</Label>

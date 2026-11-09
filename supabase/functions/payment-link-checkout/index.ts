@@ -140,11 +140,21 @@ serve(async (req) => {
 
     const { data: link, error: linkError } = await admin
       .from("payment_links")
-      .select("id, user_id, title, description, amount, currency, status, account_id, fee_payer, expires_at, max_payments, payment_count, redirect_url")
+      .select("id, user_id, title, description, amount, currency, status, account_id, fee_payer, expires_at, max_payments, payment_count, redirect_url, environment")
       .eq("link_code", linkCode)
       .maybeSingle();
 
     if (linkError) throw new Error(linkError.message);
+    // Sandbox links (created with a sandbox API key) can never settle
+    // real money — they exist so merchants can test the integration,
+    // and their only settlement path is the developer API's
+    // simulate-payment endpoint. Refuse before anything else.
+    if (link && link.environment === "test") {
+      return json({
+        success: false, status: "sandbox_link",
+        error: "This is a sandbox payment link — it can't take a real payment. Sandbox payments are simulated from the developer API; use a production payment link for live payments.",
+      }, 400);
+    }
     if (!link || link.status !== "active") {
       return json({ success: false, status: "not_found", error: "Payment link not found or no longer active" }, 404);
     }

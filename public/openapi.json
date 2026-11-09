@@ -55,7 +55,7 @@
     }
   },
   "info": {
-    "description": "The shipped public developer API. Base URL is the developer-api edge function. Auth is an API key (bmp_live_\u2026 / bmp_test_\u2026) in the X-Api-Key header. Keys are created in the app (Business settings or the API page); only the SHA-256 hash is stored and the full key is shown once. TEST KEYS ARE READ-ONLY: this app has no test-mode ledger, so a test key can never move real money. Write attempts with a test key return 403 test_mode_read_only. Not available via the API (documented honestly): MoonPay and virtual-card issuing to third parties.",
+    "description": "The shipped public developer API. Base URL is the developer-api edge function. Auth is an API key in the X-Api-Key header. Keys are created in the app (Business -> API); only the SHA-256 hash is stored and the full key is shown once.\n\nENVIRONMENTS: every key belongs to one environment, derived only from the key itself. Production keys (bmg_live_..., legacy bmp_live_...) move real money. Sandbox keys (bmg_sandbox_..., legacy bmp_test_...) run on mainnet formats with simulated money: API-created objects (invoices, payment links, webhook endpoints) are segregated per environment and never listed across environments, and a sandbox payment reaches paid only through the simulate-payment endpoints, which fire the normal webhook flow flagged simulated. Sandbox activity never touches a real wallet, ledger or chain. Legacy bmp_test_ keys are sandbox keys under this model (they gain the sandbox simulation flows; the historical read-only test mode no longer exists). Real-money transfers stay production-only: a sandbox key attempting one gets 403 test_mode_read_only.\n\nKEY SCOPES are least-privilege: config:read, invoices:create, invoices:read, webhooks:manage, plus the read/write scopes for wallets, transactions, payment links, bitcoin and transfers. No scope can withdraw, pay out, change a settlement destination, change the business country, or manage keys.\n\nNot available via the API (documented honestly): MoonPay and virtual-card issuing to third parties.",
     "title": "BMaGlass Pay Developer API",
     "version": "1.0.0"
   },
@@ -201,7 +201,7 @@
     "/settings": {
       "get": {
         "summary": "The merchant's account settings that connected clients inherit",
-        "description": "Returns the merchant's payment-link fee-bearer default (fee_payer_default: 'seller' \u2014 the platform fee comes out of what the seller receives; 'buyer' \u2014 the fee is added on top of the price and the seller receives the full price) the platform's current payment-link fee rate (platform_fee_percent — the wallet/Bitcoin settlement rate) and the PayPal collection rate (paypal_platform_fee_percent — charged instead of the link rate when a payment is collected through PayPal). The default is set by the merchant in the BMaGlass Pay dashboard (Settings > Payment) \u2014 plugins, extensions and SDKs have no fee-bearer setting of their own; they read it here and inherit it. Read-only; available to any valid API key (test keys included).",
+        "description": "Returns the merchant's payment-link fee-bearer default (fee_payer_default: 'seller' \u2014 the platform fee comes out of what the seller receives; 'buyer' \u2014 the fee is added on top of the price and the seller receives the full price) the platform's current payment-link fee rate (platform_fee_percent \u2014 the wallet/Bitcoin settlement rate) and the PayPal collection rate (paypal_platform_fee_percent \u2014 charged instead of the link rate when a payment is collected through PayPal). The default is set by the merchant in the BMaGlass Pay dashboard (Settings > Payment) \u2014 plugins, extensions and SDKs have no fee-bearer setting of their own; they read it here and inherit it. Read-only; available to any valid API key (test keys included).",
         "responses": {
           "200": {
             "description": "The merchant's effective fee-bearer default and the platform fee rate."
@@ -489,6 +489,280 @@
             "description": "Payment link not found"
           }
         }
+      }
+    },
+    "/connector/config": {
+      "get": {
+        "description": "Authenticated by the pasted key alone \u2014 there is no business parameter. Returns the environment (from the key), the business's display name, country (ISO 3166-1 alpha-2, resolved from the saved record), currency and status, feature states, and the settlement type/currency. Feature states: enabled | disabled | not_entitled | pending_verification, with a machine-readable reason_code. mobile_money is Zambia-only: not_entitled/country_not_eligible for businesses whose saved country is not Zambia (ZM), disabled when a Zambian business has not switched it on, enabled when it has. Never returns balances, settlement destinations, account/mobile numbers or personal data. Supports ETag/If-None-Match (304) and Cache-Control: private, max-age=300. Gates are re-checked server-side on every money call; this payload only tells a connector what to render.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "business": {
+                          "properties": {
+                            "country": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "currency": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "display_name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "config_version": {
+                          "type": "string"
+                        },
+                        "environment": {
+                          "enum": [
+                            "sandbox",
+                            "production"
+                          ],
+                          "type": "string"
+                        },
+                        "features": {
+                          "additionalProperties": {
+                            "properties": {
+                              "reason_code": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "enum": [
+                                  "enabled",
+                                  "disabled",
+                                  "not_entitled",
+                                  "pending_verification"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "object"
+                        },
+                        "key": {
+                          "properties": {
+                            "key_id": {
+                              "type": "string"
+                            },
+                            "scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "livemode": {
+                          "type": "boolean"
+                        },
+                        "settlement": {
+                          "properties": {
+                            "currency": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "type": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "mode": {
+                      "enum": [
+                        "test",
+                        "live"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The connector configuration."
+          },
+          "304": {
+            "description": "Config unchanged (If-None-Match matched the ETag)."
+          },
+          "401": {
+            "description": "invalid_api_key / api_key_revoked / api_key_expired"
+          },
+          "403": {
+            "description": "insufficient_scope \u2014 the key lacks config:read"
+          }
+        },
+        "summary": "Connector configuration for the key's business"
+      }
+    },
+    "/invoices": {
+      "get": {
+        "description": "Scope: invoices:read. Only the key's own environment is ever listed \u2014 a sandbox key never sees production invoices and vice versa.",
+        "responses": {
+          "200": {
+            "description": "Invoices, newest first."
+          },
+          "403": {
+            "description": "insufficient_scope"
+          }
+        },
+        "summary": "List invoices in the key's environment"
+      },
+      "post": {
+        "description": "Scope: invoices:create. Creates an invoice in the key's environment. Sandbox invoices settle only via /invoices/{id}/simulate-payment. Fires invoice.created to the environment's webhook endpoints.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "amount": {
+                    "type": "number"
+                  },
+                  "currency": {
+                    "default": "ZMW",
+                    "type": "string"
+                  },
+                  "customer_email": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "amount"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created invoice (environment + livemode included)."
+          },
+          "400": {
+            "description": "invalid_request"
+          },
+          "403": {
+            "description": "insufficient_scope / business_inactive"
+          }
+        },
+        "summary": "Create an invoice"
+      }
+    },
+    "/invoices/{id}": {
+      "get": {
+        "description": "Scope: invoices:read. An invoice from the other environment answers 404 \u2014 environments never leak across.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The invoice."
+          },
+          "404": {
+            "description": "not_found"
+          }
+        },
+        "summary": "Get one invoice"
+      }
+    },
+    "/invoices/{id}/simulate-payment": {
+      "post": {
+        "description": "Sandbox keys only (production keys get 403 simulation_not_available). Drives the invoice to paid and fires invoice.paid to the business's sandbox webhook endpoints with simulated: true. Touches only the invoice row and the webhook delivery log \u2014 no wallet, ledger or chain. Idempotent: an already-paid invoice returns its current state.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The paid invoice, with simulated: true."
+          },
+          "403": {
+            "description": "simulation_not_available / insufficient_scope"
+          },
+          "404": {
+            "description": "not_found"
+          }
+        },
+        "summary": "Simulate payment of a sandbox invoice"
+      }
+    },
+    "/payment-links/{id}/simulate-payment": {
+      "post": {
+        "description": "Sandbox keys only (production keys get 403 simulation_not_available). The link must have a fixed amount. Marks one simulated payment (payment_count + 1, total_collected += amount, on the sandbox link row only) and fires payment_link.paid to sandbox webhook endpoints with simulated: true. Sandbox links are refused by the hosted checkout and can never settle real money.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The updated sandbox link, with simulated: true."
+          },
+          "400": {
+            "description": "invalid_request"
+          },
+          "403": {
+            "description": "simulation_not_available / insufficient_scope"
+          },
+          "404": {
+            "description": "not_found"
+          }
+        },
+        "summary": "Simulate a payment on a sandbox payment link"
       }
     }
   },

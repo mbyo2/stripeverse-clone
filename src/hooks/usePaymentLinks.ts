@@ -36,6 +36,10 @@ export const usePaymentLinks = () => {
         .from('payment_links')
         .select('*')
         .eq('user_id', user!.id)
+        // The in-app list is the production surface: sandbox links
+        // created with a sandbox API key belong to the API's sandbox
+        // environment and are managed there, never here.
+        .eq('environment', 'live')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;

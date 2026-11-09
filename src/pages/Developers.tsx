@@ -60,13 +60,20 @@ export default function Developers() {
             <p>Create a key on the <Link className="underline" to="/api">API page</Link> or in Business settings.
               Only its SHA-256 hash is stored; the full key is shown exactly once. Send it as:</p>
             <pre className="bg-muted p-4 rounded-lg overflow-x-auto">{`curl ${BASE}/wallets \\
-  -H "X-Api-Key: bmp_test_your_key_here"`}</pre>
-            <p><Badge variant="outline">bmp_test_</Badge> <strong>Test keys are read-only.</strong> This app has no
-              test-mode ledger and no transaction is ever marked as test data, so a test key can never move
-              real money — writes answer <code>403 test_mode_read_only</code>. Webhook registration and test
-              delivery are allowed with test keys because they move no money.</p>
-            <p><Badge>bmp_live_</Badge> Live keys move real money, scoped by the permissions chosen at
-              creation (for example <code>transfers:write</code>). A key created without scopes is read-only.</p>
+  -H "X-Api-Key: bmg_sandbox_your_key_here"`}</pre>
+            <p><Badge variant="outline">bmg_sandbox_</Badge> <strong>Sandbox keys simulate.</strong> They run the
+              full API on mainnet formats with simulated money: invoices and payment links created with a
+              sandbox key live in the sandbox environment only, settle through the simulate-payment
+              endpoints, and fire the normal webhooks flagged simulated. No real wallet, ledger or chain is
+              touched; real-money transfers answer <code>403 test_mode_read_only</code>. Older
+              <code> bmp_test_</code> keys are sandbox keys too.</p>
+            <p><Badge>bmg_live_</Badge> Production keys move real money, scoped by the permissions chosen at
+              creation (for example <code>transfers:write</code>). Older <code>bmp_live_</code> keys remain
+              valid production keys. A key created without scopes is read-only.</p>
+            <p>Every plugin and SDK reads <code>GET /connector/config</code> with the key alone to learn its
+              environment, the business's country and currency, and which features (including mobile money,
+              available to businesses registered in Zambia) are on — the environment always comes from the
+              key, never from a setting.</p>
           </CardContent>
         </Card>
 
@@ -142,12 +149,12 @@ export default function Developers() {
               Python, PHP, React Native and Flutter (Dart):</p>
             <pre className="bg-muted p-4 rounded-lg overflow-x-auto">{`# TypeScript / JavaScript — sdk/typescript (@bmaglass/sdk)
 import { BMaGlass } from "@bmaglass/sdk";
-const client = new BMaGlass({ apiKey: "bmp_test_…" });
+const client = new BMaGlass({ apiKey: "bmg_sandbox_…" });
 const wallets = await client.wallets.list();
 
 # Python — sdk/python (bmaglass-sdk)
 from bmaglass_sdk import BMaGlass
-client = BMaGlass("bmp_test_…")
+client = BMaGlass("bmg_sandbox_…")
 wallets = client.wallets.list()
 
 # PHP — sdk/php (BMaGlass\\Sdk)
@@ -160,7 +167,7 @@ import { BMaGlass } from "@bmaglass/sdk-react-native";
 
 # Flutter (Dart) — sdk/flutter (bmaglass_sdk)
 import 'package:bmaglass_sdk/bmaglass_sdk.dart';
-final client = BMaGlass(apiKey: "bmp_test_…");
+final client = BMaGlass(apiKey: "bmg_sandbox_…");
 final wallets = await client.wallets();`}</pre>
             <Button asChild variant="outline"><Link to="/sdk-docs">SDK documentation</Link></Button>
           </CardContent>

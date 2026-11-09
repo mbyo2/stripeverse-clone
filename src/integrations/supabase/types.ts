@@ -1372,6 +1372,7 @@ export type Database = {
           contact_info: Json
           created_at: string
           id: string
+          mobile_money_enabled: boolean
           registration_number: string | null
           status: string
           tax_id: string | null
@@ -1391,6 +1392,7 @@ export type Database = {
           contact_info: Json
           created_at?: string
           id?: string
+          mobile_money_enabled?: boolean
           registration_number?: string | null
           status?: string
           tax_id?: string | null
@@ -1410,6 +1412,7 @@ export type Database = {
           contact_info?: Json
           created_at?: string
           id?: string
+          mobile_money_enabled?: boolean
           registration_number?: string | null
           status?: string
           tax_id?: string | null
@@ -1645,6 +1648,7 @@ export type Database = {
           expires_at: string | null
           fee_payer: string
           id: string
+          environment: string
           link_code: string
           max_payments: number | null
           metadata: Json | null
@@ -1665,6 +1669,7 @@ export type Database = {
           expires_at?: string | null
           fee_payer?: string
           id?: string
+          environment?: string
           link_code?: string
           max_payments?: number | null
           metadata?: Json | null
@@ -1685,6 +1690,7 @@ export type Database = {
           expires_at?: string | null
           fee_payer?: string
           id?: string
+          environment?: string
           link_code?: string
           max_payments?: number | null
           metadata?: Json | null
