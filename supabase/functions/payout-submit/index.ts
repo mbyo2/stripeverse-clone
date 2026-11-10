@@ -41,6 +41,25 @@ serve(async (req) => {
     if (batch.user_id !== user.id) return json({ error: 'Forbidden' }, 403);
     if (batch.status !== 'draft') return json({ error: 'Batch is not in draft state' }, 409);
 
+    // Atomic claim: the update only touches a row still in 'draft',
+    // so two concurrent submits cannot both pass the check above and
+    // dispatch the same payouts twice. Proceed only if a row was
+    // actually claimed (the lenco-process-payout pattern).
+    const { data: claimed, error: claimError } = await supabase
+      .from('payout_batches')
+      .update({
+        status: 'processing',
+        submitted_at: new Date().toISOString(),
+      })
+      .eq('id', batchId)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle();
+    if (claimError || !claimed) {
+      console.error('payout-submit batch claim failed', claimError);
+      return json({ error: 'Batch is not in draft state' }, 409);
+    }
+
     const { data: items, error: itemsError } = await supabase
       .from('payouts')
       .select('id, provider, amount, recipient_phone, recipient_name, currency, status')
@@ -76,11 +95,11 @@ serve(async (req) => {
       return json({ error: 'Insufficient wallet balance for this batch' }, 402);
     }
 
+    // The batch is already claimed (status 'processing') above, so
+    // this update only fills in the server-authoritative totals.
     await supabase
       .from('payout_batches')
       .update({
-        status: 'processing',
-        submitted_at: new Date().toISOString(),
         item_count: items.length,
         total_amount: totalAmount,
         total_fee: totalFee,

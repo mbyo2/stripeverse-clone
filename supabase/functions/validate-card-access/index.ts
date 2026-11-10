@@ -16,8 +16,11 @@ serve(async (req) => {
     const supabase = getSupabaseClient(req);
     const { cardId, accessType } = await req.json();
 
-    // Get the authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get the authenticated user. The token is passed explicitly: a
+    // bare getUser() ignores the Authorization header on pinned
+    // supabase-js versions.
+    const authToken = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authToken);
     
     if (authError || !user) {
       throw new Error('Unauthorized');

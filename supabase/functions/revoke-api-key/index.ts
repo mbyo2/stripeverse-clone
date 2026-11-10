@@ -8,7 +8,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Inlined verbatim from supabase/functions/_shared/supabase-client.ts
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 export const getSupabaseClient = (req: Request) => {
   // Get authorization header
@@ -84,7 +84,7 @@ export const getSupabaseClient = (req: Request) => {
                                                                                                                                                                                                                                                                                                     status: 200,
                                                                                                                                                                                                                                                                                                         });
                                                                                                                                                                                                                                                                                                           } catch (error) {
-                                                                                                                                                                                                                                                                                                              return new Response(JSON.stringify({ error: error.message }), {
+                                                                                                                                                                                                                                                                                                              return new Response(JSON.stringify({ error: 'The API key could not be revoked. Please try again.' }), {
                                                                                                                                                                                                                                                                                                                     headers: { ...corsHeaders, "Content-Type": "application/json" },
                                                                                                                                                                                                                                                                                                                           status: 500,
                                                                                                                                                                                                                                                                                                                               });

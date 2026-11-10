@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -127,13 +127,23 @@ Deno.serve(async (req) => {
 
       const payerEmail = (txn.metadata as any)?.payer_email
       if (payerEmail) {
-        await supabase.functions.invoke('send-receipt', {
+        // send-receipt accepts the service-role bearer as an internal
+        // caller (it previously required a user JWT, so this invoke
+        // 401'd silently and checkout receipts never fired). The
+        // result is logged, not swallowed: a failed receipt must be
+        // visible in the function logs.
+        const { data: receiptData, error: receiptError } = await supabase.functions.invoke('send-receipt', {
           body: {
             transaction_id: txn.uuid_id ?? txn.id,
             recipient_email: payerEmail,
             type: 'payment',
           },
-        }).catch((e) => console.error('send-receipt invoke error:', e))
+        })
+        if (receiptError) {
+          console.error('checkout-webhook send-receipt failed:', receiptError)
+        } else {
+          console.log('checkout-webhook receipt issued for intent', intentId, receiptData?.receipt?.reference ?? '')
+        }
       }
     } else if (eventType === 'payment.failed') {
       if (txn.status === 'pending') {

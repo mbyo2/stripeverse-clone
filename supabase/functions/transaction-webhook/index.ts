@@ -1,6 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { assertSafeWebhookUrl } from "../_shared/url-guard.ts"
 
 const corsHeaders = {
@@ -19,12 +19,28 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
-    const webhookData = await req.json()
+    // The raw body is read ONCE and kept: the signature is verified
+    // over these exact bytes, never over a re-serialized object
+    // (re-serialization changes whitespace/key order and can never
+    // match a provider signature).
+    const rawBody = await req.text()
+    let webhookData: any
+    try {
+      webhookData = JSON.parse(rawBody)
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid payload' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 },
+      )
+    }
 
-    // Validate webhook signature (implement based on provider)
-    const isValidSignature = await validateWebhookSignature(req, webhookData)
+    // Validate webhook signature (HMAC-SHA256 over the raw body)
+    const isValidSignature = await validateWebhookSignature(req, rawBody, webhookData)
     if (!isValidSignature) {
-      throw new Error('Invalid webhook signature')
+      return new Response(
+        JSON.stringify({ error: 'Invalid webhook signature' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 },
+      )
     }
 
     // Log only non-sensitive metadata, and only after signature validation.
@@ -126,51 +142,59 @@ serve(async (req) => {
   }
 })
 
-async function validateWebhookSignature(req: Request, webhookData: any): Promise<boolean> {
+async function validateWebhookSignature(req: Request, rawBody: string, webhookData: any): Promise<boolean> {
   try {
     const signature = req.headers.get('x-webhook-signature');
     const provider = (webhookData.provider || 'unknown').toLowerCase();
-    
+
     if (!signature) {
       console.error('Missing webhook signature');
       return false;
     }
-    
+
     // Get provider-specific webhook secret from environment
     const secretKey = Deno.env.get(`${provider.toUpperCase()}_WEBHOOK_SECRET`);
-    
+
     if (!secretKey) {
       console.error(`No webhook secret configured for provider: ${provider}`);
       return false;
     }
-    
-    // Validate signature using HMAC-SHA256
+
+    // HMAC-SHA256 over the RAW request body. Providers send the
+    // signature as hex (header `sha256=<hex>` or a bare hex string);
+    // base64 is not a provider format and is rejected, not decoded.
     const encoder = new TextEncoder();
     const keyData = encoder.encode(secretKey);
-    const bodyData = encoder.encode(JSON.stringify(webhookData));
-    
+    const bodyData = encoder.encode(rawBody);
+
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
       keyData,
       { name: 'HMAC', hash: 'SHA-256' },
       false,
-      ['verify']
+      ['sign']
     );
-    
-    // Extract signature from header (format: sha256=<signature>)
-    const expectedSig = signature.replace('sha256=', '');
-    const signatureBuffer = Uint8Array.from(atob(expectedSig), c => c.charCodeAt(0));
-    
-    const isValid = await crypto.subtle.verify(
-      'HMAC',
-      cryptoKey,
-      signatureBuffer,
-      bodyData
-    );
-    
+
+    const providedHex = signature.replace(/^sha256=/, '').trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(providedHex)) {
+      console.error('Webhook signature is not a SHA-256 hex digest');
+      return false;
+    }
+    const expectedBuffer = await crypto.subtle.sign('HMAC', cryptoKey, bodyData);
+    const expectedHex = Array.from(new Uint8Array(expectedBuffer))
+      .map((b) => b.toString(16).padStart(2, '0')).join('');
+
+    // Timing-safe compare on the hex strings.
+    if (providedHex.length !== expectedHex.length) return false;
+    let diff = 0;
+    for (let i = 0; i < providedHex.length; i++) {
+      diff |= providedHex.charCodeAt(i) ^ expectedHex.charCodeAt(i);
+    }
+    const isValid = diff === 0;
+
     console.log('Webhook signature validation:', { provider, isValid });
     return isValid;
-    
+
   } catch (error) {
     console.error('Error validating webhook signature:', error);
     return false;
@@ -330,7 +354,7 @@ async function notifyBusinessWebhooks(supabaseClient: any, transaction: any, upd
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Webhook-Signature': generateWebhookSignature(payload, webhook.business_id)
+            'X-Webhook-Signature': await generateWebhookSignature(supabaseClient, payload, webhook.business_id)
           },
           body: JSON.stringify(payload)
         })
@@ -345,10 +369,13 @@ async function notifyBusinessWebhooks(supabaseClient: any, transaction: any, upd
   }
 }
 
-async function generateWebhookSignature(payload: any, businessId: string): Promise<string> {
+async function generateWebhookSignature(supabaseClient: any, payload: any, businessId: string): Promise<string> {
   try {
-    // Get business-specific webhook secret
-    const { data: webhook } = await supabase
+    // Get business-specific webhook secret. The client is passed in:
+    // the previous version referenced a bare `supabase` that does not
+    // exist in this scope, so it always threw and every outbound
+    // webhook carried an empty X-Webhook-Signature.
+    const { data: webhook } = await supabaseClient
       .from('webhooks')
       .select('webhook_secret')
       .eq('business_id', businessId)

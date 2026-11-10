@@ -52,7 +52,7 @@
 // Returns: { success, transaction_id, new_sender_balance }
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
 import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
 import { validateFiatAmount } from "../_shared/fiat-amount.ts";
@@ -95,6 +95,25 @@ serve(async (req) => {
     if (!from_user_id) throw new Error("from_user_id required");
     if (!reference_type) throw new Error("reference_type required");
     if (!idempotency_key) throw new Error("idempotency_key required");
+
+    // Allow-list: reference_type and payment_method are stored on the
+    // transaction row and rendered in receipts, so only the values the
+    // app actually issues are accepted — an invented value never
+    // reaches storage (defence in depth for the receipt XSS fix).
+    const KNOWN_REFERENCE_TYPES = [
+      "send_money", "transfer", "qr_payment", "bill_payment",
+      "bnpl_installment", "bulk_payment", "escrow_hold", "refund",
+    ];
+    const KNOWN_PAYMENT_METHODS = [
+      "wallet", "bank_transfer", "mobile_money", "card", "bank",
+      "bitcoin", "qr_code", "manual", "ussd",
+    ];
+    if (!KNOWN_REFERENCE_TYPES.includes(reference_type)) {
+      throw new Error("Unknown reference_type");
+    }
+    if (payment_method != null && !KNOWN_PAYMENT_METHODS.includes(payment_method)) {
+      throw new Error("Unknown payment_method");
+    }
 
     // Users may only move money out of their OWN wallet.
     if (from_user_id !== user.id) {

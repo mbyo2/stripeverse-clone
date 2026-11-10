@@ -277,9 +277,12 @@ serve(async (req) => {
         p_idempotency_key: idempotencyKey,
       });
       if (error) {
-        // Business-rule failures from the RPC are client-actionable.
+        // Business-rule failures from the RPC are client-actionable
+        // (crafted plain language from the RPC itself). Anything else
+        // is a raw system error: detail stays in the server log and
+        // the caller gets a crafted generic message.
         const known = /Quote|Insufficient|No ZMW wallet|temporarily unavailable/i.test(error.message);
-        return json(known ? 400 : 500, { error: error.message });
+        return json(known ? 400 : 500, { error: known ? error.message : "The trade could not be completed. Please try again." });
       }
       const row = Array.isArray(data) ? data[0] : data;
       return json(200, {

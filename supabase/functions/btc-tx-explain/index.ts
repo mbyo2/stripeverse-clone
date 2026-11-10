@@ -1,7 +1,7 @@
 // Explains a Bitcoin transaction's confirmation progress in plain language.
 // Fetches real chain facts from the Esplora node, then streams an AI explanation.
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.49.1";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.49.1/cors";
 import { getTipHeight, getTx, confirmationsFor, MIN_CONFIRMATIONS, IS_TESTNET } from "../_shared/bitcoin.ts";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/responses";

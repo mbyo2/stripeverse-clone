@@ -82,6 +82,27 @@ describe("vercel.json security headers", () => {
     expect(pp).toContain("microphone=()");
   });
 
+  it("serves HSTS with includeSubDomains + preload and X-Frame-Options DENY (2026-11-10 sweep)", () => {
+    const hsts = globalHeaders.get("Strict-Transport-Security") ?? "";
+    expect(hsts).toContain("includeSubDomains");
+    expect(hsts).toContain("preload");
+    expect(hsts).toMatch(/max-age=63072000/);
+    expect(globalHeaders.get("X-Frame-Options")).toBe("DENY");
+  });
+
+  it("connect-src names origins — no blanket https: wildcard (2026-11-10 sweep)", () => {
+    const tokens = directives.get("connect-src") ?? [];
+    expect(tokens).toContain("https://hhxwwozpvgktuqutfkhc.supabase.co");
+    expect(tokens).toContain("wss://hhxwwozpvgktuqutfkhc.supabase.co");
+    expect(tokens).toContain("https://api.moonpay.com");
+    expect(tokens).toContain("https://api.coinbase.com");
+    expect(tokens).not.toContain("https:");
+    // `wss:` stays on purpose: the Breez/Spark WASM SDKs connect to
+    // hosts embedded in the WASM binary, not enumerable from this
+    // repo — narrowing it needs a rendered self-custody check first.
+    expect(tokens).toContain("wss:");
+  });
+
   it("keeps immutable caching for hashed assets and face models", () => {
     const cacheFor = (src: string) =>
       headerBlocks.find((b) => b.source === src)?.headers.find((h) => h.key === "Cache-Control")

@@ -1011,7 +1011,10 @@ serve(async (req) => {
 
     const supabase = getSupabaseClient(req);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // The token is passed explicitly: a bare getUser() ignores the
+    // Authorization header on pinned supabase-js versions.
+    const authToken = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authToken);
     if (authError || !user) {
       console.error("Authentication failed:", authError);
       return json({ error: "Unauthorized - Authentication required" }, 401);

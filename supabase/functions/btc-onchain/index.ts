@@ -402,6 +402,12 @@ serve(async (req) => {
     return json(400, { error: `Unknown action: ${action}` });
   } catch (e) {
     console.error("btc-onchain error:", e);
+    // Explorer outage with no persisted UTXO set to fall back to:
+    // a crafted 503, never the raw upstream error (no Esplora
+    // status, address or internals in the response).
+    if (e instanceof Error && e.message === "UTXO_SCAN_UNAVAILABLE") {
+      return json(503, { error: UTXO_SCAN_UNAVAILABLE_MESSAGE });
+    }
     return json(500, { error: thrownMessage(e, "Bitcoin operation failed") });
   }
 });
@@ -3351,8 +3357,36 @@ async function gatherUtxos(supabase: any, accountPub: any): Promise<Utxo[]> {
       index: Number(r.derivation_index),
     }));
   }
-  return refreshPoolUtxos(supabase, accountPub);
+  // Stale set: rescan the explorers. An explorer outage (429, 5xx,
+  // network failure) must never surface as a raw 500 naming the
+  // upstream: fall back to the persisted set (stale but spendable —
+  // committedOutpoints + post-reservation reselection still net out
+  // in-flight inputs), and only fail when there is nothing at all
+  // to fall back to, with a sentinel the top-level handler maps to
+  // a crafted 503.
+  try {
+    return await refreshPoolUtxos(supabase, accountPub);
+  } catch (e) {
+    console.error("btc-onchain: explorer UTXO scan failed, using persisted set:", e);
+    const { data: rows } = await supabase
+      .from("btc_pool_utxos")
+      .select("txid, vout, value_sats, chain, derivation_index")
+      .eq("status", "confirmed");
+    const persisted = (rows ?? []).map((r: any) => ({
+      txid: r.txid as string,
+      vout: Number(r.vout),
+      value: Number(r.value_sats),
+      chain: Number(r.chain) as 0 | 1,
+      index: Number(r.derivation_index),
+    }));
+    if (persisted.length > 0) return persisted;
+    throw new Error("UTXO_SCAN_UNAVAILABLE");
+  }
 }
+
+/** Crafted 503 for an explorer outage with no persisted UTXO set. */
+const UTXO_SCAN_UNAVAILABLE_MESSAGE =
+  "Bitcoin network data is temporarily unavailable. Please try again in a few minutes — no funds have moved.";
 
 /** Full rescan + persist: upsert what the scan found, retire what it no longer sees, stamp the sync state. Best-effort — the scan result is authoritative for the caller either way. */
 async function refreshPoolUtxos(supabase: any, accountPub: any): Promise<Utxo[]> {

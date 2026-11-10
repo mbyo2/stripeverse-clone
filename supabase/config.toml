@@ -32,80 +32,100 @@ enabled = true
 [edge_runtime]
 enabled = true
 
-[functions.mobile-money]
+# ── Edge functions: verify_jwt ──────────────────────────────────
+# Regenerated 2026-11-10 from the LIVE Supabase Management API
+# function inventory for project hhxwwozpvgktuqutfkhc (74 functions).
+# The deployed gateway settings are the truth; this file now matches
+# them exactly. In-code gates (requireAuth/requireAdmin/requireScope/
+# HMAC) are what actually protect the verify_jwt=false functions.
+# Deploy rule: functions with verify_jwt=false MUST be deployed with
+# `supabase functions deploy <fn> --no-verify-jwt --project-ref hhxwwozpvgktuqutfkhc`.
+
+[functions.atomic-transfer]
 verify_jwt = true
 
-[functions.mobile-money-callback]
-verify_jwt = false
+[functions.audit-manager]
+verify_jwt = true
 
-[functions.btc-payment]
+[functions.bank-payout]
 verify_jwt = true
 
 [functions.btc-onchain]
 verify_jwt = true
 
+[functions.btc-payment]
+verify_jwt = true
+
+[functions.btc-sell-selfcustody]
+verify_jwt = true
+
 [functions.btc-trade]
 verify_jwt = true
 
-[functions.lightning-service]
+[functions.btc-tx-explain]
+verify_jwt = false
+
+[functions.btc-watcher]
+verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = false
+
+[functions.checkout-webhook]
+verify_jwt = false
+
+[functions.create-checkout-intent]
+verify_jwt = false
+
+[functions.create-virtual-card]
+verify_jwt = true
+
+[functions.currency-convert]
+verify_jwt = true
+
+[functions.data-backup]
+verify_jwt = false
+
+[functions.developer-api]
+verify_jwt = false
+
+[functions.dispatch-webhook]
+verify_jwt = true
+
+[functions.escrow-settle]
+verify_jwt = true
+
+[functions.feature-management]
+verify_jwt = true
+
+[functions.fetch-exchange-rates]
+verify_jwt = true
+
+[functions.fund-virtual-card]
 verify_jwt = true
 
 [functions.generate-api-key]
 verify_jwt = true
 
-[functions.update-webhook]
+[functions.generate-totp-secret]
+verify_jwt = false
+
+[functions.get-breez-config]
 verify_jwt = true
 
-[functions.paypal-checkout]
+[functions.internal-transfer]
 verify_jwt = true
 
-[functions.paypal-webhook] 
-verify_jwt = false
-
-[functions.paypal-marketplace]
+[functions.invoice-checkout]
 verify_jwt = true
 
-[functions.mobile-money-sim]
-verify_jwt = false
-
-[functions.send-notification]
-verify_jwt = false
-
-[functions.process-recurring-billing]
-verify_jwt = false
+[functions.lightning-service]
+verify_jwt = true
 
 [functions.manage-subscription]
 verify_jwt = false
 
-[functions.process-scheduled-payments]
-verify_jwt = false
-
-[functions.process-webhook-retries]
-verify_jwt = false
-
-[functions.send-receipt]
-verify_jwt = false
-
-[functions.ussd-payment]
-verify_jwt = false
-
-[functions.dispatch-webhook]
-verify_jwt = false
-
-[functions.fetch-exchange-rates]
-verify_jwt = false
-
-[functions.pos]
-verify_jwt = false
-
-[functions.verify-identity]
-verify_jwt = true
-
-# Delta-audit E6: explicit on purpose — the p2p function verifies
-# user JWTs itself and the cron path authenticates with the
-# service-key bearer (isCronCall), so the gateway check stays ON,
-# matching production intent.
-[functions.p2p]
+[functions.manage-virtual-card]
 verify_jwt = true
 
 [functions.mastercard-move]
@@ -114,29 +134,131 @@ verify_jwt = true
 [functions.mastercard-processing]
 verify_jwt = true
 
-# MoonPay card on-ramp: session + admin are called by signed-in
-# users/admins (JWT on); the webhook is called by MoonPay itself and
-# authenticates with the Moonpay-Signature-V2 HMAC header instead.
-# Reconcile is scheduler-only (pg_cron with the service-role key —
-# a valid JWT, so the gateway check stays on; the function itself
-# then refuses user JWTs with 403).
-[functions.moonpay-session]
+[functions.mobile-money]
+verify_jwt = true
+
+[functions.mobile-money-callback]
+verify_jwt = false
+
+[functions.momo-callback]
+verify_jwt = false
+
+[functions.momo-collect]
+verify_jwt = false
+
+[functions.momo-provision]
+verify_jwt = false
+
+[functions.momo-reconcile]
+verify_jwt = false
+
+[functions.moonpay-admin]
 verify_jwt = true
 
 [functions.moonpay-reconcile]
 verify_jwt = true
 
-[functions.moonpay-admin]
-verify_jwt = true
-
-[functions.paypal-admin]
-verify_jwt = true
-
-[functions.bank-payout]
-verify_jwt = true
-
-[functions.receiving-admin]
+[functions.moonpay-session]
 verify_jwt = true
 
 [functions.moonpay-webhook]
 verify_jwt = false
+
+[functions.p2p]
+verify_jwt = true
+
+[functions.payment-link-checkout]
+verify_jwt = true
+
+[functions.payout-callback]
+verify_jwt = false
+
+[functions.payout-submit]
+verify_jwt = false
+
+[functions.paypal-admin]
+verify_jwt = true
+
+[functions.paypal-checkout]
+verify_jwt = true
+
+[functions.paypal-checkout-capture]
+verify_jwt = true
+
+[functions.paypal-deposit-capture]
+verify_jwt = true
+
+[functions.paypal-marketplace]
+verify_jwt = true
+
+[functions.paypal-payout]
+verify_jwt = true
+
+[functions.paypal-webhook]
+verify_jwt = false
+
+[functions.pos]
+verify_jwt = false
+
+[functions.process-payment]
+verify_jwt = true
+
+[functions.process-recurring-billing]
+verify_jwt = false
+
+[functions.process-scheduled-payments]
+verify_jwt = false
+
+[functions.process-webhook-retries]
+verify_jwt = false
+
+[functions.receiving-admin]
+verify_jwt = true
+
+[functions.revoke-api-key]
+verify_jwt = true
+
+[functions.rotate-api-key]
+verify_jwt = true
+
+[functions.savings-transfer]
+verify_jwt = true
+
+[functions.scheduled-reconciliation]
+verify_jwt = false
+
+[functions.security-maintenance]
+verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = false
+
+[functions.send-receipt]
+verify_jwt = false
+
+[functions.transaction-webhook]
+verify_jwt = false
+
+[functions.update-webhook]
+verify_jwt = true
+
+[functions.ussd-payment]
+verify_jwt = false
+
+[functions.validate-card-access]
+verify_jwt = false
+
+[functions.verify-checkout-status]
+verify_jwt = false
+
+[functions.verify-crypto-signature]
+verify_jwt = false
+
+[functions.verify-identity]
+verify_jwt = true
+
+[functions.verify-totp]
+verify_jwt = false
+
+[functions.wallet-deposit]
+verify_jwt = true

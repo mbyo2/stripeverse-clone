@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { requireAuth } from "../_shared/auth.ts"
 
 const corsHeaders = {
@@ -18,9 +18,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const auth = await requireAuth(req, corsHeaders)
-    if ('response' in auth && !('user' in auth)) return auth.response
-    const caller = (auth as any).user
+    // Internal callers (edge functions invoking with the service-role
+    // key, e.g. checkout-webhook after HMAC-verifying a payment
+    // event) are not users: the service-role bearer IS their
+    // credential. They act only on the transaction the verified event
+    // names, and the ownership check below is skipped for them. A
+    // user JWT still goes through requireAuth as before.
+    const authHeader = req.headers.get('Authorization') || ''
+    const bearer = authHeader.replace(/^Bearer\s+/i, '')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const isInternalCall = !!serviceRoleKey && bearer === serviceRoleKey
+    let caller: { id: string } | null = null
+    if (!isInternalCall) {
+      const auth = await requireAuth(req, corsHeaders)
+      if ('response' in auth && !('user' in auth)) return auth.response
+      caller = (auth as any).user
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -51,10 +64,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Only the transaction owner (or an admin) can send its receipt
-    if (transaction.user_id !== caller.id) {
+    // Only the transaction owner (or an admin) can send its receipt.
+    // Internal (service-role) callers skip this: the invoking
+    // function already verified the event (checkout-webhook's HMAC)
+    // and the receipt goes to the payer email on the transaction.
+    if (!isInternalCall && transaction.user_id !== caller!.id) {
       const { data: isAdmin } = await supabase.rpc('has_role', {
-        user_id: caller.id,
+        user_id: caller!.id,
         required_role: 'admin',
       })
       if (!isAdmin) {

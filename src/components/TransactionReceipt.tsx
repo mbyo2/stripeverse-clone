@@ -5,6 +5,7 @@ import { Receipt, Download, Printer } from "lucide-react";
 import { useCurrency, toSupportedCurrency } from "@/contexts/CurrencyContext";
 import { format } from "date-fns";
 import { useRef } from "react";
+import { escapeHtml } from "@/utils/p2pUi";
 
 interface TransactionReceiptProps {
   transaction: {
@@ -34,6 +35,11 @@ const TransactionReceipt = ({ transaction, trigger }: TransactionReceiptProps) =
     if (!content) return;
     const win = window.open("", "_blank");
     if (!win) return;
+    // Every interpolated value is escaped: recipient_name, reference,
+    // category and payment_method are cross-user data (a payer names a
+    // recipient; the recipient prints the receipt), so they are data,
+    // never markup. Amounts are app-formatted numbers, escaped too.
+    const total = `${transaction.direction === 'outgoing' ? '-' : '+'}${formatAmount(transaction.amount, toSupportedCurrency(transaction.currency))}`;
     win.document.write(`
       <html><head><title>Receipt</title>
       <style>
@@ -48,15 +54,15 @@ const TransactionReceipt = ({ transaction, trigger }: TransactionReceiptProps) =
         @media print { body { margin: 0; } }
       </style></head><body>
         <div class="header"><div class="logo">BMaGlass Pay</div><p>Transaction Receipt</p></div>
-        <div class="total">${transaction.direction === 'outgoing' ? '-' : '+'}${formatAmount(transaction.amount, toSupportedCurrency(transaction.currency))}</div>
-        <div class="row"><span class="label">Status</span><span class="value">${transaction.status}</span></div>
-        <div class="row"><span class="label">Recipient</span><span class="value">${transaction.recipient_name || 'N/A'}</span></div>
-        <div class="row"><span class="label">Date</span><span class="value">${format(new Date(transaction.created_at), 'MMM d, yyyy HH:mm')}</span></div>
-        ${transaction.reference ? `<div class="row"><span class="label">Reference</span><span class="value">${transaction.reference}</span></div>` : ''}
-        ${transaction.fee_amount ? `<div class="row"><span class="label">Fee</span><span class="value">${formatAmount(transaction.fee_amount, toSupportedCurrency(transaction.currency))}</span></div>` : ''}
-        ${transaction.category ? `<div class="row"><span class="label">Category</span><span class="value">${transaction.category}</span></div>` : ''}
-        ${transaction.payment_method ? `<div class="row"><span class="label">Method</span><span class="value">${transaction.payment_method}</span></div>` : ''}
-        <div class="row"><span class="label">ID</span><span class="value" style="font-family:monospace;font-size:11px">${(transaction.uuid_id || transaction.id || '').substring(0, 12)}...</span></div>
+        <div class="total">${escapeHtml(total)}</div>
+        <div class="row"><span class="label">Status</span><span class="value">${escapeHtml(transaction.status)}</span></div>
+        <div class="row"><span class="label">Recipient</span><span class="value">${escapeHtml(transaction.recipient_name || 'N/A')}</span></div>
+        <div class="row"><span class="label">Date</span><span class="value">${escapeHtml(format(new Date(transaction.created_at), 'MMM d, yyyy HH:mm'))}</span></div>
+        ${transaction.reference ? `<div class="row"><span class="label">Reference</span><span class="value">${escapeHtml(transaction.reference)}</span></div>` : ''}
+        ${transaction.fee_amount ? `<div class="row"><span class="label">Fee</span><span class="value">${escapeHtml(formatAmount(transaction.fee_amount, toSupportedCurrency(transaction.currency)))}</span></div>` : ''}
+        ${transaction.category ? `<div class="row"><span class="label">Category</span><span class="value">${escapeHtml(transaction.category)}</span></div>` : ''}
+        ${transaction.payment_method ? `<div class="row"><span class="label">Method</span><span class="value">${escapeHtml(transaction.payment_method)}</span></div>` : ''}
+        <div class="row"><span class="label">ID</span><span class="value" style="font-family:monospace;font-size:11px">${escapeHtml((transaction.uuid_id || transaction.id || '').substring(0, 12))}...</span></div>
         <div class="footer"><p>Thank you for using BMaGlass Pay</p><p>This is an electronic receipt</p></div>
       </body></html>
     `);

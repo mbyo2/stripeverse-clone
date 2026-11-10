@@ -70,7 +70,7 @@
 //         coverage + payment_link.paid dispatch, expiry close-out).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { classifyLinkMethod } from "../_shared/payment-providers.ts";
 import { dispatchPaymentLinkPaid } from "../_shared/developer-webhooks.ts";
 import { linkFeeRateForMethod, paymentLinkAmounts, type FeePayer } from "../_shared/fee-math.ts";
@@ -138,6 +138,21 @@ serve(async (req) => {
       return json({ success: false, status: "invalid", error: "link_code is required" }, 400);
     }
 
+    // Public endpoint: throttle per IP (before the link lookup, so
+    // link-code enumeration is throttled) and per link (after it).
+    const forwarded = req.headers.get("x-forwarded-for") ?? "";
+    const clientIp = forwarded.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") || "unknown";
+    const { data: ipWithin } = await admin.rpc("check_advanced_rate_limit", {
+      p_identifier: `ip:${clientIp}`,
+      p_action: "payment_link_checkout",
+      p_max_attempts: 60,
+      p_window_minutes: 60,
+    });
+    if (ipWithin === false) {
+      return json({ success: false, status: "rate_limited", error: "Too many requests for this payment link. Please try again later." }, 429);
+    }
+
     const { data: link, error: linkError } = await admin
       .from("payment_links")
       .select("id, user_id, title, description, amount, currency, status, account_id, fee_payer, expires_at, max_payments, payment_count, redirect_url, environment")
@@ -157,6 +172,16 @@ serve(async (req) => {
     }
     if (!link || link.status !== "active") {
       return json({ success: false, status: "not_found", error: "Payment link not found or no longer active" }, 404);
+    }
+
+    const { data: linkWithin } = await admin.rpc("check_advanced_rate_limit", {
+      p_identifier: `link:${link.id}`,
+      p_action: "payment_link_checkout_link",
+      p_max_attempts: 200,
+      p_window_minutes: 60,
+    });
+    if (linkWithin === false) {
+      return json({ success: false, status: "rate_limited", error: "Too many requests for this payment link. Please try again later." }, 429);
     }
 
     const feePayer: FeePayer = link.fee_payer === "buyer" ? "buyer" : "seller";

@@ -100,6 +100,19 @@ describe("scope allowlist", () => {
     }
   });
 
+  it("offers granular webhook scopes (read/write) alongside the legacy manage umbrella", () => {
+    // 2026-11-10 sweep: developer-api gates webhook routes on
+    // webhooks:read / webhooks:write, and treats webhooks:manage
+    // (the scope every existing key holds) as granting both.
+    expect(ALLOWED_KEY_SCOPES).toContain("webhooks:read");
+    expect(ALLOWED_KEY_SCOPES).toContain("webhooks:write");
+    expect(sanitizeScopes(["webhooks:read"]).scopes).toEqual(["webhooks:read"]);
+    expect(sanitizeScopes(["webhooks:write"]).scopes).toEqual(["webhooks:write"]);
+    for (const s of ["withdrawals:write", "payouts:write", "settlement:write", "country:write", "keys:manage", "keys:write", "admin:read"]) {
+      expect(sanitizeScopes([s]).rejected).toEqual([s]);
+    }
+  });
+
   it("sanitizeScopes keeps allowed scopes and reports rejected ones", () => {
     const { scopes, rejected } = sanitizeScopes(["config:read", "payouts:write", "invoices:create"]);
     expect(scopes).toEqual(["config:read", "invoices:create"]);

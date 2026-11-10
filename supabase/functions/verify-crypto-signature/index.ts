@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyMessage, isAddress, getAddress } from "https://esm.sh/viem@2.21.0";
 
 const corsHeaders = {

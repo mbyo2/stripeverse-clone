@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 /**
  * Require an authenticated caller. Returns { user, supabase } on success.
@@ -32,16 +32,19 @@ export async function requireAuth(req: Request, corsHeaders: Record<string, stri
   return { user: data.user, supabase }
 }
 
-/** Require an admin caller. */
+/** Require an admin caller. A super_admin-only holder is an admin
+ *  too: the platform's convention (see verify-identity) is admin OR
+ *  super_admin, and a super_admin-only operator must never be locked
+ *  out of an admin-gated function by an exact-match check. */
 export async function requireAdmin(req: Request, corsHeaders: Record<string, string>) {
   const auth = await requireAuth(req, corsHeaders)
   if ('response' in auth && !auth.user) return auth
   const { user, supabase } = auth as { user: any; supabase: any }
-  const { data: isAdmin, error } = await supabase.rpc('has_role', {
-    user_id: user.id,
-    required_role: 'admin',
-  })
-  if (error || !isAdmin) {
+  const [{ data: isAdmin }, { data: isSuperAdmin }] = await Promise.all([
+    supabase.rpc('has_role', { user_id: user.id, required_role: 'admin' }),
+    supabase.rpc('has_role', { user_id: user.id, required_role: 'super_admin' }),
+  ])
+  if ((!isAdmin && !isSuperAdmin)) {
     return {
       response: new Response(JSON.stringify({ error: 'Forbidden: admin role required' }), {
         status: 403,

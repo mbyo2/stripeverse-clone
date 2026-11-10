@@ -62,6 +62,8 @@ export const ALLOWED_KEY_SCOPES = [
   "invoices:create",
   "invoices:read",
   "webhooks:manage",
+  "webhooks:read",
+  "webhooks:write",
   "wallets:read",
   "transactions:read",
   "payment_links:read",

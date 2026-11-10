@@ -21,7 +21,7 @@
 // Returns: { success, transaction_id, new_sender_balance }
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
 import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
 import { validateFiatAmount } from "../_shared/fiat-amount.ts";

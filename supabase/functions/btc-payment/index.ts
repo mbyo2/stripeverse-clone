@@ -206,7 +206,11 @@ serve(async (req) => {
     }
     
     // Verify user authentication for non-webhook endpoints
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // The token is passed explicitly: a bare getUser() ignores the
+    // Authorization header on pinned supabase-js versions.
+    const authHeader = req.headers.get('Authorization') || ''
+    const authToken = authHeader.replace(/^Bearer\s+/i, '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authToken);
     
     if (authError || !user) {
       console.error('Authentication failed:', authError);
@@ -322,13 +326,19 @@ serve(async (req) => {
       };
       
 
-      // Persist invoice mapping to user for crediting on webhook
+      // Persist invoice mapping to user for crediting on webhook.
+      // Uses the caller already authenticated above: the previous
+      // bare getUser() result was ignored, so when it returned no
+      // user the invoice mapping was silently skipped and the
+      // webhook could never credit the buyer.
       try {
-        const { data: auth } = await supabase.auth.getUser();
-        const userId = auth?.user?.id;
+        const userId = user?.id;
         const sats = typeof response.amount === 'number' && Number.isFinite(response.amount) && response.amount > 0
           ? Math.round(response.amount * 100_000_000)
           : null;
+        if (!userId) {
+          console.error('btc-payment: no authenticated user for invoice mapping:', response.id);
+        }
         if (userId) {
           // Ensure wallet row exists
           await supabase.from('crypto_wallets').upsert({ user_id: userId, asset: 'BTC' }, { onConflict: 'user_id,asset' });

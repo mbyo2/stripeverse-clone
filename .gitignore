@@ -35,3 +35,9 @@ tests/pos/.tmp-pos-statement.mjs
 tests/identity/.tmp-identity-core.mjs
 tests/payments/.tmp-fiat-amount.mjs
 tests/payments/.tmp-invoice-settlement.mjs
+
+# Environment files — never commit keys (even publishable ones: the
+# pattern invites a real leak). .env.example is the documented template.
+.env
+.env.*
+!.env.example

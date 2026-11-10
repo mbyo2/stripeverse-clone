@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,6 +29,36 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       { auth: { persistSession: false, autoRefreshToken: false } },
     )
+
+    // Anonymous status polling is throttled per IP and per intent so
+    // a random UUID cannot be brute-forced and the endpoint cannot
+    // be used as an oracle at unlimited rate.
+    const forwarded = req.headers.get('x-forwarded-for') ?? ''
+    const ip = forwarded.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
+    const { data: ipOk } = await supabase.rpc('check_advanced_rate_limit', {
+      p_identifier: `ip:${ip}`,
+      p_action: 'verify_checkout_status',
+      p_max_attempts: 120,
+      p_window_minutes: 60,
+    })
+    if (ipOk === false) {
+      return new Response(JSON.stringify({ error: 'Too many status checks. Please try again later.' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const { data: intentOk } = await supabase.rpc('check_advanced_rate_limit', {
+      p_identifier: `intent:${intentId}`,
+      p_action: 'verify_checkout_status_intent',
+      p_max_attempts: 60,
+      p_window_minutes: 60,
+    })
+    if (intentOk === false) {
+      return new Response(JSON.stringify({ error: 'Too many status checks. Please try again later.' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const { data: txn, error } = await supabase
       .from('transactions')

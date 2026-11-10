@@ -1,6 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { requireAdmin } from "../_shared/auth.ts"
 
 const corsHeaders = {
@@ -110,7 +110,7 @@ async function createBackup(supabaseClient: any, tables: string[], backupType: s
     } catch (error) {
       console.error(`Failed to backup table ${tableName}:`, error)
       backupData.tables[tableName] = {
-        error: error.message,
+        error: `Backup of ${tableName} failed. Please try again.`,
         backed_up_at: new Date().toISOString()
       }
     }
@@ -218,7 +218,7 @@ async function restoreBackup(supabaseClient: any, restoreData: any) {
       restorationResults.push({
         table: tableName,
         status: 'failed',
-        error: error.message,
+        error: `Restore of ${tableName} failed. Please try again.`,
         restored_at: new Date().toISOString()
       })
     }

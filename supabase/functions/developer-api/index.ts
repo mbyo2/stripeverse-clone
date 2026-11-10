@@ -74,7 +74,7 @@
 // settlement is enforced server-side from the link's stored value.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
   dispatchEvent,
   KNOWN_DEVELOPER_EVENTS,
@@ -152,7 +152,12 @@ function scopesOf(key: ApiKeyRow): string[] {
   return Array.isArray(key.scopes) && key.scopes.length > 0 ? key.scopes : READ_SCOPES;
 }
 function requireScope(key: ApiKeyRow, scope: string): Response | null {
-  if (!scopesOf(key).includes(scope)) {
+  const held = scopesOf(key);
+  // "webhooks:manage" is the legacy umbrella scope issued to keys
+  // before the read/write split (it is still in the default set):
+  // it grants both webhook reads and writes.
+  if (scope.startsWith("webhooks:") && held.includes("webhooks:manage")) return null;
+  if (!held.includes(scope)) {
     return err(403, "insufficient_scope", `This key does not have the ${scope} scope.`);
   }
   return null;
@@ -233,6 +238,19 @@ serve(async (req) => {
     if (keyOrRes instanceof Response) return keyOrRes;
     const key = keyOrRes;
     const userId = key.user_id;
+
+    // Per-key rate limit (600/hr): a leaked or abused key cannot
+    // hammer the API, and the limiter logs the excess server-side.
+    const { data: keyWithin } = await db.rpc("check_advanced_rate_limit", {
+      p_identifier: `apikey:${key.id}`,
+      p_action: "developer_api",
+      p_max_attempts: 600,
+      p_window_minutes: 60,
+    });
+    if (keyWithin === false) {
+      return err(429, "rate_limited", "Too many API requests for this key. Please slow down and try again later.");
+    }
+
     const body = method === "POST" ? await req.json().catch(() => ({})) : {};
 
     // The merchant's fee-bearer truth: their account default (set in
@@ -686,7 +704,12 @@ serve(async (req) => {
     }
 
     // ── Webhooks (registered per environment; lists are segregated) ──
+    // Webhook registration is a write with a live money-event stream
+    // behind it: a read-only or sandbox key must never be able to
+    // point a merchant's transaction.completed / payment_link.*
+    // events at an attacker URL, or trigger test deliveries.
     if (resource === "webhooks" && method === "GET") {
+      const denied = requireScope(key, "webhooks:read"); if (denied) return denied;
       const { data, error } = await db.from("developer_webhooks")
         .select("id, url, events, is_active, environment, created_at").eq("user_id", userId)
         .eq("environment", modeOf(key))
@@ -702,6 +725,8 @@ serve(async (req) => {
       });
     }
     if (resource === "webhooks" && method === "POST" && !sub) {
+      const denied = requireScope(key, "webhooks:write"); if (denied) return denied;
+      const ro = requireLive(key); if (ro) return ro;
       const { url: hookUrl, events } = body;
       if (!hookUrl || typeof hookUrl !== "string") return err(400, "invalid_request", "url is required.");
       let parsed: URL;
@@ -726,6 +751,7 @@ serve(async (req) => {
         warning: "Copy the secret now — it will never be shown again." });
     }
     if (resource === "webhooks" && sub && method === "DELETE") {
+      const denied = requireScope(key, "webhooks:write"); if (denied) return denied;
       const { data, error } = await db.from("developer_webhooks")
         .update({ is_active: false }).eq("id", sub).eq("user_id", userId)
         .eq("environment", modeOf(key)).select("id").single();
@@ -733,11 +759,21 @@ serve(async (req) => {
       return json(200, { data: { id: data.id, is_active: false } });
     }
     if (resource === "webhooks" && sub && parts[2] === "test" && method === "POST") {
+      const denied = requireScope(key, "webhooks:write"); if (denied) return denied;
+      const ro = requireLive(key); if (ro) return ro;
+      // The test delivery must target one of THIS key's own
+      // endpoints: an id from another merchant answers 404, never
+      // fires a delivery to a foreign URL.
+      const { data: ownHook } = await db.from("developer_webhooks")
+        .select("id").eq("id", sub).eq("user_id", userId)
+        .eq("environment", modeOf(key)).maybeSingle();
+      if (!ownHook) return err(404, "not_found", "Webhook endpoint not found in this environment.");
       const deliveries = await dispatchEvent(db, userId, "webhook.test", { ping: true, via: "developer-api" }, modeOf(key));
       const mine = deliveries.filter((d: any) => d.webhook_id === sub);
       return json(200, { data: mine, mode: modeOf(key), environment: envOf(key) });
     }
     if (resource === "webhook-deliveries" && method === "GET") {
+      const denied = requireScope(key, "webhooks:read"); if (denied) return denied;
       const { data, error } = await db.from("developer_webhook_deliveries")
         .select("id, webhook_id, event_id, event_type, webhook_url, status, attempts, response_status, error_message, created_at")
         .eq("user_id", userId).order("created_at", { ascending: false }).limit(100);
