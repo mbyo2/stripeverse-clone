@@ -34,18 +34,27 @@ export const submitFeedback = async (feedbackData: FeedbackSubmission): Promise<
       return false;
     }
 
-    // If there's a screenshot, upload it to storage
+    // If there's a screenshot, upload it to storage. The bucket's
+    // upload policy is user-scoped (foldername[1] = auth.uid()), so
+    // the file goes under the uploader's own folder — the old shared
+    // `feedback/` prefix never matched the policy and every upload
+    // was 403-denied (sweep 2026-11-10, migration 20261258).
     if (feedbackData.screenshot) {
       const timestamp = new Date().getTime();
       const fileName = `${timestamp}-${feedbackData.screenshot.name.replace(/\s+/g, '-')}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('beta_screenshots')
-        .upload(`feedback/${fileName}`, feedbackData.screenshot);
-        
-      if (uploadError) {
-        console.error("Error uploading screenshot:", uploadError);
-        // We still consider the feedback submitted even if screenshot upload fails
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: uploadError } = await supabase.storage
+          .from('beta_screenshots')
+          .upload(`${user.id}/${fileName}`, feedbackData.screenshot);
+
+        if (uploadError) {
+          console.error("Error uploading screenshot:", uploadError);
+          // We still consider the feedback submitted even if screenshot upload fails
+        }
+      } else {
+        console.error("Error uploading screenshot: no signed-in user for the user-scoped upload");
       }
     }
 
