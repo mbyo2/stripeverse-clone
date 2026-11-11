@@ -285,24 +285,25 @@ const PaymentLinks = () => {
             <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
               <Link2 className="h-6 w-6 text-muted-foreground" />
             </div>
-            <p className="text-muted-foreground">No payment links yet. Create one to start collecting payments.</p>
+            <p className="font-medium">No payment links yet.</p>
+            <p className="text-sm text-muted-foreground mt-1">Create one to start collecting payments.</p>
           </CardContent></Card>
         ) : (
           <Card>
             <CardContent className="px-6 py-2">
               <div className="divide-y divide-border">
                 {links?.map(link => (
-                  <div key={link.id} className="flex items-start justify-between py-4">
+                  <div key={link.id} className="flex flex-wrap items-start justify-between gap-3 py-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-medium text-[15px]">{link.title}</h3>
                         <Badge variant={link.status === 'active' ? 'default' : 'secondary'}>{link.status}</Badge>
                       </div>
                       {link.description && <p className="text-sm text-muted-foreground mb-2">{link.description}</p>}
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        {link.amount && <span className="font-medium text-foreground">K{Number(link.amount).toLocaleString()}</span>}
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                        {link.amount && <span className="font-medium text-foreground tabular-nums">K{Number(link.amount).toLocaleString()}</span>}
                         <span>{link.payment_count} payments</span>
-                        <span>K{Number(link.total_collected || 0).toLocaleString()} collected</span>
+                        <span className="tabular-nums">K{Number(link.total_collected || 0).toLocaleString()} collected</span>
                         <span>Created {format(new Date(link.created_at), 'MMM d, yyyy')}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
@@ -319,15 +320,15 @@ const PaymentLinks = () => {
                           </p>
                         );
                       })()}
-                      <div className="mt-2 p-2 rounded bg-muted/50 text-xs font-mono truncate">
+                      <div className="mt-2 p-2 rounded-md bg-muted/50 text-xs font-mono truncate">
                         {window.location.origin}/pay/{link.link_code}
                       </div>
                     </div>
                     <div className="flex gap-2 ml-4">
-                      <Button size="sm" variant="outline" onClick={() => copyLink(link.link_code)}><Copy className="h-3 w-3" /></Button>
-                      <Button size="sm" variant="outline" onClick={() => window.open(`/pay/${link.link_code}`, '_blank')}><ExternalLink className="h-3 w-3" /></Button>
-                      <Button size="sm" variant="outline" onClick={() => openEdit(link)}><Pencil className="h-3 w-3" /></Button>
-                      {link.status === 'active' && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deactivateLink.mutate(link.id)}><XCircle className="h-3 w-3" /></Button>}
+                      <Button size="sm" variant="outline" aria-label="Copy link" onClick={() => copyLink(link.link_code)}><Copy className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="outline" aria-label="Open link" onClick={() => window.open(`/pay/${link.link_code}`, '_blank')}><ExternalLink className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="outline" aria-label="Edit link" onClick={() => openEdit(link)}><Pencil className="h-4 w-4" /></Button>
+                      {link.status === 'active' && <Button size="sm" variant="ghost" className="text-destructive" aria-label="Deactivate link" onClick={() => deactivateLink.mutate(link.id)}><XCircle className="h-4 w-4" /></Button>}
                     </div>
                   </div>
                 ))}
