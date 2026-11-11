@@ -44,7 +44,7 @@ const BankTransfers = () => {
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold">Bank transfers</h1>
+            <h1 className="text-greeting">Bank transfers</h1>
             <p className="text-muted-foreground">Save bank accounts for future use. Bank transfers are not live yet — transfers cannot be sent and no money will be taken.</p>
           </div>
           <div className="flex gap-2">

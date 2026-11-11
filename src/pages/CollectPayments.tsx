@@ -15,13 +15,13 @@ const CollectPayments = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-8">
-          <h1 className="text-[28px] leading-tight font-display font-semibold">Collect payments</h1>
+          <h1 className="text-greeting">Collect payments</h1>
           <p className="text-muted-foreground">Accept payments from customers through multiple channels</p>
         </div>
 
         {/* Payment Methods Overview */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-10">
-          <Card className="relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <Card className="relative overflow-hidden group transition-colors hover:bg-accent/40">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10"><CreditCard className="h-6 w-6 text-primary" /></div>
@@ -39,7 +39,7 @@ const CollectPayments = () => {
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <Card className="relative overflow-hidden group transition-colors hover:bg-accent/40">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10"><Smartphone className="h-6 w-6 text-primary" /></div>
@@ -57,7 +57,7 @@ const CollectPayments = () => {
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <Card className="relative overflow-hidden group transition-colors hover:bg-accent/40">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10"><Link2 className="h-6 w-6 text-primary" /></div>
@@ -79,7 +79,7 @@ const CollectPayments = () => {
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <Card className="relative overflow-hidden group transition-colors hover:bg-accent/40">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10"><Globe className="h-6 w-6 text-primary" /></div>
@@ -97,7 +97,7 @@ const CollectPayments = () => {
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <Card className="relative overflow-hidden group transition-colors hover:bg-accent/40">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10"><QrCode className="h-6 w-6 text-primary" /></div>
@@ -119,7 +119,7 @@ const CollectPayments = () => {
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <Card className="relative overflow-hidden group transition-colors hover:bg-accent/40">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10"><Zap className="h-6 w-6 text-primary" /></div>

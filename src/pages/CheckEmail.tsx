@@ -57,7 +57,7 @@ const CheckEmail = () => {
             </p>
           </div>
 
-          <Card className="shadow-medium">
+          <Card>
             <CardContent className="pt-8 pb-6 px-8 space-y-4">
               <p className="text-sm text-foreground">
                 {email ? (

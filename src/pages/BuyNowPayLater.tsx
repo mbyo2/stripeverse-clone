@@ -28,7 +28,7 @@ const BuyNowPayLater = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-8">
-          <h1 className="text-[28px] leading-tight font-display font-semibold mb-2">Pay in 4</h1>
+          <h1 className="text-greeting mb-2">Pay in 4</h1>
           <p className="text-muted-foreground">Split purchases into 4 interest-free installments</p>
         </div>
 
@@ -107,7 +107,7 @@ const BuyNowPayLater = () => {
               const progress = (plan.installments_paid / plan.installments_total) * 100;
               const remaining = (plan.installments_total - plan.installments_paid) * plan.installment_amount;
               return (
-                <Card key={plan.id} className="hover:shadow-md transition-shadow">
+                <Card key={plan.id} className="">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>

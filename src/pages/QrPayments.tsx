@@ -321,7 +321,7 @@ const QrPayments = () => {
       <Header />
       <main className="pt-6 pb-16 px-4 sm:px-6 max-w-6xl mx-auto w-full">
         <div className="mb-8">
-          <h1 className="text-[28px] leading-tight font-display font-semibold">QR payments</h1>
+          <h1 className="text-greeting">QR payments</h1>
           <p className="text-muted-foreground mt-1">Generate a code to get paid, or scan a BMaGlass code to pay from your wallet</p>
         </div>
 

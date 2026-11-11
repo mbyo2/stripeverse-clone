@@ -458,7 +458,7 @@ const VirtualCardDetails = () => {
       <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold">{card.name}</h1>
+            <h1 className="text-greeting">{card.name}</h1>
             <p className="text-muted-foreground">BMaGlass Virtual Card</p>
           </div>
           <div className="flex space-x-2">

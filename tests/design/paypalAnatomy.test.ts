@@ -233,6 +233,41 @@ describe("wave 4: cards, settings, business, developers, auth", () => {
   });
 });
 
+describe("wave 5: leftovers sweep", () => {
+  it("no page keeps the old 28px semibold title pattern — the greeting token won everywhere", () => {
+    const pagesDir = path.join(repoRoot, "src/pages");
+    const offenders = fs
+      .readdirSync(pagesDir)
+      .filter((f) => f.endsWith(".tsx"))
+      .filter((f) =>
+        fs
+          .readFileSync(path.join(pagesDir, f), "utf8")
+          .includes("text-[28px] leading-tight font-display font-semibold"),
+      );
+    expect(offenders).toEqual([]);
+  });
+
+  it("sub-accounts summary is a sky hero, not a navy band", () => {
+    const sub = read("src/pages/SubAccounts.tsx");
+    expect(sub).toContain("bg-[#60CDFF] dark:bg-card");
+    expect(sub).toContain("text-heronum tabular-nums");
+    expect(sub).not.toContain("bg-[#002991]");
+  });
+
+  it("content cards carry no hover shadows (CollectPayments, Pricing, Admin, BNPL)", () => {
+    for (const page of [
+      "src/pages/CollectPayments.tsx",
+      "src/pages/Pricing.tsx",
+      "src/pages/AdminDashboard.tsx",
+      "src/pages/BuyNowPayLater.tsx",
+    ]) {
+      expect(read(page), page).not.toContain("hover:shadow");
+    }
+    expect(read("src/pages/CheckEmail.tsx")).not.toContain("shadow-medium");
+    expect(read("src/pages/Compliance.tsx")).not.toContain("shadow-sm");
+  });
+});
+
 describe("wallet balance hero follows the same anatomy", () => {
   const wb = read("src/components/wallet/WalletBalance.tsx");
 

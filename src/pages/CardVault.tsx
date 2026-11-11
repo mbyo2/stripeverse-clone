@@ -28,7 +28,7 @@ const CardVault = () => {
       <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 pt-6 pb-16">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold">Card Vault</h1>
+            <h1 className="text-greeting">Card Vault</h1>
             <p className="text-sm text-muted-foreground mt-1">Saved cards — adding new cards is currently disabled</p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>

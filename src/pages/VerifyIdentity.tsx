@@ -530,7 +530,7 @@ export default function VerifyIdentity() {
         <div className="flex items-center gap-3 mb-6">
           <ScanFace className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold">Face verification</h1>
+            <h1 className="text-greeting">Face verification</h1>
             <p className="text-sm text-muted-foreground">
               Prove the face on this account is the face on your document.
             </p>

@@ -63,7 +63,7 @@ const SplitPayments = () => {
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold">Split payments</h1>
+            <h1 className="text-greeting">Split payments</h1>
             <p className="text-muted-foreground">Recipients and rules that automatically divide the payments you receive through your payment links</p>
           </div>
         </div>

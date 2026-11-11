@@ -91,7 +91,7 @@ const ScheduledPayments = () => {
       <main className="pt-2 pb-24 md:pb-12 px-4 max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold">Scheduled payments</h1>
+            <h1 className="text-greeting">Scheduled payments</h1>
             <p className="text-muted-foreground mt-1">Automate recurring payments on your schedule</p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -84,7 +84,7 @@ const AdminTransactions = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
-        <h1 className="text-[28px] leading-tight font-display font-semibold mb-2">Transaction oversight</h1>
+        <h1 className="text-greeting mb-2">Transaction oversight</h1>
         <p className="text-muted-foreground mb-6">Monitor all platform transactions in real-time.</p>
 
         <Card>

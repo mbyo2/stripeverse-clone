@@ -270,7 +270,7 @@ const SubAccounts = () => {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Sub-accounts</h1>
+            <h1 className="text-greeting text-foreground">Sub-accounts</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Separate accounts under your one login — each with its own wallets and balances.
             </p>
@@ -281,16 +281,16 @@ const SubAccounts = () => {
         </div>
 
         {/* Summary */}
-        <div className="bg-[#002991] rounded-[24px] px-6 py-8 md:px-8 mb-6">
+        <div className="bg-[#60CDFF] dark:bg-card dark:border dark:border-border rounded-[24px] p-5 mb-6 text-slate-950 dark:text-card-foreground">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
             <div>
-              <p className="text-white/80 text-sm font-medium mb-1">Total balance across all accounts</p>
-              <h2 className="text-4xl md:text-[40px] font-display font-semibold text-white tabular-nums">
+              <p className="text-slate-950/70 dark:text-muted-foreground text-sm font-medium mb-1">Total balance across all accounts</p>
+              <h2 className="text-heronum tabular-nums">
                 {isLoading ? '—' : formatCurrency(totalZMW, 'ZMW')}
               </h2>
-              <p className="text-white/70 text-sm mt-1">Kwacha wallets only — other currencies are listed per account below.</p>
+              <p className="text-slate-950/70 dark:text-muted-foreground text-sm mt-1">Kwacha wallets only — other currencies are listed per account below.</p>
             </div>
-            <div className="text-white/80 text-sm">
+            <div className="text-slate-950/80 dark:text-muted-foreground text-sm">
               <p>{subAccounts.length} sub-account{subAccounts.length === 1 ? '' : 's'} · {totalWallets} wallet{totalWallets === 1 ? '' : 's'}</p>
             </div>
           </div>

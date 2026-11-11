@@ -463,7 +463,7 @@ const AdminUserDetail = () => {
         ) : (
           <div className="space-y-6">
             <div>
-              <h1 className="text-[28px] leading-tight font-display font-semibold mb-1">{fullName}</h1>
+              <h1 className="text-greeting mb-1">{fullName}</h1>
               <p className="text-muted-foreground">
                 Full account view — everything below is read from the live account records.
               </p>

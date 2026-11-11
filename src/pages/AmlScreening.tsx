@@ -65,7 +65,7 @@ const AmlScreening = () => {
       <Header />
       <main className="pt-6 pb-16 px-4 sm:px-6 max-w-6xl mx-auto w-full">
         <div className="mb-8">
-          <h1 className="text-[28px] leading-tight font-display font-semibold flex items-center gap-3">
+          <h1 className="text-greeting flex items-center gap-3">
             <Shield className="h-8 w-8 text-primary" />
             AML Screening
           </h1>

@@ -34,7 +34,7 @@ const UssdAccess = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-[28px] leading-tight font-display font-semibold">USSD payment</h1>
+          <h1 className="text-greeting">USSD payment</h1>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

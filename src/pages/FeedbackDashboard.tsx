@@ -159,7 +159,7 @@ const FeedbackDashboard = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 max-w-6xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-[28px] leading-tight font-display font-semibold">Beta feedback dashboard</h1>
+          <h1 className="text-greeting">Beta feedback dashboard</h1>
           <Button variant="outline" onClick={() => navigate("/feedback")}>
             Submit New Feedback
           </Button>

@@ -284,7 +284,7 @@ const AdminBankPayouts = () => {
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold flex items-center gap-2">
+            <h1 className="text-greeting flex items-center gap-2">
               <Landmark className="h-7 w-7" /> Bank Payouts
             </h1>
             <p className="text-sm text-muted-foreground mt-1">

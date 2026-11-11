@@ -123,7 +123,7 @@ const Analytics = () => {
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold">Analytics</h1>
+            <h1 className="text-greeting">Analytics</h1>
             <p className="text-muted-foreground">Track your payment performance and business metrics</p>
           </div>
           <Select value={period} onValueChange={setPeriod}>

@@ -99,7 +99,7 @@ const BulkPayments = () => {
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold">Bulk payments</h1>
+            <h1 className="text-greeting">Bulk payments</h1>
             <p className="text-muted-foreground">Pay multiple recipients at once — payroll, disbursements, vendor payments</p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>

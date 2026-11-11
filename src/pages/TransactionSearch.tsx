@@ -68,7 +68,7 @@ const TransactionSearch = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="pt-2 pb-24 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
-        <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground mb-6">Transaction search</h1>
+        <h1 className="text-greeting text-foreground mb-6">Transaction search</h1>
         <Card className="mb-6">
           <CardContent className="p-4 space-y-4">
             <div className="relative">

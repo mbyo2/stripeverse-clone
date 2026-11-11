@@ -78,7 +78,7 @@ const Pricing = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {FEES.map((item) => (
-            <Card key={item.name} className="flex flex-col overflow-hidden transition-all duration-300 hover:shadow-lg">
+            <Card key={item.name} className="flex flex-col overflow-hidden transition-colors duration-300 hover:border-primary/40">
               <CardHeader>
                 <div className="flex items-center space-x-2 mb-2">
                   <div className="p-2 bg-primary/10 rounded-lg">

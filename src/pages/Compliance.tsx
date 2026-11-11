@@ -165,10 +165,10 @@ const Compliance = () => {
             ref={contentRef}
             className="opacity-0"
           >
-            <h1 className="text-[28px] leading-tight font-display font-semibold mb-8 text-center">Compliance &amp; security</h1>
+            <h1 className="text-greeting mb-8 text-center">Compliance &amp; security</h1>
             
             {user ? (
-              <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
+              <div className="bg-card rounded-2xl p-8 mb-8 border border-border">
                 <Tabs defaultValue="status">
                   <TabsList className={`grid w-full grid-cols-2 ${showAmlTab ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
                     <TabsTrigger value="status">Compliance Status</TabsTrigger>
@@ -336,7 +336,7 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-card rounded-lg shadow-sm p-8 mb-8 mt-8 border border-border">
+                    <div className="bg-card rounded-2xl p-8 mb-8 mt-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6 flex items-center">
                         <CreditCard className="h-5 w-5 mr-2 text-primary" />
                         PCI DSS & Card Data
@@ -404,7 +404,7 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
+                    <div className="bg-card rounded-2xl p-8 mb-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6">Regulatory Status</h2>
 
                       <p className="mb-6">
@@ -435,7 +435,7 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-card rounded-lg shadow-sm p-8 border border-border">
+                    <div className="bg-card rounded-2xl p-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6">Our Compliance Commitments</h2>
                       
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -462,7 +462,7 @@ const Compliance = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-card rounded-lg shadow-sm p-8 border border-border">
+                    <div className="bg-card rounded-2xl p-8 border border-border">
                       <h2 className="text-xl font-semibold mb-6">Merchant Compliance Requirements</h2>
                       
                       <div className="mb-8">
@@ -504,7 +504,7 @@ const Compliance = () => {
                 </Tabs>
               </div>
             ) : (
-              <div className="bg-card rounded-lg shadow-sm p-8 mb-8 text-center border border-border">
+              <div className="bg-card rounded-2xl p-8 mb-8 text-center border border-border">
                 <Shield className="h-12 w-12 mx-auto text-primary mb-4" />
                 <h2 className="text-xl font-semibold mb-3">Authentication Required</h2>
                 <p className="mb-6">Please log in to view your compliance status and required actions.</p>
@@ -514,7 +514,7 @@ const Compliance = () => {
               </div>
             )}
             
-            <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">
+            <div className="bg-card rounded-2xl p-8 mb-8 border border-border">
               <div className="flex items-center justify-center mb-6">
                 <Shield className="h-16 w-16 text-primary" />
               </div>

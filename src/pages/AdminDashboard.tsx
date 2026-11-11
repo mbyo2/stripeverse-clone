@@ -285,7 +285,7 @@ const AdminDashboard = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-6">
-          <h1 className="text-[28px] leading-tight font-display font-semibold">Admin Dashboard</h1>
+          <h1 className="text-greeting">Admin Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">System overview and management tools</p>
         </div>
 
@@ -316,7 +316,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-sm font-medium">Total Users</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-[28px] font-display font-semibold tabular-nums">{userStats.total_users}</div>
+                  <div className="text-[28px] font-display font-extrabold tabular-nums">{userStats.total_users}</div>
                 </CardContent>
               </Card>
 
@@ -325,7 +325,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-sm font-medium">Business Users</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-[28px] font-display font-semibold tabular-nums">{userStats.business_users}</div>
+                  <div className="text-[28px] font-display font-extrabold tabular-nums">{userStats.business_users}</div>
                 </CardContent>
               </Card>
 
@@ -334,7 +334,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-sm font-medium">Total Transactions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-[28px] font-display font-semibold tabular-nums">{systemStats.total_transactions}</div>
+                  <div className="text-[28px] font-display font-extrabold tabular-nums">{systemStats.total_transactions}</div>
                 </CardContent>
               </Card>
 
@@ -343,7 +343,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-sm font-medium">Pending KYC</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-[28px] font-display font-semibold tabular-nums text-warning">{systemStats.pending_kyc}</div>
+                  <div className="text-[28px] font-display font-extrabold tabular-nums text-warning">{systemStats.pending_kyc}</div>
                 </CardContent>
               </Card>
             </div>
@@ -356,7 +356,7 @@ const AdminDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {visibleAdminActions.map((action) => (
                     <Link key={action.title} to={action.link}>
-                      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                      <Card className="transition-colors hover:bg-accent/40 cursor-pointer">
                         <CardContent className="p-6">
                           <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4">
                             {action.icon}

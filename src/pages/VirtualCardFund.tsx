@@ -205,7 +205,7 @@ const VirtualCardFund = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
         <div className="mb-6">
-          <h1 className="text-[28px] leading-tight font-display font-semibold">Fund virtual card</h1>
+          <h1 className="text-greeting">Fund virtual card</h1>
           <p className="text-muted-foreground mt-2">
             Add funds to your virtual card from your main wallet.
           </p>

@@ -141,7 +141,7 @@ export default function AdminIdentity() {
             </Button>
           )}
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold">Identity review</h1>
+            <h1 className="text-greeting">Identity review</h1>
             <p className="text-sm text-muted-foreground">
               Face verifications that need a human decision, oldest first.
             </p>
