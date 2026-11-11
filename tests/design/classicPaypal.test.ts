@@ -9,15 +9,19 @@
 //
 // The values, matched to the Doc'O Clock conversion of the same
 // decision:
-//   - Bar: classic navy #003087 (HSL 219 100% 26%), white text and
-//     icons in BOTH modes — dark mode deepens it slightly (219 100%
-//     22%) but it stays navy. The logo renders in its white variant.
-//     Nav links are white; the active item is a lighter-navy pill
-//     (white tint over the navy) with semibold white text — gold is
-//     never a nav state.
-//   - Primary buttons: PayPal gold #FFC439 (HSL 42 100% 61%),
-//     near-black text #001435 (HSL 217 100% 10%), hover the deeper
-//     gold #F2B705 (HSL 45 96% 48%). The conversion rides the shared
+//   - Bar: classic navy #003087, white text and icons in BOTH modes
+//     — dark mode deepens it slightly (#002770) but it stays navy.
+//     The logo renders in its white variant. Nav links are white;
+//     the active item is a lighter-navy pill (white tint over the
+//     navy) with semibold white text — gold is never a nav state.
+//   - Primary buttons: PayPal gold #FFC439, near-black text #001435,
+//     hover the deeper gold #F2B705.
+//   - The tokens are EXACT HEX in index.css (adjusted 2026-11-11,
+//     mobile-overflow mission): as HSL channels they computed to
+//     rgb(0,46,133) / rgb(255,195,56) — two points off the classic
+//     targets rgb(0,48,135) / rgb(255,196,57) on the CEO's phone
+//     measurements. Hex tokens + bare var() in tailwind.config make
+//     the computed colours pixel-exact. The conversion rides the shared
 //     Button `default` variant (plus the .button-primary utility), so
 //     every primary CTA follows; the hero primaries that were
 //     hard-coded black pills (dashboard Open wallet, Deposit BTC,
@@ -39,33 +43,29 @@ const config = read("tailwind.config.ts");
 
 describe("classic navy bar tokens", () => {
   it("index.css carries navy #003087 for the bar, deepened in dark mode", () => {
-    expect(lightTokens).toContain("--navy: 219 100% 26%");
-    expect(lightTokens).toContain("#003087");
-    expect(darkTokens).toContain("--navy: 219 100% 22%");
+    expect(lightTokens).toContain("--navy: #003087;");
+    expect(darkTokens).toContain("--navy: #002770;");
   });
 
   it("tailwind exposes the navy token as a colour", () => {
     expect(config).toContain('navy: {');
-    expect(config).toContain('DEFAULT: "hsl(var(--navy))"');
+    expect(config).toContain('DEFAULT: "var(--navy)"');
   });
 });
 
 describe("classic gold primary tokens", () => {
   it("index.css carries gold #FFC439, near-black #001435 text, #F2B705 hover — both modes", () => {
     for (const tokens of [lightTokens, darkTokens]) {
-      expect(tokens).toContain("--gold: 42 100% 61%");
-      expect(tokens).toContain("--gold-hover: 45 96% 48%");
-      expect(tokens).toContain("--gold-foreground: 217 100% 10%");
+      expect(tokens).toContain("--gold: #FFC439;");
+      expect(tokens).toContain("--gold-hover: #F2B705;");
+      expect(tokens).toContain("--gold-foreground: #001435;");
     }
-    expect(lightTokens).toContain("#FFC439");
-    expect(lightTokens).toContain("#001435");
-    expect(lightTokens).toContain("#F2B705");
   });
 
   it("tailwind exposes gold as DEFAULT / hover / foreground", () => {
-    expect(config).toContain('DEFAULT: "hsl(var(--gold))"');
-    expect(config).toContain('hover: "hsl(var(--gold-hover))"');
-    expect(config).toContain('foreground: "hsl(var(--gold-foreground))"');
+    expect(config).toContain('DEFAULT: "var(--gold)"');
+    expect(config).toContain('hover: "var(--gold-hover)"');
+    expect(config).toContain('foreground: "var(--gold-foreground)"');
   });
 
   it("the action blue stays the link/active colour — --primary is untouched", () => {

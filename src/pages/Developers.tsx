@@ -78,11 +78,11 @@ export default function Developers() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Endpoints</CardTitle><CardDescription>Base URL: {BASE}</CardDescription></CardHeader>
+          <CardHeader><CardTitle>Endpoints</CardTitle><CardDescription className="break-all">Base URL: {BASE}</CardDescription></CardHeader>
           <CardContent className="space-y-2">
             {ENDPOINTS.map((e) => (
               <div key={e.method + e.path} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 p-3 border rounded">
-                <span className="font-mono text-sm shrink-0">{e.method} {e.path}</span>
+                <span className="font-mono text-sm shrink-0 break-all">{e.method} {e.path}</span>
                 <span className="text-sm text-muted-foreground flex-1">{e.desc}</span>
                 <Badge variant="outline" className="shrink-0">{e.scope}</Badge>
               </div>

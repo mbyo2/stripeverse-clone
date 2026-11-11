@@ -193,13 +193,13 @@ const Notifications = () => {
       <Header />
       
       <main className="flex-grow pt-6 pb-16 px-4 max-w-4xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div className="flex items-center gap-2">
             <Bell className="h-6 w-6" />
             <h1 className="text-2xl font-bold">Notifications</h1>
           </div>
-          
-          <div className="flex gap-2">
+
+          <div className="flex flex-wrap gap-2">
             <Button 
               variant="outline" 
               onClick={markAllAsRead}

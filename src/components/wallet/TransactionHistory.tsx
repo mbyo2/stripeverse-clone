@@ -220,8 +220,8 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
             </div>
           ) : (
             filteredTransactions.map((transaction) => (
-              <div key={transaction.uuid_id} className="flex items-center justify-between py-4">
-                <div className="flex items-center space-x-4">
+              <div key={transaction.uuid_id} className="flex items-center justify-between gap-3 py-4">
+                <div className="flex items-center space-x-4 flex-1 min-w-0">
                   <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                     {getDirectionIcon(transaction.direction)}
                   </div>
@@ -257,7 +257,7 @@ const TransactionHistory = ({ limit, showFilters = true, embedded = false }: Tra
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 shrink-0">
                   <TransactionReceipt transaction={{...transaction, id: String(transaction.id)}} />
                   <div className="text-right">
                     <p className={cn(

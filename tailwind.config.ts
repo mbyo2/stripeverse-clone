@@ -81,12 +81,12 @@ export default {
         // top bar (#003087); gold is the primary button (#FFC439,
         // near-black #001435 text, deeper-gold hover).
         navy: {
-          DEFAULT: "hsl(var(--navy))",
+          DEFAULT: "var(--navy)",
         },
         gold: {
-          DEFAULT: "hsl(var(--gold))",
-          hover: "hsl(var(--gold-hover))",
-          foreground: "hsl(var(--gold-foreground))",
+          DEFAULT: "var(--gold)",
+          hover: "var(--gold-hover)",
+          foreground: "var(--gold-foreground)",
         },
       },
       fontFamily: {
@@ -100,9 +100,13 @@ export default {
       fontSize: {
         // PayPal type ramp (shared with Doc'O Clock): greeting = the
         // bold page header (28px/800), heronum = the hero card's
-        // headline number (40px/800).
+        // headline number (40px/800 on desktop). The hero number is
+        // clamp-scaled (CEO, 2026-11-11: numbers overflowing on
+        // mobile) so a worst-case balance — 2,100,000,000 sats,
+        // K1,234,567,890.55 — still fits a 360px phone; at desktop
+        // widths the size is exactly the pinned 2.5rem.
         greeting: ["1.75rem", { lineHeight: "1.15", fontWeight: "800", letterSpacing: "-0.02em" }],
-        heronum: ["2.5rem", { lineHeight: "1", fontWeight: "800", letterSpacing: "-0.02em" }],
+        heronum: ["clamp(1.75rem, 8vw, 2.5rem)", { lineHeight: "1", fontWeight: "800", letterSpacing: "-0.02em" }],
       },
       borderRadius: {
         lg: "var(--radius)",

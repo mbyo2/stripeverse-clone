@@ -60,10 +60,12 @@
        supersede the white bar + blue primaries of the anatomy
        rollout for the bar and primary buttons only — links, active
        states, heroes and the rest of the anatomy are unchanged. */
-    --navy: 219 100% 26%;
-    --gold: 42 100% 61%;
-    --gold-hover: 45 96% 48%;
-    --gold-foreground: 217 100% 10%;
+    /* Exact hex (not HSL) so the computed colours are pixel-exact:
+       navy #003087 = rgb(0,48,135), gold #FFC439 = rgb(255,196,57). */
+    --navy: #003087;
+    --gold: #FFC439;
+    --gold-hover: #F2B705;
+    --gold-foreground: #001435;
   }
 
   .dark {
@@ -103,10 +105,10 @@
     --paypal-gold: 38 92% 50%;
     /* Classic shell in dark mode: the bar deepens slightly but stays
        navy; the gold is the same gold in both modes. */
-    --navy: 219 100% 22%;
-    --gold: 42 100% 61%;
-    --gold-hover: 45 96% 48%;
-    --gold-foreground: 217 100% 10%;
+    --navy: #002770;
+    --gold: #FFC439;
+    --gold-hover: #F2B705;
+    --gold-foreground: #001435;
   }
 
   /* Fragment targets land fully below the fixed navy bar (CEO,
@@ -137,6 +139,22 @@
     font-family: 'Manrope', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Phone-width safety net (CEO, 2026-11-11: words and numbers
+     overflowing sideways on mobile). `clip` — not `hidden` — so
+     position: sticky keeps working: clip creates no scroll
+     container. This is the last line of defence only; components
+     are fixed at the root cause (wrapping tab strips, breakable
+     URLs, clamp-scaled hero numbers, min-w-0 rows). */
+  html, body {
+    overflow-x: clip;
+  }
+
+  /* Unbreakable tokens set in <code> inside prose (repo paths,
+     base URLs, hashes) wrap instead of spilling out of the card. */
+  :where(p, li, td) code {
+    overflow-wrap: anywhere;
   }
 
   /* Headings follow the PayPal ramp: 800 weight, tight -0.02em

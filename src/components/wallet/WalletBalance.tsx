@@ -65,12 +65,12 @@ const WalletBalance = ({ onSendMoney, accountId }: WalletBalanceProps) => {
             PayPal blue (--primary) stays the action colour. */}
         <div className="bg-[#60CDFF] dark:bg-card p-5 text-slate-950 dark:text-card-foreground">
           <div className="flex items-start justify-between mb-6">
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <Wallet className="h-4 w-4 text-slate-950/70 dark:text-muted-foreground" />
                 <span className="text-sm font-medium text-slate-950/70 dark:text-muted-foreground">Available Balance</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="text-heronum tabular-nums">
                   {showBalance ? formatAmount(wallet?.balance || 0) : "••••••"}
                 </span>

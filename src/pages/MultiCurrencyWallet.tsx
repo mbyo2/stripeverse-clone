@@ -80,15 +80,15 @@ const MultiCurrencyWallet = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
-        <div className="flex items-center justify-between mb-8">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
+          <div className="min-w-0">
             <h1 className="text-greeting">Multi-currency wallets</h1>
             <p className="text-muted-foreground">
               Hold and manage balances in multiple currencies
               {selectedAccountId && <> · Viewing <span className="font-medium text-foreground">{selectedAccountName}</span></>}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Dialog open={convertOpen} onOpenChange={setConvertOpen}>
               <DialogTrigger asChild><Button variant="outline"><ArrowLeftRight className="h-4 w-4 mr-2" />Convert</Button></DialogTrigger>
               <DialogContent>

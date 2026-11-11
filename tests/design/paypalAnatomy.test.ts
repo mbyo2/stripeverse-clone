@@ -60,7 +60,12 @@ describe("typography: Manrope everywhere, PayPal ramp", () => {
 
   it("the fixed ramp tokens exist: greeting 28px/800, heronum 40px/800", () => {
     expect(config).toContain('greeting: ["1.75rem"');
-    expect(config).toContain('heronum: ["2.5rem"');
+    // PIN MOVED 2026-11-11 (mobile-overflow mission): heronum is now
+    // clamp(1.75rem, 8vw, 2.5rem) per the CEO's report that numbers
+    // overflow on mobile — the desktop size stays exactly 2.5rem,
+    // the token only shrinks at phone widths so worst-case balances
+    // fit. The 40px/800 character of the ramp is unchanged.
+    expect(config).toContain('heronum: ["clamp(1.75rem, 8vw, 2.5rem)"');
   });
 
   it("cards take the PayPal radius: 16px hairline, no shadow", () => {
