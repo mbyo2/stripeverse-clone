@@ -235,7 +235,7 @@ const SendMoney = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="max-w-md mx-auto">
-          <h1 className="text-[28px] leading-tight font-display font-semibold mb-6">Send Money</h1>
+          <h1 className="text-greeting mb-6">Send Money</h1>
 
           <Card>
             <CardHeader>

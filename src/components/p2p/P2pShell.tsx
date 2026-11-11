@@ -44,15 +44,17 @@ export default function P2pShell({
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-6">
-          <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">
+          <h1 className="text-greeting text-foreground">
             {title}
           </h1>
           {subtitle && (
-            <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+            <p className="text-[13px] text-muted-foreground mt-1">{subtitle}</p>
           )}
         </div>
 
-        <nav className="flex gap-1 overflow-x-auto pb-1 mb-6 border-b border-border">
+        {/* Section tabs in the PayPal anatomy: segmented pale pills,
+            the active tab filled — no underline rule. */}
+        <nav className="flex gap-1.5 overflow-x-auto pb-1 mb-6">
           {TABS.map((tab) => {
             const active = tab.exact
               ? location.pathname === tab.to
@@ -62,10 +64,10 @@ export default function P2pShell({
                 key={tab.to}
                 to={tab.to}
                 className={cn(
-                  "px-3 py-2 text-sm font-medium rounded-t-md whitespace-nowrap transition-colors",
+                  "px-4 py-2 text-sm font-medium rounded-full whitespace-nowrap transition-colors",
                   active
-                    ? "text-primary border-b-2 border-primary -mb-px"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "bg-secondary text-foreground font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
                 )}
               >
                 {tab.label}

@@ -121,11 +121,11 @@ export default function P2PMarketplace() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        <div className="flex rounded-md border border-border overflow-hidden">
+        <div className="flex bg-secondary rounded-full p-1 gap-1">
           <Button
             variant={intent === "buy" ? "default" : "ghost"}
             size="sm"
-            className="rounded-none"
+            className="rounded-full px-4"
             onClick={() => setIntent("buy")}
           >
             I want to buy
@@ -133,7 +133,7 @@ export default function P2PMarketplace() {
           <Button
             variant={intent === "sell" ? "default" : "ghost"}
             size="sm"
-            className="rounded-none"
+            className="rounded-full px-4"
             onClick={() => setIntent("sell")}
           >
             I want to sell
@@ -164,10 +164,10 @@ export default function P2PMarketplace() {
 
       {/* Ads */}
       {adsQuery.isLoading ? (
-        <div className="space-y-3" role="status" aria-label="Loading marketplace">
-          <SkeletonCardRow />
-          <SkeletonCardRow />
-          <SkeletonCardRow />
+        <div className="rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden" role="status" aria-label="Loading marketplace">
+          <SkeletonCardRow className="rounded-none border-0" />
+          <SkeletonCardRow className="rounded-none border-0" />
+          <SkeletonCardRow className="rounded-none border-0" />
         </div>
       ) : adsQuery.isError ? (
         <PageErrorState
@@ -189,7 +189,7 @@ export default function P2PMarketplace() {
           action={paused ? undefined : { label: "Post an Ad", onClick: () => navigate("/p2p/ads/new") }}
         />
       ) : (
-        <div className="space-y-3">
+        <div className="rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden">
           {visibleAds.map((ad) => (
             <AdCard
               key={ad.id}

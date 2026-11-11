@@ -65,7 +65,7 @@ const RequestMoney = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-8">
-          <h1 className="text-[28px] leading-tight font-display font-semibold">Request Money</h1>
+          <h1 className="text-greeting">Request Money</h1>
           <p className="text-sm text-muted-foreground mt-1">Send payment requests or create shareable payment links</p>
         </div>
 

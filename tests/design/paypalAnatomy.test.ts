@@ -175,6 +175,39 @@ describe("wave 2: bitcoin wallets and history", () => {
   });
 });
 
+describe("wave 3: send / request, P2P, payment links", () => {
+  it("money-movement pages take the greeting title", () => {
+    expect(read("src/pages/SendMoney.tsx")).toContain("text-greeting");
+    expect(read("src/pages/Transfer.tsx")).toContain("text-greeting");
+    expect(read("src/pages/RequestMoney.tsx")).toContain("text-greeting");
+    expect(read("src/pages/PaymentLinks.tsx")).toContain("text-greeting");
+  });
+
+  it("P2P shell: greeting title, 13px subline, segmented pale-pill tabs", () => {
+    const shell = read("src/components/p2p/P2pShell.tsx");
+    expect(shell).toContain('className="text-greeting text-foreground"');
+    expect(shell).toContain('className="text-[13px] text-muted-foreground mt-1"');
+    expect(shell).toContain("rounded-full whitespace-nowrap");
+    expect(shell).toContain("bg-secondary text-foreground font-semibold");
+    expect(shell).not.toContain("border-b-2 border-primary");
+  });
+
+  it("marketplace: buy/sell is a segmented pill control; offers are hairline rows", () => {
+    const mkt = read("src/pages/P2PMarketplace.tsx");
+    expect(mkt).toContain("flex bg-secondary rounded-full p-1 gap-1");
+    expect(mkt).toContain(
+      "rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden",
+    );
+    const ad = read("src/components/p2p/AdCard.tsx");
+    expect(ad).toContain('<div className="px-4 py-4 sm:px-5">');
+    expect(ad).not.toContain('from "@/components/ui/card"');
+  });
+
+  it("payment links list stays a hairline list", () => {
+    expect(read("src/pages/PaymentLinks.tsx")).toContain("divide-y divide-border");
+  });
+});
+
 describe("wallet balance hero follows the same anatomy", () => {
   const wb = read("src/components/wallet/WalletBalance.tsx");
 

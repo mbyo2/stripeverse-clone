@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -163,8 +162,7 @@ export default function AdCard({
   };
 
   return (
-    <Card>
-      <CardContent className="p-4 sm:p-5">
+    <div className="px-4 py-4 sm:px-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
@@ -377,7 +375,6 @@ export default function AdCard({
           onOpenChange={setTransferOpen}
           initialDirection="to_p2p"
         />
-      </CardContent>
-    </Card>
+    </div>
   );
 }
