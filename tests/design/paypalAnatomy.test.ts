@@ -91,6 +91,17 @@ describe("dashboard: greeting, bitcoin hero, pale-circle actions, hairline lists
     expect(dash).not.toContain("bg-[#002991]");
   });
 
+  it("hero fallback (no wallet row yet) renders the 0-sats number block, never prose", () => {
+    // A brand-new user has no custodial wallet row: the hero must
+    // still carry the headline number — the truthful balance is
+    // 0 sats, as the wallet page itself shows — and signed-in copy
+    // must never promise "buy", which the product does not offer.
+    expect(dash).toContain('0 <span className="text-[22px] font-bold">sats</span>');
+    expect(dash).toContain("0 sats available");
+    expect(dash).not.toContain("buy, sell and withdraw");
+    expect(dash).not.toContain("Deposit, buy");
+  });
+
   it("hero CTAs: black pill primary on sky (blue returns in dark), pale pill secondary", () => {
     expect(dash).toContain("bg-slate-950 text-white hover:bg-slate-950/90");
     expect(dash).toContain("bg-white/70 text-slate-950 hover:bg-white");

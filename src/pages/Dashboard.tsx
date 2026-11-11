@@ -165,9 +165,17 @@ const Dashboard = () => {
             ) : btcLoading ? (
               <Skeleton className="h-10 w-64 max-w-full bg-slate-950/15 dark:bg-primary-foreground/15" aria-label="Loading your Bitcoin wallet" />
             ) : (
-              <p className="text-[15px] leading-relaxed max-w-md">
-                Deposit, buy, sell and withdraw Bitcoin — held for you, or self-custody with your own seed phrase. Your choice.
-              </p>
+              /* No wallet row yet (a brand-new user): the hero still
+                 carries the headline number — the truthful balance is
+                 0 sats, exactly as the wallet page itself shows. */
+              <>
+                <p className="text-heronum tabular-nums">
+                  0 <span className="text-[22px] font-bold">sats</span>
+                </p>
+                <p className="text-sm text-slate-950/70 dark:text-muted-foreground mt-1.5 tabular-nums">
+                  0 sats available
+                </p>
+              </>
             )}
             <div className="flex flex-wrap gap-2.5 mt-6">
               {/* Hero CTAs in the PayPal app pattern: black pill
