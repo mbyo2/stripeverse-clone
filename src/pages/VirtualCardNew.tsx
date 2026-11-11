@@ -176,9 +176,9 @@ const VirtualCardNew = () => {
   // function enforces the same rule server-side.
   if (rolesLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-secondary/10">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-3xl mx-auto w-full">
           <CardCreateSkeleton />
         </main>
       </div>
@@ -188,11 +188,11 @@ const VirtualCardNew = () => {
   // super_admin-only holder reaches the same tool an admin does.
   if (!hasRole("admin") && !hasRole("super_admin")) {
     return (
-      <div className="min-h-screen flex flex-col bg-secondary/10">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-3xl mx-auto w-full">
           <div className="mb-6">
-            <h1 className="text-3xl font-bold">Virtual Cards</h1>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">Virtual cards</h1>
           </div>
           <VirtualCardsComingSoon />
         </main>
@@ -201,11 +201,11 @@ const VirtualCardNew = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary/10">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-3xl mx-auto w-full">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold">Create Virtual Card</h1>
+          <h1 className="text-[28px] leading-tight font-display font-semibold">Create virtual card</h1>
           <p className="text-muted-foreground mt-2">
             A BMaGlass virtual card holds a separate balance inside your wallet so you can set money aside for a purpose.
             It is not issued by any card network or bank, and it can't be used for online purchases or subscriptions outside BMaGlass Pay.
@@ -355,7 +355,7 @@ const VirtualCardNew = () => {
                       an initial funding amount is entered, in the
                       same style as the Fund page and Send Money. */}
                   {formData.initialFunding > 0 && (
-                    <div className="p-4 bg-secondary/10 rounded-md">
+                    <div className="p-4 bg-muted rounded-md">
                       <div className="flex justify-between mb-2">
                         <span className="text-muted-foreground">Funding amount</span>
                         <span>{formatCurrency(formData.initialFunding)}</span>
@@ -412,18 +412,15 @@ const VirtualCardNew = () => {
         </Card>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>About Virtual Cards</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <section className="mt-2">
+          <h2 className="text-base font-display font-semibold mb-4">About virtual cards</h2>
             <div className="space-y-4">
               <div className="flex items-start">
                 <div className="mt-1 mr-4 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                   <CreditCard className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-medium">A Separate Balance</h3>
+                  <h3 className="font-medium">A separate balance</h3>
                   <p className="text-muted-foreground text-sm">
                     Fund a named card balance from your wallet and keep that money separate from your main balance.
                   </p>
@@ -435,7 +432,7 @@ const VirtualCardNew = () => {
                   <WalletCards className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-medium">Budget Management</h3>
+                  <h3 className="font-medium">Budget management</h3>
                   <p className="text-muted-foreground text-sm">
                     Create separate cards for different purposes to better track your spending.
                   </p>
@@ -443,7 +440,7 @@ const VirtualCardNew = () => {
               </div>
               
               <div className="border-t pt-4 mt-4">
-                <h4 className="font-medium mb-2">Fee Structure</h4>
+                <h4 className="font-medium mb-2">Fee structure</h4>
                 <ul className="text-sm text-muted-foreground space-y-2">
                   <li className="flex justify-between">
                     <span>Card Creation</span>
@@ -456,8 +453,7 @@ const VirtualCardNew = () => {
                 </ul>
               </div>
             </div>
-          </CardContent>
-        </Card>
+        </section>
       </main>
     </div>
   );
