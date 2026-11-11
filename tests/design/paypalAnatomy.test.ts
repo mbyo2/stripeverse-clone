@@ -102,6 +102,31 @@ describe("dashboard: greeting, bitcoin hero, pale-circle actions, hairline lists
     expect(dash).not.toContain("Deposit, buy");
   });
 
+  it("public landing copy never promises buying Bitcoin (Buy does not work — no treasury inventory)", () => {
+    // Same rule as the dashboard prose fix (673c3ed), extended to the
+    // unauthenticated surfaces: the hero, the landing sections, the
+    // public pricing page and the index.html meta/JSON-LD must only
+    // name working features. Sell, send, receive, deposit, hold and
+    // withdraw all work; instant Buy was removed by CEO order.
+    // (Unrelated senses are fine and deliberately not matched: the
+    // P2P detail on the pricing page — "Buying or selling with
+    // another person" — describes users trading with each other.)
+    const publicSurfaces: Record<string, string> = {
+      "src/components/Hero.tsx": read("src/components/Hero.tsx"),
+      "src/components/LandingSections.tsx": read("src/components/LandingSections.tsx"),
+      "src/pages/Pricing.tsx": read("src/pages/Pricing.tsx"),
+      "index.html": read("index.html"),
+    };
+    for (const [file, text] of Object.entries(publicSurfaces)) {
+      expect(text, file).not.toContain("Buy and sell Bitcoin");
+      expect(text, file).not.toContain("Buy or Sell Bitcoin");
+      expect(text, file).not.toContain("Buy Bitcoin");
+      expect(text, file).not.toContain("Buy, sell");
+      expect(text, file).not.toContain("buy, sell");
+      expect(text, file).not.toContain("Instant Bitcoin buys");
+    }
+  });
+
   it("hero CTAs: black pill primary on sky (blue returns in dark), pale pill secondary", () => {
     expect(dash).toContain("bg-slate-950 text-white hover:bg-slate-950/90");
     expect(dash).toContain("bg-white/70 text-slate-950 hover:bg-white");

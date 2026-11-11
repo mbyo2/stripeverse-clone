@@ -61,7 +61,7 @@ export const PhotoBand = () => {
       <div className="relative max-w-[1200px] mx-auto px-4 sm:px-6 h-[460px] md:h-[520px] flex items-end pb-14 md:pb-20">
         <FadeIn duration={0.6} distance={20}>
           <p className="font-display font-extrabold text-white tracking-[-0.025em] leading-[1.08] text-[36px] md:text-[56px] max-w-2xl">
-            Buy and sell Bitcoin from your phone — wherever you are in the world.
+            Sell Bitcoin from your phone — wherever you are in the world.
           </p>
         </FadeIn>
       </div>
@@ -74,7 +74,7 @@ export const BitcoinSection = () => (
     image="https://images.unsplash.com/photo-1518546305927-5a555bb7020d?q=80&w=1600&auto=format&fit=crop"
     imageAlt="A physical Bitcoin coin in front of a live trading chart"
     headline="Bitcoin, right beside your everyday money"
-    copy="Buy and sell Bitcoin, hold it next to your everyday balance, and send it on-chain or over Lightning — to anyone, anywhere. Keep it in your BMaGlass wallet — or hold your own keys with a seed-phrase wallet. The choice is yours."
+    copy="Sell Bitcoin, hold it next to your everyday balance, and send it on-chain or over Lightning — to anyone, anywhere. Keep it in your BMaGlass wallet — or hold your own keys with a seed-phrase wallet. The choice is yours."
     linkTo="/bitcoin-wallet"
     linkLabel="Open the Bitcoin wallet"
   />

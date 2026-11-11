@@ -39,9 +39,9 @@ const FEES = [
   },
   {
     icon: <Bitcoin className="h-5 w-5" />,
-    name: "Buy or Sell Bitcoin Instantly",
+    name: "Sell Bitcoin Instantly",
     fee: "1.5%",
-    detail: "Instant Bitcoin buys and sells cost 1.5% of the amount, on top of the quoted exchange rate.",
+    detail: "Instant Bitcoin sells cost 1.5% of the amount, on top of the quoted exchange rate.",
   },
   {
     icon: <Link2 className="h-5 w-5" />,

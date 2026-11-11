@@ -32,7 +32,7 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
 
         <FadeIn delay={0.18} duration={0.6} distance={16}>
           <p className="mt-6 text-[17px] md:text-[19px] leading-[1.55] text-black dark:text-white/80 max-w-2xl mx-auto">
-            Buy and sell Bitcoin, send it anywhere in the world, and withdraw
+            Sell Bitcoin, send it anywhere in the world, and withdraw
             whenever you like.
           </p>
         </FadeIn>
