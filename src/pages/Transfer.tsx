@@ -51,19 +51,19 @@ const Transfer = () => {
   };
   
   return (
-    <div className="min-h-screen flex flex-col bg-secondary/10">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="max-w-xl mx-auto">
-          <h1 className="text-3xl font-bold mb-6">
+          <h1 className="text-[28px] leading-tight font-display font-semibold mb-6">
             {transferComplete ? "Transfer Complete" : "Transfer Money"}
           </h1>
           
           {!transferComplete ? (
             <>
-              <div className="mb-6 p-4 bg-muted rounded-lg">
-                <h3 className="font-medium mb-2">Available Balance</h3>
-                <p className="text-2xl font-bold text-primary">{formatCurrency(wallet?.balance || 0)}</p>
+              <div className="mb-6 p-4 bg-card border rounded-lg">
+                <p className="text-sm text-muted-foreground font-medium mb-1">Available balance</p>
+                <p className="text-2xl font-display font-semibold tabular-nums">{formatCurrency(wallet?.balance || 0)}</p>
               </div>
               
               <TransferForm
@@ -77,19 +77,19 @@ const Transfer = () => {
             <Card>
               <CardContent className="pt-6 pb-6">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle2 className="h-8 w-8 text-primary" />
+                  <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle2 className="h-8 w-8 text-success" />
                   </div>
                   
-                  <h2 className="text-2xl font-bold mb-2">Transfer Successful!</h2>
+                  <h2 className="text-xl font-display font-semibold mb-2">Transfer successful</h2>
                   <p className="text-muted-foreground mb-6">
                     Your transfer has been processed successfully.
                   </p>
                   
-                  <div className="bg-secondary/20 rounded-lg p-4 mb-6 text-left">
+                  <div className="bg-muted rounded-lg p-4 mb-6 text-left">
                     <div className="grid grid-cols-2 gap-y-3">
                       <span className="text-muted-foreground">Amount:</span>
-                      <span className="font-medium text-right">{formatCurrency(transferDetails?.amount || 0)}</span>
+                      <span className="font-medium text-right tabular-nums">{formatCurrency(transferDetails?.amount || 0)}</span>
                       
                       <span className="text-muted-foreground">Recipient:</span>
                       <span className="font-medium text-right">{formatPhoneForDisplay(transferDetails?.receiverPhone || "")}</span>
