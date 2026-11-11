@@ -192,7 +192,7 @@ const VirtualCardNew = () => {
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-3xl mx-auto w-full">
           <div className="mb-6">
-            <h1 className="text-[28px] leading-tight font-display font-semibold">Virtual cards</h1>
+            <h1 className="text-greeting">Virtual cards</h1>
           </div>
           <VirtualCardsComingSoon />
         </main>
@@ -205,7 +205,7 @@ const VirtualCardNew = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-3xl mx-auto w-full">
         <div className="mb-6">
-          <h1 className="text-[28px] leading-tight font-display font-semibold">Create virtual card</h1>
+          <h1 className="text-greeting">Create virtual card</h1>
           <p className="text-muted-foreground mt-2">
             A BMaGlass virtual card holds a separate balance inside your wallet so you can set money aside for a purpose.
             It is not issued by any card network or bank, and it can't be used for online purchases or subscriptions outside BMaGlass Pay.

@@ -286,7 +286,7 @@ const Settings = () => {
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Settings</h1>
+          <h1 className="text-greeting text-foreground">Settings</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage your account preferences</p>
         </div>
 

@@ -270,7 +270,7 @@ const API = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-8">
-          <h1 className="text-[28px] leading-tight font-display font-semibold mb-2">API Management</h1>
+          <h1 className="text-greeting mb-2">API Management</h1>
           <p className="text-muted-foreground">
             Manage your API keys and integration settings
           </p>

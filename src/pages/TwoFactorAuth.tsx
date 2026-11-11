@@ -228,7 +228,7 @@ const TwoFactorAuth = () => {
               <ShieldCheck className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Two-Factor Authentication</h1>
+              <h1 className="text-greeting">Two-Factor Authentication</h1>
               <p className="text-muted-foreground">
                 Add an extra layer of security to your account
               </p>

@@ -49,7 +49,7 @@ const CheckEmail = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4">
               <MailCheck className="h-7 w-7 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-display font-bold tracking-tight text-foreground">
+            <h1 className="text-greeting text-foreground">
               Check your email
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">

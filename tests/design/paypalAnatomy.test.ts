@@ -208,6 +208,31 @@ describe("wave 3: send / request, P2P, payment links", () => {
   });
 });
 
+describe("wave 4: cards, settings, business, developers, auth", () => {
+  it("page titles take the greeting token across the wave-4 surfaces", () => {
+    for (const page of [
+      "src/pages/Settings.tsx",
+      "src/pages/BusinessDashboard.tsx",
+      "src/pages/API.tsx",
+      "src/pages/VirtualCardNew.tsx",
+      "src/pages/Developers.tsx",
+      "src/pages/Login.tsx",
+      "src/pages/Register.tsx",
+      "src/pages/CheckEmail.tsx",
+      "src/pages/TwoFactorAuth.tsx",
+    ]) {
+      expect(read(page), page).toContain("text-greeting");
+    }
+  });
+
+  it("Business has no navy band left — the business name is the greeting", () => {
+    const biz = read("src/pages/Business.tsx");
+    expect(biz).not.toContain("bg-[#002991]");
+    expect(biz).toContain('className="text-greeting text-foreground"');
+    expect(biz).toContain("BMaGlass Pay for Business");
+  });
+});
+
 describe("wallet balance hero follows the same anatomy", () => {
   const wb = read("src/components/wallet/WalletBalance.tsx");
 

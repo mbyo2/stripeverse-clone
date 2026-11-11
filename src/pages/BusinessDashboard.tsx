@@ -62,7 +62,7 @@ const BusinessDashboard = () => {
         >
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Business dashboard</h1>
+              <h1 className="text-greeting text-foreground">Business dashboard</h1>
               {merchantAccount?.status && (
                 <Badge variant={merchantAccount.status === 'active' ? 'default' : 'secondary'} className="text-xs">
                   {merchantAccount.status}

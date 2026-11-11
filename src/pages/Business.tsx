@@ -40,11 +40,9 @@ const Business = () => {
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-2 pb-16">
-          <div className="bg-[#002991] py-8">
-            <div className="max-w-[1320px] mx-auto px-4 sm:px-6">
-              <Skeleton className="h-8 w-48 mb-2 bg-white/20" />
-              <Skeleton className="h-5 w-64 bg-white/10" />
-            </div>
+          <div className="max-w-[1320px] mx-auto px-4 sm:px-6 pt-8">
+            <Skeleton className="h-8 w-48 mb-2" />
+            <Skeleton className="h-5 w-64" />
           </div>
           <div className="max-w-[1320px] mx-auto px-4 sm:px-6 mt-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -77,44 +75,43 @@ const Business = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-14">
-        {/* Hero Banner */}
-        <div className="bg-[#002991]">
-          <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-1">
-                  <h1 className="text-2xl font-bold text-white">
-                    {merchantAccount?.business_name || 'Business Portal'}
-                  </h1>
-                  {merchantAccount?.status && (
-                    <Badge className={`text-xs ${merchantAccount.status === 'active' ? 'bg-white/20 text-white border-white/30' : 'bg-warning/80 text-white border-0'}`}>
-                      {merchantAccount.status === 'active' ? '● Active' : '○ Setup Required'}
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-white/70 text-sm">
-                  Manage payments, view analytics, and configure integrations
-                </p>
+        {/* Greeting header — the navy full-bleed band is gone
+            (PayPal anatomy rollout 2026-11-11: no colour bands);
+            the business name is the greeting, actions are the
+            standard pills. */}
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 pt-8 w-full">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-greeting text-foreground">
+                  {merchantAccount?.business_name || 'Business Portal'}
+                </h1>
+                {merchantAccount?.status && (
+                  <Badge className={`text-xs ${merchantAccount.status === 'active' ? 'bg-success/15 text-success border-success/30' : 'bg-warning text-warning-foreground border-0'}`}>
+                    {merchantAccount.status === 'active' ? '● Active' : '○ Setup Required'}
+                  </Badge>
+                )}
               </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
-                  onClick={() => navigate('/business-dashboard')}
-                >
-                  <BarChart3 className="h-4 w-4 mr-1.5" />
-                  Analytics
-                </Button>
-                <Button 
-                  size="sm" 
-                  className="bg-white text-primary hover:bg-white/90"
-                  onClick={() => setSettingsOpen(true)}
-                >
-                  <Settings className="h-4 w-4 mr-1.5" />
-                  Settings
-                </Button>
-              </div>
+              <p className="text-muted-foreground text-[13px]">
+                Manage payments, view analytics, and configure integrations
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/business-dashboard')}
+              >
+                <BarChart3 className="h-4 w-4 mr-1.5" />
+                Analytics
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings className="h-4 w-4 mr-1.5" />
+                Settings
+              </Button>
             </div>
           </div>
         </div>
@@ -570,16 +567,14 @@ const BusinessPublicView = ({ isSignedIn }: { isSignedIn: boolean }) => {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-14">
-        <div className="bg-[#002991]">
-          <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-10">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-              BMaGlass Pay for Business
-            </h1>
-            <p className="text-white/70 text-sm sm:text-base max-w-2xl">
-              Run your business payments on BMaGlass Pay: a merchant dashboard,
-              API keys, webhook management, and settlement tools.
-            </p>
-          </div>
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 pt-10 w-full">
+          <h1 className="text-greeting text-foreground mb-2">
+            BMaGlass Pay for Business
+          </h1>
+          <p className="text-muted-foreground text-sm sm:text-base max-w-2xl">
+            Run your business payments on BMaGlass Pay: a merchant dashboard,
+            API keys, webhook management, and settlement tools.
+          </p>
         </div>
 
         <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-8">

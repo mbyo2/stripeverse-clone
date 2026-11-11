@@ -40,7 +40,7 @@ export default function Developers() {
       <Header />
       <div className="bg-[#FEF3E2] dark:bg-background border-b border-[#CFD3D8]/70 dark:border-border">
         <div className="pt-10 pb-8 px-4 max-w-7xl mx-auto w-full">
-          <h1 className="text-3xl font-bold mb-2 flex items-center gap-2"><Code2 className="h-7 w-7" /> Developers</h1>
+          <h1 className="text-greeting mb-2 flex items-center gap-2"><Code2 className="h-7 w-7" /> Developers</h1>
           <p className="text-muted-foreground max-w-3xl">
             Build on BMaGlass Pay with the developer API: wallets, transfers, payment links and
             custodial Bitcoin, authenticated by API keys. This page documents only what is
