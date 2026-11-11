@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -537,7 +537,10 @@ const KycVerification = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Identity Verification</CardTitle>
+        {/* No CardTitle here: the /kyc page H1 ("Identity verification")
+            directly above this card already carries the heading —
+            repeating it as the card title duplicated it (rendered
+            defect, 2026-11-11). */}
         <CardDescription>
           Needed only for specific features — like higher P2P tiers and bigger transaction limits. We'll ask at the time, with the reason.
         </CardDescription>
@@ -550,12 +553,12 @@ const KycVerification = () => {
         />
         
         {kycStatus === KycStatus.PENDING && (
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+          <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-lg">
             <div className="flex items-center">
-              <Clock className="h-5 w-5 text-blue-500 mr-2" />
-              <h3 className="font-medium text-blue-700">Verification In Progress</h3>
+              <Clock className="h-5 w-5 text-primary mr-2" />
+              <h3 className="font-medium text-foreground">Verification In Progress</h3>
             </div>
-            <p className="text-sm text-blue-600 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Your verification is being reviewed. This typically takes 1-2 business days.
             </p>
           </div>
@@ -575,6 +578,14 @@ const KycVerification = () => {
         
         {/* Hide form if already fully verified */}
         {kycLevel !== KycLevel.FULL && kycStatus !== KycStatus.PENDING && (
+          // Panels stay forceMount-ed so no step switch can lose
+          // uploader/camera state — but forceMount also defeats
+          // Radix's hidden attribute (it hides only unmounted-absent
+          // panels), so without the data-[state=inactive]:hidden
+          // class on each TabsContent every step rendered stacked in
+          // one long page (rendered defect, 2026-11-11). The class
+          // hides inactive panels with CSS only: they stay mounted,
+          // state and submit flow are exactly as before.
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid grid-cols-3 mb-6">
               <TabsTrigger value="personal">Personal Info</TabsTrigger>
@@ -583,7 +594,7 @@ const KycVerification = () => {
             </TabsList>
             
             <form onSubmit={handleSubmit}>
-              <TabsContent value="personal" forceMount>
+              <TabsContent value="personal" forceMount className="data-[state=inactive]:hidden">
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -674,7 +685,7 @@ const KycVerification = () => {
                 </div>
               </TabsContent>
               
-              <TabsContent value="documents" forceMount>
+              <TabsContent value="documents" forceMount className="data-[state=inactive]:hidden">
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-lg font-medium mb-4">ID Document (Front)</h3>
@@ -777,7 +788,7 @@ const KycVerification = () => {
                 </div>
               </TabsContent>
               
-              <TabsContent value="address" forceMount>
+              <TabsContent value="address" forceMount className="data-[state=inactive]:hidden">
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="address">Physical Address</Label>
@@ -850,30 +861,30 @@ const KycVerification = () => {
         
         {kycLevel === KycLevel.FULL && (
           <div className="text-center py-6">
-            <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-4" />
-            <h3 className="text-lg font-medium text-green-800 mb-2">Verification Complete</h3>
+            <CheckCircle2 className="h-12 w-12 mx-auto text-success mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">Verification Complete</h3>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               Your account has been fully verified, so you're covered for the features
               that ask for verification — and you have the highest transaction limits
               available on our platform.
             </p>
-            <div className="mt-6 border border-green-100 rounded-lg p-4 max-w-md mx-auto">
-              <h4 className="font-medium text-green-800 mb-2">Your Benefits</h4>
+            <div className="mt-6 border border-success/25 bg-success/5 rounded-lg p-4 max-w-md mx-auto">
+              <h4 className="font-medium text-foreground mb-2">Your Benefits</h4>
               <ul className="text-sm text-left space-y-2">
                 <li className="flex items-center">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-success mr-2 flex-shrink-0" />
                   <span>Increased daily transaction limit of K25,000</span>
                 </li>
                 <li className="flex items-center">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-success mr-2 flex-shrink-0" />
                   <span>Access to international transfers</span>
                 </li>
                 <li className="flex items-center">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-success mr-2 flex-shrink-0" />
                   <span>Reduced transaction fees</span>
                 </li>
                 <li className="flex items-center">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-success mr-2 flex-shrink-0" />
                   <span>Priority customer support</span>
                 </li>
               </ul>

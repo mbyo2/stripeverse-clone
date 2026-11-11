@@ -1408,7 +1408,7 @@ export default function BitcoinWallet() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <KeyRound className="h-5 w-5" /> Your self-custody wallet
-                <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY</Badge>
+                <Badge variant="outline" className="border-amber-500 text-amber-600 whitespace-nowrap shrink-0">SELF-CUSTODY</Badge>
               </CardTitle>
               <CardDescription>
                 Prefer to hold your own keys? A self-custody wallet lives only on your device,

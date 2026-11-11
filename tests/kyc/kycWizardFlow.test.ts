@@ -15,6 +15,12 @@
 //     kept in localStorage so no transition can lose entered data
 //     (localStorage, not sessionStorage: mobile browsers discard
 //     background tabs, which destroys sessionStorage drafts).
+//     forceMount alone defeated Radix's own hidden attribute, so
+//     every panel also rendered visibly, stacked in one long page
+//     (rendered defect, 2026-11-11). Each panel therefore also
+//     carries data-[state=inactive]:hidden — CSS-only hiding: the
+//     panels stay mounted (this regression's whole point) while
+//     only the active step is visible.
 //  4. Mount hydration resolves asynchronously and used to overwrite
 //     fields the user had already typed; it is dirty-field-guarded.
 //  5. ID document types are restricted to NRC + Passport (CEO ruling).
@@ -61,9 +67,14 @@ describe("KycVerification — step transitions cannot lose data", () => {
   it("keeps every tab panel mounted across step switches", () => {
     const mounts = wizard.match(/forceMount/g) ?? [];
     expect(mounts.length).toBeGreaterThanOrEqual(3);
-    expect(wizard).toContain('<TabsContent value="personal" forceMount>');
-    expect(wizard).toContain('<TabsContent value="documents" forceMount>');
-    expect(wizard).toContain('<TabsContent value="address" forceMount>');
+    expect(wizard).toContain('<TabsContent value="personal" forceMount className="data-[state=inactive]:hidden">');
+    expect(wizard).toContain('<TabsContent value="documents" forceMount className="data-[state=inactive]:hidden">');
+    expect(wizard).toContain('<TabsContent value="address" forceMount className="data-[state=inactive]:hidden">');
+  });
+
+  it("hides inactive panels with CSS only — mounting is untouched", () => {
+    const hides = wizard.match(/className="data-\[state=inactive\]:hidden"/g) ?? [];
+    expect(hides.length).toBe(3);
   });
 
   it("persists an in-progress draft per user and clears it on submit", () => {
