@@ -1,11 +1,20 @@
 
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles, Feature, Role } from "@/contexts/RoleContext";
 import { roleHomePath } from "@/lib/roleVisibility";
 import { shellSkeletonVariant } from "@/lib/sessionHint";
 import { SkeletonHeaderBar } from "@/components/ui/skeletons";
 import { skeletonForRoute } from "@/lib/routeSkeleton";
+
+// The feature-restricted state below renders the real Header so the
+// page sits inside the standard interior shell. It is lazy for the
+// same reason the loading state above uses SkeletonHeaderBar: this
+// guard sits in the bootstrap path of every route, and a static
+// Header import would pull the whole header (search, notifications,
+// menus) into the entry chunk for a state most sessions never see.
+const Header = lazy(() => import("@/components/Header"));
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -70,22 +79,33 @@ const ProtectedRoute = ({ children, requiredFeature, requiredRoles }: ProtectedR
     }
   }
 
-  // Check if user has access to the required feature
+  // Check if user has access to the required feature. The restricted
+  // state renders inside the standard interior shell — the same
+  // wrapper every interior page uses (Header + the 1200px main) —
+  // not as a bare page: pages render their own Header from their lazy
+  // chunk, so a gate that blocks the page must supply the shell
+  // itself, or the user lands on a dead end with no navigation and
+  // no theme toggle (rendered defect, 2026-11-11, /analytics).
   if (requiredFeature && !hasAccess(requiredFeature)) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <h1 className="text-3xl font-bold mb-4">Access Restricted</h1>
-        <p className="text-muted-foreground mb-8 text-center max-w-md">
-          This feature isn't included on your account.
-        </p>
-        <div className="flex gap-4">
-          <a href="/pricing" className="inline-flex items-center bg-primary text-primary-foreground font-semibold px-6 py-2.5 rounded-full hover:bg-[#DE830A] transition-colors">
-            View Pricing
-          </a>
-          <a href="/dashboard" className="inline-flex items-center bg-secondary text-secondary-foreground font-semibold px-6 py-2.5 rounded-full hover:bg-accent transition-colors">
-            Back to Dashboard
-          </a>
-        </div>
+      <div className="min-h-screen flex flex-col bg-background">
+        <Suspense fallback={<SkeletonHeaderBar variant={shellSkeletonVariant({ user, isAuthReady, hasStoredSession })} />}>
+          <Header />
+        </Suspense>
+        <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 pt-6 pb-16 flex flex-col items-center justify-center text-center">
+          <h1 className="text-3xl font-bold mb-4">Access Restricted</h1>
+          <p className="text-muted-foreground mb-8 max-w-md">
+            This feature isn't included on your account.
+          </p>
+          <div className="flex gap-4">
+            <Link to="/pricing" className="inline-flex items-center bg-primary text-primary-foreground font-semibold px-6 py-2.5 rounded-full hover:bg-primary/90 transition-colors">
+              View Pricing
+            </Link>
+            <Link to="/dashboard" className="inline-flex items-center bg-secondary text-secondary-foreground font-semibold px-6 py-2.5 rounded-full hover:bg-accent transition-colors">
+              Back to Dashboard
+            </Link>
+          </div>
+        </main>
       </div>
     );
   }
