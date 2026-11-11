@@ -969,23 +969,23 @@ export const ListRegionSkeleton = ({ rows = 3 }: { rows?: number }) => (
 export const BitcoinWalletSkeleton = () => (
   <div role="status" aria-label="Loading Bitcoin wallet">
     <Skeleton className="h-8 w-48 mb-6" aria-hidden="true" />
-    <div className="rounded-xl border border-border bg-card mb-6" aria-hidden="true">
+    {/* Balance hero twin — mirrors the sky hero card (dark hairline
+        card in dark mode) */}
+    <div className="bg-[#60CDFF] dark:bg-card dark:border dark:border-border rounded-[24px] mb-6" aria-hidden="true">
       <div className="px-6 pt-6 pb-3">
         <div className="flex items-center gap-2">
-          <Skeleton className="h-6 w-24" />
-          <Skeleton className="h-5 w-36 rounded-full" />
+          <Skeleton className="h-6 w-24 bg-slate-950/20 dark:bg-primary-foreground/15" />
+          <Skeleton className="h-5 w-36 rounded-full bg-slate-950/15 dark:bg-primary-foreground/10" />
         </div>
-        <Skeleton className="h-4 w-[420px] max-w-full mt-2" />
-        <Skeleton className="h-4 w-72 max-w-full mt-1.5" />
+        <Skeleton className="h-4 w-[420px] max-w-full mt-2 bg-slate-950/15 dark:bg-primary-foreground/10" />
+        <Skeleton className="h-4 w-72 max-w-full mt-1.5 bg-slate-950/15 dark:bg-primary-foreground/10" />
       </div>
       <div className="px-6 pb-6">
-        <Skeleton className="h-11 w-48" />
-        <Skeleton className="h-4 w-56 max-w-full mt-2" />
+        <Skeleton className="h-11 w-48 bg-slate-950/20 dark:bg-primary-foreground/15" />
+        <Skeleton className="h-4 w-56 max-w-full mt-2 bg-slate-950/15 dark:bg-primary-foreground/10" />
         <div className="flex flex-wrap gap-3 mt-6">
-          <Skeleton className="h-11 w-32 rounded-md" />
-          <Skeleton className="h-11 w-32 rounded-md" />
-          <Skeleton className="h-11 w-28 rounded-md" />
-          <Skeleton className="h-11 w-28 rounded-md" />
+          <Skeleton className="h-11 w-32 rounded-full bg-slate-950/25 dark:bg-primary-foreground/20" />
+          <Skeleton className="h-11 w-32 rounded-full bg-white/50 dark:bg-primary-foreground/10" />
         </div>
       </div>
     </div>

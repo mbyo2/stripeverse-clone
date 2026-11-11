@@ -88,10 +88,10 @@ const QuickActions = () => {
               onClick={action.onClick}
               className="flex flex-col items-center text-center w-[76px] sm:w-24 group"
             >
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2 group-hover:bg-primary/15 transition-colors">
-                <Icon className="h-5 w-5 text-primary" />
+              <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center mb-2 group-hover:bg-secondary/70 transition-colors">
+                <Icon className="h-6 w-6 text-secondary-foreground" />
               </div>
-              <span className="text-sm font-medium text-foreground leading-tight">{action.label}</span>
+              <span className="text-xs font-medium text-foreground leading-tight">{action.label}</span>
               <span className="text-[11px] text-muted-foreground leading-tight mt-0.5">{action.description}</span>
             </button>
           );

@@ -1216,15 +1216,20 @@ export default function BitcoinWallet() {
       <Header />
       <main className="flex-1">
         <section className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-8 md:py-10">
-          <h1 className="text-[28px] leading-tight font-display font-semibold mb-6">Bitcoin Wallet</h1>
+          <h1 className="text-greeting mb-6">Bitcoin Wallet</h1>
 
-          <Card className="mb-6">
+          {/* Balance hero — the PayPal anatomy (CEO rollout
+              2026-11-11): the BTC balance is this surface's headline
+              number, carried on the sky hero card (dark hairline card
+              in dark mode). Deposit and Send below stay ALWAYS
+              visible, exactly as before — only their dress changes. */}
+          <Card className="mb-6 bg-[#60CDFF] dark:bg-card border-transparent dark:border-border text-slate-950 dark:text-card-foreground">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 Balance
-                <Badge variant="outline" className="border-primary/50 text-primary">Custodial account</Badge>
+                <Badge variant="outline" className="border-slate-950/40 text-slate-950 dark:border-primary/50 dark:text-primary">Custodial account</Badge>
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-slate-950/70 dark:text-muted-foreground">
                 BMaGlass holds the keys for this account — access is recovered by signing in,
                 and you can sell against your ZMW balance. Your self-custody wallet (below)
                 is separate: there, you hold the keys.
@@ -1234,13 +1239,13 @@ export default function BitcoinWallet() {
               <div>
                 {isLoading || authRecovering ? (
                   <>
-                    <Skeleton className="h-10 w-44" aria-label="Loading balance" />
-                    <Skeleton className="h-4 w-52 max-w-full mt-2" aria-hidden="true" />
+                    <Skeleton className="h-10 w-44 bg-slate-950/15 dark:bg-primary-foreground/10" aria-label="Loading balance" />
+                    <Skeleton className="h-4 w-52 max-w-full mt-2 bg-slate-950/15 dark:bg-primary-foreground/10" aria-hidden="true" />
                   </>
                 ) : (
                   <>
-                    <p className="text-[40px] md:text-[44px] leading-none font-display font-semibold tabular-nums">{btcBalance}</p>
-                    <p className="text-sm text-muted-foreground mt-2 tabular-nums">
+                    <p className="text-heronum tabular-nums">{btcBalance}</p>
+                    <p className="text-sm text-slate-950/70 dark:text-muted-foreground mt-2 tabular-nums">
                       Asset: BTC · {(wallet?.balance_sats ?? 0).toLocaleString()} sats
                       {wallet && wallet.available_sats !== wallet.balance_sats
                         ? ` · ${wallet.available_sats.toLocaleString()} available`
@@ -1261,7 +1266,7 @@ export default function BitcoinWallet() {
                 }}
               >
                 <DialogTrigger asChild>
-                  <Button size="lg">Deposit BTC</Button>
+                  <Button size="lg" className="bg-slate-950 text-white hover:bg-slate-950/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90">Deposit BTC</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
@@ -1303,7 +1308,7 @@ export default function BitcoinWallet() {
                 }}
               >
                 <DialogTrigger asChild>
-                  <Button size="lg" variant="outline">Send BTC</Button>
+                  <Button size="lg" variant="outline" className="bg-white/70 text-slate-950 border-transparent hover:bg-white hover:text-slate-950 dark:bg-transparent dark:text-primary dark:border-primary dark:hover:bg-primary/5 dark:hover:text-primary">Send BTC</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>

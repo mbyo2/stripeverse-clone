@@ -317,8 +317,8 @@ const Wallet = () => {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Wallet</h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h1 className="text-greeting text-foreground">Wallet</h1>
+            <p className="text-[13px] text-muted-foreground mt-1">
               Manage your money and cards
               {selectedAccountId && <> · Viewing <span className="font-medium text-foreground">{selectedAccountName}</span></>}
             </p>

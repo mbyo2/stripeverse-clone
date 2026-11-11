@@ -1354,7 +1354,7 @@ function SelfCustodyWallet() {
               <ArrowLeft className="h-4 w-4 mr-1" /> Custodial account
             </Link>
           </Button>
-          <h1 className="text-[28px] leading-tight font-display font-semibold">Bitcoin wallet</h1>
+          <h1 className="text-greeting">Bitcoin wallet</h1>
           <Badge variant="outline" className="border-warning/60 text-warning">Self-custody</Badge>
         </div>
 
@@ -1761,7 +1761,7 @@ function SelfCustodyWallet() {
               <CardContent>
                 {scan ? (
                   <div>
-                    <div className="text-3xl font-bold">{formatBtc(scan.balanceSats)} BTC</div>
+                    <div className="text-heronum tabular-nums">{formatBtc(scan.balanceSats)} BTC</div>
                     <div className="text-sm text-muted-foreground">{scan.balanceSats.toLocaleString()} sats confirmed</div>
                     {scanError && (
                       <p className="text-sm text-warning flex items-center gap-1 mt-2">
@@ -1771,7 +1771,7 @@ function SelfCustodyWallet() {
                   </div>
                 ) : lastKnown ? (
                   <div>
-                    <div className="text-3xl font-bold">{formatBtc(lastKnown.balanceSats)} BTC</div>
+                    <div className="text-heronum tabular-nums">{formatBtc(lastKnown.balanceSats)} BTC</div>
                     <div className="text-sm text-muted-foreground">
                       {lastKnown.balanceSats.toLocaleString()} sats — last known, {new Date(lastKnown.updatedAt).toLocaleString()}
                     </div>

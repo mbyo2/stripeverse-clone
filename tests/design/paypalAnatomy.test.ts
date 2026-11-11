@@ -128,6 +128,53 @@ describe("dashboard: greeting, bitcoin hero, pale-circle actions, hairline lists
   });
 });
 
+describe("wave 2: bitcoin wallets and history", () => {
+  const bw = read("src/pages/BitcoinWallet.tsx");
+
+  it("custodial wallet: greeting title, sky balance hero, hero number", () => {
+    expect(bw).toContain('className="text-greeting mb-6"');
+    expect(bw).toContain("bg-[#60CDFF] dark:bg-card");
+    expect(bw).toContain('<p className="text-heronum tabular-nums">{btcBalance}</p>');
+  });
+
+  it("Deposit and Send stay always visible — black pill + pale pill on the hero", () => {
+    expect(bw).toContain("Deposit BTC");
+    expect(bw).toContain("Send BTC");
+    expect(bw).toContain("bg-slate-950 text-white hover:bg-slate-950/90");
+    expect(bw).toContain("<DialogTitle>Send Bitcoin</DialogTitle>");
+    expect(bw).toContain("<DialogTitle>Deposit Bitcoin</DialogTitle>");
+    expect(bw).not.toContain("custodialSend");
+    expect(bw).not.toContain("custodialDeposit");
+  });
+
+  it("recent BTC activity stays a hairline list via the shared resolver", () => {
+    expect(bw).toContain('<ul className="divide-y divide-border">');
+    expect(bw).toContain("formatBtcRowAmount");
+  });
+
+  it("self-custody: greeting title and the ramp hero number (card stays hairline — caution-led surface)", () => {
+    const sc = read("src/pages/SelfCustodyWallet.tsx");
+    expect(sc).toContain('className="text-greeting"');
+    expect(sc).toContain("text-heronum tabular-nums");
+    expect(sc).not.toContain("bg-[#60CDFF]");
+  });
+
+  it("history pages take the greeting title; lists stay hairline", () => {
+    expect(read("src/pages/Transactions.tsx")).toContain("text-greeting");
+    expect(read("src/pages/TransactionList.tsx")).toContain("text-greeting");
+    expect(read("src/components/wallet/TransactionHistory.tsx")).toContain(
+      "divide-y divide-border",
+    );
+  });
+
+  it("wallet page quick actions are 56px pale circles with 12px labels", () => {
+    const qa = read("src/components/wallet/QuickActions.tsx");
+    expect(qa).toContain("w-14 h-14 rounded-full bg-secondary");
+    expect(qa).toContain("text-xs font-medium text-foreground");
+    expect(read("src/pages/Wallet.tsx")).toContain("text-greeting");
+  });
+});
+
 describe("wallet balance hero follows the same anatomy", () => {
   const wb = read("src/components/wallet/WalletBalance.tsx");
 

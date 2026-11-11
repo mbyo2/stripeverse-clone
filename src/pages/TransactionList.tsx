@@ -238,7 +238,7 @@ const TransactionList = () => {
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold">Transaction History</h1>
+            <h1 className="text-greeting">Transaction History</h1>
             <p className="text-sm text-muted-foreground mt-1">View and manage your transaction history</p>
           </div>
           <Button className="flex items-center gap-2" onClick={handleExport} disabled={filteredTransactions.length === 0}>

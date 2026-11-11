@@ -25,7 +25,7 @@ const Transactions = () => {
         {/* Page Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Transactions</h1>
+            <h1 className="text-greeting text-foreground">Transactions</h1>
             <p className="text-sm text-muted-foreground mt-1">
               View and manage your transaction history
               {selectedAccountId && <> · Viewing <span className="font-medium text-foreground">{selectedAccountName}</span></>}
