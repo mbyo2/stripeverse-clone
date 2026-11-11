@@ -49,6 +49,35 @@ function admin() {
   );
 }
 
+// Audit a connection lifecycle event (connect / rotate / disconnect).
+// The generic audit_trigger() is deliberately NOT attached to
+// merchant_momo_connections: it would copy the row — including the key
+// ciphertext and IV — into audit_logs. This writer records ONLY the
+// merchant id, the event, the environment, the last-4 key hint and the
+// connection id. Never key material, ciphertext or IV. Best-effort:
+// auditing must never break the connect/disconnect flow itself.
+// deno-lint-ignore no-explicit-any
+async function logMomoConnectionEvent(
+  db: any,
+  userId: string,
+  action: "momo_connection_connected" | "momo_connection_rotated" | "momo_connection_disconnected",
+  environment: MomoEnvironment,
+  connectionId: string | null,
+  keyHint: string | null,
+) {
+  try {
+    await db.from("audit_logs").insert({
+      user_id: userId,
+      action,
+      table_name: "merchant_momo_connections",
+      record_id: connectionId,
+      new_values: { environment, key_hint: keyHint },
+    });
+  } catch (e) {
+    console.error("momo connection audit failed:", e instanceof Error ? e.message : e);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const db = admin();
@@ -159,6 +188,9 @@ serve(async (req) => {
       if (!probe.ok) {
         return json({ success: false, error: "That API key wasn't accepted by the mobile money gateway. Check you pasted the full secret key for the right environment (sandbox keys only work in the sandbox)." }, 400);
       }
+      // A connect over an already-connected row is a key rotation —
+      // capture the prior state first so the audit event names it.
+      const prior = await loadConnectionSummary(db, userId, environment).catch(() => null);
       const envelope = await encryptSecret(secretKey, vaultKey);
       const accountId = typeof body.account_id === "string" && body.account_id.trim()
         ? body.account_id.trim()
@@ -179,11 +211,22 @@ serve(async (req) => {
         }, { onConflict: "user_id,environment" });
       if (upsertError) throw new Error(upsertError.message);
       const saved = await loadConnectionSummary(db, userId, environment);
+      await logMomoConnectionEvent(
+        db,
+        userId,
+        prior ? "momo_connection_rotated" : "momo_connection_connected",
+        environment,
+        saved?.id ?? null,
+        saved?.key_hint ?? secretHint(secretKey),
+      );
       return json({ success: true, connection: connectionSummary(saved), environment });
     }
 
     if (action === "disconnect") {
       const environment: MomoEnvironment = body.environment === "sandbox" ? "sandbox" : "production";
+      // Capture the live connection BEFORE the wipe so the audit row
+      // can name which connection (and key hint) was removed.
+      const prior = await loadConnectionSummary(db, userId, environment).catch(() => null);
       const { error } = await db
         .from("merchant_momo_connections")
         .update({
@@ -198,6 +241,16 @@ serve(async (req) => {
         .eq("user_id", userId)
         .eq("environment", environment);
       if (error) throw new Error(error.message);
+      if (prior) {
+        await logMomoConnectionEvent(
+          db,
+          userId,
+          "momo_connection_disconnected",
+          environment,
+          prior.id,
+          prior.key_hint,
+        );
+      }
       return json({ success: true, environment });
     }
 
