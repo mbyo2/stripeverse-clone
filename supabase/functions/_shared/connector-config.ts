@@ -152,6 +152,13 @@ export interface BusinessFacts {
   businessStatus: string;
   frozen: boolean;
   mobileMoneyToggleOn: boolean;
+  /** The merchant has connected their own mobile-money gateway
+   *  account (merchant_momo_connections). Additive to the gate
+   *  matrix: entitlement/enablement still come from country +
+   *  toggle; this tells a connector whether the merchant's own
+   *  account is actually linked, so it can prompt for the keys
+   *  instead of offering a method that would refuse. */
+  mobileMoneyConnected?: boolean;
 }
 
 /** The mobile-money gate matrix, in one place:
@@ -204,7 +211,10 @@ export function buildConnectorConfig(input: {
       transfers: (sandbox
         ? { status: "disabled", reason_code: "sandbox_simulation_only" }
         : { status: "enabled", reason_code: null }) as FeatureState,
-      mobile_money: mobileMoneyFeature(facts),
+      mobile_money: {
+        ...mobileMoneyFeature(facts),
+        connected: !!facts.mobileMoneyConnected,
+      },
     },
     // Settlement TYPE and currency only — never destinations, numbers
     // or balances.

@@ -152,6 +152,18 @@ verify_jwt = false
 [functions.momo-reconcile]
 verify_jwt = false
 
+[functions.momo-collections]
+verify_jwt = true
+
+[functions.momo-requery]
+verify_jwt = false
+
+[functions.momo-settings]
+verify_jwt = true
+
+[functions.momo-webhook]
+verify_jwt = false
+
 [functions.moonpay-admin]
 verify_jwt = true
 

@@ -18,12 +18,15 @@
 //   - Paying from a BMaGlass wallet balance requires the payer to be
 //     signed in; the RPC debits their Main wallet and credits the owner
 //     atomically, with ledger rows on both sides and idempotency.
-//   - Card / mobile money / bank for links have no live gateway behind
-//     them today, so they return a truthful 'not_configured' state
-//     (see _shared/payment-providers.ts). A guest does NOT need a
-//     BMaGlass account for those methods in principle — the day a real
-//     gateway is connected, its completion path credits the owner via
-//     the same RPC with p_payer_user_id NULL (credit-only leg).
+//   - Card / bank for links have no live gateway behind them today,
+//     so they return a truthful 'not_configured' state (see
+//     _shared/payment-providers.ts). MOBILE MONEY is live (2026-11-11)
+//     for merchants who connected their own gateway account: the
+//     momo_create / momo_status actions below run the collection on
+//     the MERCHANT's account and settle through the momo ledger RPCs
+//     (begin/settle_momo_collection) — crediting the owner's wallet
+//     in full, with the platform's 1% recorded as a separate charge.
+//     A guest does NOT need a BMaGlass account for mobile money.
 //
 // Actions:
 //   { action: "describe", link_code }
@@ -99,6 +102,22 @@ import {
   deriveAddress,
   receiveStatus,
 } from "../_shared/btc-core.ts";
+import {
+  MOMO_NOT_CONFIGURED_MESSAGE,
+  MOMO_NOT_ENABLED_MESSAGE,
+  detectOperator,
+  generateCollectionReference,
+  isValidZmPhone,
+  platformChargeFor,
+  type MomoOperator,
+} from "../_shared/momo-rail.ts";
+import {
+  loadConnection,
+  loadConnectionSummary,
+  refreshCollectionFromRail,
+  startCollection,
+} from "../_shared/momo-rail-server.ts";
+import { countryToIso } from "../_shared/connector-config.ts";
 import {
   lightningProviderConfigured,
   providerCreateInvoice,
@@ -223,6 +242,25 @@ serve(async (req) => {
           .maybeSingle();
         if (account?.name) settlementAccountName = account.name;
       }
+      // Mobile money availability for THIS link's owner: Zambian
+      // business + toggle on + a connected production gateway
+      // account. Computed server-side; the page simply renders the
+      // method when it's true (an unconnected method is never shown,
+      // let alone clicked through to a failure).
+      let mobileMoneyAvailable = false;
+      {
+        const { data: ownerMerchant } = await admin
+          .from("merchant_accounts")
+          .select("address, mobile_money_enabled")
+          .eq("user_id", link.user_id)
+          .maybeSingle();
+        // deno-lint-ignore no-explicit-any
+        const ownerCountry = countryToIso((ownerMerchant?.address as any)?.country);
+        if (ownerMerchant?.mobile_money_enabled && ownerCountry === "ZM") {
+          const conn = await loadConnectionSummary(admin, link.user_id, "production").catch(() => null);
+          mobileMoneyAvailable = !!conn;
+        }
+      }
       // The fee picture for the link's fixed price, computed with
       // the same rule the settlement charges (shared fee-math). The
       // computed amounts are null on any-amount links (no fixed
@@ -250,6 +288,7 @@ serve(async (req) => {
         // (watch-only); Lightning additionally needs its provider.
         bitcoin_available: receiveStatus(Deno.env.get("BTC_XPUB")).configured,
         lightning_available: lightningProviderConfigured(),
+        mobile_money_available: mobileMoneyAvailable,
         link: {
           id: link.id,
           title: link.title,
@@ -279,6 +318,15 @@ serve(async (req) => {
     }
     if (body.action === "btc_status") {
       return await btcStatus(admin, link, body);
+    }
+
+    // ── Pay with mobile money (guest or signed-in; the merchant's
+    // own connected gateway account takes the payment) ──
+    if (body.action === "momo_create") {
+      return await momoCreate(admin, link, body, req);
+    }
+    if (body.action === "momo_status") {
+      return await momoStatus(admin, link, body);
     }
 
     // ── pay ──
@@ -750,4 +798,149 @@ async function btcStatus(admin: Admin, link: Admin, body: Admin) {
   }
 
   return json({ success: true, attempt: attemptView(attempt) });
+}
+
+// ── Pay with mobile money ─────────────────────────────────────────────
+//
+// The collection runs on the LINK OWNER's own connected gateway
+// account (their keys, their account — the platform never routes the
+// money through a platform account). Settlement is driven by
+// _shared/momo-rail-server.ts: the momo ledger (migration 20261259)
+// credits the owner's wallet for the link's settlement account IN
+// FULL and records the platform's 1% as a separate merchant charge;
+// the link fee model (fee_payer etc.) belongs to the wallet/Bitcoin
+// rails and is not applied on top — the buyer pays exactly the link
+// amount, and payment_link.paid reports fee_amount as that recorded
+// 1% charge with total_charged = the link amount.
+
+async function momoCreate(admin: Admin, link: Admin, body: Admin, req: Request) {
+  if (link.expires_at && new Date(link.expires_at).getTime() <= Date.now()) {
+    return json({ success: false, status: "expired", error: "This payment link has expired." }, 410);
+  }
+  if (link.max_payments != null && Number(link.payment_count ?? 0) >= Number(link.max_payments)) {
+    return json({ success: false, status: "limit_reached", error: "This payment link has reached its payment limit." }, 410);
+  }
+  if (String(link.currency).toUpperCase() !== "ZMW") {
+    return json({
+      success: false, status: "not_configured",
+      error: "Mobile money payments are in Zambian Kwacha — this link is priced in another currency.",
+    }, 400);
+  }
+  // A signed-in owner can't pay their own link (same rule as wallet).
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace("Bearer ", "");
+  const { data: { user } } = await admin.auth.getUser(token).catch(() => ({ data: { user: null } }));
+  if (user && user.id === link.user_id) {
+    return json({ success: false, status: "invalid", error: "You cannot pay your own payment link." }, 400);
+  }
+
+  const amtCheck = validateFiatAmount(link.amount != null ? link.amount : body.amount);
+  if (!amtCheck.ok) {
+    return json({ success: false, status: "invalid", error: amtCheck.error }, 400);
+  }
+  const phone = typeof body.phone === "string" ? body.phone : "";
+  if (!isValidZmPhone(phone)) {
+    return json({ success: false, status: "invalid", error: "Enter a valid Zambian mobile money number, like 0977123456." }, 400);
+  }
+  const detected = detectOperator(phone);
+  const operator: MomoOperator | null =
+    body.operator === "mtn" || body.operator === "airtel" || body.operator === "zamtel" ? body.operator : detected;
+  if (!operator) {
+    return json({ success: false, status: "invalid", error: "That phone number doesn't look like an MTN, Airtel or Zamtel number." }, 400);
+  }
+
+  // Merchant gates — the same source of truth as everywhere else.
+  const { data: merchant } = await admin
+    .from("merchant_accounts")
+    .select("address, mobile_money_enabled")
+    .eq("user_id", link.user_id)
+    .maybeSingle();
+  if (!merchant || countryToIso((merchant.address as any)?.country) !== "ZM" || !merchant.mobile_money_enabled) {
+    return json({ success: false, status: "not_configured", error: MOMO_NOT_ENABLED_MESSAGE }, 400);
+  }
+  const conn = await loadConnection(admin, link.user_id, "production");
+  if (!conn) {
+    return json({ success: false, status: "not_configured", error: MOMO_NOT_CONFIGURED_MESSAGE }, 400);
+  }
+
+  const reference = generateCollectionReference();
+  const idempotencyKey = typeof body.idempotency_key === "string" && body.idempotency_key.length >= 8
+    ? `link:${link.id}:${body.idempotency_key}`
+    : `link:${link.id}:${reference}`;
+  const result = await startCollection(admin, conn, {
+    merchantUserId: link.user_id,
+    accountId: link.account_id ?? null,
+    amount: amtCheck.amount,
+    phone,
+    operator,
+    environment: "production",
+    source: "payment_link",
+    paymentLinkId: link.id,
+    idempotencyKey,
+    reference,
+  });
+  if (result.kind === "conflict") {
+    return json({ success: false, status: "conflict", error: result.message }, 409);
+  }
+  if (result.kind === "start_failed") {
+    return json({ success: false, status: "failed", reference: result.reference, error: result.message }, 400);
+  }
+  return json({
+    success: true,
+    status: result.status,
+    reference: result.reference,
+    transaction_id: result.transactionId,
+    message: result.message,
+  });
+}
+
+async function momoStatus(admin: Admin, link: Admin, body: Admin) {
+  const reference = typeof body.reference === "string" ? body.reference : "";
+  if (!reference) {
+    return json({ success: false, status: "invalid", error: "reference is required" }, 400);
+  }
+  const { data: row } = await admin
+    .from("momo_collections")
+    .select("id, payment_link_id, failure_reason")
+    .eq("reference", reference)
+    .maybeSingle();
+  if (!row || row.payment_link_id !== link.id) {
+    return json({ success: false, status: "not_found", error: "That payment wasn't found." }, 404);
+  }
+  const outcome = await refreshCollectionFromRail(admin, reference);
+  if (outcome.just_settled && outcome.transaction_id && outcome.amount != null) {
+    try {
+      const { data: settledLink } = await admin
+        .from("payment_links")
+        .select("id, link_code, title, user_id, payment_count, total_collected, metadata")
+        .eq("id", link.id)
+        .maybeSingle();
+      if (settledLink) {
+        await dispatchPaymentLinkPaid(admin, settledLink, {
+          ownerTransactionId: outcome.transaction_id,
+          amount: outcome.amount,
+          currency: "ZMW",
+          paymentMethod: "mobile_money",
+          feePayer: link.fee_payer === "buyer" ? "buyer" : "seller",
+          feeAmount: platformChargeFor(outcome.amount),
+          totalCharged: outcome.amount,
+          settledAt: new Date().toISOString(),
+        });
+      }
+    } catch (whErr) {
+      console.error("payment_link.paid dispatch failed (settlement unaffected):", whErr);
+    }
+  }
+  const { data: fresh } = await admin
+    .from("momo_collections")
+    .select("failure_reason")
+    .eq("reference", reference)
+    .maybeSingle();
+  return json({
+    success: true,
+    status: outcome.collection_status,
+    reference,
+    transaction_id: outcome.transaction_id,
+    failure_reason: outcome.collection_status === "failed" ? (fresh?.failure_reason ?? null) : null,
+  });
 }

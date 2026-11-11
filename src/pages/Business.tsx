@@ -14,13 +14,14 @@ import {
   Store, CreditCard, BarChart3, Settings, Shield, Wallet, FileText, 
   Webhook, TrendingUp, Activity, ArrowUpRight, ArrowRight, 
   CheckCircle, AlertCircle, Users, Zap, Globe, ExternalLink,
-  ChevronRight, Code2, ArrowDownLeft
+  ChevronRight, Code2, ArrowDownLeft, Smartphone
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { BusinessSettings } from "@/components/business/BusinessSettings";
 import { BusinessBankingInfo } from "@/components/business/BusinessBankingInfo";
 import BusinessCompliance from "@/components/business/BusinessCompliance";
 import { ApiKeyManager } from "@/components/business/ApiKeyManager";
+import { MobileMoneySettings } from "@/components/business/MobileMoneySettings";
 import { WebhookManager } from "@/components/business/WebhookManager";
 import { ApiDocs } from "@/components/business/ApiDocs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -504,6 +505,21 @@ const Business = () => {
                   </CardHeader>
                   <CardContent>
                     <ApiKeyManager />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-primary" />
+                      Mobile Money Connection
+                    </CardTitle>
+                    <CardDescription>
+                      Connect your own mobile money account so customers, plugins and payment links can take
+                      MTN, Airtel and Zamtel payments for your business
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <MobileMoneySettings />
                   </CardContent>
                 </Card>
                 <ApiDocs />

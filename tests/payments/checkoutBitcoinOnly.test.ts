@@ -10,6 +10,15 @@
 // still sets the expectation in words. Layers 1, 2, 4 and 5 are
 // unchanged from the 2026-10-26 contract.
 //
+// AMENDED 2026-11-11 (CEO order: fully implement the mobile-money
+// rail): mobile money IS now a connected rail — but the 2026-10-30
+// rule still governs its presentation: the tile renders ONLY when
+// the seller has connected their own mobile money account (the
+// checkout describe call reports it), never as an unconditional or
+// unavailable method. Card and bank remain unconnected and unlisted,
+// and the Bitcoin-only notice now shows only when mobile money is
+// not connected for the seller either.
+//
 // The defect this prevents: card / mobile money / bank are NOT
 // connected rails (no direct mobile-money connection yet, no PayPal Payouts yet) but
 // the pay page presented them as ordinary selectable methods whose
@@ -22,11 +31,11 @@
 //  1. The Bitcoin-only notice renders at the payment-method step.
 //  2. Bitcoin AND Lightning are first-class method-level tiles, and
 //     the Lightning tile drives the attempt component's rail.
-//  3. Card / mobile money / bank are not offered at all — no method
-//     tile is declared unavailable; the old "availability is
-//     confirmed when you click Pay" copy stays gone; the Pay button
-//     exists only for the wallet flow, so no fiat tile can ever be
-//     submitted.
+//  3. Card / bank are not offered at all, and mobile money only
+//     when the seller connected it — no method tile is declared
+//     unavailable; the old "availability is confirmed when you
+//     click Pay" copy stays gone; the Pay button exists only for
+//     the wallet flow, so no fiat tile can ever be submitted.
 //  4. The Lightning invoice is visible copyable TEXT (mirroring the
 //     on-chain address), not only a QR + copy button — desktop
 //     Lightning users paste invoices.
@@ -83,10 +92,18 @@ describe("PublicCheckout — Bitcoin and Lightning as first-class method tiles",
 });
 
 describe("PublicCheckout — unconnected fiat methods are not offered at all", () => {
-  it("card, mobile money and bank have no method tiles (2026-10-30 directive)", () => {
+  it("card and bank have no tiles; mobile money renders ONLY behind the seller-connected flag", () => {
     expect(pageSource).not.toContain("id: 'card' as const");
-    expect(pageSource).not.toContain("id: 'mobile_money' as const");
     expect(pageSource).not.toContain("id: 'bank' as const");
+    // The mobile-money tile exists solely inside the conditional
+    // spread driven by the describe response — an unconnected
+    // seller's checkout never lists it (2026-10-30 rule, applied to
+    // the now-connected rail per the 2026-11-11 amendment above).
+    expect(pageSource).toContain("...(mobileMoneyAvailable ? [{ id: 'mobile_money' as const");
+    expect(pageSource).toContain("setMobileMoneyAvailable(described.mobile_money_available === true)");
+    // The Bitcoin-only notice must not claim exclusivity when the
+    // seller takes mobile money.
+    expect(pageSource).toContain("{!payerId && !mobileMoneyAvailable && (");
   });
 
   it("no method is declared unavailable and no 'Not available yet' tile renders", () => {
@@ -102,7 +119,10 @@ describe("PublicCheckout — unconnected fiat methods are not offered at all", (
   });
 
   it("the fiat Pay button renders only for the wallet flow", () => {
-    expect(pageSource).toContain("{!bitcoinSelected && paymentMethod === 'wallet' && (");
+    // The guard also excludes the mobile-money selection: the wallet
+    // Pay button can never submit a mobile-money payment (the momo
+    // panel runs its own create/status flow).
+    expect(pageSource).toContain("{!bitcoinSelected && !momoSelected && paymentMethod === 'wallet' && (");
     expect(pageSource).toContain("Pay ${linkData?.currency} ${payTotal.toFixed(2)}");
   });
 });

@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Lock, CheckCircle, AlertCircle, Loader2, Receipt, Wallet, Bitcoin, Store, Zap } from 'lucide-react';
+import { CreditCard, Lock, CheckCircle, AlertCircle, Loader2, Receipt, Wallet, Bitcoin, Store, Zap, Smartphone } from 'lucide-react';
 import BitcoinLinkPayment from '@/components/payments/BitcoinLinkPayment';
+import MobileMoneyLinkPayment from '@/components/payments/MobileMoneyLinkPayment';
 import { useToast } from '@/hooks/use-toast';
 import { useInvalidateMoneyState } from '@/utils/moneyFreshness';
 import {
@@ -50,6 +51,12 @@ const PublicCheckout = () => {
   const [linkData, setLinkData] = useState<PaymentLinkData | null>(null);
   const [bitcoinAvailable, setBitcoinAvailable] = useState(false);
   const [bitcoinSelected, setBitcoinSelected] = useState(false);
+  const [mobileMoneyAvailable, setMobileMoneyAvailable] = useState(false);
+  const [momoSelected, setMomoSelected] = useState(false);
+  /** Mobile-money buyers pay exactly the link amount (the rail's
+   *  platform charge is billed to the seller separately), so the
+   *  success screen must not show the wallet rail's fee breakdown. */
+  const [momoPaid, setMomoPaid] = useState(false);
   /** Which Bitcoin rail the buyer picked at the method level —
    *  on-chain ("Bitcoin") or Lightning. The attempt component's tabs
    *  follow this choice. */
@@ -121,6 +128,7 @@ const PublicCheckout = () => {
       } else {
         setLinkData(described.link as PaymentLinkData);
         setBitcoinAvailable(described.bitcoin_available === true);
+        setMobileMoneyAvailable(described.mobile_money_available === true);
         if (described.settlement_account_name) {
           setSettlementAccountName(described.settlement_account_name as string);
         }
@@ -151,6 +159,7 @@ const PublicCheckout = () => {
     if (payerId) {
       setPaymentMethod('wallet');
       setBitcoinSelected(false);
+      setMomoSelected(false);
     }
   }, [payerId]);
 
@@ -268,7 +277,7 @@ const PublicCheckout = () => {
 
   if (success) {
     const paidPrice = linkData?.amount || Number(customAmount) || 0;
-    const paidBd = feeBreakdownFor(paidPrice);
+    const paidBd = momoPaid ? null : feeBreakdownFor(paidPrice);
     return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
@@ -309,7 +318,9 @@ const PublicCheckout = () => {
   }
 
   const amount = linkData?.amount || Number(customAmount) || 0;
-  const bd = feeBreakdownFor(amount);
+  // Mobile money charges the buyer exactly the link amount — the
+  // wallet rail's buyer-fee breakdown must never be quoted for it.
+  const bd = momoSelected ? null : feeBreakdownFor(amount);
   const payTotal = bd?.total ?? amount;
   // Method tiles (CEO order 2026-10-26): for now this checkout takes
   // Bitcoin only — the fiat connections (direct mobile-money
@@ -331,6 +342,10 @@ const PublicCheckout = () => {
       { id: 'lightning' as const, icon: Zap, label: 'Lightning', available: true },
     ] : []),
     ...(payerId ? [{ id: 'wallet' as const, icon: Wallet, label: 'BMaGlass Wallet', available: true }] : []),
+    // Mobile money appears only when the SELLER has connected their
+    // own mobile money account (describe says so) — an unconnected
+    // method is never listed, per the same rule as card/bank.
+    ...(mobileMoneyAvailable ? [{ id: 'mobile_money' as const, icon: Smartphone, label: 'Mobile Money', available: true }] : []),
   ];
 
   return (
@@ -429,7 +444,7 @@ const PublicCheckout = () => {
                 </div>
               ) : (
               <>
-              {!payerId && (
+              {!payerId && !mobileMoneyAvailable && (
                 <div className="flex gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
                   <Bitcoin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <p>
@@ -444,7 +459,8 @@ const PublicCheckout = () => {
                   const selected =
                     m.id === 'bitcoin' ? bitcoinSelected && bitcoinRail === 'onchain'
                     : m.id === 'lightning' ? bitcoinSelected && bitcoinRail === 'lightning'
-                    : !bitcoinSelected && paymentMethod === m.id;
+                    : m.id === 'mobile_money' ? momoSelected
+                    : !bitcoinSelected && !momoSelected && paymentMethod === m.id;
                   return (
                     <button
                       key={m.id}
@@ -453,11 +469,17 @@ const PublicCheckout = () => {
                         if (m.id === 'bitcoin') {
                           setBitcoinRail('onchain');
                           setBitcoinSelected(true);
+                          setMomoSelected(false);
                         } else if (m.id === 'lightning') {
                           setBitcoinRail('lightning');
                           setBitcoinSelected(true);
+                          setMomoSelected(false);
+                        } else if (m.id === 'mobile_money') {
+                          setBitcoinSelected(false);
+                          setMomoSelected(true);
                         } else {
                           setBitcoinSelected(false);
+                          setMomoSelected(false);
                           setPaymentMethod(m.id);
                         }
                       }}
@@ -484,7 +506,7 @@ const PublicCheckout = () => {
               )}
             </div>
 
-            {!bitcoinSelected && paymentMethod === 'wallet' && (
+            {!bitcoinSelected && !momoSelected && paymentMethod === 'wallet' && (
               <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
                 {bd
                   ? <>{linkData?.currency} {bd.total.toFixed(2)} will be taken from your BMaGlass wallet balance — {linkData?.currency} {bd.price.toFixed(2)} to the seller plus the {linkData?.currency} {bd.fee.toFixed(2)} platform fee.</>
@@ -497,11 +519,32 @@ const PublicCheckout = () => {
                 yet" label, so there is no selection state to explain
                 and no Pay button that could reach a failure. */}
 
-            {!bitcoinSelected && paymentMethod === 'wallet' && (
+            {!bitcoinSelected && !momoSelected && paymentMethod === 'wallet' && (
               <Button onClick={handlePay} disabled={processing} className="w-full h-12 text-base">
                 {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
                 {processing ? 'Processing...' : `Pay ${linkData?.currency} ${payTotal.toFixed(2)}`}
               </Button>
+            )}
+
+            {momoSelected && (
+              linkData.amount == null && !(Number(customAmount) > 0) ? (
+                <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                  Enter the amount above first — you'll approve exactly that amount on your phone.
+                </div>
+              ) : (
+                <MobileMoneyLinkPayment
+                  linkCode={code!}
+                  amount={linkData.amount == null ? Number(customAmount) : linkData.amount}
+                  currency={linkData.currency}
+                  email={email || undefined}
+                  onPaid={(txId) => {
+                    if (txId) setReceiptRef(`RCP-${txId.slice(0, 8).toUpperCase()}`);
+                    setMomoPaid(true);
+                    invalidateMoney();
+                    setSuccess(true);
+                  }}
+                />
+              )
             )}
 
             {bitcoinSelected && (

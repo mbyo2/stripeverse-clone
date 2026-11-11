@@ -176,11 +176,14 @@ function requireLive(key: ApiKeyRow): Response | null {
 // fetch, never trusted from the client.
 // deno-lint-ignore no-explicit-any
 async function businessFacts(db: any, userId: string): Promise<BusinessFacts> {
-  const [{ data: merchant }, { data: profile }] = await Promise.all([
+  const [{ data: merchant }, { data: profile }, { data: momoConnection }] = await Promise.all([
     db.from("merchant_accounts")
       .select("business_name, address, status, mobile_money_enabled")
       .eq("user_id", userId).maybeSingle(),
     db.from("profiles").select("first_name, last_name, is_frozen").eq("id", userId).maybeSingle(),
+    db.from("merchant_momo_connections")
+      .select("id").eq("user_id", userId).eq("status", "connected")
+      .limit(1).maybeSingle(),
   ]);
   const profileName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim();
   return {
@@ -191,6 +194,7 @@ async function businessFacts(db: any, userId: string): Promise<BusinessFacts> {
     businessStatus: merchant ? (merchant.status ?? "pending") : "not_set_up",
     frozen: !!profile?.is_frozen,
     mobileMoneyToggleOn: !!merchant?.mobile_money_enabled,
+    mobileMoneyConnected: !!momoConnection,
   };
 }
 

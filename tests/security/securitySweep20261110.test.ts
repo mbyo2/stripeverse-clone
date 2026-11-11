@@ -203,11 +203,18 @@ describe("config.toml matches the live verify_jwt map", () => {
     const cfg = read("supabase/config.toml");
     expect(cfg).not.toContain("[functions.mobile-money-sim]");
     const sections = [...cfg.matchAll(/\[functions\.([^\]]+)\]\nverify_jwt = (true|false)/g)];
-    expect(sections.length).toBe(74);
+    expect(sections.length).toBe(78);
     const map = new Map(sections.map((m) => [m[1], m[2]]));
     // Live is true for both (config previously said false).
     expect(map.get("fetch-exchange-rates")).toBe("true");
     expect(map.get("dispatch-webhook")).toBe("true");
+    // Mobile-money rail (2026-11-11): user-JWT functions true; the
+    // rail webhook and the cron poller are gateway-open and verify
+    // in code (HMAC signature / service-role bearer respectively).
+    expect(map.get("momo-settings")).toBe("true");
+    expect(map.get("momo-collections")).toBe("true");
+    expect(map.get("momo-webhook")).toBe("false");
+    expect(map.get("momo-requery")).toBe("false");
     // In-code-gated functions stay false at the gateway.
     expect(map.get("developer-api")).toBe("false");
     expect(map.get("transaction-webhook")).toBe("false");
