@@ -9,6 +9,7 @@ import { TrendingUp, CreditCard, DollarSign, ArrowUpRight, ArrowDownRight, Calen
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/utils/walletUtils";
+import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import {
   EMPTY_SUMMARY,
   analyticsWindows,
@@ -17,6 +18,19 @@ import {
   pctChange,
   type AnalyticsRpcClient,
 } from "@/utils/analyticsSummary";
+
+const volumeChartConfig = {
+  successful: { label: "Successful", color: "hsl(var(--chart-1))" },
+  failed: { label: "Failed", color: "hsl(var(--destructive))" },
+} satisfies ChartConfig;
+
+const revenueChartConfig = {
+  revenue: { label: "Revenue", color: "hsl(var(--chart-1))" },
+} satisfies ChartConfig;
+
+const dailyChartConfig = {
+  amount: { label: "Amount", color: "hsl(var(--chart-2))" },
+} satisfies ChartConfig;
 
 const Analytics = () => {
   const { user } = useAuth();
@@ -106,10 +120,10 @@ const Analytics = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">Analytics</h1>
             <p className="text-muted-foreground">Track your payment performance and business metrics</p>
           </div>
           <Select value={period} onValueChange={setPeriod}>
@@ -136,7 +150,7 @@ const Analytics = () => {
                 <s.icon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{isLoading ? '…' : s.value}</div>
+                <div className="text-2xl font-display font-semibold tabular-nums">{isLoading ? '…' : s.value}</div>
                 {renderDelta(s.change, s.title === 'Success Rate')}
                 <p className="text-xs text-muted-foreground mt-1">{s.note}</p>
               </CardContent>
@@ -163,16 +177,16 @@ const Analytics = () => {
                   {model.monthly.every(m => m.transactions === 0)
                     ? emptyChart('No transactions in the last 6 months yet — your volume chart will appear here once you start transacting.')
                     : (
-                      <ResponsiveContainer width="100%" height={300}>
+                      <ChartContainer config={volumeChartConfig} className="aspect-auto h-[300px] w-full">
                         <BarChart data={model.monthly}>
                           <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                           <XAxis dataKey="month" className="text-muted-foreground" />
                           <YAxis className="text-muted-foreground" />
                           <Tooltip />
-                          <Bar dataKey="successful" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Successful" />
+                          <Bar dataKey="successful" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} name="Successful" />
                           <Bar dataKey="failed" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} name="Failed" />
                         </BarChart>
-                      </ResponsiveContainer>
+                      </ChartContainer>
                     )}
                 </CardContent>
               </Card>
@@ -221,21 +235,21 @@ const Analytics = () => {
                   {model.monthly.every(m => m.revenue === 0)
                     ? emptyChart('No revenue recorded in the last 6 months yet.')
                     : (
-                      <ResponsiveContainer width="100%" height={300}>
+                      <ChartContainer config={revenueChartConfig} className="aspect-auto h-[300px] w-full">
                         <AreaChart data={model.monthly}>
                           <defs>
                             <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
-                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                              <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.2} />
+                              <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                           <XAxis dataKey="month" />
                           <YAxis />
                           <Tooltip />
-                          <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="url(#revGradient)" strokeWidth={2} />
+                          <Area type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" fill="url(#revGradient)" strokeWidth={2} />
                         </AreaChart>
-                      </ResponsiveContainer>
+                      </ChartContainer>
                     )}
                 </CardContent>
               </Card>
@@ -248,7 +262,7 @@ const Analytics = () => {
                   {model.dailyRevenue.every(d => d.amount === 0)
                     ? emptyChart('No revenue recorded this week yet.')
                     : (
-                      <ResponsiveContainer width="100%" height={300}>
+                      <ChartContainer config={dailyChartConfig} className="aspect-auto h-[300px] w-full">
                         <BarChart data={model.dailyRevenue}>
                           <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                           <XAxis dataKey="day" />
@@ -256,7 +270,7 @@ const Analytics = () => {
                           <Tooltip />
                           <Bar dataKey="amount" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
                         </BarChart>
-                      </ResponsiveContainer>
+                      </ChartContainer>
                     )}
                 </CardContent>
               </Card>
