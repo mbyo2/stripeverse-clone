@@ -1196,7 +1196,7 @@ export default function BitcoinWallet() {
   const authRecovering = isWalletError && isAuthFailure(walletError);
   if (isWalletError && !authRecovering) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1">
           <section className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-8 md:py-10">
@@ -1212,7 +1212,7 @@ export default function BitcoinWallet() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1">
         <section className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-8 md:py-10">
@@ -1222,7 +1222,7 @@ export default function BitcoinWallet() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 Balance
-                <Badge variant="outline" className="border-[#003087] text-[#003087] dark:text-[#A9BCDA] dark:border-[#A9BCDA]">CUSTODIAL ACCOUNT</Badge>
+                <Badge variant="outline" className="border-primary/50 text-primary">Custodial account</Badge>
               </CardTitle>
               <CardDescription>
                 BMaGlass holds the keys for this account — access is recovered by signing in,
@@ -1239,8 +1239,8 @@ export default function BitcoinWallet() {
                   </>
                 ) : (
                   <>
-                    <p className="text-[40px] md:text-[44px] leading-none font-display font-semibold">{btcBalance}</p>
-                    <p className="text-sm text-muted-foreground mt-2">
+                    <p className="text-[40px] md:text-[44px] leading-none font-display font-semibold tabular-nums">{btcBalance}</p>
+                    <p className="text-sm text-muted-foreground mt-2 tabular-nums">
                       Asset: BTC · {(wallet?.balance_sats ?? 0).toLocaleString()} sats
                       {wallet && wallet.available_sats !== wallet.balance_sats
                         ? ` · ${wallet.available_sats.toLocaleString()} available`
@@ -1364,7 +1364,8 @@ export default function BitcoinWallet() {
                   <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
                     <Bitcoin className="h-6 w-6 text-muted-foreground" />
                   </div>
-                  <p className="text-muted-foreground">No Bitcoin transactions yet.</p>
+                  <p className="font-medium">No Bitcoin transactions yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">When you deposit, send or sell Bitcoin, the activity will appear here.</p>
                 </div>
               ) : (
                 <ul className="divide-y divide-border">
