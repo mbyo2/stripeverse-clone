@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { Bell } from "lucide-react";
+import { ArrowLeftRight, Bell, Info, Megaphone, TriangleAlert } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Popover,
   PopoverContent,
@@ -142,15 +143,18 @@ const NotificationBell = () => {
   };
 
   const getNotificationIcon = (type: string) => {
+    // One neutral token disc for every type (dark-mode safe); the icon
+    // itself carries the meaning — no emoji, no pastel fills.
+    const disc = "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground";
     switch (type) {
       case "transaction":
-        return <div className="bg-blue-100 text-blue-600 p-2 rounded-full">💰</div>;
+        return <div className={disc}><ArrowLeftRight className="h-4 w-4" /></div>;
       case "alert":
-        return <div className="bg-red-100 text-red-600 p-2 rounded-full">⚠️</div>;
+        return <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive"><TriangleAlert className="h-4 w-4" /></div>;
       case "system":
-        return <div className="bg-green-100 text-green-600 p-2 rounded-full">🔔</div>;
+        return <div className={disc}><Info className="h-4 w-4" /></div>;
       default:
-        return <div className="bg-muted text-muted-foreground p-2 rounded-full">📣</div>;
+        return <div className={disc}><Megaphone className="h-4 w-4" /></div>;
     }
   };
   
@@ -182,12 +186,22 @@ const NotificationBell = () => {
         </div>
         <ScrollArea className="h-[300px] p-2">
           {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">Loading...</p>
+            <div className="space-y-1 p-1" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-start gap-3 p-3">
+                  <Skeleton className="h-9 w-9 rounded-full shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full p-4">
-              <p className="text-muted-foreground text-center">No notifications yet.</p>
+            <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+              <Bell className="h-8 w-8 text-muted-foreground mb-3" />
+              <p className="text-sm font-medium">No notifications yet.</p>
+              <p className="text-xs text-muted-foreground mt-1">Payments, security alerts and account updates will appear here.</p>
             </div>
           ) : (
             <div className="space-y-1">

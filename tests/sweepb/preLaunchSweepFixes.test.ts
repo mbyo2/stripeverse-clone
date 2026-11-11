@@ -21,9 +21,10 @@ describe("Dashboard truthfulness", () => {
 });
 
 describe("UserDashboard", () => {
-  it("no 'Upgrade' badge advertising a nonexistent upgrade path", () => {
-    const src = read("src/pages/UserDashboard.tsx");
-    expect(src).not.toContain("Upgrade");
+  it("the stale second dashboard is retired: /user-dashboard redirects to /dashboard", () => {
+    const routes = read("src/components/AnimatedRoutes.tsx");
+    expect(routes).toContain('<Route path="/user-dashboard" element={<Navigate to="/dashboard" replace />} />');
+    expect(routes).not.toContain("pages/UserDashboard");
   });
 });
 

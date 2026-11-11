@@ -22,7 +22,6 @@ const Login = lazy(() => import('@/pages/Login'));
 const Register = lazy(() => import('@/pages/Register'));
 const CheckEmail = lazy(() => import('@/pages/CheckEmail'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
-const UserDashboard = lazy(() => import('@/pages/UserDashboard'));
 const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
 const BetaTesterDashboard = lazy(() => import('@/pages/BetaTesterDashboard'));
 const BusinessDashboard = lazy(() => import('@/pages/BusinessDashboard'));
@@ -254,7 +253,11 @@ const AnimatedRoutes = () => {
         
         {/* Protected routes */}
         <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
-        <Route path="/user-dashboard" element={<ProtectedPage><UserDashboard /></ProtectedPage>} />
+        {/* One home only: the stale, data-free /user-dashboard page was
+            retired in the 2026-11-11 interior rebuild; the route stays
+            as a redirect so existing links and bookmarks land on the
+            real dashboard. */}
+        <Route path="/user-dashboard" element={<Navigate to="/dashboard" replace />} />
         <Route path="/admin-dashboard" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminDashboard /></RoleGuardedPage>} />
         <Route path="/beta-dashboard" element={<RoleGuardedPage roles={['beta_tester','admin','super_admin']}><BetaTesterDashboard /></RoleGuardedPage>} />
 
