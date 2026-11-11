@@ -21,6 +21,7 @@ interface CurrencyContextType {
   currencyConfig: CurrencyConfig;
   setCurrency: (currency: SupportedCurrency) => void;
   formatAmount: (amount: number, overrideCurrency?: SupportedCurrency) => string;
+  formatInCurrency: (amount: number, currencyCode: string) => string;
   supportedCurrencies: CurrencyConfig[];
 }
 
@@ -110,7 +111,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const formatAmount = useCallback((amount: number, overrideCurrency?: SupportedCurrency): string => {
     const currToUse = overrideCurrency || currency;
     const config = SUPPORTED_CURRENCIES.find(c => c.code === currToUse) || currencyConfig;
-    
+
     return new Intl.NumberFormat(config.locale, {
       style: 'currency',
       currency: currToUse,
@@ -118,6 +119,27 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       maximumFractionDigits: 2,
     }).format(amount);
   }, [currency, currencyConfig]);
+
+  // CURRENCY INTEGRITY CONTRACT (CEO order 2026-11-11: "currencies
+  // don't mix" + "currency switcher should work flawless"):
+  //  - formatAmount denominates a figure in the DISPLAY preference.
+  //    It NEVER converts — it only labels. It must therefore never be
+  //    used for a real balance, ledger row, quote or bill: labelling a
+  //    ZMW amount with a $ sign (or vice versa) is exactly the mixing
+  //    the CEO reported.
+  //  - Real money is denominated in its OWN currency, always, via
+  //    formatInCurrency(amount, row.currency / wallet.currency /
+  //    card.currency). The rendered figure is then identical whatever
+  //    the display preference is — switching A→B→A cannot create,
+  //    destroy or relabel a single ngwee or cent.
+  //  - The switcher itself is display-only: setCurrency writes ONLY
+  //    the localStorage preference below. It never touches a stored
+  //    balance, a ledger row, or the currency of an in-flight quote
+  //    or checkout (those are denominated server-side in the wallet /
+  //    link currency).
+  const formatInCurrency = useCallback((amount: number, currencyCode: string): string => {
+    return formatMoneyInCurrency(amount, currencyCode);
+  }, []);
 
   // Sync with localStorage changes from other tabs
   useEffect(() => {
@@ -141,6 +163,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         currencyConfig,
         setCurrency,
         formatAmount,
+        formatInCurrency,
         supportedCurrencies: SUPPORTED_CURRENCIES,
       }}
     >
@@ -172,6 +195,31 @@ export function toSupportedCurrency(
     ? (code as SupportedCurrency)
     : undefined;
 }
+
+/**
+ * Format an amount in its OWN currency — the only correct way to
+ * render a real balance or ledger figure. Pure and preference-free:
+ * the same (amount, currency) pair renders identically no matter what
+ * the display-currency switcher is set to, so a switch round-trip
+ * (ZMW→USD→ZMW) returns the original figure untouched.
+ */
+export const formatMoneyInCurrency = (
+  amount: number,
+  currencyCode: string,
+): string => {
+  const code = (currencyCode || DEFAULT_CURRENCY).toUpperCase();
+  const config = SUPPORTED_CURRENCIES.find(c => c.code === code);
+  try {
+    return new Intl.NumberFormat(config?.locale || 'en-US', {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${code} ${amount.toFixed(2)}`;
+  }
+};
 
 // Standalone format function for use outside of React components
 export const formatCurrencyStandalone = (

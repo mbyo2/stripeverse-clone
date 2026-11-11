@@ -18,7 +18,7 @@ interface TransactionItemProps {
 
 // Memoized transaction item to prevent unnecessary re-renders
 const TransactionItem = React.memo(({ transaction, style }: TransactionItemProps) => {
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
   return (
     <div 
       className="flex items-center justify-between py-4 border-b last:border-0" 
@@ -67,7 +67,7 @@ const TransactionItem = React.memo(({ transaction, style }: TransactionItemProps
         {transaction.direction === 'outgoing' ? "-" : "+"}
         {btcRowSats(transaction) !== null
           ? formatSatsAmount(btcRowSats(transaction)!)
-          : formatAmount(transaction.amount)}
+          : formatInCurrency(transaction.amount, transaction.currency)}
       </div>
     </div>
   );

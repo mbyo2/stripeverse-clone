@@ -28,7 +28,7 @@ const COLORS = ['#0066F5', '#002991', '#F7931A', '#198653', '#5C6B7F', '#529AFF'
 const SpendingInsights = () => {
   const { user } = useAuth();
   const { goals, budgets, goalsLoading, createGoal, addToGoal } = useBudgetGoals();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
   const [showGoalDialog, setShowGoalDialog] = useState(false);
   const [goalName, setGoalName] = useState('');
   const [goalTarget, setGoalTarget] = useState('');
@@ -126,7 +126,7 @@ const SpendingInsights = () => {
                 <div className="p-2 rounded-lg bg-primary/10"><Wallet className="h-5 w-5 text-primary" /></div>
                 <div>
                   <p className="text-xs text-muted-foreground">This Month</p>
-                  <p className="text-xl font-bold">{formatAmount(stats?.monthly_amount || 0)}</p>
+                  <p className="text-xl font-bold">{formatInCurrency(stats?.monthly_amount || 0, 'ZMW')}</p>
                 </div>
               </div>
             </CardContent>
@@ -159,7 +159,7 @@ const SpendingInsights = () => {
                 <div className="p-2 rounded-lg bg-amber-500/10"><PiggyBank className="h-5 w-5 text-amber-500" /></div>
                 <div>
                   <p className="text-xs text-muted-foreground">Total Saved</p>
-                  <p className="text-xl font-bold">{formatAmount(goals.reduce((sum, g) => sum + g.current_amount, 0))}</p>
+                  <p className="text-xl font-bold">{formatInCurrency(goals.reduce((sum, g) => sum + g.current_amount, 0), 'ZMW')}</p>
                 </div>
               </div>
             </CardContent>
@@ -198,7 +198,7 @@ const SpendingInsights = () => {
                             <Cell key={idx} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(val: number) => formatAmount(val)} />
+                        <Tooltip formatter={(val: number) => formatInCurrency(val, 'ZMW')} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -219,7 +219,7 @@ const SpendingInsights = () => {
                       <div key={idx}>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="font-medium">{cat.category}</span>
-                          <span>{formatAmount(cat.amount)}</span>
+                          <span>{formatInCurrency(cat.amount, 'ZMW')}</span>
                         </div>
                         <Progress
                           value={totalSpending > 0 ? (cat.amount / totalSpending) * 100 : 0}
@@ -246,7 +246,7 @@ const SpendingInsights = () => {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis />
-                      <Tooltip formatter={(val: number) => formatAmount(val)} />
+                      <Tooltip formatter={(val: number) => formatInCurrency(val, 'ZMW')} />
                       <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -341,8 +341,8 @@ const SpendingInsights = () => {
                       <CardContent>
                         <div className="mb-3">
                           <div className="flex justify-between text-sm mb-1">
-                            <span>{formatAmount(goal.current_amount)}</span>
-                            <span className="text-muted-foreground">{formatAmount(goal.target_amount)}</span>
+                            <span>{formatInCurrency(goal.current_amount, 'ZMW')}</span>
+                            <span className="text-muted-foreground">{formatInCurrency(goal.target_amount, 'ZMW')}</span>
                           </div>
                           <Progress value={Math.min(progress, 100)} className="h-3" />
                         </div>

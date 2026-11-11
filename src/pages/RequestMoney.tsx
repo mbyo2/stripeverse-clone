@@ -16,7 +16,7 @@ import { format } from 'date-fns';
 
 const RequestMoney = () => {
   const { requests, isLoading, createRequest } = usePaymentRequests();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
   const { toast } = useToast();
   const [recipientEmail, setRecipientEmail] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
@@ -138,7 +138,7 @@ const RequestMoney = () => {
                               <div key={request.id} className="flex items-center justify-between py-4">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-1">
-                                    <span className="font-semibold tabular-nums text-lg">{formatAmount(request.amount)}</span>
+                                    <span className="font-semibold tabular-nums text-lg">{formatInCurrency(request.amount, request.currency)}</span>
                                     {getStatusBadge(request.status)}
                                   </div>
                                   <p className="text-sm text-muted-foreground">

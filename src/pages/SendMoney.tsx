@@ -41,7 +41,7 @@ const SendMoney = () => {
   const { providerVisible, adminTier } = useFeatureVisibility();
   const { wallet } = useWallet();
   const invalidateMoney = useInvalidateMoneyState();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
   const navigate = useNavigate();
 
   // Send fee: 2.5% of the amount at launch (CEO decision, 2026-10-22),
@@ -70,7 +70,7 @@ const SendMoney = () => {
         return;
       }
       if (wallet && total > wallet.balance) {
-        toast({ title: "Insufficient funds", description: `Your wallet balance is ${formatAmount(wallet.balance)}. You need ${formatAmount(total)}.`, variant: "destructive" });
+        toast({ title: "Insufficient funds", description: `Your wallet balance is ${formatInCurrency(wallet.balance, wallet.currency || 'ZMW')}. You need ${formatInCurrency(total, wallet?.currency || 'ZMW')}.`, variant: "destructive" });
         return;
       }
       setStep(3);
@@ -199,7 +199,7 @@ const SendMoney = () => {
 
       toast({
         title: "Money sent successfully",
-        description: `You've sent ${formatAmount(parsedAmount)} to ${resolvedRecipientName}`,
+        description: `You've sent ${formatInCurrency(parsedAmount, wallet?.currency || 'ZMW')} to ${resolvedRecipientName}`,
       });
     } catch (error: any) {
       console.error("Send money error:", error);
@@ -293,7 +293,7 @@ const SendMoney = () => {
                     </p>
                     {wallet && (
                       <p className="text-sm text-muted-foreground">
-                        Available balance: {formatAmount(wallet.balance)}
+                        Available balance: {formatInCurrency(wallet.balance, wallet.currency || 'ZMW')}
                       </p>
                     )}
                   </div>
@@ -310,7 +310,7 @@ const SendMoney = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="wallet">
-                          BMaGlass Wallet ({formatAmount(wallet?.balance || 0)})
+                          BMaGlass Wallet ({formatInCurrency(wallet?.balance || 0, wallet?.currency || 'ZMW')})
                         </SelectItem>
                         {/* Mobile-money rails follow the feature
                             registry (CEO directive 2026-10-30): an
@@ -337,15 +337,15 @@ const SendMoney = () => {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Amount</span>
-                      <span>{formatAmount(parseFloat(amount || "0"))}</span>
+                      <span>{formatInCurrency(parseFloat(amount || "0"), wallet?.currency || 'ZMW')}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Send fee ({feeRate}%)</span>
-                      <span>{formatAmount(fee)}</span>
+                      <span>{formatInCurrency(fee, wallet?.currency || 'ZMW')}</span>
                     </div>
                     <div className="border-t pt-2 flex justify-between font-bold">
                       <span>Total</span>
-                      <span>{formatAmount(total)}</span>
+                      <span>{formatInCurrency(total, wallet?.currency || 'ZMW')}</span>
                     </div>
                   </div>
                 </div>
@@ -358,7 +358,7 @@ const SendMoney = () => {
                   </div>
                   <h3 className="text-xl font-display font-semibold mb-2">Transaction Complete!</h3>
                   <p className="mb-2">
-                    You've sent <strong>{formatAmount(parseFloat(amount))}</strong> to{" "}
+                    You've sent <strong>{formatInCurrency(parseFloat(amount), wallet?.currency || 'ZMW')}</strong> to{" "}
                     <strong>{recipientName || recipient}</strong>
                   </p>
                   <p className="text-sm text-muted-foreground">

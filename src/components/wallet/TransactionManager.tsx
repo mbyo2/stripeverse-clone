@@ -47,7 +47,7 @@ const TransactionManager = ({
   showExport = true,
   className = ""
 }: TransactionManagerProps) => {
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<TransactionFilter>({});
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -386,7 +386,7 @@ const TransactionManager = ({
                       transaction.direction === 'outgoing' ? "text-primary" : "text-success"
                     }`}>
                       {transaction.direction === 'outgoing' ? "-" : "+"}
-                      {formatAmount(transaction.amount)}
+                      {formatInCurrency(transaction.amount, transaction.currency)}
                     </div>
                     {transaction.status === 'completed' && (
                       <CreateDisputeDialog

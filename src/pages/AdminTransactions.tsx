@@ -25,7 +25,7 @@ interface TransactionRow {
 }
 
 const AdminTransactions = () => {
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -153,7 +153,7 @@ const AdminTransactions = () => {
                       }
                     >
                       {t.direction === "outgoing" ? "-" : "+"}
-                      {formatAmount(t.amount)}
+                      {formatInCurrency(t.amount, t.currency)}
                     </div>
                     <Badge variant={statusColor(t.status) as any}>
                       {t.status}
@@ -194,7 +194,7 @@ const AdminTransactions = () => {
                     </TableCell>
                     <TableCell className={t.direction === "outgoing" ? "text-destructive" : "text-primary"}>
                       {t.direction === "outgoing" ? "-" : "+"}
-                      {formatAmount(t.amount)}
+                      {formatInCurrency(t.amount, t.currency)}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{t.payment_method}</Badge>

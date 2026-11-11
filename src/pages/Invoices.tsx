@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 
 const Invoices = () => {
   const { invoices, isLoading, createInvoice, updateStatus } = useMerchantInvoices();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
   const { toast } = useToast();
   const [showCreate, setShowCreate] = useState(false);
   const [customerEmail, setCustomerEmail] = useState('');
@@ -37,6 +37,20 @@ const Invoices = () => {
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
 
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+
+  // Invoice totals, grouped per invoice currency — never one number
+  // that adds different currencies together (currency integrity,
+  // 2026-11-11). The create form above composes ZMW invoices
+  // (merchant_invoices.currency defaults to 'ZMW').
+  const totalsText = (list: typeof invoices) => {
+    const byCurrency = new Map<string, number>();
+    for (const i of list) {
+      const c = i.currency || 'ZMW';
+      byCurrency.set(c, (byCurrency.get(c) || 0) + Number(i.total_amount));
+    }
+    if (byCurrency.size === 0) return formatInCurrency(0, 'ZMW');
+    return [...byCurrency.entries()].map(([c, v]) => formatInCurrency(v, c)).join(' · ');
+  };
 
   const handleCreate = async () => {
     if (!customerEmail || items.some((i) => !i.description || i.unit_price <= 0)) {
@@ -124,7 +138,7 @@ const Invoices = () => {
                         <div className="col-span-3">
                           <Input type="number" placeholder="Price" min={0} value={item.unit_price || ''} onChange={(e) => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)} />
                         </div>
-                        <div className="col-span-1 text-right font-medium text-sm pt-2">{formatAmount(item.total)}</div>
+                        <div className="col-span-1 text-right font-medium text-sm pt-2">{formatInCurrency(item.total, 'ZMW')}</div>
                         <div className="col-span-1">
                           {items.length > 1 && (
                             <Button size="icon" variant="ghost" onClick={() => removeItem(idx)}>
@@ -141,7 +155,7 @@ const Invoices = () => {
                 </div>
 
                 <div className="border-t pt-3 text-right">
-                  <p className="text-lg font-bold">Total: {formatAmount(subtotal)}</p>
+                  <p className="text-lg font-bold">Total: {formatInCurrency(subtotal, 'ZMW')}</p>
                 </div>
 
                 <div className="space-y-2">
@@ -164,7 +178,7 @@ const Invoices = () => {
           <Card>
             <CardContent className="p-6 md:p-8">
               <p className="text-sm font-medium text-muted-foreground">Total Invoiced</p>
-              <p className="text-4xl md:text-[44px] leading-tight font-display font-semibold mt-2">{formatAmount(invoices.reduce((s, i) => s + i.total_amount, 0))}</p>
+              <p className="text-4xl md:text-[44px] leading-tight font-display font-semibold mt-2">{totalsText(invoices)}</p>
               <p className="text-sm text-muted-foreground mt-1">Across all your invoices</p>
             </CardContent>
           </Card>
@@ -174,13 +188,13 @@ const Invoices = () => {
                 <div className="flex items-center justify-between py-4">
                   <p className="text-[15px] font-medium">Paid</p>
                   <p className="text-lg font-semibold tabular-nums text-green-600">
-                    {formatAmount(invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total_amount, 0))}
+                    {totalsText(invoices.filter((i) => i.status === 'paid'))}
                   </p>
                 </div>
                 <div className="flex items-center justify-between py-4">
                   <p className="text-[15px] font-medium">Outstanding</p>
                   <p className="text-lg font-semibold tabular-nums text-amber-600">
-                    {formatAmount(invoices.filter((i) => ['sent', 'draft'].includes(i.status)).reduce((s, i) => s + i.total_amount, 0))}
+                    {totalsText(invoices.filter((i) => ['sent', 'draft'].includes(i.status)))}
                   </p>
                 </div>
                 <div className="flex items-center justify-between py-4">
@@ -232,7 +246,7 @@ const Invoices = () => {
                                 {getStatusBadge(inv.status)}
                               </div>
                               <p className="text-sm">
-                                {inv.customer_name || inv.customer_email} · <span className="font-semibold tabular-nums">{formatAmount(inv.total_amount)}</span>
+                                {inv.customer_name || inv.customer_email} · <span className="font-semibold tabular-nums">{formatInCurrency(inv.total_amount, inv.currency || 'ZMW')}</span>
                               </p>
                               <p className="text-xs text-muted-foreground mt-1">
                                 Created {format(new Date(inv.created_at), 'MMM d, yyyy')}

@@ -13,7 +13,21 @@ import { Label } from '@/components/ui/label';
 
 const BuyNowPayLater = () => {
   const { plans, activePlans, totalOwed, isLoading, autoDebitByPlan, payInstallment, enableAutoDebit, disableAutoDebit } = useBnpl();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
+
+  // Total owed, grouped per plan currency — never one number that
+  // adds different currencies together (currency integrity, 2026-11-11).
+  const owedByCurrencyText = (() => {
+    const byCurrency = new Map<string, number>();
+    for (const p of activePlans) {
+      const c = p.currency || 'ZMW';
+      const remaining = (p.installments_total - p.installments_paid) * p.installment_amount;
+      byCurrency.set(c, (byCurrency.get(c) || 0) + remaining);
+    }
+    if (byCurrency.size === 0) return formatInCurrency(0, 'ZMW');
+    return [...byCurrency.entries()].map(([c, v]) => formatInCurrency(v, c)).join(' · ');
+  })();
+  void totalOwed;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -71,7 +85,7 @@ const BuyNowPayLater = () => {
               <div className="p-2 rounded-lg bg-amber-500/10"><CalendarClock className="h-5 w-5 text-amber-500" /></div>
               <div>
                 <p className="text-xs text-muted-foreground">Total Owed</p>
-                <p className="text-xl font-bold">{formatAmount(totalOwed)}</p>
+                <p className="text-xl font-bold">{owedByCurrencyText}</p>
               </div>
             </CardContent>
           </Card>
@@ -121,9 +135,9 @@ const BuyNowPayLater = () => {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold">{formatAmount(plan.total_amount)}</p>
+                        <p className="text-lg font-bold">{formatInCurrency(plan.total_amount, plan.currency || 'ZMW')}</p>
                         <p className="text-xs text-muted-foreground">
-                          {formatAmount(plan.installment_amount)} × {plan.installments_total}
+                          {formatInCurrency(plan.installment_amount, plan.currency || 'ZMW')} × {plan.installments_total}
                         </p>
                       </div>
                     </div>
@@ -131,7 +145,7 @@ const BuyNowPayLater = () => {
                     <div className="mb-3">
                       <div className="flex justify-between text-sm mb-1">
                         <span>{plan.installments_paid} of {plan.installments_total} paid</span>
-                        <span className="text-muted-foreground">{formatAmount(remaining)} remaining</span>
+                        <span className="text-muted-foreground">{formatInCurrency(remaining, plan.currency || 'ZMW')} remaining</span>
                       </div>
                       <Progress value={progress} className="h-2" />
                     </div>
@@ -149,7 +163,7 @@ const BuyNowPayLater = () => {
 
                     {plan.next_payment_date && plan.status === 'active' && (
                       <p className="text-sm mt-3 text-muted-foreground">
-                        Next payment: {formatAmount(plan.installment_amount)} on {format(new Date(plan.next_payment_date), 'MMM d, yyyy')}
+                        Next payment: {formatInCurrency(plan.installment_amount, plan.currency || 'ZMW')} on {format(new Date(plan.next_payment_date), 'MMM d, yyyy')}
                       </p>
                     )}
 
@@ -165,7 +179,7 @@ const BuyNowPayLater = () => {
                           ) : (
                             <CreditCard className="h-4 w-4 mr-2" />
                           )}
-                          Pay {formatAmount(plan.installment_amount)} now
+                          Pay {formatInCurrency(plan.installment_amount, plan.currency || 'ZMW')} now
                         </Button>
                         <div className="flex items-center gap-2">
                           {autoDebitByPlan[plan.id] ? (

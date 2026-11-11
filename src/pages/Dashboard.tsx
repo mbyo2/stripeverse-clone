@@ -62,7 +62,7 @@ const Dashboard = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { dashboardStats, monthlyData, spendingData, recentTransactions, rewards, isLoading, isError, isAuthRecovering, retryWithRecovery } = useDashboardData();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
   const { showOnboarding, kycLevel, walletBalance, hasProfile, dismiss } = useOnboarding();
   const { accounts } = useAccount();
   const { wallet: btcWallet, isLoading: btcLoading } = useBitcoinWallet();
@@ -136,7 +136,7 @@ const Dashboard = () => {
           <div className="mt-6 mb-6">
             <h1 className="text-greeting text-foreground">Welcome back, {firstName}</h1>
             <p className="text-[13px] text-muted-foreground mt-1">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} · {formatAmount(dashboardStats?.totalBalance || 0)} available in your everyday money
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} · {formatInCurrency(dashboardStats?.totalBalance || 0, 'ZMW')} available in your everyday money
             </p>
           </div>
 
@@ -238,7 +238,7 @@ const Dashboard = () => {
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Available balance</p>
                   <p className="text-[28px] font-display font-bold text-foreground mt-1 tabular-nums">
-                    {formatAmount(dashboardStats?.totalBalance || 0)}
+                    {formatInCurrency(dashboardStats?.totalBalance || 0, 'ZMW')}
                   </p>
                 </div>
                 <div className="flex gap-4">
@@ -342,7 +342,7 @@ const Dashboard = () => {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
                       <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
+                      <Tooltip formatter={(value) => [formatInCurrency(Number(value), 'ZMW'), 'Amount']} />
                       <Area
                         type="monotone"
                         dataKey="amount"
@@ -373,7 +373,7 @@ const Dashboard = () => {
                       <p className="text-sm font-medium text-foreground">Monthly Activity</p>
                       <p className="text-xs text-muted-foreground">{dashboardStats?.monthlyTransactions || 0} transactions</p>
                     </div>
-                    <span className="text-[15px] font-bold text-foreground tabular-nums shrink-0">{formatAmount(dashboardStats?.monthlyAmount || 0)}</span>
+                    <span className="text-[15px] font-bold text-foreground tabular-nums shrink-0">{formatInCurrency(dashboardStats?.monthlyAmount || 0, 'ZMW')}</span>
                   </div>
                   <div className="flex items-center gap-3 min-h-16 py-3">
                     <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
@@ -421,7 +421,7 @@ const Dashboard = () => {
                         {group.account?.status === 'frozen' && <Badge variant="secondary" className="shrink-0">Frozen</Badge>}
                         {group.account?.status === 'closed' && <Badge variant="outline" className="shrink-0">Closed</Badge>}
                       </div>
-                      <span className="text-sm font-semibold tabular-nums shrink-0">{formatAmount(group.totalZMW)}</span>
+                      <span className="text-sm font-semibold tabular-nums shrink-0">{formatInCurrency(group.totalZMW, 'ZMW')}</span>
                     </div>
                   ))}
                 </div>
@@ -447,7 +447,7 @@ const Dashboard = () => {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                       <YAxis dataKey="category" type="category" tick={{ fontSize: 11 }} width={80} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
+                      <Tooltip formatter={(value) => [formatInCurrency(Number(value), 'ZMW'), 'Amount']} />
                       <Bar dataKey="amount" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
                     </RechartsBarChart>
                   </ResponsiveContainer>

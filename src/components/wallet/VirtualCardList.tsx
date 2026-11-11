@@ -21,7 +21,7 @@ interface VirtualCardListProps {
 
 const VirtualCardList = ({ virtualCards, onCreateCard }: VirtualCardListProps) => {
   const navigate = useNavigate();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
 
   const handleFundCard = (cardId: number) => {
     // VirtualCardFund reads the card id from the route param
@@ -72,7 +72,7 @@ const VirtualCardList = ({ virtualCards, onCreateCard }: VirtualCardListProps) =
             </div>
             <div className="mb-4">
               <div className="text-sm font-medium text-muted-foreground">Balance</div>
-              <div className="text-xl font-bold">{formatAmount(card.balance)}</div>
+              <div className="text-xl font-bold">{formatInCurrency(card.balance, card.currency)}</div>
             </div>
             <div className="flex justify-between text-sm mb-4">
               <div>

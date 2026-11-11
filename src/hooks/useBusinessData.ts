@@ -68,17 +68,30 @@ export const useBusinessData = () => {
     enabled: !!user?.id,
   });
 
-  // Compute metrics from real transactions
+  // Compute metrics from real transactions.
+  // CURRENCY INTEGRITY (2026-11-11): revenue is grouped PER CURRENCY —
+  // a single "revenue" number that adds ZMW and USD amounts together
+  // is meaningless and was exactly the mixing the CEO reported (the
+  // platform owner's card read 9.71 = K9.58 + $0.13). Consumers render
+  // revenueByCurrency entries side by side, each in its own currency.
   const metrics = (() => {
-    if (!businessTransactions) return { revenue: 0, txCount: 0, successRate: 0 };
+    if (!businessTransactions) return { revenue: 0, revenueByCurrency: {} as Record<string, number>, txCount: 0, successRate: 0 };
     const completed = businessTransactions.filter(t => t.status === 'completed');
     const incoming = completed.filter(t => t.direction === 'incoming');
-    const revenue = incoming.reduce((sum, t) => sum + Number(t.amount), 0);
+    const revenueByCurrency: Record<string, number> = {};
+    for (const t of incoming) {
+      const c = t.currency || 'ZMW';
+      revenueByCurrency[c] = (revenueByCurrency[c] || 0) + Number(t.amount);
+    }
+    // Kept for compatibility: the ZMW figure only, never a cross-
+    // currency sum.
+    const revenue = revenueByCurrency['ZMW'] || 0;
     const successRate = businessTransactions.length > 0
       ? (completed.length / businessTransactions.length) * 100
       : 0;
     return {
       revenue,
+      revenueByCurrency,
       txCount: businessTransactions.length,
       successRate: Math.round(successRate * 10) / 10,
     };
@@ -88,7 +101,10 @@ export const useBusinessData = () => {
     if (!businessTransactions) return [];
     const byMonth: Record<string, { amount: number; count: number }> = {};
     businessTransactions.forEach(t => {
-      if (t.status !== 'completed' || t.direction !== 'incoming') return;
+      // The chart is denominated in ZMW (the platform's home currency,
+      // matching the analytics RPC) — other currencies are never
+      // folded into its amounts.
+      if (t.status !== 'completed' || t.direction !== 'incoming' || (t.currency || 'ZMW') !== 'ZMW') return;
       const month = new Date(t.created_at || '').toLocaleString('default', { month: 'short' });
       if (!byMonth[month]) byMonth[month] = { amount: 0, count: 0 };
       byMonth[month].amount += Number(t.amount);

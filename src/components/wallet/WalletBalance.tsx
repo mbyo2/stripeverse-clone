@@ -20,7 +20,7 @@ interface WalletBalanceProps {
 const WalletBalance = ({ onSendMoney, accountId }: WalletBalanceProps) => {
   const { wallet, isLoading } = useWallet(accountId);
   const { user } = useAuth();
-  const { formatAmount } = useCurrency();
+  const { formatInCurrency } = useCurrency();
   const { toast } = useToast();
   const [showReceive, setShowReceive] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -72,7 +72,7 @@ const WalletBalance = ({ onSendMoney, accountId }: WalletBalanceProps) => {
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-heronum tabular-nums">
-                  {showBalance ? formatAmount(wallet?.balance || 0) : "••••••"}
+                  {showBalance ? formatInCurrency(wallet?.balance || 0, wallet?.currency || 'ZMW') : "••••••"}
                 </span>
                 <button
                   onClick={() => setShowBalance(!showBalance)}

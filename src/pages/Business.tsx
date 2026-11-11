@@ -31,7 +31,7 @@ const Business = () => {
   const { user } = useAuth();
   const { hasRole, isLoading: rolesLoading } = useRoles();
   const { merchantAccount, metrics, monthlyChart, paymentMethodBreakdown, businessTransactions, isLoading } = useBusinessData();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const navigate = useNavigate();
@@ -123,7 +123,7 @@ const Business = () => {
             {[
               {
                 label: 'Total Revenue',
-                value: formatAmount(metrics?.revenue || 0),
+                value: Object.entries(metrics?.revenueByCurrency || {}).map(([c, v]) => formatInCurrency(v, c)).join(' · ') || formatInCurrency(0, 'ZMW'),
                 sub: 'From completed transactions',
                 icon: TrendingUp,
                 iconColor: 'text-success',
@@ -359,7 +359,7 @@ const Business = () => {
                               </div>
                               <div className="text-right">
                                 <p className={`text-sm font-semibold ${tx.direction === 'incoming' ? 'text-success' : 'text-foreground'}`}>
-                                  {tx.direction === 'incoming' ? '+' : '-'}{formatAmount(tx.amount)}
+                                  {tx.direction === 'incoming' ? '+' : '-'}{formatInCurrency(tx.amount, tx.currency)}
                                 </p>
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal">
                                   {tx.status}

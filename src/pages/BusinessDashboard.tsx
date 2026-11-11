@@ -12,7 +12,7 @@ import { BusinessDashboardSkeleton } from "@/components/ui/skeletons";
 
 const BusinessDashboard = () => {
   const { metrics, monthlyChart, paymentMethodBreakdown, merchantAccount, usageData, isLoading } = useBusinessData();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, formatInCurrency } = useCurrency();
   const navigate = useNavigate();
 
   if (isLoading) {
@@ -29,7 +29,7 @@ const BusinessDashboard = () => {
   const statCards = [
     {
       title: "Total Revenue",
-      value: formatAmount(metrics.revenue),
+      value: Object.entries(metrics.revenueByCurrency || {}).map(([c, v]) => formatInCurrency(v, c)).join(' · ') || formatInCurrency(0, 'ZMW'),
       icon: DollarSign,
       description: "Completed incoming",
     },
