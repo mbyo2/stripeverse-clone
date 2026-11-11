@@ -82,8 +82,12 @@ describe("virtual card natural URLs", () => {
     // The element now carries the feature gate (CEO directive
     // 2026-10-30: virtual cards are admin-tier only) — the PATH is
     // what this pin protects: still /card/new, never renamed.
+    // Pin moved 2026-11-11 (rendered-pass fix): the gate now also
+    // passes hiddenFallback={<VirtualCardNew />} so a regular user
+    // turned away lands on the page's coming-soon panel instead of
+    // a silent dashboard redirect — same path, same gate, same page.
     expect(routes).toContain(
-      '<Route path="/card/new" element={<ProtectedPage><FeatureRouteGate feature="virtualCards"><VirtualCardNew /></FeatureRouteGate></ProtectedPage>} />'
+      '<Route path="/card/new" element={<ProtectedPage><FeatureRouteGate feature="virtualCards" hiddenFallback={<VirtualCardNew />}><VirtualCardNew /></FeatureRouteGate></ProtectedPage>} />'
     );
   });
 

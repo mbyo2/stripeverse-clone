@@ -286,7 +286,13 @@ const AnimatedRoutes = () => {
         <Route path="/transaction-search" element={<ProtectedPage><TransactionSearch /></ProtectedPage>} />
         <Route path="/billing" element={<ProtectedPage><Billing /></ProtectedPage>} />
         <Route path="/analytics" element={<ProtectedRoute requiredFeature="analytics"><PageTransition><Analytics /></PageTransition></ProtectedRoute>} />
-        <Route path="/card/new" element={<ProtectedPage><FeatureRouteGate feature="virtualCards"><VirtualCardNew /></FeatureRouteGate></ProtectedPage>} />
+        {/* Virtual cards are "Coming soon" + admin-only: a regular
+            user turned away by the gate lands on the page itself,
+            whose own role check renders the coming-soon panel —
+            never a hanging skeleton or a silent dashboard bounce
+            (rendered-pass fix, 2026-11-11). Admins pass the gate
+            and reach the same page's creation form. */}
+        <Route path="/card/new" element={<ProtectedPage><FeatureRouteGate feature="virtualCards" hiddenFallback={<VirtualCardNew />}><VirtualCardNew /></FeatureRouteGate></ProtectedPage>} />
         {/* Natural card URLs (what people type and what older links
             may still carry) — the canonical create page is /card/new. */}
         <Route path="/cards" element={<Navigate to="/card/new" replace />} />

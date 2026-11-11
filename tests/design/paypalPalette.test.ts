@@ -113,6 +113,43 @@ describe("no gradients inside the product", () => {
     expect(hits.length).toBe(2);
     expect(css).not.toMatch(/bg-gradient-/);
   });
+
+  it("tailwind.config defines no gradient backgroundImage utilities", () => {
+    // The src walk above cannot see the config — and the config is
+    // exactly where the rendered pass found the surviving gradient:
+    // a "hero-pattern" linear-gradient aimed at hero bands (plus
+    // gradient-radial / shimmer-gradient), unused by components but
+    // one class away from painting a band. All removed 2026-11-11;
+    // the config must stay gradient-free.
+    const config = read("tailwind.config.ts")
+      .replace(/\/\/.*$/gm, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(config).not.toMatch(/gradient/i);
+    expect(config).not.toContain("hero-pattern");
+    expect(config).not.toContain("backgroundImage");
+  });
+
+  it("balance bands and their skeleton twins are flat navy — no gradient or pattern background", () => {
+    const dash = read("src/pages/Dashboard.tsx");
+    const walletBalance = read("src/components/wallet/WalletBalance.tsx");
+    const skeletons = read("src/components/ui/skeletons.tsx");
+    for (const [name, src] of [
+      ["Dashboard", dash],
+      ["WalletBalance", walletBalance],
+      ["skeletons", skeletons],
+    ] as const) {
+      expect(src, name).not.toContain("hero-pattern");
+      expect(src, name).not.toMatch(/bg-gradient-/);
+      expect(src, name).not.toMatch(/(?:linear|radial|conic)-gradient\(/);
+    }
+    // The twins mirror the loaded bands exactly: same flat class.
+    expect(skeletons).toContain(
+      'className="bg-[#002991] rounded-lg px-6 py-6 md:px-8 mb-6"',
+    );
+    expect(walletBalance).toContain(
+      'className="bg-[#002991] p-6 md:p-8" role="status" aria-label="Loading balance"',
+    );
+  });
 });
 
 describe("bitcoin orange is never a solid action/active surface", () => {

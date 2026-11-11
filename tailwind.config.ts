@@ -137,11 +137,14 @@ export default {
         strong: "0 8px 24px rgba(0, 0, 0, 0.12)",
         glass: "0 4px 16px rgba(0, 0, 0, 0.06)",
       },
-      backgroundImage: {
-        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "shimmer-gradient": "linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0) 100%)",
-        "hero-pattern": "linear-gradient(135deg, hsl(223 100% 28% / 0.05), hsl(215 100% 48% / 0.08))",
-      },
+      // No backgroundImage utilities: no gradients anywhere in the
+      // product (CEO rule, pinned in tests/design/paypalPalette).
+      // The hero-pattern / gradient-radial / shimmer-gradient
+      // entries that lived here were gradient definitions aimed at
+      // hero bands — removed 2026-11-11 after the rendered pass
+      // caught a gradient sheen on the dashboard balance band.
+      // The one allowed sweep, the skeleton shimmer, is plain CSS
+      // in index.css, not a surface background.
     },
   },
   plugins: [require("tailwindcss-animate")],

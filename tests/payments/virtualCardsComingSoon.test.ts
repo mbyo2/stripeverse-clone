@@ -23,6 +23,8 @@ const comingSoon = read("../../src/components/VirtualCardsComingSoon.tsx");
 const createFn = read("../../supabase/functions/create-virtual-card/index.ts");
 const fundFn = read("../../supabase/functions/fund-virtual-card/index.ts");
 const contact = read("../../src/pages/Contact.tsx");
+const routes = read("../../src/components/AnimatedRoutes.tsx");
+const routeGate = read("../../src/components/FeatureRouteGate.tsx");
 
 describe("virtual card pages are gated to admins", () => {
   it.each([
@@ -43,6 +45,36 @@ describe("virtual card pages are gated to admins", () => {
     // check applies to the JSX only).
     const jsx = comingSoon.slice(comingSoon.indexOf("const VirtualCardsComingSoon"));
     expect(jsx).not.toMatch(/\b(19|20)\d{2}-\d{2}-\d{2}\b/);
+  });
+});
+
+describe("/cards resolves honestly for regular users (rendered-pass fix, 2026-11-11)", () => {
+  it("/card/new's gate passes the page itself as the hidden fallback", () => {
+    // /cards and /virtual-cards both redirect to /card/new. The
+    // gate used to turn regular users away with a silent redirect
+    // to /dashboard — after holding them on the route skeleton
+    // until roles AND the platform-flags fetch settled — so the
+    // coming-soon panel the page renders for non-admins was
+    // unreachable and the route read as a dead end. The fallback
+    // lands them on that panel instead.
+    expect(routes).toContain(
+      '<FeatureRouteGate feature="virtualCards" hiddenFallback={<VirtualCardNew />}>',
+    );
+  });
+
+  it("the gate renders hiddenFallback on a resolved denial instead of redirecting", () => {
+    expect(routeGate).toContain("hiddenFallback?: ReactNode");
+    expect(routeGate).toContain("if (hiddenFallback !== undefined)");
+    expect(routeGate).toContain("return <>{hiddenFallback}</>;");
+  });
+
+  it("flag-less features settle on roles alone — the flags fetch cannot hold the skeleton up", () => {
+    // virtualCards has no platform flag; its visibility decision
+    // never reads the flags, so the gate must not wait on them.
+    expect(routeGate).toContain("const flagDriven = !!FEATURE_REGISTRY[feature].flag;");
+    expect(routeGate).toContain(
+      "const decisionSettled = flagDriven ? !visibility.isLoading : !rolesLoading;",
+    );
   });
 });
 
