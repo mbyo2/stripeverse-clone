@@ -643,7 +643,7 @@ export function buildP2pReceiptHtml(data: P2pReceiptData): string {
 <style>
   body { font-family: -apple-system, "Segoe UI", sans-serif; max-width: 640px; margin: 40px auto; padding: 24px; color: #111; }
   .header { text-align: center; margin-bottom: 8px; }
-  .logo { font-size: 22px; font-weight: 700; color: #0070ba; }
+  .logo { font-size: 22px; font-weight: 700; color: #0066F5; }
   .accent { height: 3px; background: #f7931a; border-radius: 2px; margin: 12px 0 20px; }
   .subtitle { text-align: center; color: #555; font-size: 14px; margin: 0 0 16px; }
   .row { display: flex; justify-content: space-between; gap: 24px; padding: 8px 0; border-bottom: 1px solid #eee; }

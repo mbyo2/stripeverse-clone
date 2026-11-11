@@ -182,7 +182,11 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2.5 shrink-0">
-                <Button asChild variant="bitcoin">
+                {/* Primary action in the one-blue system (CEO, 2026-11-11):
+                    the default PayPal-blue button, not a solid-orange
+                    action surface. Orange stays on the ₿ medallion and
+                    the sats figures. */}
+                <Button asChild>
                   <Link to="/bitcoin-wallet">Open wallet</Link>
                 </Button>
                 <Button asChild variant="outline">

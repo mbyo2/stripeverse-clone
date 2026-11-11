@@ -45,7 +45,7 @@ const TransactionReceipt = ({ transaction, trigger }: TransactionReceiptProps) =
       <style>
         body { font-family: -apple-system, sans-serif; max-width: 400px; margin: 40px auto; padding: 20px; }
         .header { text-align: center; margin-bottom: 24px; }
-        .logo { font-size: 20px; font-weight: bold; color: #0070ba; }
+        .logo { font-size: 20px; font-weight: bold; color: #0066F5; }
         .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
         .label { color: #666; font-size: 14px; }
         .value { font-weight: 500; font-size: 14px; }

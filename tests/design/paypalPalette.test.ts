@@ -17,7 +17,14 @@
 //   - Navy #002991 (HSL 223 100% 28%, --paypal-dark) is the family's
 //     dark shade, used for emphasis surfaces only — the dashboard and
 //     wallet balance bands are navy, never the action blue.
-//   - Bitcoin orange stays ONLY in --bitcoin.
+//   - Bitcoin orange stays ONLY in --bitcoin — and even there it is
+//     never a solid action/active surface: the header wallet pill and
+//     the mobile drawer row take the primary-blue treatment when
+//     active; orange survives as the ₿ icon, Bitcoin amounts and the
+//     pale bg-bitcoin/15 tint. (Rendered-pass fix, 2026-11-11.)
+//   - Legacy blues are gone: #0070ba (old PayPal blue in print/export
+//     styles) and #3D9EFF (old chart light-blue) appear nowhere in
+//     src; the aligned values are #0066F5 and #529AFF.
 //   - No Tailwind default-blue classes (bg-blue-500, text-blue-600…)
 //     in components — that royal blue is a different family.
 //   - No gradients in the product: the only linear-gradient allowed
@@ -105,5 +112,53 @@ describe("no gradients inside the product", () => {
     const hits = css.match(/linear-gradient\(/g) ?? [];
     expect(hits.length).toBe(2);
     expect(css).not.toMatch(/bg-gradient-/);
+  });
+});
+
+describe("bitcoin orange is never a solid action/active surface", () => {
+  const header = read("src/components/Header.tsx");
+
+  it("desktop Bitcoin Wallet pill: primary blue when active; orange ₿ + pale tint when not", () => {
+    expect(header).toContain(
+      '"bg-primary font-semibold text-primary-foreground hover:bg-primary/90"',
+    );
+    expect(header).not.toContain("bg-bitcoin font-semibold");
+    expect(header).not.toContain("hover:bg-bitcoin/90");
+    // prominence survives the recolour: pill keeps its pale tint state
+    expect(header).toContain(
+      "bg-bitcoin/15 font-medium text-foreground hover:bg-bitcoin/25",
+    );
+  });
+
+  it("mobile drawer Bitcoin Wallet row: primary blue when active; tint + orange ₿ when not", () => {
+    expect(header).toContain('"bg-primary text-primary-foreground"');
+    expect(header).not.toContain("bg-bitcoin text-bitcoin-foreground");
+    expect(header).toContain("bg-bitcoin/15 text-foreground hover:bg-bitcoin/25");
+  });
+
+  it("dashboard 'Open wallet' is the default primary button, not the bitcoin variant", () => {
+    const dash = read("src/pages/Dashboard.tsx");
+    expect(dash).not.toContain('variant="bitcoin"');
+    expect(dash).toMatch(
+      /<Button asChild>\s*<Link to="\/bitcoin-wallet">Open wallet<\/Link>/,
+    );
+  });
+
+  it("legacy blues are gone: no #0070ba or #3D9EFF anywhere in src", () => {
+    const offenders: string[] = [];
+    for (const f of srcFiles) {
+      const src = fs.readFileSync(f, "utf8");
+      if (/0070ba/i.test(src) || /3d9eff/i.test(src)) {
+        offenders.push(path.relative(repoRoot, f));
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("print/export styles and the insights chart use the aligned blues", () => {
+    expect(read("src/utils/exportUtils.ts")).toContain("#0066F5");
+    expect(read("src/components/TransactionReceipt.tsx")).toContain("#0066F5");
+    expect(read("src/utils/p2pUi.ts")).toContain("#0066F5");
+    expect(read("src/pages/SpendingInsights.tsx")).toContain("#529AFF");
   });
 });

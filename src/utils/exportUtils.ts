@@ -21,10 +21,10 @@ export const exportToPDF = (title: string, data: Record<string, any>[], columns:
     <!DOCTYPE html><html><head><title>${title}</title>
     <style>
       body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
-      h1 { color: #0070ba; font-size: 24px; margin-bottom: 8px; }
+      h1 { color: #0066F5; font-size: 24px; margin-bottom: 8px; }
       .date { color: #666; margin-bottom: 24px; }
       table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-      th { background: #0070ba; color: white; padding: 10px 12px; text-align: left; font-size: 12px; text-transform: uppercase; }
+      th { background: #0066F5; color: white; padding: 10px 12px; text-align: left; font-size: 12px; text-transform: uppercase; }
       td { padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px; }
       tr:nth-child(even) { background: #f9f9f9; }
       .footer { margin-top: 32px; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 16px; }

@@ -6,7 +6,7 @@
 //
 // These documents are PAPER artefacts: always a light background and
 // dark text, whatever theme the app is in. Brand system: PayPal
-// palette (deep navy #002991, blue #0070ba), Bitcoin orange #F7931A
+// palette (deep navy #002991, blue #0066F5), Bitcoin orange #F7931A
 // accents, cream #FEF3E2 bands.
 //
 // summariseForStatement mirrors summarisePosRequests in

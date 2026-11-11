@@ -23,7 +23,7 @@ import { format } from 'date-fns';
 // Chart palette drawn from the design tokens only (hex equivalents):
 // --primary #0066F5, navy #002991, --bitcoin #F7931A, --success,
 // --muted-foreground, --paypal-blue-light, --warning, --destructive.
-const COLORS = ['#0066F5', '#002991', '#F7931A', '#198653', '#5C6B7F', '#3D9EFF', '#F59F0A', '#DC2828'];
+const COLORS = ['#0066F5', '#002991', '#F7931A', '#198653', '#5C6B7F', '#529AFF', '#F59F0A', '#DC2828'];
 
 const SpendingInsights = () => {
   const { user } = useAuth();

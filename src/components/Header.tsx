@@ -190,22 +190,23 @@ const Header = () => {
                 </Button>
               </Link>
               {/* The Bitcoin wallet is the product — first destination after
-                  Dashboard, carrying the Bitcoin-orange identity. Its
-                  treatment still derives from the route (rendered defect,
-                  2026-11-11: both ternary branches were solid orange, so
-                  the pill read as "active" on every page): solid orange
-                  only on the wallet route itself, the toned tint the
-                  mobile drawer uses everywhere else. */}
+                  Dashboard, and first in visual weight: pill shape, the
+                  orange ₿ icon and the pale orange tint while inactive.
+                  But the ACTIVE state follows the one-blue rule (CEO,
+                  2026-11-11): PayPal blue is the action/active colour
+                  everywhere, so on the wallet route the pill takes the
+                  standard primary treatment like every other nav item —
+                  orange is never a solid action/active surface. */}
               <Link to="/bitcoin-wallet">
                 <Button
                   size="sm"
                   className={`h-9 rounded-full px-3.5 text-sm shadow-none gap-1.5 ${
                     isActive("/bitcoin-wallet")
-                      ? "bg-bitcoin font-semibold text-bitcoin-foreground hover:bg-bitcoin/90"
+                      ? "bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
                       : "bg-bitcoin/15 font-medium text-foreground hover:bg-bitcoin/25"
                   }`}
                 >
-                  <Bitcoin className={`h-4 w-4 ${isActive("/bitcoin-wallet") ? "text-bitcoin-foreground" : "text-bitcoin"}`} /> Bitcoin Wallet
+                  <Bitcoin className={`h-4 w-4 ${isActive("/bitcoin-wallet") ? "text-primary-foreground" : "text-bitcoin"}`} /> Bitcoin Wallet
                 </Button>
               </Link>
               <Link to="/p2p">
@@ -661,17 +662,20 @@ const Header = () => {
 
                     <Separator className="my-2" />
                     <MobileNavLink to="/dashboard" icon={Home}>Dashboard</MobileNavLink>
-                    {/* The main product, first in the drawer with Bitcoin-orange weight. */}
+                    {/* The main product, first in the drawer: pale orange
+                        tint + orange ₿ while inactive; the active state is
+                        the standard primary blue (one-blue rule, CEO
+                        2026-11-11) — orange is never a solid active surface. */}
                     <Link
                       to="/bitcoin-wallet"
                       onClick={closeMobileMenu}
                       className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-semibold ${
                         isActive("/bitcoin-wallet")
-                          ? "bg-bitcoin text-bitcoin-foreground"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-bitcoin/15 text-foreground hover:bg-bitcoin/25"
                       }`}
                     >
-                      <Bitcoin className={`h-4 w-4 ${isActive("/bitcoin-wallet") ? "text-bitcoin-foreground" : "text-bitcoin"}`} />
+                      <Bitcoin className={`h-4 w-4 ${isActive("/bitcoin-wallet") ? "text-primary-foreground" : "text-bitcoin"}`} />
                       <span>Bitcoin Wallet</span>
                     </Link>
                     <MobileNavLink to="/p2p" icon={ArrowLeftRight}>P2P Trading</MobileNavLink>
