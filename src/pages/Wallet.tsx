@@ -286,7 +286,7 @@ const Wallet = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-muted/30">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <WalletPageSkeleton />
@@ -297,7 +297,7 @@ const Wallet = () => {
 
   if (walletError) {
     return (
-      <div className="min-h-screen flex flex-col bg-muted/30">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <PageErrorState
@@ -311,7 +311,7 @@ const Wallet = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-muted/30">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         {/* Page Header */}
@@ -410,9 +410,8 @@ const Wallet = () => {
                     <CreditCard className="h-5 w-5 text-primary" />
                     <CardTitle className="text-lg">Virtual Cards</CardTitle>
                   </div>
-                  <Button variant="link" size="sm" onClick={() => navigate('/wallet')} className="font-medium px-0">
-                    View all <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
+                  {/* No separate cards index exists — the manager below is
+                      the full list, so there is no "View all" link. */}
                 </div>
                 <CardDescription>Manage your virtual payment cards</CardDescription>
               </CardHeader>

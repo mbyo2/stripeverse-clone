@@ -145,7 +145,7 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
       <Header />
       <main className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Checkout Widget Builder</h1>
+          <h1 className="text-[28px] leading-tight font-display font-semibold">Checkout widget builder</h1>
           <p className="text-muted-foreground mt-1">Generate embeddable payment forms for your website</p>
         </div>
 

@@ -397,7 +397,7 @@ const VirtualCardDetails = () => {
   // admin-only until the Mastercard integration is built and tested.
   if (rolesLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-secondary/10">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <CardPageSkeleton />
@@ -409,7 +409,7 @@ const VirtualCardDetails = () => {
   // super_admin is additive over admin — see VirtualCardNew.
   if (!hasRole("admin") && !hasRole("super_admin")) {
     return (
-      <div className="min-h-screen flex flex-col bg-secondary/10">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <VirtualCardsComingSoon />
@@ -420,7 +420,7 @@ const VirtualCardDetails = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-secondary/10">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <CardPageSkeleton />
@@ -453,12 +453,12 @@ const VirtualCardDetails = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary/10">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
           <div>
-            <h1 className="text-3xl font-bold">{card.name}</h1>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">{card.name}</h1>
             <p className="text-muted-foreground">BMaGlass Virtual Card</p>
           </div>
           <div className="flex space-x-2">

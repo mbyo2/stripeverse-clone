@@ -433,7 +433,7 @@ const AdminUserDetail = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <DetailPageSkeleton />
         </main>
       </div>
@@ -443,7 +443,7 @@ const AdminUserDetail = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <Link
           to="/admin/users"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
@@ -463,7 +463,7 @@ const AdminUserDetail = () => {
         ) : (
           <div className="space-y-6">
             <div>
-              <h1 className="text-3xl font-bold mb-1">{fullName}</h1>
+              <h1 className="text-[28px] leading-tight font-display font-semibold mb-1">{fullName}</h1>
               <p className="text-muted-foreground">
                 Full account view — everything below is read from the live account records.
               </p>

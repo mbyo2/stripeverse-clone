@@ -18,7 +18,7 @@ export default function WalletReconciliationPage() {
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Page Header */}
           <div>
-            <h1 className="text-3xl font-bold mb-2">Wallet Reconciliation</h1>
+            <h1 className="text-[28px] leading-tight font-display font-semibold mb-2">Wallet reconciliation</h1>
             <p className="text-muted-foreground">
               Verify and maintain accurate wallet balances
             </p>

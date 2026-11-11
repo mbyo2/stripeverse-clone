@@ -44,10 +44,10 @@ const Contacts = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Contacts</h1>
+            <h1 className="text-[28px] leading-tight font-display font-semibold mb-2">Contacts</h1>
             <p className="text-muted-foreground">Manage your saved recipients for quick payments</p>
           </div>
           <Dialog open={showAdd} onOpenChange={setShowAdd}>

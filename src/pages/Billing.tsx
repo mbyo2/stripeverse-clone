@@ -28,7 +28,7 @@ const Billing = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Billing</h1>
+          <h1 className="text-[28px] leading-tight font-display font-semibold mb-2">Billing</h1>
           <p className="text-muted-foreground">
             How you are charged on BMaGlass Pay
           </p>

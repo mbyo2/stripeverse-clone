@@ -123,7 +123,7 @@ export default function AdminIdentity() {
   };
 
   return (
-    <div className="min-h-screen bg-secondary/20">
+    <div className="min-h-screen bg-background">
       <Header />
       <main className="pt-24 pb-16 px-4 max-w-6xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
@@ -141,7 +141,7 @@ export default function AdminIdentity() {
             </Button>
           )}
           <div>
-            <h1 className="text-3xl font-bold">Identity Review</h1>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">Identity review</h1>
             <p className="text-sm text-muted-foreground">
               Face verifications that need a human decision, oldest first.
             </p>

@@ -79,10 +79,10 @@ const MultiCurrencyWallet = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Multi-Currency Wallets</h1>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">Multi-currency wallets</h1>
             <p className="text-muted-foreground">
               Hold and manage balances in multiple currencies
               {selectedAccountId && <> · Viewing <span className="font-medium text-foreground">{selectedAccountName}</span></>}

@@ -229,7 +229,7 @@ const AdminTreasury = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <div role="status" aria-label="Loading treasury">
             <Skeleton className="h-9 w-64 mb-2" />
             <Skeleton className="h-5 w-96 max-w-full mb-6" />
@@ -248,7 +248,7 @@ const AdminTreasury = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <Card className="max-w-xl mx-auto mt-10">
             <CardContent className="py-10 text-center space-y-3">
               <ShieldAlert className="h-10 w-10 mx-auto text-muted-foreground" />
@@ -269,7 +269,7 @@ const AdminTreasury = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+        <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <Card className="max-w-xl mx-auto mt-10">
             <CardContent className="py-10 text-center space-y-4">
               <Landmark className="h-10 w-10 mx-auto text-muted-foreground" />
@@ -293,7 +293,7 @@ const AdminTreasury = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold mb-2">Treasury &amp; Reports</h1>

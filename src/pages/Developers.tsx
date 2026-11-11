@@ -53,7 +53,7 @@ export default function Developers() {
           </div>
         </div>
       </div>
-      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full space-y-8">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full space-y-8">
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><Key className="h-5 w-5" /> Authentication &amp; modes</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">

@@ -155,11 +155,11 @@ const FeedbackDashboard = () => {
     : feedbackItems.filter(item => item.type === activeTab);
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary/10">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 max-w-6xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">Beta Feedback Dashboard</h1>
+          <h1 className="text-[28px] leading-tight font-display font-semibold">Beta feedback dashboard</h1>
           <Button variant="outline" onClick={() => navigate("/feedback")}>
             Submit New Feedback
           </Button>

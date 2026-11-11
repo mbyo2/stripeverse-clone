@@ -165,7 +165,7 @@ const Compliance = () => {
             ref={contentRef}
             className="opacity-0"
           >
-            <h1 className="text-3xl font-bold mb-8 text-center">Compliance & Security</h1>
+            <h1 className="text-[28px] leading-tight font-display font-semibold mb-8 text-center">Compliance &amp; security</h1>
             
             {user ? (
               <div className="bg-card rounded-lg shadow-sm p-8 mb-8 border border-border">

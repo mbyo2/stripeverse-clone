@@ -524,13 +524,13 @@ export default function VerifyIdentity() {
   const resultMeta = identityStatusMeta(finalStatus ?? existing?.status ?? null);
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary/10">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-24 pb-16 px-4 max-w-3xl mx-auto w-full">
         <div className="flex items-center gap-3 mb-6">
           <ScanFace className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-3xl font-bold">Face Verification</h1>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">Face verification</h1>
             <p className="text-sm text-muted-foreground">
               Prove the face on this account is the face on your document.
             </p>

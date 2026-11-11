@@ -123,7 +123,7 @@ const VirtualCardFund = () => {
   // server-side.
   if (rolesLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-secondary/10">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <FormPageSkeleton />
@@ -134,7 +134,7 @@ const VirtualCardFund = () => {
   // super_admin is additive over admin — see VirtualCardNew.
   if (!hasRole("admin") && !hasRole("super_admin")) {
     return (
-      <div className="min-h-screen flex flex-col bg-secondary/10">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <VirtualCardsComingSoon />
@@ -145,7 +145,7 @@ const VirtualCardFund = () => {
 
   if (cardLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-secondary/10">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <CardPageSkeleton />
@@ -158,7 +158,7 @@ const VirtualCardFund = () => {
   // say what happened and offer a way forward.
   if (cardError || !card) {
     return (
-      <div className="min-h-screen flex flex-col bg-secondary/10">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <Card>
@@ -201,11 +201,11 @@ const VirtualCardFund = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary/10">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold">Fund Virtual Card</h1>
+          <h1 className="text-[28px] leading-tight font-display font-semibold">Fund virtual card</h1>
           <p className="text-muted-foreground mt-2">
             Add funds to your virtual card from your main wallet.
           </p>

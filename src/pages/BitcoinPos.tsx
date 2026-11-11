@@ -291,7 +291,7 @@ export default function BitcoinPos() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-6xl">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-3 mb-2">
           <Store className="h-7 w-7 text-primary" />
           <h1 className="text-2xl font-bold text-foreground">Bitcoin POS — Data Bridge</h1>

@@ -108,7 +108,7 @@ const Support = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Support Center</h1>
           <p className="text-muted-foreground">

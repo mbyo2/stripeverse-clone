@@ -174,13 +174,13 @@ const Feedback = () => {
   };
   
   return (
-    <div className="min-h-screen flex flex-col bg-secondary/10">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-2">
             <div className="bg-amber-500 text-black px-2 py-1 rounded text-xs font-medium">BETA v{version}</div>
-            <h1 className="text-3xl font-bold">Beta Feedback</h1>
+            <h1 className="text-[28px] leading-tight font-display font-semibold">Beta feedback</h1>
           </div>
           
           {/* Admin console link — admin tier only, not rendered for
