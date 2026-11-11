@@ -259,11 +259,11 @@ export function ApiKeyManager() {
           return (
           <div
             key={key.id}
-            className="flex flex-wrap justify-between items-center gap-2 p-3 bg-secondary/20 rounded-md"
+            className="flex flex-wrap justify-between items-center gap-2 p-3 bg-muted rounded-md"
           >
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
               {/* Only the prefix is stored; the full key exists only at creation time. */}
-              <code className="font-mono bg-secondary px-3 py-1 rounded text-sm">
+              <code className="font-mono bg-muted px-3 py-1 rounded-md text-sm">
                 {key.prefix}••••••••
               </code>
               {key.name && <span className="text-sm text-muted-foreground">{key.name}</span>}
@@ -329,11 +329,11 @@ export function ApiKeyManager() {
       </Alert>
 
       {freshKey && (
-        <Alert className="border-amber-500/50 bg-amber-500/10">
+        <Alert className="border-warning/50 bg-warning/10">
           <AlertDescription className="space-y-2">
             <p className="font-medium">Copy your new API key now — it won't be shown again.</p>
             <div className="flex flex-wrap items-center gap-2">
-              <code className="font-mono bg-secondary px-3 py-1 rounded text-sm break-all">{freshKey}</code>
+              <code className="font-mono bg-muted px-3 py-1 rounded-md text-sm break-all">{freshKey}</code>
               <Button variant="outline" size="sm" onClick={() => copyToClipboard(freshKey)}>
                 <CopyIcon className="h-4 w-4 mr-1" /> Copy
               </Button>

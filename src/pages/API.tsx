@@ -268,9 +268,9 @@ const API = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">API Management</h1>
+          <h1 className="text-[28px] leading-tight font-display font-semibold mb-2">API Management</h1>
           <p className="text-muted-foreground">
             Manage your API keys and integration settings
           </p>
@@ -337,7 +337,7 @@ const API = () => {
                               )}
                             </div>
                             <div className="flex items-center gap-2">
-                              <code className="bg-muted px-2 py-1 rounded text-sm font-mono">
+                              <code className="bg-muted px-2 py-1 rounded-md text-sm font-mono">
                                 {key.key_prefix}••••••••
                               </code>
                               <span className="text-xs text-muted-foreground">
@@ -413,7 +413,7 @@ const API = () => {
                         { fn: "POST /webhooks", desc: "Register a webhook endpoint — signing secret shown once" },
                         { fn: "GET /webhook-deliveries", desc: "Webhook delivery log" },
                       ].map((e) => (
-                        <div key={e.fn} className="flex items-center justify-between p-3 border rounded">
+                        <div key={e.fn} className="flex items-center justify-between p-3 border rounded-lg">
                           <div>
                             <span className="font-mono text-sm">{e.fn}</span>
                             <p className="text-sm text-muted-foreground">{e.desc}</p>
@@ -451,7 +451,7 @@ const API = () => {
                       <Label className="text-xs text-muted-foreground mb-2 block">Events</Label>
                       <div className="flex flex-wrap gap-2">
                         {AVAILABLE_EVENTS.map((ev) => (
-                          <label key={ev} className="flex items-center gap-1.5 text-xs border rounded px-2 py-1 cursor-pointer">
+                          <label key={ev} className="flex items-center gap-1.5 text-xs border rounded-md px-2 py-1 cursor-pointer">
                             <Checkbox
                               checked={whEvents.includes(ev)}
                               onCheckedChange={() => toggleEvent(ev)}
@@ -472,9 +472,9 @@ const API = () => {
                   </div>
 
                   {freshWhSecret && (
-                    <div className="p-3 rounded bg-amber-500/10 border border-amber-500/30 space-y-2">
+                    <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 space-y-2">
                       <p className="text-sm">Copy this signing secret now — it will never be shown again:</p>
-                      <code className="block bg-muted px-3 py-2 rounded text-sm font-mono break-all">{freshWhSecret}</code>
+                      <code className="block bg-muted px-3 py-2 rounded-md text-sm font-mono break-all">{freshWhSecret}</code>
                       <Button variant="outline" size="sm" onClick={() => { copyToClipboard(freshWhSecret, "Webhook secret copied"); setFreshWhSecret(null); }}>Copied — dismiss</Button>
                     </div>
                   )}
@@ -487,7 +487,7 @@ const API = () => {
                   ) : (
                     <div className="space-y-2">
                       {webhooks.map((wh) => (
-                        <div key={wh.id} className="flex items-center justify-between p-3 border rounded">
+                        <div key={wh.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex-1 min-w-0">
                             <span className="font-mono text-sm break-all">{wh.url}</span>
                             <p className="text-sm text-muted-foreground truncate">
@@ -517,7 +517,7 @@ const API = () => {
                     <div className="space-y-2">
                       <h4 className="font-medium text-sm">Recent deliveries</h4>
                       {deliveries.map((d: any) => (
-                        <div key={d.id} className="flex items-center justify-between p-3 border rounded text-sm">
+                        <div key={d.id} className="flex items-center justify-between p-3 border rounded-lg text-sm">
                           <span className="font-mono">{d.event_type}</span>
                           <span className="text-muted-foreground truncate mx-2">{d.webhook_url}</span>
                           <Badge variant={d.status === "delivered" ? "default" : "secondary"}>{d.status}{d.response_status ? ` · HTTP ${d.response_status}` : ""}</Badge>
@@ -570,7 +570,7 @@ const API = () => {
                 <Label>Scopes</Label>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {AVAILABLE_SCOPES.map((sc) => (
-                    <label key={sc} className="flex items-center gap-1.5 text-xs border rounded px-2 py-1 cursor-pointer">
+                    <label key={sc} className="flex items-center gap-1.5 text-xs border rounded-md px-2 py-1 cursor-pointer">
                       <Checkbox checked={genScopes.includes(sc)} onCheckedChange={() => setGenScopes((prev) => prev.includes(sc) ? prev.filter((x) => x !== sc) : [...prev, sc])} />
                       <span className="font-mono">{sc}</span>
                     </label>
@@ -580,14 +580,14 @@ const API = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-start gap-2 p-3 rounded bg-amber-500/10 border border-amber-500/30">
-                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                <p className="text-sm text-amber-700">
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30">
+                <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                <p className="text-sm text-foreground">
                   Copy <strong>{freshKeyName}</strong> now. You will never see it again.
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono break-all">{freshKey}</code>
+                <code className="flex-1 bg-muted px-3 py-2 rounded-md text-sm font-mono break-all">{freshKey}</code>
                 <Button variant="outline" size="sm" onClick={() => copyToClipboard(freshKey, "API key copied")}>
                   <Copy className="h-4 w-4" />
                 </Button>
