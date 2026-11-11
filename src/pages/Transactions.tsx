@@ -1,7 +1,6 @@
 import Header from "@/components/Header";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import EnhancedTransactionManager from "@/components/wallet/EnhancedTransactionManager";
 import { Suspense } from "react";
 import { ArrowDownLeft, ArrowUpRight, Filter } from "lucide-react";
@@ -20,7 +19,7 @@ const Transactions = () => {
     : undefined;
   
   return (
-    <div className="min-h-screen flex flex-col bg-muted/30">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         {/* Page Header */}
@@ -62,24 +61,6 @@ const Transactions = () => {
           </Button>
         </div>
 
-        {/* Transactions Content */}
-        <div className="flex items-start justify-between gap-4 mb-4 px-1">
-          <div>
-            <h2 className="text-lg font-display font-semibold text-foreground">
-              {activeFilter === "all" && "All Transactions"}
-              {activeFilter === "incoming" && "Received Payments"}
-              {activeFilter === "outgoing" && "Sent Payments"}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {activeFilter === "all" && "Complete history of all your transactions"}
-              {activeFilter === "incoming" && "Money you've received from others"}
-              {activeFilter === "outgoing" && "Money you've sent to others"}
-            </p>
-          </div>
-          <Badge variant="secondary" className="text-xs shrink-0">
-            Real-time sync
-          </Badge>
-        </div>
         <Suspense fallback={<TransactionsManagerSkeleton />}>
           <EnhancedTransactionManager
             showFilters={true}

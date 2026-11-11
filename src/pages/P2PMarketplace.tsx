@@ -16,6 +16,7 @@ import P2pShell from "@/components/p2p/P2pShell";
 import AdCard from "@/components/p2p/AdCard";
 import { P2pAccountCard } from "@/components/p2p/P2pAccountCard";
 import PageErrorState from "@/components/PageErrorState";
+import { toUserFacingError } from "@/utils/userFacingError";
 import { useRecoveringRetry } from "@/hooks/useRecoveringRetry";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -91,7 +92,7 @@ export default function P2PMarketplace() {
             </span>
             <div>
               <div className="text-sm text-muted-foreground">Bitcoin market price</div>
-              <div className="text-xl font-semibold">
+              <div className="text-xl font-semibold tabular-nums">
                 {indexZmw ? `${formatZmw(indexZmw)} / BTC` : "Unavailable"}
               </div>
             </div>
@@ -104,7 +105,7 @@ export default function P2PMarketplace() {
                   addSuffix: true,
                 })}
                 {snapshotStale && (
-                  <div className="text-amber-600 dark:text-amber-400 font-medium">
+                  <div className="text-warning font-medium">
                     Price feed is delayed — new orders pause until it recovers.
                   </div>
                 )}
@@ -120,9 +121,10 @@ export default function P2PMarketplace() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        <div className="flex rounded-lg border border-border overflow-hidden">
+        <div className="flex rounded-md border border-border overflow-hidden">
           <Button
             variant={intent === "buy" ? "default" : "ghost"}
+            size="sm"
             className="rounded-none"
             onClick={() => setIntent("buy")}
           >
@@ -130,6 +132,7 @@ export default function P2PMarketplace() {
           </Button>
           <Button
             variant={intent === "sell" ? "default" : "ghost"}
+            size="sm"
             className="rounded-none"
             onClick={() => setIntent("sell")}
           >
@@ -137,7 +140,7 @@ export default function P2PMarketplace() {
           </Button>
         </div>
         <Select value={methodFilter} onValueChange={setMethodFilter}>
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-52 h-9">
             <SelectValue placeholder="Payment method" />
           </SelectTrigger>
           <SelectContent>
@@ -168,11 +171,10 @@ export default function P2PMarketplace() {
         </div>
       ) : adsQuery.isError ? (
         <PageErrorState
-          message={
-            adsQuery.error instanceof Error
-              ? adsQuery.error.message
-              : "We couldn't load the marketplace. Please try again."
-          }
+          message={toUserFacingError(
+            adsQuery.error,
+            "We couldn't load the marketplace. Please try again."
+          )}
           onRetry={() => void retryWithRecovery(() => adsQuery.refetch())}
         />
       ) : visibleAds.length === 0 ? (
