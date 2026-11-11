@@ -161,14 +161,14 @@ export default function TradeChat({ order }: { order: P2pOrder }) {
                     className={cn(
                       "max-w-[80%] rounded-2xl px-3 py-2 text-sm space-y-1",
                       m.sender_type === "support"
-                        ? "bg-blue-500/10 border border-blue-500/30"
+                        ? "bg-primary/10 border border-primary/30"
                         : mine
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted",
                     )}
                   >
                     {m.sender_type === "support" && (
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
                         Support — dispute assistance
                       </p>
                     )}

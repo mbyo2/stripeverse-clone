@@ -20,7 +20,10 @@ import {
 import { TrendingDown, TrendingUp, PiggyBank, Target, Plus, Download, ArrowDownToLine, Wallet } from 'lucide-react';
 import { format } from 'date-fns';
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#003087', '#F7931A', '#06B6D4', '#84CC16'];
+// Chart palette drawn from the design tokens only (hex equivalents):
+// --primary #0070E0, navy #003087, --bitcoin #F7931A, --success,
+// --muted-foreground, --paypal-blue-light, --warning, --destructive.
+const COLORS = ['#0070E0', '#003087', '#F7931A', '#198653', '#5C6B7F', '#3D9EFF', '#F59F0A', '#DC2828'];
 
 const SpendingInsights = () => {
   const { user } = useAuth();
@@ -120,7 +123,7 @@ const SpendingInsights = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10"><Wallet className="h-5 w-5 text-blue-500" /></div>
+                <div className="p-2 rounded-lg bg-primary/10"><Wallet className="h-5 w-5 text-primary" /></div>
                 <div>
                   <p className="text-xs text-muted-foreground">This Month</p>
                   <p className="text-xl font-bold">{formatAmount(stats?.monthly_amount || 0)}</p>

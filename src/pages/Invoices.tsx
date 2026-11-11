@@ -70,7 +70,7 @@ const Invoices = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'paid': return <Badge className="bg-green-500/10 text-green-600"><CheckCircle2 className="h-3 w-3 mr-1" />Paid</Badge>;
-      case 'sent': return <Badge className="bg-blue-500/10 text-blue-600"><Send className="h-3 w-3 mr-1" />Sent</Badge>;
+      case 'sent': return <Badge className="bg-primary/10 text-primary"><Send className="h-3 w-3 mr-1" />Sent</Badge>;
       case 'overdue': return <Badge className="bg-red-500/10 text-red-600"><XCircle className="h-3 w-3 mr-1" />Overdue</Badge>;
       default: return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />Draft</Badge>;
     }

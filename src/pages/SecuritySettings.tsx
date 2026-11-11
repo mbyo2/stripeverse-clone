@@ -83,15 +83,15 @@ const SecuritySettings = () => {
                     </Badge>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg border border-blue-200 dark:border-blue-500/30">
+                  <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg border border-primary/20">
                     <div className="flex items-center gap-3">
-                      <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <Shield className="h-5 w-5 text-primary" />
                       <div>
-                        <p className="font-medium text-blue-800 dark:text-blue-200">Security Monitoring</p>
-                        <p className="text-sm text-blue-700 dark:text-blue-300">All sensitive actions are logged and monitored</p>
+                        <p className="font-medium">Security Monitoring</p>
+                        <p className="text-sm text-muted-foreground">All sensitive actions are logged and monitored</p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-blue-700 border-blue-300 dark:text-blue-300 dark:border-blue-500/40">
+                    <Badge variant="outline" className="text-primary border-primary/30">
                       ACTIVE
                     </Badge>
                   </div>

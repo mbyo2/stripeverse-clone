@@ -24,7 +24,7 @@ const SecurityAlert: React.FC<SecurityAlertProps> = ({
       case 'error':
         return <AlertTriangle className="h-4 w-4 text-red-600" />;
       case 'info':
-        return <Info className="h-4 w-4 text-blue-600" />;
+        return <Info className="h-4 w-4 text-primary" />;
       default:
         return <Shield className="h-4 w-4" />;
     }

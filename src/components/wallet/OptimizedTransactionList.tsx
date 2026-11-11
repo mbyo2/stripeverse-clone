@@ -26,18 +26,18 @@ const TransactionItem = React.memo(({ transaction, style }: TransactionItemProps
     >
       <div className="flex items-center">
         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-          transaction.status === 'pending' ? "bg-amber-100" :
-          transaction.status === 'failed' ? "bg-red-100" :
-          transaction.direction === 'outgoing' ? "bg-blue-100" : "bg-green-100"
+          transaction.status === 'pending' ? "bg-warning/15" :
+          transaction.status === 'failed' ? "bg-destructive/10" :
+          transaction.direction === 'outgoing' ? "bg-primary/10" : "bg-success/10"
         }`}>
           {transaction.status === 'pending' ? (
             <Clock className="h-5 w-5 text-amber-600" />
           ) : transaction.status === 'failed' ? (
-            <XIcon className="h-5 w-5 text-red-600" />
+            <XIcon className="h-5 w-5 text-destructive" />
           ) : transaction.direction === 'outgoing' ? (
-            <ArrowUpRight className="h-5 w-5 text-blue-600" />
+            <ArrowUpRight className="h-5 w-5 text-primary" />
           ) : (
-            <ArrowDownLeft className="h-5 w-5 text-green-600" />
+            <ArrowDownLeft className="h-5 w-5 text-success" />
           )}
         </div>
         <div className="ml-4">
@@ -62,7 +62,7 @@ const TransactionItem = React.memo(({ transaction, style }: TransactionItemProps
       <div className={`font-semibold tabular-nums ${
         transaction.status === 'failed' ? "text-destructive" :
         transaction.status === 'pending' ? "text-amber-600" :
-        transaction.direction === 'outgoing' ? "text-blue-600" : "text-green-600"
+        transaction.direction === 'outgoing' ? "text-primary" : "text-success"
       }`}>
         {transaction.direction === 'outgoing' ? "-" : "+"}
         {btcRowSats(transaction) !== null

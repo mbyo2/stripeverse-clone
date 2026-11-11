@@ -12,22 +12,22 @@ const statusConfig = {
   pending: {
     label: 'Pending',
     icon: Clock,
-    className: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    className: 'bg-warning/10 text-amber-700 dark:text-amber-400 border-warning/30',
   },
   processing: {
     label: 'Processing',
     icon: Clock,
-    className: 'bg-blue-100 text-blue-800 border-blue-200',
+    className: 'bg-primary/10 text-primary border-primary/20',
   },
   completed: {
     label: 'Completed',
     icon: CheckCircle,
-    className: 'bg-green-100 text-green-800 border-green-200',
+    className: 'bg-success/10 text-success border-success/20',
   },
   failed: {
     label: 'Failed',
     icon: XCircle,
-    className: 'bg-red-100 text-red-800 border-red-200',
+    className: 'bg-destructive/10 text-destructive border-destructive/20',
   },
   cancelled: {
     label: 'Cancelled',

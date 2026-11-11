@@ -120,8 +120,8 @@ const TierWorkflow = () => {
 
   const getStatusColor = (status: WorkflowStep['status']) => {
     switch (status) {
-      case 'completed': return 'bg-green-500';
-      case 'current': return 'bg-blue-500';
+      case 'completed': return 'bg-success';
+      case 'current': return 'bg-primary';
       case 'pending': return 'bg-muted-foreground/30';
       default: return 'bg-muted-foreground/30';
     }
@@ -129,8 +129,8 @@ const TierWorkflow = () => {
 
   const getStatusBadge = (status: WorkflowStep['status']) => {
     switch (status) {
-      case 'completed': return <Badge className="bg-green-500">Completed</Badge>;
-      case 'current': return <Badge className="bg-blue-500">Current</Badge>;
+      case 'completed': return <Badge className="bg-success">Completed</Badge>;
+      case 'current': return <Badge className="bg-primary">Current</Badge>;
       case 'pending': return <Badge variant="secondary">Pending</Badge>;
       default: return <Badge variant="secondary">Pending</Badge>;
     }

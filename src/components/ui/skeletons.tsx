@@ -322,8 +322,8 @@ export const RouteShellSkeleton = ({
  */
 export const DashboardSkeleton = () => (
   <div role="status" aria-label="Loading dashboard">
-    {/* Balance band */}
-    <div className="bg-primary rounded-lg px-6 py-6 md:px-8 mb-6" aria-hidden="true">
+    {/* Balance band — mirrors the dashboard's navy band */}
+    <div className="bg-[#003087] rounded-lg px-6 py-6 md:px-8 mb-6" aria-hidden="true">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
         <div>
           <Skeleton className="h-4 w-36 bg-white/25 mb-1.5" />

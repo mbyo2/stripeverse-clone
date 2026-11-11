@@ -11,11 +11,14 @@
     --card-foreground: 220 20% 14%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 14%;
-    /* UI primary is the PayPal navy family: buttons, links, focus
-       rings and active nav all read from --primary. Bitcoin orange
-       lives ONLY in --bitcoin, reserved for Bitcoin itself (amounts,
-       Bitcoin branding moments, the logo). */
-    --primary: 219 100% 26%;
+    /* One blue system, PayPal's: --primary is PayPal blue #0070E0 —
+       primary buttons, links, active/selected states and focus rings
+       all read from it. The navy #003087 (--paypal-dark) is the
+       family's dark shade: emphasis/header surfaces (balance bands,
+       card faces) and text on pale tints, never the action colour.
+       Bitcoin orange lives ONLY in --bitcoin, reserved for Bitcoin
+       itself (amounts, Bitcoin branding moments, the logo). */
+    --primary: 210 100% 44%;
     --primary-foreground: 0 0% 100%;
     --secondary: 216 33% 97%;
     --secondary-foreground: 219 100% 26%;
@@ -37,13 +40,13 @@
     /* Radius ladder: controls 6px (rounded-md), cards 8px
        (rounded-lg), overlays 12px (rounded-xl). */
     --radius: 0.5rem;
-    --chart-1: 219 100% 26%;
-    --chart-2: 210 100% 44%;
+    --chart-1: 210 100% 44%;
+    --chart-2: 219 100% 26%;
     --chart-3: 33 93% 54%;
     --chart-4: 152 69% 31%;
     --chart-5: 215 16% 43%;
-    --paypal-blue: 219 100% 26%;
-    --paypal-blue-light: 210 100% 44%;
+    --paypal-blue: 210 100% 44%;
+    --paypal-blue-light: 210 100% 62%;
     --paypal-dark: 219 100% 26%;
     --paypal-gold: 38 92% 50%;
   }
@@ -79,8 +82,8 @@
     --chart-3: 33 93% 54%;
     --chart-4: 152 69% 45%;
     --chart-5: 215 20% 65%;
-    --paypal-blue: 219 90% 34%;
-    --paypal-blue-light: 210 100% 58%;
+    --paypal-blue: 210 100% 55%;
+    --paypal-blue-light: 210 100% 68%;
     --paypal-dark: 222 47% 11%;
     --paypal-gold: 38 92% 50%;
   }

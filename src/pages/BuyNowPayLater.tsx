@@ -59,7 +59,7 @@ const BuyNowPayLater = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/10"><CreditCard className="h-5 w-5 text-blue-500" /></div>
+              <div className="p-2 rounded-lg bg-primary/10"><CreditCard className="h-5 w-5 text-primary" /></div>
               <div>
                 <p className="text-xs text-muted-foreground">Active Plans</p>
                 <p className="text-xl font-bold">{activePlans.length}</p>

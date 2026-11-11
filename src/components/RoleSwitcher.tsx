@@ -16,7 +16,7 @@ export const RoleSwitcher = () => {
       label: "User Dashboard",
       icon: <Users className="h-4 w-4" />,
       path: "/user-dashboard",
-      color: "bg-blue-500"
+      color: "bg-primary"
     },
     business: {
       label: "Business Dashboard",

@@ -32,9 +32,9 @@ const Rewards = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
-                    <h3 className="font-semibold text-blue-900 dark:text-blue-200 mb-2">Earn Points</h3>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">Get 1 point for every K10 spent. Bonus points for Food & Transportation!</p>
+                  <div className="p-4 bg-primary/10 rounded-lg">
+                    <h3 className="font-semibold mb-2">Earn Points</h3>
+                    <p className="text-sm text-muted-foreground">Get 1 point for every K10 spent. Bonus points for Food & Transportation!</p>
                   </div>
                   <div className="p-4 bg-green-50 dark:bg-green-500/10 rounded-lg">
                     <h3 className="font-semibold text-green-900 dark:text-green-200 mb-2">Tier Benefits</h3>

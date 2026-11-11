@@ -72,7 +72,7 @@ const TierFeatureMatrix = () => {
         support: 'Email support',
         airtime: 'Free airtime purchase'
       },
-      color: 'bg-blue-500'
+      color: 'bg-primary'
     },
     {
       id: 'premium',

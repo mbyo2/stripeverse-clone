@@ -109,7 +109,7 @@ const BetaTesterDashboard = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'testing':
-        return <Badge className="bg-blue-500">Testing</Badge>;
+        return <Badge className="bg-primary">Testing</Badge>;
       case 'coming_soon':
         return <Badge className="bg-orange-500">Coming Soon</Badge>;
       case 'development':
