@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -174,7 +173,6 @@ const CollectPayments = () => {
           </CardContent>
         </Card>
       </main>
-      <Footer />
     </div>
   );
 };

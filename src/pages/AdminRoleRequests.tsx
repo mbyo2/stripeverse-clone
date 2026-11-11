@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { ListPageSkeleton } from "@/components/ui/skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -161,7 +160,6 @@ const AdminRoleRequests = () => {
         <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
           <ListPageSkeleton />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -273,7 +271,6 @@ const AdminRoleRequests = () => {
           </div>
         )}
       </main>
-      <Footer />
     </div>
   );
 };

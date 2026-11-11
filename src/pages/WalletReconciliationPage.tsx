@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { WalletReconciliation } from '@/components/wallet/WalletReconciliation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Info } from 'lucide-react';
@@ -92,7 +91,6 @@ export default function WalletReconciliationPage() {
         </div>
       </main>
 
-      <Footer />
     </div>
   );
 }

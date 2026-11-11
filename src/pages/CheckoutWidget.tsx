@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { useToast } from '@/hooks/use-toast';
 import { Code2, Copy, Eye, Palette, CreditCard, Smartphone, Zap, CheckCircle, Settings, ExternalLink } from 'lucide-react';
 
@@ -339,7 +338,6 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

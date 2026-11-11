@@ -25,7 +25,6 @@ import { usePlatformSettings } from "@/hooks/useSubaccounts";
 import { useInvalidateMoneyState } from "@/utils/moneyFreshness";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { ArrowRight, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
 const SendMoney = () => {
@@ -409,7 +408,6 @@ const SendMoney = () => {
           </Card>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

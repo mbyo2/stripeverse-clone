@@ -153,8 +153,8 @@ const Header = () => {
 
   return (
     <>
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-[#0A0F1A] border-b border-[#CFD3D8]/70 dark:border-white/10">
-      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
         {/* Logo */}
         <div className="flex items-center gap-3 xl:gap-6 2xl:gap-10 min-w-0">
           <Link to="/" aria-label="BMaGlass Pay — home" className="flex items-center shrink-0">
@@ -164,13 +164,13 @@ const Header = () => {
           {/* Logged-out Nav */}
           {!user && (
             <nav className="hidden xl:flex items-center gap-8">
-              <Link to="/" className="text-[15px] font-medium text-black dark:text-white hover:underline underline-offset-4">
+              <Link to="/" className="text-[15px] font-medium text-foreground hover:underline underline-offset-4">
                 Personal
               </Link>
-              <Link to="/business" className="text-[15px] font-medium text-black dark:text-white hover:underline underline-offset-4">
+              <Link to="/business" className="text-[15px] font-medium text-foreground hover:underline underline-offset-4">
                 Business
               </Link>
-              <Link to="/developers" className="text-[15px] font-medium text-black dark:text-white hover:underline underline-offset-4">
+              <Link to="/developers" className="text-[15px] font-medium text-foreground hover:underline underline-offset-4">
                 Developers
               </Link>
             </nav>
@@ -190,7 +190,7 @@ const Header = () => {
                 <Button
                   size="sm"
                   className={`h-9 rounded-full px-3.5 2xl:px-4 text-sm font-semibold text-black shadow-none gap-1.5 ${
-                    isActive("/bitcoin-wallet") ? "bg-[#DE830A]" : "bg-[#F7931A] hover:bg-[#DE830A]"
+                    isActive("/bitcoin-wallet") ? "bg-bitcoin/90" : "bg-bitcoin hover:bg-bitcoin/90"
                   }`}
                 >
                   <Bitcoin className="h-4 w-4" /> Bitcoin Wallet
@@ -263,7 +263,7 @@ const Header = () => {
                 <DropdownMenuContent align="start" className="w-52">
                   <DropdownMenuItem asChild>
                     <Link to="/bitcoin-wallet" className="flex items-center gap-2">
-                      <Bitcoin className="h-4 w-4 text-[#F7931A]" /> Bitcoin Wallet
+                      <Bitcoin className="h-4 w-4 text-bitcoin" /> Bitcoin Wallet
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -593,19 +593,19 @@ const Header = () => {
             </>
           ) : (
             <div className="flex items-center gap-3">
-              <Link to="/support" className="hidden xl:block text-[15px] font-medium text-black dark:text-white hover:underline underline-offset-4 mr-1">
+              <Link to="/support" className="hidden xl:block text-[15px] font-medium text-foreground hover:underline underline-offset-4 mr-1">
                 Help
               </Link>
               <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-10 w-10 rounded-full" aria-label="Toggle theme">
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
               <Link to="/login">
-                <Button variant="ghost" className="h-12 rounded-full bg-[#E9EEF5] px-7 text-[15px] font-semibold text-[#003087] shadow-none hover:bg-[#DBE5F1] hover:text-[#003087]">
+                <Button variant="ghost" className="h-12 rounded-full bg-secondary px-7 text-[15px] font-semibold text-secondary-foreground shadow-none hover:bg-secondary/80 hover:text-secondary-foreground">
                   Log In
                 </Button>
               </Link>
               <Link to="/register">
-                <Button className="h-12 rounded-full bg-black px-7 text-[15px] font-semibold text-white shadow-none hover:bg-black/85">
+                <Button className="h-12 rounded-full bg-primary px-7 text-[15px] font-semibold text-primary-foreground shadow-none hover:bg-primary/90">
                   Sign Up
                 </Button>
               </Link>
@@ -647,11 +647,11 @@ const Header = () => {
                       onClick={closeMobileMenu}
                       className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-semibold ${
                         isActive("/bitcoin-wallet")
-                          ? "bg-[#F7931A] text-black"
-                          : "bg-[#F7931A]/15 text-foreground hover:bg-[#F7931A]/25"
+                          ? "bg-bitcoin text-bitcoin-foreground"
+                          : "bg-bitcoin/15 text-foreground hover:bg-bitcoin/25"
                       }`}
                     >
-                      <Bitcoin className={`h-4 w-4 ${isActive("/bitcoin-wallet") ? "text-black" : "text-[#F7931A]"}`} />
+                      <Bitcoin className={`h-4 w-4 ${isActive("/bitcoin-wallet") ? "text-bitcoin-foreground" : "text-bitcoin"}`} />
                       <span>Bitcoin Wallet</span>
                     </Link>
                     <MobileNavLink to="/p2p" icon={ArrowLeftRight}>P2P Trading</MobileNavLink>
@@ -772,12 +772,12 @@ const Header = () => {
                 ) : (
                   <div className="space-y-3">
                     <Link to="/login" onClick={closeMobileMenu}>
-                      <Button variant="ghost" className="w-full gap-2 rounded-full h-12 bg-[#E9EEF5] text-[15px] font-semibold text-[#003087] shadow-none hover:bg-[#DBE5F1] hover:text-[#003087]">
+                      <Button variant="ghost" className="w-full gap-2 rounded-full h-12 bg-secondary text-[15px] font-semibold text-secondary-foreground shadow-none hover:bg-secondary/80 hover:text-secondary-foreground">
                         <LogIn className="h-4 w-4" /> Log In
                       </Button>
                     </Link>
                     <Link to="/register" onClick={closeMobileMenu}>
-                      <Button className="w-full gap-2 rounded-full h-12 bg-black text-[15px] font-semibold text-white shadow-none hover:bg-black/85">
+                      <Button className="w-full gap-2 rounded-full h-12 bg-primary text-[15px] font-semibold text-primary-foreground shadow-none hover:bg-primary/90">
                         <UserPlus className="h-4 w-4" /> Sign Up
                       </Button>
                     </Link>

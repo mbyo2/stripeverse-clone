@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -127,7 +126,6 @@ export default function P2pShell({
 
         {children}
       </main>
-      <Footer />
     </div>
   );
 }

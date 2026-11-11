@@ -9,7 +9,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-none hover:bg-[#DE830A]",
+        default: "bg-primary text-primary-foreground shadow-none hover:bg-primary/90",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
@@ -18,12 +18,14 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        bitcoin:
+          "bg-bitcoin text-bitcoin-foreground shadow-none hover:bg-bitcoin/90",
       },
       size: {
         default: "h-11 px-6 py-2",
-        sm: "h-11 px-4",
+        sm: "h-9 px-4",
         lg: "h-12 px-8",
-        icon: "h-11 w-11",
+        icon: "h-10 w-10",
       },
     },
     defaultVariants: {

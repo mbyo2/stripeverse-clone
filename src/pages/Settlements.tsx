@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { SkeletonListRows } from '@/components/ui/skeletons';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -162,7 +161,6 @@ const Settlements = () => {
           </CardContent>
         </Card>
       </main>
-      <Footer />
     </div>
   );
 };

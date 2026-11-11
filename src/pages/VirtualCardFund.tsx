@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "@/components/Header";
 import { CardPageSkeleton, FormPageSkeleton } from "@/components/ui/skeletons";
-import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,7 +128,6 @@ const VirtualCardFund = () => {
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <FormPageSkeleton />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -141,7 +139,6 @@ const VirtualCardFund = () => {
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <VirtualCardsComingSoon />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -153,7 +150,6 @@ const VirtualCardFund = () => {
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <CardPageSkeleton />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -178,7 +174,6 @@ const VirtualCardFund = () => {
             </CardContent>
           </Card>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -301,7 +296,6 @@ const VirtualCardFund = () => {
         
         <QuickFundOptions />
       </main>
-      <Footer />
     </div>
   );
 };

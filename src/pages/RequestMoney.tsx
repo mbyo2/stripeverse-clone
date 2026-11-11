@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { SkeletonListRow } from "@/components/ui/skeletons";
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -188,7 +187,6 @@ const RequestMoney = () => {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

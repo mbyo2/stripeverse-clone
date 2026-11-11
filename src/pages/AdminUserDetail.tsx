@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { DetailPageSkeleton } from "@/components/ui/skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -437,7 +436,6 @@ const AdminUserDetail = () => {
         <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
           <DetailPageSkeleton />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -933,7 +931,6 @@ const AdminUserDetail = () => {
           </div>
         )}
       </main>
-      <Footer />
     </div>
   );
 };

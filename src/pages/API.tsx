@@ -2,7 +2,6 @@ import { toUserFacingError } from "@/utils/userFacingError";
 import React, { useState, useEffect, useCallback } from "react";
 import { SkeletonListRows } from "@/components/ui/skeletons";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -660,7 +659,6 @@ const API = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Footer />
     </div>
   );
 };

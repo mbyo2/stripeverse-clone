@@ -1,5 +1,4 @@
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { DisputeList } from '@/components/disputes/DisputeList';
 import { Card, CardContent } from '@/components/ui/card';
 import { useDisputes } from '@/hooks/useDisputes';
@@ -46,7 +45,6 @@ const Disputes = () => {
 
         <DisputeList />
       </main>
-      <Footer />
     </div>
   );
 };

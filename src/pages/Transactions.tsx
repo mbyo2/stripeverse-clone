@@ -1,5 +1,4 @@
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -90,7 +89,6 @@ const Transactions = () => {
           />
         </Suspense>
       </main>
-      <Footer />
     </div>
   );
 };

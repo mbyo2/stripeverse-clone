@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { Shield, Check, AlertTriangle, CreditCard, FileCheck, Lock, Eye, Download, FileBadge, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -532,7 +531,6 @@ const Compliance = () => {
         </div>
       </main>
       
-      <Footer />
     </div>
   );
 };

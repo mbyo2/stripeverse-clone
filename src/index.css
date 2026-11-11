@@ -11,14 +11,20 @@
     --card-foreground: 220 20% 14%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 14%;
-    --primary: 33 93% 54%;
-    --primary-foreground: 0 0% 0%;
+    /* UI primary is the PayPal navy family: buttons, links, focus
+       rings and active nav all read from --primary. Bitcoin orange
+       lives ONLY in --bitcoin, reserved for Bitcoin itself (amounts,
+       Bitcoin branding moments, the logo). */
+    --primary: 219 100% 26%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 216 33% 97%;
     --secondary-foreground: 219 100% 26%;
     --muted: 216 33% 97%;
     --muted-foreground: 215 16% 43%;
-    --accent: 36 90% 95%;
+    --accent: 216 33% 97%;
     --accent-foreground: 219 100% 26%;
+    --bitcoin: 33 93% 54%;
+    --bitcoin-foreground: 0 0% 0%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --success: 152 69% 31%;
@@ -27,8 +33,15 @@
     --warning-foreground: 220 26% 14%;
     --border: 216 24% 90%;
     --input: 216 24% 90%;
-    --ring: 33 93% 54%;
-    --radius: 0.75rem;
+    --ring: 210 100% 44%;
+    /* Radius ladder: controls 6px (rounded-md), cards 8px
+       (rounded-lg), overlays 12px (rounded-xl). */
+    --radius: 0.5rem;
+    --chart-1: 219 100% 26%;
+    --chart-2: 210 100% 44%;
+    --chart-3: 33 93% 54%;
+    --chart-4: 152 69% 31%;
+    --chart-5: 215 16% 43%;
     --paypal-blue: 219 100% 26%;
     --paypal-blue-light: 210 100% 44%;
     --paypal-dark: 219 100% 26%;
@@ -42,23 +55,30 @@
     --card-foreground: 210 40% 98%;
     --popover: 222 40% 14%;
     --popover-foreground: 210 40% 98%;
-    --primary: 33 93% 54%;
-    --primary-foreground: 0 0% 0%;
+    --primary: 210 100% 55%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
     --accent: 217 33% 20%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
+    --bitcoin: 33 93% 54%;
+    --bitcoin-foreground: 0 0% 0%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
-    --success: 152 69% 31%;
+    --success: 152 69% 40%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 222 47% 11%;
     --border: 217 33% 22%;
     --input: 217 33% 22%;
-    --ring: 33 93% 54%;
+    --ring: 210 100% 60%;
+    --chart-1: 210 100% 60%;
+    --chart-2: 217 91% 65%;
+    --chart-3: 33 93% 54%;
+    --chart-4: 152 69% 45%;
+    --chart-5: 215 20% 65%;
     --paypal-blue: 219 90% 34%;
     --paypal-blue-light: 210 100% 58%;
     --paypal-dark: 222 47% 11%;
@@ -79,21 +99,14 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Design system: every heading on every page uses the Poppins display
-     face with tight tracking (PayPal-system discipline). Utilities on a
-     heading still override these base values. */
-  h1, h2, h3, h4 {
-    @apply font-display tracking-[-0.02em];
-  }
+  /* Headings take the type scale from their utilities (font-display is
+     applied by page titles and card titles that want the display face);
+     no global face is forced on every heading. */
 
   /* Global clickable element styles */
-  a, button, [role="button"], [type="button"], [type="submit"], 
+  a, button, [role="button"], [type="button"], [type="submit"],
   [onclick], label[for], summary {
     cursor: pointer;
-  }
-
-  a:hover, button:not(:disabled):hover, [role="button"]:hover {
-    @apply opacity-90;
   }
 
   /* Interactive element focus states */
@@ -101,13 +114,10 @@
     @apply outline-none ring-2 ring-ring ring-offset-2;
   }
 
-  /* Links */
+  /* Links: colour is set by the component that renders the link —
+     no global hover recolour and no blanket hover opacity. */
   a:not([class*="button"]):not([class*="btn"]) {
     @apply transition-colors duration-150;
-  }
-
-  a:not([class*="button"]):not([class*="btn"]):hover {
-    @apply text-primary;
   }
 
   ::-webkit-scrollbar {
@@ -193,7 +203,7 @@
 
   .button-primary {
     @apply px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold
-           transition-all duration-200 hover:bg-[#DE830A]
+           transition-all duration-200 hover:bg-primary/90
            active:scale-[0.98];
   }
 

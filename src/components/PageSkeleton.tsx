@@ -1,7 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 
 interface PageSkeletonProps {
   cards?: number;
@@ -46,7 +45,7 @@ const PageSkeleton = ({ cards = 3, showHeader = true, showChart = false, title =
         </CardContent>
       </Card>
     </main>
-    {showHeader && <Footer />}
+    {showHeader && }
   </div>
 );
 

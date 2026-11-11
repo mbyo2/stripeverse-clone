@@ -1,5 +1,4 @@
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -67,7 +66,6 @@ const ApiRateLimits = () => {
         <main className="flex-1 pt-6 pb-16 px-4 max-w-6xl mx-auto w-full">
           <ListPageSkeleton />
         </main>
-        <Footer />
       </div>
     );
 
@@ -175,7 +173,6 @@ const ApiRateLimits = () => {
           Limits shown are the enforced ones: sign-in and sign-up limits ({AUTH_RATE_LIMIT_ATTEMPTS.login} and {AUTH_RATE_LIMIT_ATTEMPTS.signup} attempts per {AUTH_RATE_LIMIT_WINDOW_MINUTES} minutes) come from the app's rate-limit checks, and the API-call limit is your account's hourly limit from the tier settings. Actions without a configured limit show attempts only.
         </p>
       </main>
-      <Footer />
     </div>
   );
 };

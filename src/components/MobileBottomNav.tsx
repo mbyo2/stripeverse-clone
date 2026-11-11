@@ -39,7 +39,7 @@ const MobileBottomNav = () => {
               )}
             >
               {item.featured ? (
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F7931A] text-black">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-bitcoin text-bitcoin-foreground">
                   <item.icon className="h-5 w-5" />
                 </span>
               ) : (

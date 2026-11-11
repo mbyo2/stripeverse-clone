@@ -1,6 +1,5 @@
 import Header from '@/components/Header';
 import { SkeletonListRows } from "@/components/ui/skeletons";
-import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -124,7 +123,6 @@ const WebhookLogs = () => {
           </CardContent>
         </Card>
       </main>
-      <Footer />
     </div>
   );
 };

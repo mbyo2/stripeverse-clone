@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { TablePageSkeleton } from "@/components/ui/skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -187,7 +186,6 @@ const AdminUsers = () => {
         <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
           <TablePageSkeleton />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -465,7 +463,6 @@ const AdminUsers = () => {
           </TabsContent>
         </Tabs>
       </main>
-      <Footer />
     </div>
   );
 };

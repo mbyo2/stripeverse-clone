@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SkeletonListRows } from "@/components/ui/skeletons";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -235,7 +234,6 @@ const FeedbackDashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
-      <Footer />
 
       {/* Feedback Details Dialog */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>

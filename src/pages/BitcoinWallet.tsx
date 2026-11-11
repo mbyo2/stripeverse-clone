@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1208,7 +1207,6 @@ export default function BitcoinWallet() {
             />
           </section>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -1427,7 +1425,6 @@ export default function BitcoinWallet() {
           </div>
         </section>
       </main>
-      <Footer />
     </div>
   );
 }

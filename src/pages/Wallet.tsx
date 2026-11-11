@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import WalletBalance from "@/components/wallet/WalletBalance";
 import QuickActions from "@/components/wallet/QuickActions";
 import VirtualCardManager from "@/components/wallet/VirtualCardManager";
@@ -292,7 +291,6 @@ const Wallet = () => {
         <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <WalletPageSkeleton />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -308,7 +306,6 @@ const Wallet = () => {
             onRetry={() => void retryWithRecovery(refetchWallet)}
           />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -461,7 +458,6 @@ const Wallet = () => {
           </CardContent>
         </Card>
       </main>
-      <Footer />
     </div>
   );
 };

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { TablePageSkeleton } from "@/components/ui/skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -77,7 +76,6 @@ const AdminTransactions = () => {
         <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
           <TablePageSkeleton />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -222,7 +220,6 @@ const AdminTransactions = () => {
           </CardContent>
         </Card>
       </main>
-      <Footer />
     </div>
   );
 };

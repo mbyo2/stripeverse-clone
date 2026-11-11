@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -335,7 +334,6 @@ const SubAccounts = () => {
           Switch the account you're viewing at any time from the account menu in the header.
         </p>
       </main>
-      <Footer />
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>

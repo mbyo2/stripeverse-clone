@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { SkeletonTableRows } from '@/components/ui/skeletons';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -250,7 +249,6 @@ const AmlScreening = () => {
           </DialogContent>
         </Dialog>
       </main>
-      <Footer />
     </div>
   );
 };

@@ -30,11 +30,11 @@ const protectedRoute = read("src/components/ProtectedRoute.tsx");
 const animatedRoutes = read("src/components/AnimatedRoutes.tsx");
 
 describe("SkeletonHeaderBar — shell geometry matches the real Header", () => {
-  it("keeps the real bar: 72px height, 1320px container, same fill/border", () => {
+  it("keeps the real bar: 72px height, 1200px container, same fill/border", () => {
     for (const src of [skeletons, header]) {
       expect(src).toContain("h-[72px]");
-      expect(src).toContain("max-w-[1320px]");
-      expect(src).toContain("dark:bg-[#0A0F1A]");
+      expect(src).toContain("max-w-[1200px]");
+      expect(src).toContain("bg-background border-b border-border");
     }
   });
 

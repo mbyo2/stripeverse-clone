@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { SkeletonListRows } from "@/components/ui/skeletons";
 import { Search, Filter, Download, Calendar as CalendarIcon, ArrowUpRight, ArrowDownLeft, Receipt } from "lucide-react";
 import { formatCurrency } from "@/utils/walletUtils";
@@ -400,7 +399,6 @@ const TransactionList = () => {
           </CardContent>
         </Card>
       </main>
-      <Footer />
     </div>
   );
 };

@@ -1,7 +1,6 @@
 
 import React from 'react';
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TierFeatureMatrix from "@/components/tiers/TierFeatureMatrix";
 import TierWorkflow from "@/components/tiers/TierWorkflow";
@@ -41,7 +40,6 @@ const TierManagement = () => {
           </TabsContent>
         </Tabs>
       </main>
-      <Footer />
     </div>
   );
 };

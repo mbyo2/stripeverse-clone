@@ -1,6 +1,5 @@
 import React from 'react';
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import SecurityDashboard from "@/components/SecurityDashboard";
 import SecurityStatus from "@/components/SecurityStatus";
 import SecurityAlert from "@/components/security/SecurityAlert";
@@ -108,7 +107,6 @@ const SecuritySettings = () => {
           </TabsContent>
         </Tabs>
       </main>
-      <Footer />
     </div>
   );
 };

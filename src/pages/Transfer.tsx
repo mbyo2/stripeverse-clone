@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import TransferForm from "@/components/TransferForm";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
@@ -117,7 +116,6 @@ const Transfer = () => {
           )}
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

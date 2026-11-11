@@ -2,7 +2,6 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
 import { TrendingUp, Activity, CreditCard, DollarSign, ArrowLeft, ArrowUpRight, ArrowDownRight, ChevronRight } from "lucide-react";
 import { useBusinessData } from "@/hooks/useBusinessData";
@@ -262,7 +261,6 @@ const BusinessDashboard = () => {
           </Card>
         </motion.div>
       </main>
-      <Footer />
     </div>
   );
 };

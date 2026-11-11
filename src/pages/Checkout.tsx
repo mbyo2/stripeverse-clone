@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, AlertCircle, Clock, SearchX, Info } from "lucide-react";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
@@ -143,7 +142,6 @@ const Checkout = () => {
     <div className="min-h-screen flex flex-col bg-secondary/10">
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4">{children}</main>
-      <Footer />
     </div>
   );
 

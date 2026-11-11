@@ -11,7 +11,6 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Header from "@/components/Header";
 import { SettingsSkeleton } from "@/components/ui/skeletons";
-import Footer from "@/components/Footer";
 import { User, Shield, Bell, CreditCard, LogOut, Camera, Loader2, ChevronRight, Settings as SettingsIcon, Sun, Moon, Monitor, Palette, Lock, CheckCircle2, XCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
@@ -277,7 +276,6 @@ const Settings = () => {
         <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full" role="status" aria-label="Loading settings">
           <SettingsSkeleton />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -703,7 +701,6 @@ const Settings = () => {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

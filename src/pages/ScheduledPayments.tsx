@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from 'date-fns';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import { useScheduledPayments, CreateScheduledPaymentInput } from '@/hooks/useScheduledPayments';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -237,7 +236,6 @@ const ScheduledPayments = () => {
           </div>
         )}
       </main>
-      <Footer />
     </div>
   );
 };

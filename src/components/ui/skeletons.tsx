@@ -163,10 +163,10 @@ export const SkeletonHeaderBar = ({
   variant?: SkeletonHeaderVariant;
 }) => (
   <div
-    className="bg-white dark:bg-[#0A0F1A] border-b border-[#CFD3D8]/70 dark:border-white/10"
+    className="bg-background border-b border-border"
     aria-hidden="true"
   >
-    <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
+    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
       <div className="flex items-center gap-3 xl:gap-6 min-w-0">
         {/* Logo: mark + wordmark, at Logo.tsx's sizes */}
         <div className="flex items-center gap-2.5 shrink-0">

@@ -1,5 +1,4 @@
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +36,6 @@ const AuditLogs = () => {
         <main className="flex-1 pt-6 pb-16 px-4 max-w-6xl mx-auto w-full">
           <TablePageSkeleton />
         </main>
-        <Footer />
       </div>
     );
 
@@ -154,7 +152,6 @@ const AuditLogs = () => {
           </Card>
         )}
       </main>
-      <Footer />
     </div>
   );
 };

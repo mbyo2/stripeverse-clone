@@ -1,7 +1,6 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import KycVerification from "@/components/wallet/KycVerification";
 import { ShieldCheck, ShieldAlert } from "lucide-react";
 
@@ -83,7 +82,6 @@ const KycPage = () => {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

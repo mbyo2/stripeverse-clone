@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { CardCreateSkeleton } from "@/components/ui/skeletons";
-import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -182,7 +181,6 @@ const VirtualCardNew = () => {
         <main className="flex-1 pt-6 pb-16 px-4 max-w-3xl mx-auto w-full">
           <CardCreateSkeleton />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -198,7 +196,6 @@ const VirtualCardNew = () => {
           </div>
           <VirtualCardsComingSoon />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -462,7 +459,6 @@ const VirtualCardNew = () => {
           </CardContent>
         </Card>
       </main>
-      <Footer />
     </div>
   );
 };

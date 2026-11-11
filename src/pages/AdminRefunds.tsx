@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { TablePageSkeleton } from "@/components/ui/skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -136,7 +135,6 @@ const AdminRefunds = () => {
         <main className="flex-1 pt-6 pb-16 px-4 max-w-7xl mx-auto w-full">
           <TablePageSkeleton />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -397,7 +395,6 @@ const AdminRefunds = () => {
           </DialogContent>
         </Dialog>
       </main>
-      <Footer />
     </div>
   );
 };

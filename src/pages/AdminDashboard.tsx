@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminCryptoPayouts } from "@/components/web3/AdminCryptoPayouts";
 import { AdminTreasuryConfig } from "@/components/web3/AdminTreasuryConfig";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { StatGridPageSkeleton } from "@/components/ui/skeletons";
 import { useToast } from "@/hooks/use-toast";
 import { useRoles } from "@/contexts/RoleContext";
@@ -292,7 +291,6 @@ const AdminDashboard = () => {
         <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <StatGridPageSkeleton />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -512,7 +510,6 @@ const AdminDashboard = () => {
           )}
         </Tabs>
       </main>
-      <Footer />
     </div>
   );
 };

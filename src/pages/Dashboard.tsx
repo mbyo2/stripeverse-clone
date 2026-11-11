@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -88,7 +87,6 @@ const Dashboard = () => {
             <DashboardSkeleton />
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -104,7 +102,6 @@ const Dashboard = () => {
             onRetry={retryWithRecovery}
           />
         </main>
-        <Footer />
       </div>
     );
   }
@@ -431,7 +428,6 @@ const Dashboard = () => {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };
