@@ -116,7 +116,12 @@ const Header = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const isActive = (path: string) => location.pathname === path;
+  // Route activity is prefix-aware: a nav item is active on its own
+  // route and on nested routes beneath it (e.g. Bitcoin Wallet stays
+  // lit on /bitcoin-wallet/self-custody, P2P on its sub-pages).
+  const isActive = (path: string) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`);
+  const isGroupActive = (paths: string[]) => paths.some((p) => isActive(p));
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
@@ -156,7 +161,7 @@ const Header = () => {
     <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
         {/* Logo */}
-        <div className="flex items-center gap-3 xl:gap-6 2xl:gap-10 min-w-0">
+        <div className="flex items-center gap-3 xl:gap-6 min-w-0">
           <Link to="/" aria-label="BMaGlass Pay — home" className="flex items-center shrink-0">
             <Logo variant={resolvedTheme === "dark" ? "white" : "color"} />
           </Link>
@@ -180,31 +185,38 @@ const Header = () => {
           {user && (
             <nav className="hidden xl:flex items-center gap-1 min-w-0">
               <Link to="/dashboard">
-                <Button variant={isActive("/dashboard") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 px-3 2xl:px-4">
+                <Button variant={isActive("/dashboard") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 px-3">
                   Dashboard
                 </Button>
               </Link>
               {/* The Bitcoin wallet is the product — first destination after
-                  Dashboard, styled as the primary action in Bitcoin orange. */}
+                  Dashboard, carrying the Bitcoin-orange identity. Its
+                  treatment still derives from the route (rendered defect,
+                  2026-11-11: both ternary branches were solid orange, so
+                  the pill read as "active" on every page): solid orange
+                  only on the wallet route itself, the toned tint the
+                  mobile drawer uses everywhere else. */}
               <Link to="/bitcoin-wallet">
                 <Button
                   size="sm"
-                  className={`h-9 rounded-full px-3.5 2xl:px-4 text-sm font-semibold text-black shadow-none gap-1.5 ${
-                    isActive("/bitcoin-wallet") ? "bg-bitcoin/90" : "bg-bitcoin hover:bg-bitcoin/90"
+                  className={`h-9 rounded-full px-3.5 text-sm shadow-none gap-1.5 ${
+                    isActive("/bitcoin-wallet")
+                      ? "bg-bitcoin font-semibold text-bitcoin-foreground hover:bg-bitcoin/90"
+                      : "bg-bitcoin/15 font-medium text-foreground hover:bg-bitcoin/25"
                   }`}
                 >
-                  <Bitcoin className="h-4 w-4" /> Bitcoin Wallet
+                  <Bitcoin className={`h-4 w-4 ${isActive("/bitcoin-wallet") ? "text-bitcoin-foreground" : "text-bitcoin"}`} /> Bitcoin Wallet
                 </Button>
               </Link>
               <Link to="/p2p">
-                <Button variant={isActive("/p2p") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 px-3 2xl:px-4">
+                <Button variant={isActive("/p2p") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 px-3">
                   P2P Trading
                 </Button>
               </Link>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1 px-3 2xl:px-4">
+                  <Button variant={isGroupActive(["/transfer", "/send-money", "/request-money", "/bank-transfers", "/bulk-payments", "/contacts", "/scheduled-payments", "/qr-payments"]) ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 gap-1 px-3">
                     Send & Request <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -256,7 +268,7 @@ const Header = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1 px-3 2xl:px-4">
+                  <Button variant={isGroupActive(["/bitcoin-wallet", "/wallet", "/multi-currency", "/sub-accounts", "/transactions", "/card/new", "/spending-insights", "/refunds", "/card-vault", "/pay-later", "/savings", "/statements", "/transaction-search"]) ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 gap-1 px-3">
                     Wallet <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -338,7 +350,7 @@ const Header = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-sm font-medium h-9 gap-1 px-3 2xl:px-4">
+                  <Button variant={isGroupActive(["/business", "/collect-payments", "/payment-links", "/pos", "/split-payments", "/invoices", "/analytics", "/settlements", "/disputes", "/webhook-logs", "/api", "/billing", "/payment-plans", "/escrow", "/bill-payments", "/agent-network", "/fraud-rules", "/ip-whitelist", "/checkout-widget", "/developers"]) ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 gap-1 px-3">
                     Business <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -468,15 +480,23 @@ const Header = () => {
         <div className="hidden xl:flex items-center gap-2 shrink-0">
           {user ? (
             <>
-              {/* Width budget: the 1320px container leaves 1232px at 1280 and
-                  1272px at ≥1366 for the whole row. The account switcher,
-                  language/currency selectors and role badge live in the
-                  avatar menu (below) so the row fits at every width ≥1280. */}
+              {/* Width budget: the 1200px container leaves 1152px of
+                  content width at every desktop size. The whole row —
+                  logo, the six-item nav at its standard paddings, this
+                  cluster — must fit inside it: the nav items and the
+                  logo gap therefore do NOT grow at 2xl, and this pill is
+                  w-28. (Rendered defect, 2026-11-11: the old 2xl growth
+                  pushed the row ~72px past the container, the left block
+                  overflowed underneath this cluster, and the Search pill
+                  painted over the Business menu, making it unclickable.)
+                  The account switcher, language/currency selectors and
+                  role badge live in the avatar menu (below) for the same
+                  reason. */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setSearchOpen(true)}
-                className="hidden 2xl:flex h-9 gap-2 text-muted-foreground font-normal w-32 justify-start"
+                className="hidden 2xl:flex h-9 gap-2 text-muted-foreground font-normal w-28 justify-start"
               >
                 <Search className="h-3.5 w-3.5" />
                 <span className="text-xs">Search...</span>
@@ -505,7 +525,7 @@ const Header = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-9 gap-1">
+                  <Button variant="ghost" size="sm" className="h-9 gap-1 px-2">
                     <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
                       <User className="h-3.5 w-3.5 text-primary" />
                     </div>

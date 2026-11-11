@@ -197,7 +197,7 @@ export const SkeletonHeaderBar = ({
       {variant === "authed" ? (
         <div className="hidden xl:flex items-center gap-2 shrink-0">
           <Skeleton className="h-9 w-9 rounded-md 2xl:hidden" />
-          <Skeleton className="h-9 w-32 rounded-md hidden 2xl:block" />
+          <Skeleton className="h-9 w-28 rounded-md hidden 2xl:block" />
           <Skeleton className="h-9 w-9 rounded-full" />
           <Skeleton className="h-9 w-9 rounded-full" />
           <Skeleton className="h-9 w-[54px] rounded-full" />

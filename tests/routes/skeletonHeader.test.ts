@@ -66,7 +66,11 @@ describe("SkeletonHeaderBar — signed-in variant mirrors the authed Header", ()
 
   it("right cluster: search, bell, theme, account-menu pill at h-9", () => {
     expect(skeletons).toContain("w-[54px] rounded-full"); // account menu
-    expect(skeletons).toContain("w-32 rounded-md hidden 2xl:block"); // ⌘K field at 2xl
+    // ⌘K field at 2xl — w-28 since the 2026-11-11 header width fix:
+    // at w-32 (with the old 2xl nav growth) the real header row ran
+    // ~72px past its 1200px container and the Search pill painted
+    // over the Business menu. The twin follows the real pill's width.
+    expect(skeletons).toContain("w-28 rounded-md hidden 2xl:block");
   });
 
   it("mobile cluster: bell + hamburger below xl", () => {
