@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Header from '@/components/Header';
 import { useToast } from '@/hooks/use-toast';
-import { Code2, Copy, Eye, Palette, CreditCard, Smartphone, Zap, CheckCircle, Settings, ExternalLink } from 'lucide-react';
+import { Code2, Copy, Eye, Palette, CreditCard, Smartphone, Landmark, Bitcoin, CheckCircle, Settings, ExternalLink } from 'lucide-react';
 
 const CheckoutWidget = () => {
   const { toast } = useToast();
@@ -217,14 +217,14 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
               <CardContent className="space-y-3">
                 <p className="text-xs text-muted-foreground">For preview layout only — these methods aren't enabled for guest checkout.</p>
                 {[
-                  { key: 'showCard', label: 'Card', icon: '💳' },
-                  { key: 'showMobileMoney', label: 'Mobile Money', icon: '📱' },
-                  { key: 'showBankTransfer', label: 'Bank Transfer', icon: '🏦' },
-                  { key: 'showBitcoin', label: 'Bitcoin', icon: '₿' },
+                  { key: 'showCard', label: 'Card', icon: CreditCard },
+                  { key: 'showMobileMoney', label: 'Mobile Money', icon: Smartphone },
+                  { key: 'showBankTransfer', label: 'Bank Transfer', icon: Landmark },
+                  { key: 'showBitcoin', label: 'Bitcoin', icon: Bitcoin },
                 ].map(m => (
                   <div key={m.key} className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm">
-                      <span>{m.icon}</span>
+                      <m.icon className="h-4 w-4 text-muted-foreground" />
                       <span>{m.label}</span>
                     </div>
                     <Switch checked={(config as any)[m.key]} onCheckedChange={v => updateConfig(m.key, v)} />
@@ -259,7 +259,7 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
               </CardHeader>
               <CardContent>
                 <div className="bg-muted/30 rounded-xl p-6 flex items-center justify-center min-h-[280px]">
-                  <div className="bg-background rounded-2xl shadow-lg border p-6 w-full max-w-sm">
+                  <div className="bg-background rounded-xl shadow-md border p-6 w-full max-w-sm">
                     <div className="text-center mb-4">
                       <h3 className="font-semibold text-lg">{config.title}</h3>
                       <p className="text-sm text-muted-foreground">{config.description}</p>
@@ -282,12 +282,12 @@ curl -X POST '${projectUrl}/functions/v1/process-payment' \\
                       )}
                       {config.showBankTransfer && (
                         <div className="flex items-center gap-2 p-3 rounded-lg border hover:border-primary/40 cursor-pointer transition-colors">
-                          <span className="text-sm">🏦</span><span className="text-sm">Bank Transfer</span>
+                          <Landmark className="h-4 w-4" /><span className="text-sm">Bank Transfer</span>
                         </div>
                       )}
                       {config.showBitcoin && (
                         <div className="flex items-center gap-2 p-3 rounded-lg border hover:border-primary/40 cursor-pointer transition-colors">
-                          <Zap className="h-4 w-4" /><span className="text-sm">Bitcoin</span>
+                          <Bitcoin className="h-4 w-4" /><span className="text-sm">Bitcoin</span>
                         </div>
                       )}
                     </div>

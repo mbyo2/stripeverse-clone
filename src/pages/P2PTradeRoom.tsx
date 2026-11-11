@@ -194,7 +194,7 @@ export default function P2PTradeRoom() {
         {/* Standing warnings (§3.5 UX copy as a security control) */}
         {!meta.terminal && (
           <Alert className="border-amber-500/40 bg-amber-500/5">
-            <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <ShieldAlert className="h-4 w-4 text-warning" />
             <AlertTitle>Trade safely</AlertTitle>
             <AlertDescription className="text-xs leading-relaxed">
               Only pay the account shown here. Never trust a screenshot — check

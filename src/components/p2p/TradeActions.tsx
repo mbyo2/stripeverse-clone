@@ -130,7 +130,7 @@ export function MarkPaidForm({ order }: { order: P2pOrder }) {
   return (
     <div className="space-y-4">
       <Alert className="border-amber-500/40 bg-amber-500/5">
-        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        <AlertTriangle className="h-4 w-4 text-warning" />
         <AlertTitle>Pay only the account on this order</AlertTitle>
         <AlertDescription className="text-xs leading-relaxed">
           Pay from your own registered account, in your own name. Paying from
@@ -343,7 +343,7 @@ export function ReleaseForm({
               Paid in the name: <strong>{claim.payer_name_attested}</strong>
             </p>
           )}
-          <p className="text-xs text-amber-600 dark:text-amber-400 pt-1">
+          <p className="text-xs text-warning pt-1">
             This is the buyer's claim — not proof. Only release after you see
             this exact amount and reference inside your own account.
           </p>

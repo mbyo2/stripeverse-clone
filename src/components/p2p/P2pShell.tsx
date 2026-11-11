@@ -78,7 +78,7 @@ export default function P2pShell({
           <Skeleton className="h-10 w-full mb-6" />
         ) : paused ? (
           <Alert className="mb-6 border-amber-500/50 bg-amber-500/10">
-            <PauseCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <PauseCircle className="h-4 w-4 text-warning" />
             <AlertTitle>P2P trading is paused</AlertTitle>
             <AlertDescription>
               New ads and orders are on hold right now. Existing trades can

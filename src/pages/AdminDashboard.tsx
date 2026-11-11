@@ -34,7 +34,6 @@ interface AdminAction {
   description: string;
   icon: React.ReactNode;
   link: string;
-  color: string;
   /** super_admin-only destination: the card is not rendered at
    *  all for any other viewer (least privilege — see
    *  adminDashboardVisibility in src/lib/roleVisibility.ts). */
@@ -174,21 +173,18 @@ const AdminDashboard = () => {
       description: "Manage users, roles, and KYC approvals",
       icon: <Users className="h-6 w-6" />,
       link: "/admin/users",
-      color: "bg-blue-500"
     },
     {
       title: "Transaction Oversight",
       description: "Monitor all platform transactions",
       icon: <Activity className="h-6 w-6" />,
       link: "/admin/transactions",
-      color: "bg-green-500"
     },
     {
       title: "Treasury & Reports",
       description: "Platform balances, fee income and reports (super admin)",
       icon: <Landmark className="h-6 w-6" />,
       link: "/admin/treasury",
-      color: "bg-amber-500",
       superAdminOnly: true
     },
     {
@@ -196,77 +192,66 @@ const AdminDashboard = () => {
       description: "Rule P2P disputes and manage sanctions",
       icon: <AlertTriangle className="h-6 w-6" />,
       link: "/admin/p2p",
-      color: "bg-orange-500"
     },
     {
       title: "Identity Review",
       description: "Decide face verifications waiting on a human",
       icon: <ScanFace className="h-6 w-6" />,
       link: "/admin/identity",
-      color: "bg-purple-500"
     },
     {
       title: "Role Management",
       description: "View your roles and request changes",
       icon: <Shield className="h-6 w-6" />,
       link: "/role-management",
-      color: "bg-[#003087]"
     },
     {
       title: "Role Requests",
       description: "Approve or reject user role requests",
       icon: <Inbox className="h-6 w-6" />,
       link: "/admin/role-requests",
-      color: "bg-indigo-500"
     },
     {
       title: "Refunds Console",
       description: "Track every refund request platform-wide",
       icon: <ReceiptText className="h-6 w-6" />,
       link: "/admin/refunds",
-      color: "bg-rose-500"
     },
     {
       title: "Cross-Border Payouts",
       description: "Mastercard Move payouts (sandbox)",
       icon: <Globe2 className="h-6 w-6" />,
       link: "/admin/mastercard-move",
-      color: "bg-purple-500"
     },
     {
       title: "MoonPay",
       description: "Card purchases of Bitcoin — status and purchases",
       icon: <CreditCard className="h-6 w-6" />,
       link: "/admin/moonpay",
-      color: "bg-violet-500"
     },
     {
       title: "PayPal Withdrawals",
       description: "PayPal payouts, the platform float and its allowance",
       icon: <Landmark className="h-6 w-6" />,
       link: "/admin/paypal",
-      color: "bg-sky-600"
     },
     {
       title: "Bank Payouts",
       description: "Withdrawals to Zambian bank accounts — review, approve, mark paid",
       icon: <Building2 className="h-6 w-6" />,
       link: "/admin/bank-payouts",
-      color: "bg-emerald-600"
     },
     {
       title: "Receiving Accounts",
       description: "Banking partners, issued account details and inbound credits",
       icon: <Landmark className="h-6 w-6" />,
       link: "/admin/receiving-accounts",
-      color: "bg-teal-600"
     },
     {
       title: "Compliance Center",
       description: "Manage compliance and KYC",
       icon: <AlertTriangle className="h-6 w-6" />,
       link: "/compliance",
-      color: "bg-orange-500"
     }
   ];
 
@@ -358,7 +343,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-sm font-medium">Pending KYC</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-[28px] font-display font-semibold tabular-nums text-orange-600">{systemStats.pending_kyc}</div>
+                  <div className="text-[28px] font-display font-semibold tabular-nums text-warning">{systemStats.pending_kyc}</div>
                 </CardContent>
               </Card>
             </div>
@@ -373,7 +358,7 @@ const AdminDashboard = () => {
                     <Link key={action.title} to={action.link}>
                       <Card className="hover:shadow-md transition-shadow cursor-pointer">
                         <CardContent className="p-6">
-                          <div className={`w-12 h-12 ${action.color} rounded-lg flex items-center justify-center text-white mb-4`}>
+                          <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4">
                             {action.icon}
                           </div>
                           <h3 className="font-semibold mb-2">{action.title}</h3>
@@ -462,7 +447,7 @@ const AdminDashboard = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Pending KYC Reviews</span>
-                    <span className="font-medium text-orange-600">{systemStats.pending_kyc}</span>
+                    <span className="font-medium text-warning">{systemStats.pending_kyc}</span>
                   </div>
                 </CardContent>
               </Card>

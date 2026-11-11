@@ -117,7 +117,7 @@ export default function TradeChat({ order }: { order: P2pOrder }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <Alert className="border-amber-500/40 bg-amber-500/5">
-          <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <ShieldAlert className="h-4 w-4 text-warning" />
           <AlertDescription className="text-xs leading-relaxed">
             Stay safe: only pay the account shown on this order. BMaGlass staff
             will never message you inside a trade, never ask you to cancel or
@@ -177,7 +177,7 @@ export default function TradeChat({ order }: { order: P2pOrder }) {
                       <p
                         className={cn(
                           "text-[10px]",
-                          mine ? "text-primary-foreground/80" : "text-amber-600 dark:text-amber-400",
+                          mine ? "text-primary-foreground/80" : "text-warning",
                         )}
                       >
                         Contact details were hidden in this message.
@@ -185,8 +185,8 @@ export default function TradeChat({ order }: { order: P2pOrder }) {
                     )}
                     {m.attachment_path && (
                       <div className="pt-1 space-y-1">
-                        <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                          ⚠ Attachments can hide QR codes or contact details.
+                        <p className="text-[10px] font-medium text-warning">
+                          Attachments can hide QR codes or contact details.
                           Never pay from an attachment — only the account on
                           this order.
                         </p>

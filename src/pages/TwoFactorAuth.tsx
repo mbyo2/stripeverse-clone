@@ -272,7 +272,7 @@ const TwoFactorAuth = () => {
                   
                   <TabsContent value="backup" className="space-y-4 pt-4">
                     <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30">
-                      <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      <AlertTriangle className="h-5 w-5 text-warning" />
                       <AlertTitle>Keep these codes safe</AlertTitle>
                       <AlertDescription>
                         Use these recovery codes if you lose access to your authentication device. Each code can be used once.

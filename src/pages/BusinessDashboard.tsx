@@ -9,7 +9,6 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { BusinessDashboardSkeleton } from "@/components/ui/skeletons";
-import { motion } from "framer-motion";
 
 const BusinessDashboard = () => {
   const { metrics, monthlyChart, paymentMethodBreakdown, merchantAccount, usageData, isLoading } = useBusinessData();
@@ -32,28 +31,24 @@ const BusinessDashboard = () => {
       title: "Total Revenue",
       value: formatAmount(metrics.revenue),
       icon: DollarSign,
-      color: "bg-emerald-600",
       description: "Completed incoming",
     },
     {
       title: "Transactions",
       value: metrics.txCount.toLocaleString(),
       icon: Activity,
-      color: "bg-[#003087]",
       description: "All types",
     },
     {
       title: "Success Rate",
       value: `${metrics.successRate}%`,
       icon: CreditCard,
-      color: "bg-[#44464A]",
       description: "Completed vs total",
     },
     {
       title: "API Calls",
       value: (usageData?.api_calls || 0).toLocaleString(),
       icon: TrendingUp,
-      color: "bg-amber-700",
       description: "This month",
     },
   ];
@@ -63,15 +58,11 @@ const BusinessDashboard = () => {
       <Header />
       <main className="flex-1 pt-6 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
         {/* Header */}
-        <motion.div 
-          className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
         >
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Analytics Dashboard</h1>
+              <h1 className="text-[28px] leading-tight font-display font-semibold text-foreground">Business dashboard</h1>
               {merchantAccount?.status && (
                 <Badge variant={merchantAccount.status === 'active' ? 'default' : 'secondary'} className="text-xs">
                   {merchantAccount.status}
@@ -86,14 +77,10 @@ const BusinessDashboard = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Portal
           </Button>
-        </motion.div>
+        </div>
 
         {/* Summary + Metrics */}
-        <motion.div
-          className="space-y-6 mb-8"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
+        <div className="space-y-6 mb-8"
         >
           <Card>
             <CardContent className="p-6 md:p-8">
@@ -123,14 +110,10 @@ const BusinessDashboard = () => {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
         {/* Charts */}
-        <motion.div 
-          className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
         >
           <Card>
             <CardHeader>
@@ -225,14 +208,10 @@ const BusinessDashboard = () => {
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
         {/* Quick Links */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
-        >
+        <div>
           <Card>
             <CardContent className="px-6 py-2">
               <div className="divide-y divide-border">
@@ -259,7 +238,7 @@ const BusinessDashboard = () => {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </main>
     </div>
   );

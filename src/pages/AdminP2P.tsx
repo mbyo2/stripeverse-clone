@@ -527,7 +527,7 @@ function DisputeWorkspace({
 
         {/* Evidence standard reminder */}
         <Alert className="border-amber-500/40 bg-amber-500/5">
-          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertTriangle className="h-4 w-4 text-warning" />
           <AlertTitle className="text-sm">Evidence standard</AlertTitle>
           <AlertDescription className="text-xs leading-relaxed">
             A chat screenshot is not proof of payment — for either side. Rule on
@@ -589,7 +589,7 @@ function DisputeWorkspace({
                     </Badge>
                     <span className="whitespace-pre-wrap">{m.body}</span>
                     {Array.isArray(m.scan_flags) && m.scan_flags.length > 0 && (
-                      <span className="block text-amber-600 dark:text-amber-400 pl-2">
+                      <span className="block text-warning pl-2">
                         Flags: {JSON.stringify(m.scan_flags)}
                       </span>
                     )}

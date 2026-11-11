@@ -223,7 +223,7 @@ export default function P2PNewAd() {
         <CardContent className="space-y-6">
           {sellBlocked && (
             <Alert className="border-amber-500/40 bg-amber-500/5">
-              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTriangle className="h-4 w-4 text-warning" />
               <AlertTitle>Selling ads need full verification</AlertTitle>
               <AlertDescription>
                 Posting a <strong>sell</strong> ad requires a fully verified
@@ -356,7 +356,7 @@ export default function P2PNewAd() {
 
           {side === "sell_crypto" && sellShortfallSats > 0 && (
             <Alert className="border-amber-500/40 bg-amber-500/5">
-              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTriangle className="h-4 w-4 text-warning" />
               <AlertTitle>Your P2P account needs more Bitcoin</AlertTitle>
               <AlertDescription>
                 <p>

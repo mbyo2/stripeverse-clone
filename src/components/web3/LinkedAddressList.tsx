@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Star } from "lucide-react";
 import { toast } from "sonner";
 import { CHAIN_LABELS } from "@/lib/web3/wagmiConfig";
+import { SkeletonListRows } from "@/components/ui/skeletons";
 
 type Wallet = {
   id: string;
@@ -68,7 +69,7 @@ export const LinkedAddressList = ({ refreshKey }: { refreshKey?: number }) => {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <SkeletonListRows rows={2} />
         ) : wallets.length === 0 ? (
           <p className="text-sm text-muted-foreground">No addresses linked yet.</p>
         ) : (

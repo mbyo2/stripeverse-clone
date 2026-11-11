@@ -137,7 +137,7 @@ const SplitPayments = () => {
                   </CardHeader>
                   <CardContent>
                     {!sub.account_email && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">No account email saved — this recipient can't receive splits. Create the recipient again with their BMaGlass account email to pay them.</p>
+                      <p className="text-xs text-warning mb-2">No account email saved — this recipient can't receive splits. Create the recipient again with their BMaGlass account email to pay them.</p>
                     )}
                     <div className="flex items-center gap-2 mb-2">
                       {sub.split_type === 'percentage' ? <Percent className="h-4 w-4 text-primary" /> : <DollarSign className="h-4 w-4 text-primary" />}
@@ -189,7 +189,7 @@ const SplitPayments = () => {
                           : []),
                       ];
                       const warning = splitRulesWarning(prospective, platformFeeRate);
-                      return warning ? <p className="text-xs text-amber-600 dark:text-amber-400">{warning}</p> : null;
+                      return warning ? <p className="text-xs text-warning">{warning}</p> : null;
                     })()}
                     <Button onClick={handleCreateRule} disabled={createRule.isPending || !ruleForm.name || !ruleForm.subaccount_id} className="w-full">
                       {createRule.isPending ? 'Creating...' : 'Create Rule'}
@@ -228,7 +228,7 @@ const SplitPayments = () => {
                       </span>{' '}
                       of every payment-link payment you receive, paid in creation order — {combinedPct}% committed in percentage terms before the rest is yours.
                     </p>
-                    {warning && <p className="text-amber-600 dark:text-amber-400">{warning}</p>}
+                    {warning && <p className="text-warning">{warning}</p>}
                   </div>
                 );
               })()}

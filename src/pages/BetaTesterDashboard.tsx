@@ -194,10 +194,10 @@ const BetaTesterDashboard = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="bug">🐛 Bug Report</SelectItem>
-                        <SelectItem value="feature">💡 Feature Request</SelectItem>
-                        <SelectItem value="improvement">⭐ Improvement</SelectItem>
-                        <SelectItem value="general">💬 General Feedback</SelectItem>
+                        <SelectItem value="bug">Bug Report</SelectItem>
+                        <SelectItem value="feature">Feature Request</SelectItem>
+                        <SelectItem value="improvement">Improvement</SelectItem>
+                        <SelectItem value="general">General Feedback</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

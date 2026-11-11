@@ -331,7 +331,7 @@ export default function AdCard({
 
             {!takerBuys && sellerShortfallSats > 0 && (
               <Alert className="border-amber-500/40 bg-amber-500/5">
-                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertTriangle className="h-4 w-4 text-warning" />
                 <AlertDescription>
                   <p>
                     This sale locks Bitcoin from your P2P account — you have{" "}
