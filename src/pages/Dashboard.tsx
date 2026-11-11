@@ -178,11 +178,11 @@ const Dashboard = () => {
               </>
             )}
             <div className="flex flex-wrap gap-2.5 mt-6">
-              {/* Hero CTAs in the PayPal app pattern: black pill
-                  primary on the sky card (the platform blue returns
-                  in dark mode, where the hero is a dark card), pale
-                  pill secondary. */}
-              <Button asChild className="bg-slate-950 text-white hover:bg-slate-950/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90">
+              {/* Hero CTAs in the classic PayPal pattern (CEO
+                  decision, 2026-11-11): the GOLD pill primary on the
+                  sky card — gold in dark mode too, where the hero is
+                  a dark card — and the pale pill secondary. */}
+              <Button asChild className="bg-gold text-gold-foreground hover:bg-gold-hover">
                 <Link to="/bitcoin-wallet">Open wallet</Link>
               </Button>
               <Button asChild variant="secondary" className="bg-white/70 text-slate-950 hover:bg-white dark:bg-secondary dark:text-secondary-foreground dark:hover:bg-secondary/80">

@@ -92,7 +92,7 @@ const WalletBalance = ({ onSendMoney, accountId }: WalletBalanceProps) => {
             <Button
               onClick={onSendMoney}
               variant="secondary"
-              className="h-11 px-5 rounded-full font-semibold bg-slate-950 text-white hover:bg-slate-950/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
+              className="h-11 px-5 rounded-full font-semibold bg-gold text-gold-foreground hover:bg-gold-hover"
             >
               <ArrowUpRight className="mr-2 h-4 w-4" /> Send Money
             </Button>

@@ -123,7 +123,7 @@ const InvoiceCheckout = () => {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-background px-4 py-10">
+    <div className="min-h-screen bg-background px-4 pt-10 pb-24">
       <CheckoutSkeleton />
     </div>
   );

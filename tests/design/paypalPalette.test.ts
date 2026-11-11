@@ -10,10 +10,13 @@
 // about the system changed.
 //
 // The system these tests pin:
-//   - --primary is PayPal blue #0066F5 (HSL 215 100% 48%) — primary
-//     buttons, links, active/selected states and focus rings read
-//     from it; --ring is the same blue. Dark mode lifts it to
-//     #529AFF (HSL 215 100% 66%), primary and ring alike.
+//   - --primary is PayPal blue #0066F5 (HSL 215 100% 48%) — links,
+//     active/selected states and focus rings read from it; --ring is
+//     the same blue. Dark mode lifts it to #529AFF (HSL 215 100%
+//     66%), primary and ring alike. (Primary BUTTONS are PayPal gold
+//     #FFC439 since the CEO's classic-PayPal decision, 2026-11-11 —
+//     pinned in classicPaypal.test.ts; the navy bar is pinned there
+//     too.)
 //   - Navy #002991 (HSL 223 100% 28%, --paypal-dark) is the family's
 //     dark shade, used for the logo and sparing emphasis, never the
 //     action blue. It WAS the balance-band colour until the
@@ -166,16 +169,22 @@ describe("no gradients inside the product", () => {
 describe("bitcoin orange is never a solid action/active surface", () => {
   const header = read("src/components/Header.tsx");
 
-  it("desktop Bitcoin Wallet pill: primary blue when active; orange ₿ + pale tint when not", () => {
+  it("desktop Bitcoin Wallet pill: lighter-navy pill when active; white tint + orange ₿ when not", () => {
+    // PIN MOVED (CEO classic-PayPal decision, 2026-11-11 17:12): the
+    // pill sits on the navy bar now, so its states are white tints
+    // over navy — active bg-white/20 + semibold, inactive bg-white/10
+    // — with the ₿ icon orange throughout. The pin's intent stands:
+    // orange is never the solid fill, and the pill keeps its
+    // prominence as the product's first destination.
     expect(header).toContain(
-      '"bg-primary font-semibold text-primary-foreground hover:bg-primary/90"',
+      '"bg-white/20 font-semibold text-white hover:bg-white/20 hover:text-white"',
     );
     expect(header).not.toContain("bg-bitcoin font-semibold");
     expect(header).not.toContain("hover:bg-bitcoin/90");
-    // prominence survives the recolour: pill keeps its pale tint state
     expect(header).toContain(
-      "bg-bitcoin/15 font-medium text-foreground hover:bg-bitcoin/25",
+      "bg-white/10 font-medium text-white hover:bg-white/15 hover:text-white",
     );
+    expect(header).toContain('className="h-4 w-4 text-bitcoin"');
   });
 
   it("mobile drawer Bitcoin Wallet row: primary blue when active; tint + orange ₿ when not", () => {
@@ -187,12 +196,12 @@ describe("bitcoin orange is never a solid action/active surface", () => {
   it("dashboard 'Open wallet' is never the bitcoin variant", () => {
     const dash = read("src/pages/Dashboard.tsx");
     expect(dash).not.toContain('variant="bitcoin"');
-    // PIN MOVED (2026-11-11 anatomy rollout): this asserted the
-    // literal default <Button asChild> — the button is now the hero
-    // card's primary CTA, the PayPal-app black pill on sky (platform
-    // blue in dark mode). The pin's intent stands: never orange.
+    // PIN MOVED TWICE: the anatomy rollout (2026-11-11) made it the
+    // hero card's black pill; the CEO's classic-PayPal decision
+    // (2026-11-11 17:12) makes it the GOLD pill, in both modes. The
+    // pin's intent stands: never orange.
     expect(dash).toMatch(
-      /<Button asChild className="bg-slate-950[^"]*">\s*<Link to="\/bitcoin-wallet">Open wallet<\/Link>/,
+      /<Button asChild className="bg-gold[^"]*">\s*<Link to="\/bitcoin-wallet">Open wallet<\/Link>/,
     );
   });
 

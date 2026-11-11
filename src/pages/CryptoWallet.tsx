@@ -13,7 +13,7 @@ const CryptoWallet = () => {
 
   return (
     <Web3Provider>
-      <div className="container mx-auto max-w-5xl space-y-6 p-4 md:p-6">
+      <div className="container mx-auto max-w-5xl space-y-6 p-4 pb-20 md:p-6">
         <header className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Crypto Wallet</h1>
           <p className="text-sm text-muted-foreground">

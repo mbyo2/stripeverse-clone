@@ -202,7 +202,9 @@ describe("bootstrap gate wiring (source pins)", () => {
     expect(gate).toBeGreaterThan(-1);
     expect(src).toContain('<SkeletonHeaderBar variant="authed" />');
     // …and the swap stands before the real header element renders.
-    expect(gate).toBeLessThan(src.indexOf("bg-background border-b border-border"));
+    // (Landmark moved with the bar: the header element's classes are
+    // the classic navy ones since the CEO's 2026-11-11 decision.)
+    expect(gate).toBeLessThan(src.indexOf("bg-navy text-white"));
   });
 
   it("the route fallback and ProtectedRoute share the variant arithmetic", () => {

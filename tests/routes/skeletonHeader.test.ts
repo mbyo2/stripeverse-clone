@@ -34,7 +34,12 @@ describe("SkeletonHeaderBar — shell geometry matches the real Header", () => {
     for (const src of [skeletons, header]) {
       expect(src).toContain("h-[72px]");
       expect(src).toContain("max-w-[1200px]");
-      expect(src).toContain("bg-background border-b border-border");
+      // PIN MOVED (CEO classic-PayPal decision, 2026-11-11 17:12):
+      // the bar fill is classic navy #003087 now (was bg-background).
+      // The pin's intent stands: the twin's fill/border must equal
+      // the real header's, so both files carry the navy classes.
+      expect(src).toContain("bg-navy");
+      expect(src).toContain("border-b border-white/10");
     }
   });
 

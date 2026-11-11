@@ -77,6 +77,17 @@ export default {
         },
         "paypal-dark": "hsl(var(--paypal-dark))",
         "paypal-gold": "hsl(var(--paypal-gold))",
+        // Classic PayPal shell (CEO decision, 2026-11-11): navy is the
+        // top bar (#003087); gold is the primary button (#FFC439,
+        // near-black #001435 text, deeper-gold hover).
+        navy: {
+          DEFAULT: "hsl(var(--navy))",
+        },
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+          hover: "hsl(var(--gold-hover))",
+          foreground: "hsl(var(--gold-foreground))",
+        },
       },
       fontFamily: {
         // One family everywhere, like PayPal (CEO order 2026-11-11):

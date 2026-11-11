@@ -13,12 +13,12 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 14%;
     /* One blue system, PayPal's: --primary is PayPal blue #0066F5 —
-       primary buttons, links, active/selected states and focus rings
-       all read from it. The navy #002991 (--paypal-dark) is the
-       family's dark shade: the logo colour and sparing emphasis,
-       never the action colour and never a large surface — balance
-       heroes are the PayPal sky card (#60CDFF, dark hairline card in
-       dark mode) since the 2026-11-11 anatomy rollout.
+       links, active/selected states and focus rings read from it.
+       The navy #002991 (--paypal-dark) is the family's dark shade:
+       the logo colour and sparing emphasis, never the action colour
+       and never a large surface — balance heroes are the PayPal sky
+       card (#60CDFF, dark hairline card in dark mode) since the
+       2026-11-11 anatomy rollout.
        Bitcoin orange lives ONLY in --bitcoin, reserved for Bitcoin
        itself (amounts, Bitcoin branding moments, the logo). */
     --primary: 215 100% 48%;
@@ -52,6 +52,18 @@
     --paypal-blue-light: 215 100% 62%;
     --paypal-dark: 223 100% 28%;
     --paypal-gold: 38 92% 50%;
+    /* Classic PayPal shell (CEO decision, 2026-11-11 17:12, from his
+       classic PayPal reference screens): the top bar is classic navy
+       #003087 with white content in both modes, and primary buttons
+       are PayPal gold #FFC439 with near-black #001435 text, hover the
+       deeper gold #F2B705. --navy / --gold carry that shell; they
+       supersede the white bar + blue primaries of the anatomy
+       rollout for the bar and primary buttons only — links, active
+       states, heroes and the rest of the anatomy are unchanged. */
+    --navy: 219 100% 26%;
+    --gold: 42 100% 61%;
+    --gold-hover: 45 96% 48%;
+    --gold-foreground: 217 100% 10%;
   }
 
   .dark {
@@ -89,6 +101,22 @@
     --paypal-blue-light: 215 100% 68%;
     --paypal-dark: 222 47% 11%;
     --paypal-gold: 38 92% 50%;
+    /* Classic shell in dark mode: the bar deepens slightly but stays
+       navy; the gold is the same gold in both modes. */
+    --navy: 219 100% 22%;
+    --gold: 42 100% 61%;
+    --gold-hover: 45 96% 48%;
+    --gold-foreground: 217 100% 10%;
+  }
+
+  /* Fragment targets land fully below the fixed navy bar (CEO,
+     2026-11-11: "make sure sections don't hide content under it").
+     The bar is 72px; a jumped-to section stops 88px from the
+     viewport top — the bar plus breathing room. Native fragment
+     jumps and ScrollManager's scrollIntoView hash navigation both
+     honour scroll-margin. */
+  :where(section, div, main, article)[id] {
+    scroll-margin-top: 88px;
   }
 
   /* No universal transition rule: animating background-color/color
@@ -218,8 +246,8 @@
   }
 
   .button-primary {
-    @apply px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold
-           transition-all duration-200 hover:bg-primary/90
+    @apply px-6 py-3 rounded-full bg-gold text-gold-foreground font-semibold
+           transition-all duration-200 hover:bg-gold-hover
            active:scale-[0.98];
   }
 

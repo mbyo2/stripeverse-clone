@@ -1199,7 +1199,7 @@ export default function BitcoinWallet() {
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1">
-          <section className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-8 md:py-10">
+          <section className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 pt-8 pb-20 md:py-10">
             <PageErrorState
               title="We couldn't load your Bitcoin wallet"
               message="Your balance and recent activity didn't load. Check your connection and try again."
@@ -1215,7 +1215,7 @@ export default function BitcoinWallet() {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1">
-        <section className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 py-8 md:py-10">
+        <section className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 pt-8 pb-20 md:py-10">
           <h1 className="text-greeting mb-6">Bitcoin Wallet</h1>
 
           {/* Balance hero — the PayPal anatomy (CEO rollout
@@ -1266,7 +1266,7 @@ export default function BitcoinWallet() {
                 }}
               >
                 <DialogTrigger asChild>
-                  <Button size="lg" className="bg-slate-950 text-white hover:bg-slate-950/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90">Deposit BTC</Button>
+                  <Button size="lg" className="bg-gold text-gold-foreground hover:bg-gold-hover">Deposit BTC</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>

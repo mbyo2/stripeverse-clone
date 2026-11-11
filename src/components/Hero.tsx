@@ -10,8 +10,10 @@ interface HeroProps {
  * Hero rebuilt to PayPal.com's actual composition, per the live visual
  * capture of paypal.com taken 2026-10-24: plain WHITE background (no
  * colour band, no gradient), a centred stack — one huge extra-bold
- * black headline, ONE short black supporting line, ONE solid black
- * pill button — then a FULL-BLEED photograph, edge-to-edge across the
+ * black headline, ONE short black supporting line, ONE solid pill
+ * button (PayPal gold since the CEO's classic-PayPal decision,
+ * 2026-11-11 — the capture's black pill is superseded) — then a
+ * FULL-BLEED photograph, edge-to-edge across the
  * viewport with square corners: no frame, no shadow, no inset margins.
  * The Bitcoin wallet is the product, so the headline leads with it;
  * the custody choice is covered in the #bitcoin section below.
@@ -41,7 +43,7 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
           <div className="mt-9 flex flex-col items-center justify-center">
             <Link
               to="/register"
-              className="inline-flex items-center h-12 rounded-full bg-black px-[30px] text-[15px] font-semibold text-white hover:bg-black/85 dark:bg-white dark:text-black dark:hover:bg-white/85 transition-colors"
+              className="inline-flex items-center h-12 rounded-full bg-gold px-[30px] text-[15px] font-semibold text-gold-foreground hover:bg-gold-hover transition-colors"
             >
               Open your Bitcoin wallet
             </Link>

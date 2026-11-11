@@ -334,7 +334,7 @@ const PublicCheckout = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 pt-4 pb-20">
       <div className="max-w-lg w-full space-y-6">
         <div className="text-center">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-3">

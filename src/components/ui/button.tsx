@@ -9,7 +9,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-none hover:bg-primary/90",
+        // Primary = PayPal gold pill (CEO classic-PayPal decision,
+        // 2026-11-11): gold #FFC439, near-black text, deeper-gold
+        // hover. The action blue survives on links, active/selected
+        // states and the outline/link variants — never again as the
+        // primary button fill.
+        default: "bg-gold text-gold-foreground shadow-none hover:bg-gold-hover",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:

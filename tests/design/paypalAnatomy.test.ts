@@ -127,8 +127,11 @@ describe("dashboard: greeting, bitcoin hero, pale-circle actions, hairline lists
     }
   });
 
-  it("hero CTAs: black pill primary on sky (blue returns in dark), pale pill secondary", () => {
-    expect(dash).toContain("bg-slate-950 text-white hover:bg-slate-950/90");
+  it("hero CTAs: gold pill primary on sky (gold in dark too), pale pill secondary", () => {
+    // PIN MOVED (CEO classic-PayPal decision, 2026-11-11 17:12): the
+    // hero primary is the classic gold pill in both modes, replacing
+    // the anatomy rollout's black pill (blue in dark mode).
+    expect(dash).toContain("bg-gold text-gold-foreground hover:bg-gold-hover");
     expect(dash).toContain("bg-white/70 text-slate-950 hover:bg-white");
     expect(dash).toMatch(/<Link to="\/bitcoin-wallet">Open wallet<\/Link>/);
     expect(dash).toMatch(/<Link to="\/bitcoin-wallet\/self-custody">Self-custody<\/Link>/);
@@ -173,10 +176,13 @@ describe("wave 2: bitcoin wallets and history", () => {
     expect(bw).toContain('<p className="text-heronum tabular-nums">{btcBalance}</p>');
   });
 
-  it("Deposit and Send stay always visible — black pill + pale pill on the hero", () => {
+  it("Deposit and Send stay always visible — gold pill + pale pill on the hero", () => {
     expect(bw).toContain("Deposit BTC");
     expect(bw).toContain("Send BTC");
-    expect(bw).toContain("bg-slate-950 text-white hover:bg-slate-950/90");
+    // PIN MOVED (CEO classic-PayPal decision, 2026-11-11 17:12):
+    // Deposit, the hero primary, is the gold pill now (was the black
+    // pill); Send keeps the pale pill. Visibility is unchanged.
+    expect(bw).toContain("bg-gold text-gold-foreground hover:bg-gold-hover");
     expect(bw).toContain("<DialogTitle>Send Bitcoin</DialogTitle>");
     expect(bw).toContain("<DialogTitle>Deposit Bitcoin</DialogTitle>");
     expect(bw).not.toContain("custodialSend");
@@ -313,8 +319,11 @@ describe("wallet balance hero follows the same anatomy", () => {
     expect(wb).not.toContain("bg-[#002991]");
   });
 
-  it("Send is the black pill on sky; Receive the pale pill — both always visible", () => {
-    expect(wb).toContain("bg-slate-950 text-white hover:bg-slate-950/90");
+  it("Send is the gold pill on sky; Receive the pale pill — both always visible", () => {
+    // PIN MOVED (CEO classic-PayPal decision, 2026-11-11 17:12):
+    // Send, the hero primary, is the gold pill now (was the black
+    // pill); Receive keeps the pale pill. Visibility is unchanged.
+    expect(wb).toContain("bg-gold text-gold-foreground hover:bg-gold-hover");
     expect(wb).toContain("bg-white/70 text-slate-950 hover:bg-white");
     expect(wb).toContain("Send Money");
     expect(wb).toContain("Receive");

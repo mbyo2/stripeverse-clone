@@ -74,7 +74,7 @@ const Business = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-14">
+      <main className="flex-1 pt-14 pb-20">
         {/* Greeting header — the navy full-bleed band is gone
             (PayPal anatomy rollout 2026-11-11: no colour bands);
             the business name is the greeting, actions are the
@@ -566,7 +566,7 @@ const BusinessPublicView = ({ isSignedIn }: { isSignedIn: boolean }) => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 pt-14">
+      <main className="flex-1 pt-14 pb-20">
         <div className="max-w-[1320px] mx-auto px-4 sm:px-6 pt-10 w-full">
           <h1 className="text-greeting text-foreground mb-2">
             BMaGlass Pay for Business

@@ -163,7 +163,7 @@ export const SkeletonHeaderBar = ({
   variant?: SkeletonHeaderVariant;
 }) => (
   <div
-    className="bg-background border-b border-border"
+    className="bg-navy border-b border-white/10 [&_.skeleton-shimmer]:bg-white/15"
     aria-hidden="true"
   >
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">

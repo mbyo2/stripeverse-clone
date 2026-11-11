@@ -40,7 +40,7 @@ const Index = () => {
       <main>
         <Hero isAuthenticated={false} />
         <PhotoBand />
-        <div id="bitcoin" className="scroll-mt-[72px]">
+        <div id="bitcoin" className="scroll-mt-[88px]">
           <BitcoinSection />
         </div>
         <SupportingIntro />

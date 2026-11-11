@@ -163,7 +163,7 @@ const NotificationBell = () => {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" className="relative p-2 rounded-full">
+        <Button variant="ghost" className="relative p-2 rounded-full text-white hover:bg-white/10 hover:text-white">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge

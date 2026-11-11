@@ -125,6 +125,16 @@ const Header = () => {
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
+  // Desktop nav on the classic navy bar (CEO decision, 2026-11-11):
+  // links are white; the active item sits in a slightly lighter navy
+  // pill (white at low opacity over the navy) with semibold white
+  // text — the classic PayPal treatment. Gold is reserved for primary
+  // action buttons, never for nav state.
+  const navBtnClass = (active: boolean) =>
+    active
+      ? "text-sm font-semibold h-9 px-3 text-white bg-white/15 hover:bg-white/15 hover:text-white"
+      : "text-sm font-medium h-9 px-3 text-white hover:bg-white/10 hover:text-white";
+
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
@@ -137,9 +147,16 @@ const Header = () => {
   // and resolved users render the real header exactly as before.
   if (isAuthPending({ user, isAuthReady, hasStoredSession })) {
     return (
-      <div className="fixed top-0 left-0 right-0 z-50">
-        <SkeletonHeaderBar variant="authed" />
-      </div>
+      <>
+        <div className="fixed top-0 left-0 right-0 z-50">
+          <SkeletonHeaderBar variant="authed" />
+        </div>
+        {/* The twin is fixed, so it needs the same in-flow spacer as
+            the real header (below) — without it, page content starts
+            underneath the bar while the session resolves (CEO,
+            2026-11-11: sections must not hide under the bar). */}
+        <div aria-hidden="true" className="h-[72px] shrink-0" />
+      </>
     );
   }
 
@@ -158,24 +175,24 @@ const Header = () => {
 
   return (
     <>
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-navy text-white border-b border-white/10">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
         {/* Logo */}
         <div className="flex items-center gap-3 xl:gap-6 min-w-0">
           <Link to="/" aria-label="BMaGlass Pay — home" className="flex items-center shrink-0">
-            <Logo variant={resolvedTheme === "dark" ? "white" : "color"} />
+            <Logo variant="white" />
           </Link>
 
           {/* Logged-out Nav */}
           {!user && (
             <nav className="hidden xl:flex items-center gap-8">
-              <Link to="/" className="text-[15px] font-medium text-foreground hover:underline underline-offset-4">
+              <Link to="/" className="text-[15px] font-medium text-white hover:underline underline-offset-4">
                 Personal
               </Link>
-              <Link to="/business" className="text-[15px] font-medium text-foreground hover:underline underline-offset-4">
+              <Link to="/business" className="text-[15px] font-medium text-white hover:underline underline-offset-4">
                 Business
               </Link>
-              <Link to="/developers" className="text-[15px] font-medium text-foreground hover:underline underline-offset-4">
+              <Link to="/developers" className="text-[15px] font-medium text-white hover:underline underline-offset-4">
                 Developers
               </Link>
             </nav>
@@ -185,39 +202,40 @@ const Header = () => {
           {user && (
             <nav className="hidden xl:flex items-center gap-1 min-w-0">
               <Link to="/dashboard">
-                <Button variant={isActive("/dashboard") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 px-3">
+                <Button variant="ghost" size="sm" className={navBtnClass(isActive("/dashboard"))}>
                   Dashboard
                 </Button>
               </Link>
               {/* The Bitcoin wallet is the product — first destination after
-                  Dashboard, and first in visual weight: pill shape, the
-                  orange ₿ icon and the pale orange tint while inactive.
-                  But the ACTIVE state follows the one-blue rule (CEO,
-                  2026-11-11): PayPal blue is the action/active colour
-                  everywhere, so on the wallet route the pill takes the
-                  standard primary treatment like every other nav item —
-                  orange is never a solid action/active surface. */}
+                  Dashboard, and first in visual weight on the navy bar:
+                  pill shape, the orange ₿ icon (iconography only —
+                  orange is never a solid surface) and a white tint over
+                  the navy while inactive. The ACTIVE state follows the
+                  classic navy-bar treatment (CEO, 2026-11-11): the
+                  lighter-navy pill + semibold white, like every other
+                  nav item — no gold, no action blue on nav state. */}
               <Link to="/bitcoin-wallet">
                 <Button
+                  variant="ghost"
                   size="sm"
                   className={`h-9 rounded-full px-3.5 text-sm shadow-none gap-1.5 ${
                     isActive("/bitcoin-wallet")
-                      ? "bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
-                      : "bg-bitcoin/15 font-medium text-foreground hover:bg-bitcoin/25"
+                      ? "bg-white/20 font-semibold text-white hover:bg-white/20 hover:text-white"
+                      : "bg-white/10 font-medium text-white hover:bg-white/15 hover:text-white"
                   }`}
                 >
-                  <Bitcoin className={`h-4 w-4 ${isActive("/bitcoin-wallet") ? "text-primary-foreground" : "text-bitcoin"}`} /> Bitcoin Wallet
+                  <Bitcoin className="h-4 w-4 text-bitcoin" /> Bitcoin Wallet
                 </Button>
               </Link>
               <Link to="/p2p">
-                <Button variant={isActive("/p2p") ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 px-3">
+                <Button variant="ghost" size="sm" className={navBtnClass(isActive("/p2p"))}>
                   P2P Trading
                 </Button>
               </Link>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant={isGroupActive(["/transfer", "/send-money", "/request-money", "/bank-transfers", "/bulk-payments", "/contacts", "/scheduled-payments", "/qr-payments"]) ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 gap-1 px-3">
+                  <Button variant="ghost" size="sm" className={`${navBtnClass(isGroupActive(["/transfer", "/send-money", "/request-money", "/bank-transfers", "/bulk-payments", "/contacts", "/scheduled-payments", "/qr-payments"]))} gap-1`}>
                     Send & Request <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -269,7 +287,7 @@ const Header = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant={isGroupActive(["/bitcoin-wallet", "/wallet", "/multi-currency", "/sub-accounts", "/transactions", "/card/new", "/spending-insights", "/refunds", "/card-vault", "/pay-later", "/savings", "/statements", "/transaction-search"]) ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 gap-1 px-3">
+                  <Button variant="ghost" size="sm" className={`${navBtnClass(isGroupActive(["/bitcoin-wallet", "/wallet", "/multi-currency", "/sub-accounts", "/transactions", "/card/new", "/spending-insights", "/refunds", "/card-vault", "/pay-later", "/savings", "/statements", "/transaction-search"]))} gap-1`}>
                     Wallet <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -351,7 +369,7 @@ const Header = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant={isGroupActive(["/business", "/collect-payments", "/payment-links", "/pos", "/split-payments", "/invoices", "/analytics", "/settlements", "/disputes", "/webhook-logs", "/api", "/billing", "/payment-plans", "/escrow", "/bill-payments", "/agent-network", "/fraud-rules", "/ip-whitelist", "/checkout-widget", "/developers"]) ? "default" : "ghost"} size="sm" className="text-sm font-medium h-9 gap-1 px-3">
+                  <Button variant="ghost" size="sm" className={`${navBtnClass(isGroupActive(["/business", "/collect-payments", "/payment-links", "/pos", "/split-payments", "/invoices", "/analytics", "/settlements", "/disputes", "/webhook-logs", "/api", "/billing", "/payment-plans", "/escrow", "/bill-payments", "/agent-network", "/fraud-rules", "/ip-whitelist", "/checkout-widget", "/developers"]))} gap-1`}>
                     Business <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -494,20 +512,20 @@ const Header = () => {
                   role badge live in the avatar menu (below) for the same
                   reason. */}
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => setSearchOpen(true)}
-                className="hidden 2xl:flex h-9 gap-2 text-muted-foreground font-normal w-28 justify-start"
+                className="hidden 2xl:flex h-9 gap-2 font-normal w-28 justify-start rounded-full border border-white/30 text-white/80 hover:bg-white/10 hover:text-white"
               >
                 <Search className="h-3.5 w-3.5" />
                 <span className="text-xs">Search...</span>
-                <kbd className="ml-auto text-[10px] bg-muted px-1.5 py-0.5 rounded">⌘K</kbd>
+                <kbd className="ml-auto text-[10px] bg-white/15 px-1.5 py-0.5 rounded">⌘K</kbd>
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setSearchOpen(true)}
-                className="h-9 w-9 2xl:hidden"
+                className="h-9 w-9 2xl:hidden text-white hover:bg-white/10 hover:text-white"
                 aria-label="Search"
               >
                 <Search className="h-4 w-4" />
@@ -518,7 +536,7 @@ const Header = () => {
                 variant="ghost"
                 size="icon"
                 onClick={toggleTheme}
-                className="h-9 w-9"
+                className="h-9 w-9 text-white hover:bg-white/10 hover:text-white"
                 aria-label="Toggle theme"
               >
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -526,9 +544,9 @@ const Header = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-9 gap-1 px-2">
-                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="h-3.5 w-3.5 text-primary" />
+                  <Button variant="ghost" size="sm" className="h-9 gap-1 px-2 text-white hover:bg-white/10 hover:text-white">
+                    <div className="w-6 h-6 rounded-full bg-white/15 flex items-center justify-center">
+                      <User className="h-3.5 w-3.5 text-white" />
                     </div>
                     <ChevronDown className="h-3 w-3" />
                   </Button>
@@ -614,10 +632,10 @@ const Header = () => {
             </>
           ) : (
             <div className="flex items-center gap-3">
-              <Link to="/support" className="hidden xl:block text-[15px] font-medium text-foreground hover:underline underline-offset-4 mr-1">
+              <Link to="/support" className="hidden xl:block text-[15px] font-medium text-white hover:underline underline-offset-4 mr-1">
                 Help
               </Link>
-              <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-10 w-10 rounded-full" aria-label="Toggle theme">
+              <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-10 w-10 rounded-full text-white hover:bg-white/10 hover:text-white" aria-label="Toggle theme">
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
               <Link to="/login">
@@ -626,7 +644,7 @@ const Header = () => {
                 </Button>
               </Link>
               <Link to="/register">
-                <Button className="h-12 rounded-full bg-primary px-7 text-[15px] font-semibold text-primary-foreground shadow-none hover:bg-primary/90">
+                <Button className="h-12 rounded-full bg-gold px-7 text-[15px] font-semibold text-gold-foreground shadow-none hover:bg-gold-hover">
                   Sign Up
                 </Button>
               </Link>
@@ -639,7 +657,7 @@ const Header = () => {
           {user && <NotificationBell />}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Open menu">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/10 hover:text-white" aria-label="Open menu">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -801,7 +819,7 @@ const Header = () => {
                       </Button>
                     </Link>
                     <Link to="/register" onClick={closeMobileMenu}>
-                      <Button className="w-full gap-2 rounded-full h-12 bg-primary text-[15px] font-semibold text-primary-foreground shadow-none hover:bg-primary/90">
+                      <Button className="w-full gap-2 rounded-full h-12 bg-gold text-[15px] font-semibold text-gold-foreground shadow-none hover:bg-gold-hover">
                         <UserPlus className="h-4 w-4" /> Sign Up
                       </Button>
                     </Link>

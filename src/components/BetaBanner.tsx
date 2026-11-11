@@ -82,7 +82,7 @@ const BetaBanner = ({ expiryDays = 7, version = "0.0.1" }: BetaBannerProps) => {
     // Show a small version indicator in the corner if there's a new version
     if (hasNewVersion) {
       return (
-        <div className="fixed bottom-4 right-4 z-50">
+        <div className="fixed bottom-20 right-4 z-50 md:bottom-4">
           <button 
             onClick={showNewVersionNotification} 
             className="bg-amber-500 text-black p-2 rounded-full shadow-lg hover:bg-amber-400 transition-all"
