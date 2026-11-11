@@ -1347,21 +1347,19 @@ function SelfCustodyWallet() {
   return (
     <div className="min-h-screen bg-background" onClick={touchSession}>
       <Header />
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
+      <main className="mx-auto px-4 sm:px-6 pt-6 pb-16 max-w-[1200px] w-full">
         <div className="flex items-center gap-3 mb-6">
           <Button variant="ghost" size="sm" asChild>
             <Link to="/bitcoin-wallet">
               <ArrowLeft className="h-4 w-4 mr-1" /> Custodial account
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <KeyRound className="h-6 w-6" /> Bitcoin Wallet
-            <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY</Badge>
-          </h1>
+          <h1 className="text-[28px] leading-tight font-display font-semibold">Bitcoin wallet</h1>
+          <Badge variant="outline" className="border-warning/60 text-warning">Self-custody</Badge>
         </div>
 
-        <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 mb-6 text-sm">
-          <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 p-3 mb-6 text-sm">
+          <ShieldAlert className="h-5 w-5 text-warning shrink-0 mt-0.5" />
           <p>
             <strong>You hold the keys to this wallet.</strong> The seed phrase never leaves this
             device and BMaGlass cannot see, move, or recover these funds. If you lose your seed
@@ -1370,10 +1368,10 @@ function SelfCustodyWallet() {
         </div>
 
         {stage === "recovery" && (
-          <Card className="border-red-500/60">
+          <Card className="border-destructive/60">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-500" /> A wallet file exists on this device, but it couldn't be read
+                <AlertTriangle className="h-5 w-5 text-destructive" /> A wallet file exists on this device, but it couldn't be read
               </CardTitle>
               <CardDescription>
                 The wallet file stored on this device appears to be damaged or incomplete, so it
@@ -1381,7 +1379,7 @@ function SelfCustodyWallet() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-start gap-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm">
+              <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm">
                 <ShieldAlert className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
                 <p>
                   <strong>Do NOT create a new wallet</strong> — that would overwrite this file, and
@@ -1540,7 +1538,7 @@ function SelfCustodyWallet() {
                 <Input id="pw2" type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} autoComplete="new-password" />
               </div>
               {(setupOrigin === "recovery-import" || setupOrigin === "locked-restore") && (
-                <div className="space-y-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm">
+                <div className="space-y-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm">
                   <p className="flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
                     <span>
@@ -1652,7 +1650,7 @@ function SelfCustodyWallet() {
                     <Trash2 className="h-4 w-4 mr-2" /> Remove wallet from this device
                   </Button>
                 ) : !confirmRemoveLockedFinal ? (
-                  <div className="space-y-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm">
+                  <div className="space-y-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm">
                     <p>
                       <strong>Removal deletes only the encrypted wallet copy stored on this
                       device.</strong> The Bitcoin itself stays on the blockchain. But without
@@ -1667,7 +1665,7 @@ function SelfCustodyWallet() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm">
+                  <div className="space-y-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm">
                     <p>
                       <strong>Final confirmation.</strong> Remove the wallet from this device
                       now? This cannot be undone — afterwards, only the seed phrase could ever
@@ -1704,8 +1702,8 @@ function SelfCustodyWallet() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
-                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 p-3 text-sm">
+                <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
                 <p>
                   <strong>Restoring replaces the wallet stored on this device.</strong> Nothing
                   is replaced yet: the current wallet file is only overwritten on the next step,
@@ -1741,7 +1739,7 @@ function SelfCustodyWallet() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    Balance <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY</Badge>
+                    Balance <Badge variant="outline" className="border-warning/60 text-warning">SELF-CUSTODY</Badge>
                   </CardTitle>
                   <CardDescription>
                     Read live from the Bitcoin network. BMaGlass does not hold or record this
@@ -1766,7 +1764,7 @@ function SelfCustodyWallet() {
                     <div className="text-3xl font-bold">{formatBtc(scan.balanceSats)} BTC</div>
                     <div className="text-sm text-muted-foreground">{scan.balanceSats.toLocaleString()} sats confirmed</div>
                     {scanError && (
-                      <p className="text-sm text-amber-600 flex items-center gap-1 mt-2">
+                      <p className="text-sm text-warning flex items-center gap-1 mt-2">
                         <AlertTriangle className="h-4 w-4" /> Couldn't refresh just now — {scanError} Showing your last successful reading.
                       </p>
                     )}
@@ -1779,7 +1777,7 @@ function SelfCustodyWallet() {
                     </div>
                     {scanError ? (
                       <div className="mt-2 space-y-2">
-                        <p className="text-sm text-amber-600 flex items-center gap-1">
+                        <p className="text-sm text-warning flex items-center gap-1">
                           <AlertTriangle className="h-4 w-4" /> {scanError}
                         </p>
                         <Button variant="outline" size="sm" onClick={doScan} disabled={scanning}>
@@ -1793,7 +1791,7 @@ function SelfCustodyWallet() {
                 ) : scanError ? (
                   <div className="space-y-2">
                     <p className="text-sm font-medium flex items-center gap-1">
-                      <AlertTriangle className="h-4 w-4 text-amber-600" /> Balance unavailable
+                      <AlertTriangle className="h-4 w-4 text-warning" /> Balance unavailable
                     </p>
                     <p className="text-sm text-muted-foreground">{scanError}</p>
                     <Button variant="outline" size="sm" onClick={doScan} disabled={scanning}>
@@ -1959,7 +1957,7 @@ function SelfCustodyWallet() {
                           Back
                         </Button>
                         <Button
-                          className="flex-1 rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90"
+                          className="flex-1 rounded-full bg-bitcoin text-bitcoin-foreground hover:bg-bitcoin/90"
                           disabled={sending}
                           onClick={doConfirmChainSend}
                         >
@@ -1988,7 +1986,7 @@ function SelfCustodyWallet() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  Lightning &amp; Spark <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY</Badge>
+                  Lightning &amp; Spark <Badge variant="outline" className="border-warning/60 text-warning">SELF-CUSTODY</Badge>
                 </CardTitle>
                 <CardDescription>
                   Lightning, on-chain deposits and Spark transfers, running entirely in your
@@ -2023,7 +2021,7 @@ function SelfCustodyWallet() {
                       </span>
                       <div className="flex gap-2">
                         <Button
-                          className="rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90"
+                          className="rounded-full bg-bitcoin text-bitcoin-foreground hover:bg-bitcoin/90"
                           size="sm"
                           disabled={spBusy || !session.mnemonic || selfcustodyMoonpayLoading || !selfcustodyMoonpayEnabled}
                           onClick={doBuyBitcoin}
@@ -2171,7 +2169,7 @@ function SelfCustodyWallet() {
                           and stays disabled. */}
                       <Button
                         type="button"
-                        className="h-11 w-full rounded-full bg-[#F7931A] text-black font-semibold hover:bg-[#DE830A] active:scale-[0.99] transition"
+                        className="h-11 w-full rounded-full bg-bitcoin text-bitcoin-foreground font-semibold hover:bg-bitcoin/90 active:scale-[0.99] transition"
                         disabled={spBusy || !session.mnemonic}
                         aria-busy={spBusy}
                         onClick={doSparkReceive}
@@ -2282,7 +2280,7 @@ function SelfCustodyWallet() {
                                 <div className="space-y-2 text-sm">
                                   <p>Amount: <strong>{preparedLnurl.amountSats.toLocaleString()} sats</strong>{fiat(preparedLnurl.amountSats) ? <span className="text-muted-foreground"> ({fiat(preparedLnurl.amountSats)})</span> : null}</p>
                                   <p>Fee: <strong>{preparedLnurl.feeSats.toLocaleString()} sats</strong>{fiat(preparedLnurl.feeSats) ? <span className="text-muted-foreground"> ({fiat(preparedLnurl.feeSats)})</span> : null}</p>
-                                  <Button className="w-full rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90" disabled={spBusy} onClick={doConfirmSend}>
+                                  <Button className="w-full rounded-full bg-bitcoin text-bitcoin-foreground hover:bg-bitcoin/90" disabled={spBusy} onClick={doConfirmSend}>
                                     Confirm &amp; pay {(preparedLnurl.amountSats + preparedLnurl.feeSats).toLocaleString()} sats
                                   </Button>
                                 </div>
@@ -2294,11 +2292,11 @@ function SelfCustodyWallet() {
                                     <p key={line.label}>{line.label}: <strong>{line.feeSats.toLocaleString()} sats</strong>{fiat(line.feeSats) ? <span className="text-muted-foreground"> ({fiat(line.feeSats)})</span> : null}</p>
                                   ))}
                                   {preparedSend.fee.isEstimate && (
-                                    <p className="text-xs text-amber-600">Fee shown is an estimate — the final fee is confirmed by the network when sending.</p>
+                                    <p className="text-xs text-warning">Fee shown is an estimate — the final fee is confirmed by the network when sending.</p>
                                   )}
                                   {preparedSend.prepareResponse.paymentMethod.type === "bitcoinAddress" &&
                                     renderSparkSpeedSelector()}
-                                  <Button className="w-full rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90" disabled={spBusy} onClick={doConfirmSend}>
+                                  <Button className="w-full rounded-full bg-bitcoin text-bitcoin-foreground hover:bg-bitcoin/90" disabled={spBusy} onClick={doConfirmSend}>
                                     Confirm &amp; send
                                   </Button>
                                 </div>
@@ -2345,7 +2343,7 @@ function SelfCustodyWallet() {
                               {canClaim && (
                                 <Button
                                   size="sm"
-                                  className="rounded-full bg-[#F7931A] text-black hover:bg-[#F7931A]/90"
+                                  className="rounded-full bg-bitcoin text-bitcoin-foreground hover:bg-bitcoin/90"
                                   disabled={claimingKey === `${d.txid}:${d.vout}` || !session.mnemonic}
                                   onClick={() => doClaimDeposit(d)}
                                 >
@@ -2399,7 +2397,7 @@ function SelfCustodyWallet() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  Sell Bitcoin for ZMW <Badge variant="outline" className="border-amber-500 text-amber-600">SELF-CUSTODY → ZMW WALLET</Badge>
+                  Sell Bitcoin for ZMW <Badge variant="outline" className="border-warning/60 text-warning">SELF-CUSTODY → ZMW WALLET</Badge>
                 </CardTitle>
                 <CardDescription>
                   Sell Bitcoin from this self-custody wallet and get ZMW in your platform ZMW
@@ -2482,7 +2480,7 @@ function SelfCustodyWallet() {
                         </div>
                         <div className="flex gap-2">
                           <Button variant="outline" className="flex-1" disabled={sellBusy} onClick={() => setSellPreview(null)}>Back</Button>
-                          <Button className="flex-1 rounded-full bg-[#F7931A] text-black font-semibold hover:bg-[#DE830A]" disabled={sellBusy || sellBlockedByZeroBalance} onClick={doCreateSell}>
+                          <Button className="flex-1 rounded-full bg-bitcoin text-bitcoin-foreground font-semibold hover:bg-bitcoin/90" disabled={sellBusy || sellBlockedByZeroBalance} onClick={doCreateSell}>
                             {sellBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                             Lock quote &amp; create sell
                           </Button>
@@ -2510,7 +2508,7 @@ function SelfCustodyWallet() {
                       <span>{sellPhase ? SELL_PHASE_COPY[sellPhase] : ""}</span>
                     </p>
                     {sellIntent.settle_error && (
-                      <p className="text-sm text-amber-600 flex items-center gap-1">
+                      <p className="text-sm text-warning flex items-center gap-1">
                         <AlertTriangle className="h-4 w-4 shrink-0" /> {sellIntent.settle_error}
                       </p>
                     )}
@@ -2545,7 +2543,7 @@ function SelfCustodyWallet() {
                                 {sellPrepared.fee.lines.map((line) => (
                                   <p key={line.label}>{line.label}: <strong>{line.feeSats.toLocaleString()} sats</strong></p>
                                 ))}
-                                <Button className="w-full rounded-full bg-[#F7931A] text-black font-semibold hover:bg-[#DE830A]" disabled={sellBusy} onClick={doSellSendInApp}>
+                                <Button className="w-full rounded-full bg-bitcoin text-bitcoin-foreground font-semibold hover:bg-bitcoin/90" disabled={sellBusy} onClick={doSellSendInApp}>
                                   {sellBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                                   Confirm &amp; send from this wallet
                                 </Button>
@@ -2645,7 +2643,7 @@ function SelfCustodyWallet() {
                 )}
                 {seedView === "warn" && (
                   <div className="space-y-3">
-                    <div className="flex items-start gap-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm">
+                    <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm">
                       <ShieldAlert className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
                       <p>
                         <strong>Never show this phrase next to other people.</strong> Anyone who

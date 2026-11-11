@@ -42,7 +42,7 @@ describe("receive kind selector — one segmented pill group for all three kinds
 
 describe("receive action — unmistakably tappable", () => {
   it("uses the solid Bitcoin-orange pill treatment, not the old outline button", () => {
-    expect(receiveBlock).toContain("bg-[#F7931A] text-black font-semibold");
+    expect(receiveBlock).toContain("bg-bitcoin text-bitcoin-foreground font-semibold");
     expect(receiveBlock).toContain("h-11 w-full rounded-full");
     // The old non-affordance labels are gone.
     expect(page).not.toContain('"Create invoice" : "Show address"');
