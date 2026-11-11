@@ -79,8 +79,19 @@ export default {
         "paypal-gold": "hsl(var(--paypal-gold))",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
-        display: ["Poppins", "Inter", "system-ui", "sans-serif"],
+        // One family everywhere, like PayPal (CEO order 2026-11-11):
+        // Manrope — the same app font Doc'O Clock ships. The display
+        // alias resolves to Manrope too, so every font-display usage
+        // (page titles, card titles, hero numbers) takes the same face.
+        sans: ["Manrope", "system-ui", "-apple-system", "sans-serif"],
+        display: ["Manrope", "system-ui", "-apple-system", "sans-serif"],
+      },
+      fontSize: {
+        // PayPal type ramp (shared with Doc'O Clock): greeting = the
+        // bold page header (28px/800), heronum = the hero card's
+        // headline number (40px/800).
+        greeting: ["1.75rem", { lineHeight: "1.15", fontWeight: "800", letterSpacing: "-0.02em" }],
+        heronum: ["2.5rem", { lineHeight: "1", fontWeight: "800", letterSpacing: "-0.02em" }],
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -30,6 +30,8 @@ import {
   CreditCard,
   Plus,
   Eye,
+  ArrowDownToLine,
+  ArrowLeftRight,
   TrendingUp,
   PieChart,
   BarChart,
@@ -127,89 +129,81 @@ const Dashboard = () => {
               <FrozenAccountBanner />
             </div>
           )}
-          {/* Balance Summary — navy emphasis surface (#002991, the
-              primary family's dark shade); PayPal blue is reserved
-              for actions/links, not large surfaces. */}
-          <div className="bg-[#002991] rounded-lg px-6 py-6 md:px-8 mb-6">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-              <div>
-                <p className="text-white/80 text-sm font-medium mb-1">Welcome back, {firstName}</p>
-                <h1 className="text-4xl md:text-[44px] font-display font-semibold tabular-nums text-white mb-2">
-                  {formatAmount(dashboardStats?.totalBalance || 0)}
-                </h1>
-                <p className="text-white/70 text-sm">Available balance</p>
+          {/* Greeting — the PayPal anatomy header (CEO rollout
+              2026-11-11): the bold greeting, one quiet subline. The
+              fiat total rides the subline; the Bitcoin wallet below
+              is the page's hero. */}
+          <div className="mt-6 mb-6">
+            <h1 className="text-greeting text-foreground">Welcome back, {firstName}</h1>
+            <p className="text-[13px] text-muted-foreground mt-1">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} · {formatAmount(dashboardStats?.totalBalance || 0)} available in your everyday money
+            </p>
+          </div>
+
+          {/* Bitcoin Wallet hero — the main product leads the page.
+              ONE sky hero card (#60CDFF; a dark hairline card in dark
+              mode), the ₿ medallion as its brand mark — the analogue
+              of the P tile on PayPal's balance card — and the BTC
+              balance as the headline number. Orange stays on the ₿
+              mark only, never on buttons or bands. */}
+          <div className="bg-[#60CDFF] dark:bg-card dark:border dark:border-border rounded-[24px] p-5 mb-6 text-slate-950 dark:text-card-foreground">
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <p className="text-sm font-semibold">Bitcoin Wallet</p>
+              <div className="w-11 h-11 shrink-0 rounded-2xl bg-white flex items-center justify-center" aria-hidden="true">
+                <Bitcoin className="h-6 w-6 text-bitcoin" />
               </div>
-              <div className="flex gap-3">
-                {quickActions.filter((a) => !('feature' in a) || canSeeFeature(a.feature)).map((action) => (
-                  <button
-                    key={action.label}
-                    onClick={action.action}
-                    className="flex flex-col items-center gap-1.5 group"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center">
-                      <action.icon className="h-5 w-5 text-white" />
-                    </div>
-                    <span className="text-xs text-white/80 font-medium">{action.label}</span>
-                  </button>
-                ))}
-              </div>
+            </div>
+            {btcWallet ? (
+              <>
+                <p className="text-heronum tabular-nums">
+                  {(btcWallet.balance_sats ?? 0).toLocaleString()} <span className="text-[22px] font-bold">sats</span>
+                </p>
+                <p className="text-sm text-slate-950/70 dark:text-muted-foreground mt-1.5 tabular-nums">
+                  {(btcWallet.available_sats ?? 0).toLocaleString()} sats available
+                </p>
+              </>
+            ) : btcLoading ? (
+              <Skeleton className="h-10 w-64 max-w-full bg-slate-950/15 dark:bg-primary-foreground/15" aria-label="Loading your Bitcoin wallet" />
+            ) : (
+              <p className="text-[15px] leading-relaxed max-w-md">
+                Deposit, buy, sell and withdraw Bitcoin — held for you, or self-custody with your own seed phrase. Your choice.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2.5 mt-6">
+              {/* Hero CTAs in the PayPal app pattern: black pill
+                  primary on the sky card (the platform blue returns
+                  in dark mode, where the hero is a dark card), pale
+                  pill secondary. */}
+              <Button asChild className="bg-slate-950 text-white hover:bg-slate-950/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90">
+                <Link to="/bitcoin-wallet">Open wallet</Link>
+              </Button>
+              <Button asChild variant="secondary" className="bg-white/70 text-slate-950 hover:bg-white dark:bg-secondary dark:text-secondary-foreground dark:hover:bg-secondary/80">
+                <Link to="/bitcoin-wallet/self-custody">Self-custody</Link>
+              </Button>
             </div>
           </div>
 
-          {/* Bitcoin Wallet — the main product gets the primary panel,
-              directly under the balance band. Everything below it on this
-              page is everyday-money tooling that supports the wallet. */}
-          <div className="bg-card text-card-foreground rounded-lg px-6 py-6 md:px-8 mb-6 border">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-              <div className="flex items-start gap-4 min-w-0">
-                <div className="w-12 h-12 shrink-0 rounded-full bg-bitcoin flex items-center justify-center">
-                  <Bitcoin className="h-6 w-6 text-bitcoin-foreground" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-foreground font-display font-semibold text-xl leading-tight">Bitcoin Wallet</p>
-                  {btcWallet ? (
-                    <p className="text-muted-foreground text-sm mt-1 tabular-nums">
-                      {(btcWallet.available_sats ?? 0).toLocaleString()} sats available
-                      <span className="text-muted-foreground/70"> · {(btcWallet.balance_sats ?? 0).toLocaleString()} sats total</span>
-                    </p>
-                  ) : btcLoading ? (
-                    <Skeleton className="h-4 w-64 max-w-full mt-1" aria-label="Loading your Bitcoin wallet" />
-                  ) : (
-                    <p className="text-muted-foreground text-sm mt-1">
-                      Deposit, buy, sell and withdraw Bitcoin — held for you, or self-custody with your own seed phrase. Your choice.
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2.5 shrink-0">
-                {/* Primary action in the one-blue system (CEO, 2026-11-11):
-                    the default PayPal-blue button, not a solid-orange
-                    action surface. Orange stays on the ₿ medallion and
-                    the sats figures. */}
-                <Button asChild>
-                  <Link to="/bitcoin-wallet">Open wallet</Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link to="/bitcoin-wallet/self-custody">Self-custody</Link>
-                </Button>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-5">
-              {/* The custodial wallet's own actions, always shown
-                  to every viewer (CEO standing rule 2026-11-08:
-                  Deposit and Withdraw — the send — are never
-                  hidden). Buy is absent because the wallet page
-                  does not offer it. */}
-              {["Deposit", "Sell", "Withdraw"].map((action) => (
+          {/* The custodial wallet's quick actions — pale circles,
+              always shown to every viewer (CEO standing rule
+              2026-11-08: Deposit and Withdraw — the send — are never
+              hidden). Buy is absent because the wallet page does not
+              offer it. */}
+          <div className="flex gap-5 px-1 mb-8">
+            {["Deposit", "Sell", "Withdraw"].map((action) => {
+              const ActionIcon = action === "Deposit" ? ArrowDownToLine : action === "Sell" ? ArrowLeftRight : ArrowUpRight;
+              return (
                 <Link
                   key={action}
                   to="/bitcoin-wallet"
-                  className="rounded-full bg-secondary hover:bg-secondary/80 transition-colors px-4 py-1.5 text-[13px] font-medium text-secondary-foreground"
+                  className="flex flex-col items-center gap-1.5 group"
                 >
-                  {action}
+                  <span className="w-14 h-14 rounded-full bg-secondary group-hover:bg-secondary/70 transition-colors flex items-center justify-center">
+                    <ActionIcon className="h-6 w-6 text-secondary-foreground" />
+                  </span>
+                  <span className="text-xs font-medium text-foreground">{action}</span>
                 </Link>
-              ))}
-            </div>
+              );
+            })}
           </div>
 
           {/* Onboarding */}
@@ -226,6 +220,36 @@ const Dashboard = () => {
 
           {/* Supporting layer: everyday money and activity under the wallet. */}
           <h2 className="text-base font-semibold text-foreground mb-4">Your everyday money</h2>
+
+          {/* Everyday balance — a quiet hairline card (the fiat total
+              no longer wears a colour band) with its quick actions as
+              pale circles, the same anatomy as the wallet actions. */}
+          <Card className="mb-6">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+                <div>
+                  <p className="text-sm text-muted-foreground font-medium">Available balance</p>
+                  <p className="text-[28px] font-display font-bold text-foreground mt-1 tabular-nums">
+                    {formatAmount(dashboardStats?.totalBalance || 0)}
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  {quickActions.filter((a) => !('feature' in a) || canSeeFeature(a.feature)).map((action) => (
+                    <button
+                      key={action.label}
+                      onClick={action.action}
+                      className="flex flex-col items-center gap-1.5 group"
+                    >
+                      <span className="w-14 h-14 rounded-full bg-secondary group-hover:bg-secondary/70 transition-colors flex items-center justify-center">
+                        <action.icon className="h-6 w-6 text-secondary-foreground" />
+                      </span>
+                      <span className="text-xs font-medium text-foreground">{action.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Main column + side stack */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -327,47 +351,42 @@ const Dashboard = () => {
             </div>
 
             <div className="space-y-6">
+            {/* Stats as one hairline list, not a stack of cards
+                (PayPal anatomy): pale icon square, label + subline,
+                value on the right. */}
             <Card>
-              <CardContent className="pt-5 pb-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground font-medium">Monthly Activity</p>
-                    <p className="text-[28px] font-display font-semibold text-foreground mt-1">{formatAmount(dashboardStats?.monthlyAmount || 0)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{dashboardStats?.monthlyTransactions || 0} transactions</p>
+              <CardContent className="py-2">
+                <div className="divide-y divide-border">
+                  <div className="flex items-center gap-3 min-h-16 py-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">Monthly Activity</p>
+                      <p className="text-xs text-muted-foreground">{dashboardStats?.monthlyTransactions || 0} transactions</p>
+                    </div>
+                    <span className="text-[15px] font-bold text-foreground tabular-nums shrink-0">{formatAmount(dashboardStats?.monthlyAmount || 0)}</span>
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <TrendingUp className="h-5 w-5 text-primary" />
+                  <div className="flex items-center gap-3 min-h-16 py-3">
+                    <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
+                      <BarChart className="h-5 w-5 text-success" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">Total Transactions</p>
+                      <p className="text-xs text-muted-foreground">All time</p>
+                    </div>
+                    <span className="text-[15px] font-bold text-foreground tabular-nums shrink-0">{dashboardStats?.totalTransactions || 0}</span>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-5 pb-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground font-medium">Total Transactions</p>
-                    <p className="text-[28px] font-display font-semibold text-foreground mt-1">{dashboardStats?.totalTransactions || 0}</p>
-                    <p className="text-xs text-muted-foreground mt-1">All time</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                    <BarChart className="h-5 w-5 text-success" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer" onClick={() => navigate('/rewards')}>
-              <CardContent className="pt-5 pb-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground font-medium">Rewards Points</p>
-                    <p className="text-[28px] font-display font-semibold text-foreground mt-1">{rewards?.total_points || 0}</p>
-                    <p className="text-xs text-muted-foreground mt-1 capitalize">{rewards?.tier || 'bronze'} tier</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
-                    <Star className="h-5 w-5 text-warning" />
-                  </div>
+                  <button onClick={() => navigate('/rewards')} className="flex items-center gap-3 min-h-16 py-3 w-full text-left">
+                    <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
+                      <Star className="h-5 w-5 text-warning" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">Rewards Points</p>
+                      <p className="text-xs text-muted-foreground capitalize">{rewards?.tier || 'bronze'} tier</p>
+                    </div>
+                    <span className="text-[15px] font-bold text-foreground tabular-nums shrink-0">{rewards?.total_points || 0}</span>
+                  </button>
                 </div>
               </CardContent>
             </Card>

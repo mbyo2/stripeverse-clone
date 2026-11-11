@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -14,8 +15,10 @@
     /* One blue system, PayPal's: --primary is PayPal blue #0066F5 —
        primary buttons, links, active/selected states and focus rings
        all read from it. The navy #002991 (--paypal-dark) is the
-       family's dark shade: emphasis/header surfaces (balance bands,
-       card faces) and text on pale tints, never the action colour.
+       family's dark shade: the logo colour and sparing emphasis,
+       never the action colour and never a large surface — balance
+       heroes are the PayPal sky card (#60CDFF, dark hairline card in
+       dark mode) since the 2026-11-11 anatomy rollout.
        Bitcoin orange lives ONLY in --bitcoin, reserved for Bitcoin
        itself (amounts, Bitcoin branding moments, the logo). */
     --primary: 215 100% 48%;
@@ -98,13 +101,23 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    /* App font (CEO order 2026-11-11, "even the font"): Manrope — a bold
+       geometric sans in the same character as PayPal's app type (very
+       heavy tight headings, clean body, confident numbers). One family
+       everywhere, like PayPal — the same system Doc'O Clock ships.
+       Loaded via the Google Fonts @import at the top of this file. */
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Headings take the type scale from their utilities (font-display is
-     applied by page titles and card titles that want the display face);
-     no global face is forced on every heading. */
+  /* Headings follow the PayPal ramp: 800 weight, tight -0.02em
+     tracking (explicit font classes on a heading still win over this
+     base rule). */
+  h1, h2, h3 {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
 
   /* Global clickable element styles */
   a, button, [role="button"], [type="button"], [type="submit"],
@@ -189,15 +202,15 @@
   }
 
   .heading-1 {
-    @apply text-4xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight tracking-[-0.02em] leading-tight;
+    @apply text-4xl md:text-5xl lg:text-6xl font-display font-extrabold tracking-tight tracking-[-0.02em] leading-tight;
   }
 
   .heading-2 {
-    @apply text-3xl md:text-4xl font-display font-bold tracking-tight tracking-[-0.02em];
+    @apply text-3xl md:text-4xl font-display font-extrabold tracking-tight tracking-[-0.02em];
   }
 
   .heading-3 {
-    @apply text-2xl md:text-3xl font-display font-semibold;
+    @apply text-2xl md:text-3xl font-display font-bold;
   }
 
   .body-text {

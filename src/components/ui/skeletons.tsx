@@ -322,52 +322,57 @@ export const RouteShellSkeleton = ({
  */
 export const DashboardSkeleton = () => (
   <div role="status" aria-label="Loading dashboard">
-    {/* Balance band — mirrors the dashboard's navy band */}
-    <div className="bg-[#002991] rounded-lg px-6 py-6 md:px-8 mb-6" aria-hidden="true">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-        <div>
-          <Skeleton className="h-4 w-36 bg-white/25 mb-1.5" />
-          <Skeleton className="h-11 w-64 max-w-full bg-white/30 mb-2" />
-          <Skeleton className="h-4 w-28 bg-white/20" />
+    {/* Greeting — mirrors the dashboard's greeting header */}
+    <div className="mt-6 mb-6" aria-hidden="true">
+      <Skeleton className="h-8 w-56 max-w-full mb-2" />
+      <Skeleton className="h-4 w-72 max-w-full" />
+    </div>
+
+    {/* Bitcoin hero — mirrors the sky hero card (dark hairline card
+        in dark mode) */}
+    <div className="bg-[#60CDFF] dark:bg-card dark:border dark:border-border rounded-[24px] p-5 mb-6" aria-hidden="true">
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <Skeleton className="h-4 w-28 bg-slate-950/20 dark:bg-primary-foreground/20" />
+        <Skeleton className="w-11 h-11 rounded-2xl bg-white/70 dark:bg-primary-foreground/15 shrink-0" />
+      </div>
+      <Skeleton className="h-10 w-64 max-w-full bg-slate-950/20 dark:bg-primary-foreground/20 mb-2" />
+      <Skeleton className="h-4 w-40 bg-slate-950/15 dark:bg-primary-foreground/15" />
+      <div className="flex gap-2.5 mt-6">
+        <Skeleton className="h-11 w-32 rounded-full bg-slate-950/25 dark:bg-primary-foreground/20" />
+        <Skeleton className="h-11 w-32 rounded-full bg-white/50 dark:bg-primary-foreground/10" />
+      </div>
+    </div>
+
+    {/* Wallet quick actions — pale circles */}
+    <div className="flex gap-5 px-1 mb-8" aria-hidden="true">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="flex flex-col items-center gap-1.5">
+          <Skeleton className="w-14 h-14 rounded-full" />
+          <Skeleton className="h-3 w-12" />
         </div>
-        <div className="flex gap-3">
+      ))}
+    </div>
+
+    {/* Section heading */}
+    <Skeleton className="h-5 w-44 mb-4" aria-hidden="true" />
+
+    {/* Everyday balance card */}
+    <div className="rounded-2xl border border-border bg-card px-6 py-5 mb-6" aria-hidden="true">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+        <div>
+          <Skeleton className="h-4 w-32 mb-2" />
+          <Skeleton className="h-8 w-44" />
+        </div>
+        <div className="flex gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="flex flex-col items-center gap-1.5">
-              <Skeleton className="w-12 h-12 rounded-full bg-white/20" />
-              <Skeleton className="h-3 w-10 bg-white/20" />
+              <Skeleton className="w-14 h-14 rounded-full" />
+              <Skeleton className="h-3 w-12" />
             </div>
           ))}
         </div>
       </div>
     </div>
-
-    {/* Bitcoin panel */}
-    <div
-      className="bg-card rounded-lg px-6 py-6 md:px-8 mb-6 border"
-      aria-hidden="true"
-    >
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-        <div className="flex items-start gap-4 min-w-0">
-          <Skeleton className="w-12 h-12 rounded-full bg-bitcoin/40 shrink-0" />
-          <div className="min-w-0">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-4 w-72 max-w-full mt-1.5" />
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2.5 shrink-0">
-          <Skeleton className="h-10 w-28 rounded-full" />
-          <Skeleton className="h-10 w-32 rounded-full" />
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2 mt-5">
-        <Skeleton className="h-7 w-20 rounded-full" />
-        <Skeleton className="h-7 w-14 rounded-full" />
-        <Skeleton className="h-7 w-24 rounded-full" />
-      </div>
-    </div>
-
-    {/* Section heading */}
-    <Skeleton className="h-5 w-44 mb-4" aria-hidden="true" />
 
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
       <div className="lg:col-span-2 space-y-6" aria-hidden="true">
@@ -379,10 +384,20 @@ export const DashboardSkeleton = () => (
         </SkeletonCardShell>
       </div>
       <div className="space-y-6">
-        <div aria-hidden="true" className="space-y-6">
-          <SkeletonStatCard />
-          <SkeletonStatCard />
-          <SkeletonStatCard />
+        {/* Stats list card — mirrors the dashboard's hairline stats list */}
+        <div aria-hidden="true" className="rounded-2xl border border-border bg-card px-6 py-2">
+          <div className="divide-y divide-border">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 min-h-16 py-3">
+                <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+                <div className="flex-1">
+                  <Skeleton className="h-4 w-32 mb-1.5" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+                <Skeleton className="h-5 w-16 shrink-0" />
+              </div>
+            ))}
+          </div>
         </div>
         <SkeletonCardShell titleWidth="w-32" linkWidth="w-16">
           <div className="divide-y divide-border" aria-hidden="true">

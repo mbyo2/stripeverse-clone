@@ -39,17 +39,17 @@ const WalletBalance = ({ onSendMoney, accountId }: WalletBalanceProps) => {
   if (isLoading) {
     return (
       <Card className="mb-8 overflow-hidden rounded-[24px]">
-        <div className="bg-[#002991] p-6 md:p-8" role="status" aria-label="Loading balance">
+        <div className="bg-[#60CDFF] dark:bg-card p-5" role="status" aria-label="Loading balance">
           <div className="flex items-start justify-between mb-6" aria-hidden="true">
             <div>
-              <Skeleton className="h-4 w-36 bg-primary-foreground/20 mb-2" />
-              <Skeleton className="h-12 w-56 max-w-full bg-primary-foreground/25" />
+              <Skeleton className="h-4 w-36 bg-slate-950/20 dark:bg-primary-foreground/20 mb-2" />
+              <Skeleton className="h-12 w-56 max-w-full bg-slate-950/25 dark:bg-primary-foreground/25" />
             </div>
-            <Skeleton className="h-8 w-8 rounded-lg bg-primary-foreground/15 shrink-0" />
+            <Skeleton className="h-8 w-8 rounded-lg bg-slate-950/15 dark:bg-primary-foreground/15 shrink-0" />
           </div>
           <div className="flex flex-wrap gap-3" aria-hidden="true">
-            <Skeleton className="h-11 w-32 rounded-full bg-primary-foreground/25" />
-            <Skeleton className="h-11 w-28 rounded-full bg-primary-foreground/20" />
+            <Skeleton className="h-11 w-32 rounded-full bg-slate-950/25 dark:bg-primary-foreground/25" />
+            <Skeleton className="h-11 w-28 rounded-full bg-white/50 dark:bg-primary-foreground/20" />
           </div>
         </div>
       </Card>
@@ -59,27 +59,29 @@ const WalletBalance = ({ onSendMoney, accountId }: WalletBalanceProps) => {
   return (
     <>
       <Card className="mb-8 overflow-hidden rounded-[24px]">
-        {/* Balance hero is a navy emphasis surface (#002991); PayPal
-            blue (--primary) is the action colour, not a surface. */}
-        <div className="bg-[#002991] p-6 md:p-8">
+        {/* Balance hero in the PayPal anatomy (CEO rollout
+            2026-11-11): the sky hero card (#60CDFF) with near-black
+            text; in dark mode the hero is a dark hairline card.
+            PayPal blue (--primary) stays the action colour. */}
+        <div className="bg-[#60CDFF] dark:bg-card p-5 text-slate-950 dark:text-card-foreground">
           <div className="flex items-start justify-between mb-6">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <Wallet className="h-4 w-4 text-primary-foreground/70" />
-                <span className="text-sm font-medium text-primary-foreground/70">Available Balance</span>
+                <Wallet className="h-4 w-4 text-slate-950/70 dark:text-muted-foreground" />
+                <span className="text-sm font-medium text-slate-950/70 dark:text-muted-foreground">Available Balance</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-4xl md:text-5xl font-display font-semibold text-primary-foreground tracking-tight">
+                <span className="text-heronum tabular-nums">
                   {showBalance ? formatAmount(wallet?.balance || 0) : "••••••"}
                 </span>
                 <button
                   onClick={() => setShowBalance(!showBalance)}
-                  className="p-1.5 rounded-lg hover:bg-primary-foreground/10 transition-colors"
+                  className="p-1.5 rounded-lg hover:bg-slate-950/10 dark:hover:bg-primary-foreground/10 transition-colors"
                 >
                   {showBalance ? (
-                    <EyeOff className="h-5 w-5 text-primary-foreground/70" />
+                    <EyeOff className="h-5 w-5 text-slate-950/70 dark:text-muted-foreground" />
                   ) : (
-                    <Eye className="h-5 w-5 text-primary-foreground/70" />
+                    <Eye className="h-5 w-5 text-slate-950/70 dark:text-muted-foreground" />
                   )}
                 </button>
               </div>
@@ -90,14 +92,14 @@ const WalletBalance = ({ onSendMoney, accountId }: WalletBalanceProps) => {
             <Button
               onClick={onSendMoney}
               variant="secondary"
-              className="h-11 px-5 rounded-full font-semibold bg-white text-primary hover:bg-white/90"
+              className="h-11 px-5 rounded-full font-semibold bg-slate-950 text-white hover:bg-slate-950/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
             >
               <ArrowUpRight className="mr-2 h-4 w-4" /> Send Money
             </Button>
             <Button
               onClick={() => setShowReceive(true)}
               variant="secondary"
-              className="h-11 px-5 rounded-full font-semibold bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30 hover:bg-primary-foreground/30"
+              className="h-11 px-5 rounded-full font-semibold bg-white/70 text-slate-950 hover:bg-white dark:bg-secondary dark:text-secondary-foreground dark:hover:bg-secondary/80"
             >
               <ArrowDownLeft className="mr-2 h-4 w-4" /> Receive
             </Button>

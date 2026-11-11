@@ -15,8 +15,12 @@
 //     from it; --ring is the same blue. Dark mode lifts it to
 //     #529AFF (HSL 215 100% 66%), primary and ring alike.
 //   - Navy #002991 (HSL 223 100% 28%, --paypal-dark) is the family's
-//     dark shade, used for emphasis surfaces only — the dashboard and
-//     wallet balance bands are navy, never the action blue.
+//     dark shade, used for the logo and sparing emphasis, never the
+//     action blue. It WAS the balance-band colour until the
+//     2026-11-11 anatomy rollout (see paypalAnatomy.test.ts): balance
+//     heroes are now the PayPal sky card #60CDFF (dark hairline card
+//     in dark mode), exactly as Doc'O Clock ships — the band pins
+//     below were moved for that reason, and only for that reason.
 //   - Bitcoin orange stays ONLY in --bitcoin — and even there it is
 //     never a solid action/active surface: the header wallet pill and
 //     the mobile drawer row take the primary-blue treatment when
@@ -68,13 +72,18 @@ describe("PayPal blue is the one action colour", () => {
     expect(lightTokens).toContain("--chart-2: 223 100% 28%");
   });
 
-  it("balance bands are navy emphasis surfaces, not action blue", () => {
+  it("balance heroes are sky cards, not action blue and no longer navy bands", () => {
+    // PIN MOVED (2026-11-11 anatomy rollout): this asserted the navy
+    // band classes. The CEO's rollout order replaces the band with
+    // the PayPal sky hero card — the surface was rebuilt, so the pin
+    // follows it. What must never return: a band in the action blue.
     expect(read("src/pages/Dashboard.tsx")).toContain(
-      'className="bg-[#002991] rounded-lg px-6 py-6 md:px-8 mb-6"',
+      'className="bg-[#60CDFF] dark:bg-card dark:border dark:border-border rounded-[24px] p-5 mb-6',
     );
     const walletBalance = read("src/components/wallet/WalletBalance.tsx");
-    expect(walletBalance).toContain('className="bg-[#002991] p-6 md:p-8"');
+    expect(walletBalance).toContain('className="bg-[#60CDFF] dark:bg-card p-5');
     expect(walletBalance).not.toContain('className="bg-primary p-6');
+    expect(walletBalance).not.toContain("bg-[#002991]");
   });
 
   it("no Tailwind default-blue classes survive in components", () => {
@@ -129,7 +138,7 @@ describe("no gradients inside the product", () => {
     expect(config).not.toContain("backgroundImage");
   });
 
-  it("balance bands and their skeleton twins are flat navy — no gradient or pattern background", () => {
+  it("balance heroes and their skeleton twins are flat sky — no gradient or pattern background", () => {
     const dash = read("src/pages/Dashboard.tsx");
     const walletBalance = read("src/components/wallet/WalletBalance.tsx");
     const skeletons = read("src/components/ui/skeletons.tsx");
@@ -142,12 +151,14 @@ describe("no gradients inside the product", () => {
       expect(src, name).not.toMatch(/bg-gradient-/);
       expect(src, name).not.toMatch(/(?:linear|radial|conic)-gradient\(/);
     }
-    // The twins mirror the loaded bands exactly: same flat class.
+    // The twins mirror the loaded heroes exactly: same flat class.
+    // (Classes moved with the surfaces in the 2026-11-11 anatomy
+    // rollout — navy band → sky hero card.)
     expect(skeletons).toContain(
-      'className="bg-[#002991] rounded-lg px-6 py-6 md:px-8 mb-6"',
+      'className="bg-[#60CDFF] dark:bg-card dark:border dark:border-border rounded-[24px] p-5 mb-6"',
     );
     expect(walletBalance).toContain(
-      'className="bg-[#002991] p-6 md:p-8" role="status" aria-label="Loading balance"',
+      'className="bg-[#60CDFF] dark:bg-card p-5" role="status" aria-label="Loading balance"',
     );
   });
 });
@@ -173,11 +184,15 @@ describe("bitcoin orange is never a solid action/active surface", () => {
     expect(header).toContain("bg-bitcoin/15 text-foreground hover:bg-bitcoin/25");
   });
 
-  it("dashboard 'Open wallet' is the default primary button, not the bitcoin variant", () => {
+  it("dashboard 'Open wallet' is never the bitcoin variant", () => {
     const dash = read("src/pages/Dashboard.tsx");
     expect(dash).not.toContain('variant="bitcoin"');
+    // PIN MOVED (2026-11-11 anatomy rollout): this asserted the
+    // literal default <Button asChild> — the button is now the hero
+    // card's primary CTA, the PayPal-app black pill on sky (platform
+    // blue in dark mode). The pin's intent stands: never orange.
     expect(dash).toMatch(
-      /<Button asChild>\s*<Link to="\/bitcoin-wallet">Open wallet<\/Link>/,
+      /<Button asChild className="bg-slate-950[^"]*">\s*<Link to="\/bitcoin-wallet">Open wallet<\/Link>/,
     );
   });
 
