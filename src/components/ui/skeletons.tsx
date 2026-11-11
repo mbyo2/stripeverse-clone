@@ -312,10 +312,10 @@ export const RouteShellSkeleton = ({
 
 /**
  * Dashboard placeholder (content only, no header), twinned element
- * for element on the loaded Dashboard: the #003087 balance band
+ * for element on the loaded Dashboard: the primary-token balance band
  * (greeting line, amount, "Available balance", four quick-action
- * circles with labels), the black Bitcoin panel (orange icon circle,
- * title + sats lines, two pill buttons, four action chips), the
+ * circles with labels), the Bitcoin card (bitcoin-token icon circle,
+ * title + sats lines, two pill buttons, three action chips), the
  * "Your everyday money" heading, then the activity column (Recent
  * Activity card + Monthly Activity chart card) beside the stat-card
  * stack, the Your accounts card and the Spending chart card.
@@ -323,7 +323,7 @@ export const RouteShellSkeleton = ({
 export const DashboardSkeleton = () => (
   <div role="status" aria-label="Loading dashboard">
     {/* Balance band */}
-    <div className="bg-[#003087] rounded-[24px] px-6 py-8 md:px-8 mb-6" aria-hidden="true">
+    <div className="bg-primary rounded-lg px-6 py-6 md:px-8 mb-6" aria-hidden="true">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
         <div>
           <Skeleton className="h-4 w-36 bg-white/25 mb-1.5" />
@@ -343,27 +343,26 @@ export const DashboardSkeleton = () => (
 
     {/* Bitcoin panel */}
     <div
-      className="bg-black dark:bg-[#0A0F1A] rounded-[24px] px-6 py-6 md:px-8 mb-6 border border-black/10 dark:border-white/10"
+      className="bg-card rounded-lg px-6 py-6 md:px-8 mb-6 border"
       aria-hidden="true"
     >
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div className="flex items-start gap-4 min-w-0">
-          <Skeleton className="w-12 h-12 rounded-full bg-[#F7931A]/40 shrink-0" />
+          <Skeleton className="w-12 h-12 rounded-full bg-bitcoin/40 shrink-0" />
           <div className="min-w-0">
-            <Skeleton className="h-6 w-40 bg-white/25" />
-            <Skeleton className="h-4 w-72 max-w-full bg-white/15 mt-1.5" />
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-72 max-w-full mt-1.5" />
           </div>
         </div>
         <div className="flex flex-wrap gap-2.5 shrink-0">
-          <Skeleton className="h-10 w-28 rounded-full bg-white/20" />
-          <Skeleton className="h-10 w-32 rounded-full bg-white/10" />
+          <Skeleton className="h-10 w-28 rounded-full" />
+          <Skeleton className="h-10 w-32 rounded-full" />
         </div>
       </div>
       <div className="flex flex-wrap gap-2 mt-5">
-        <Skeleton className="h-7 w-20 rounded-full bg-white/10" />
-        <Skeleton className="h-7 w-14 rounded-full bg-white/10" />
-        <Skeleton className="h-7 w-14 rounded-full bg-white/10" />
-        <Skeleton className="h-7 w-24 rounded-full bg-white/10" />
+        <Skeleton className="h-7 w-20 rounded-full" />
+        <Skeleton className="h-7 w-14 rounded-full" />
+        <Skeleton className="h-7 w-24 rounded-full" />
       </div>
     </div>
 

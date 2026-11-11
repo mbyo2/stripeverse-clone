@@ -80,7 +80,7 @@ const Dashboard = () => {
   // the session, and ProtectedRoute routes to /login.
   if (isLoading || isAuthRecovering) {
     return (
-      <div className="min-h-screen flex flex-col bg-muted">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-2 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <div role="status" aria-label="Loading dashboard">
@@ -93,7 +93,7 @@ const Dashboard = () => {
 
   if (isError) {
     return (
-      <div className="min-h-screen flex flex-col bg-muted">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 pt-2 pb-16 px-4 sm:px-6 max-w-[1200px] mx-auto w-full">
           <PageErrorState
@@ -107,14 +107,14 @@ const Dashboard = () => {
   }
 
   const quickActions = [
-    { label: 'Send', icon: Send, action: () => navigate('/transfer'), color: 'bg-primary' },
-    { label: 'Request', icon: ArrowDownRight, action: () => navigate('/request-money'), color: 'bg-success' },
-    { label: 'Cards', icon: CreditCard, action: () => navigate('/card/new'), color: 'bg-paypal-gold', feature: 'virtualCards' as const },
-    { label: 'Add Money', icon: Plus, action: () => navigate('/wallet'), color: 'bg-primary' },
+    { label: 'Send', icon: Send, action: () => navigate('/transfer') },
+    { label: 'Request', icon: ArrowDownRight, action: () => navigate('/request-money') },
+    { label: 'Cards', icon: CreditCard, action: () => navigate('/card/new'), feature: 'virtualCards' as const },
+    { label: 'Add Money', icon: Plus, action: () => navigate('/wallet') },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-muted">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pt-2 pb-16">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
@@ -128,11 +128,11 @@ const Dashboard = () => {
             </div>
           )}
           {/* Balance Summary */}
-          <div className="bg-[#003087] rounded-[24px] px-6 py-8 md:px-8 mb-6">
+          <div className="bg-primary rounded-lg px-6 py-6 md:px-8 mb-6">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
               <div>
                 <p className="text-white/80 text-sm font-medium mb-1">Welcome back, {firstName}</p>
-                <h1 className="text-4xl md:text-[44px] font-display font-semibold text-white mb-2">
+                <h1 className="text-4xl md:text-[44px] font-display font-semibold tabular-nums text-white mb-2">
                   {formatAmount(dashboardStats?.totalBalance || 0)}
                 </h1>
                 <p className="text-white/70 text-sm">Available balance</p>
@@ -157,33 +157,33 @@ const Dashboard = () => {
           {/* Bitcoin Wallet — the main product gets the primary panel,
               directly under the balance band. Everything below it on this
               page is everyday-money tooling that supports the wallet. */}
-          <div className="bg-black dark:bg-[#0A0F1A] rounded-[24px] px-6 py-6 md:px-8 mb-6 border border-black/10 dark:border-white/10">
+          <div className="bg-card text-card-foreground rounded-lg px-6 py-6 md:px-8 mb-6 border">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
               <div className="flex items-start gap-4 min-w-0">
-                <div className="w-12 h-12 shrink-0 rounded-full bg-[#F7931A] flex items-center justify-center">
-                  <Bitcoin className="h-6 w-6 text-black" />
+                <div className="w-12 h-12 shrink-0 rounded-full bg-bitcoin flex items-center justify-center">
+                  <Bitcoin className="h-6 w-6 text-bitcoin-foreground" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-white font-display font-semibold text-xl leading-tight">Bitcoin Wallet</p>
+                  <p className="text-foreground font-display font-semibold text-xl leading-tight">Bitcoin Wallet</p>
                   {btcWallet ? (
-                    <p className="text-white/70 text-sm mt-1">
+                    <p className="text-muted-foreground text-sm mt-1 tabular-nums">
                       {(btcWallet.available_sats ?? 0).toLocaleString()} sats available
-                      <span className="text-white/50"> · {(btcWallet.balance_sats ?? 0).toLocaleString()} sats total</span>
+                      <span className="text-muted-foreground/70"> · {(btcWallet.balance_sats ?? 0).toLocaleString()} sats total</span>
                     </p>
                   ) : btcLoading ? (
-                    <Skeleton className="h-4 w-64 max-w-full bg-white/20 mt-1" aria-label="Loading your Bitcoin wallet" />
+                    <Skeleton className="h-4 w-64 max-w-full mt-1" aria-label="Loading your Bitcoin wallet" />
                   ) : (
-                    <p className="text-white/70 text-sm mt-1">
+                    <p className="text-muted-foreground text-sm mt-1">
                       Deposit, buy, sell and withdraw Bitcoin — held for you, or self-custody with your own seed phrase. Your choice.
                     </p>
                   )}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2.5 shrink-0">
-                <Button asChild className="rounded-full bg-[#F7931A] text-black font-semibold hover:bg-[#DE830A] shadow-none">
+                <Button asChild variant="bitcoin">
                   <Link to="/bitcoin-wallet">Open wallet</Link>
                 </Button>
-                <Button asChild variant="outline" className="rounded-full bg-transparent border-white/30 text-white hover:bg-white/10 hover:text-white shadow-none">
+                <Button asChild variant="outline">
                   <Link to="/bitcoin-wallet/self-custody">Self-custody</Link>
                 </Button>
               </div>
@@ -198,7 +198,7 @@ const Dashboard = () => {
                 <Link
                   key={action}
                   to="/bitcoin-wallet"
-                  className="rounded-full bg-white/10 hover:bg-white/15 transition-colors px-4 py-1.5 text-[13px] font-medium text-white"
+                  className="rounded-full bg-secondary hover:bg-secondary/80 transition-colors px-4 py-1.5 text-[13px] font-medium text-secondary-foreground"
                 >
                   {action}
                 </Link>
@@ -288,7 +288,7 @@ const Dashboard = () => {
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-primary" />
-                  Monthly Activity
+                  Activity trend
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -297,18 +297,18 @@ const Dashboard = () => {
                     <AreaChart data={monthlyData || []}>
                       <defs>
                         <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(210, 100%, 44%)" stopOpacity={0.15}/>
-                          <stop offset="95%" stopColor="hsl(210, 100%, 44%)" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(216, 24%, 90%)" />
-                      <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 43%)" />
-                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(215, 16%, 43%)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
                       <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
                       <Area
                         type="monotone"
                         dataKey="amount"
-                        stroke="hsl(210, 100%, 44%)"
+                        stroke="hsl(var(--chart-2))"
                         strokeWidth={2}
                         fillOpacity={1}
                         fill="url(#colorAmount)"
@@ -321,7 +321,7 @@ const Dashboard = () => {
             </div>
 
             <div className="space-y-6">
-            <Card className="card-hover">
+            <Card>
               <CardContent className="pt-5 pb-5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -336,7 +336,7 @@ const Dashboard = () => {
               </CardContent>
             </Card>
 
-            <Card className="card-hover">
+            <Card>
               <CardContent className="pt-5 pb-5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -351,7 +351,7 @@ const Dashboard = () => {
               </CardContent>
             </Card>
 
-            <Card className="card-hover cursor-pointer" onClick={() => navigate('/rewards')}>
+            <Card className="cursor-pointer" onClick={() => navigate('/rewards')}>
               <CardContent className="pt-5 pb-5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -411,11 +411,11 @@ const Dashboard = () => {
                 <div className="h-[280px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsBarChart data={spendingData || []} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(216, 24%, 90%)" />
-                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(215, 16%, 43%)" />
-                      <YAxis dataKey="category" type="category" tick={{ fontSize: 11 }} width={80} stroke="hsl(215, 16%, 43%)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                      <YAxis dataKey="category" type="category" tick={{ fontSize: 11 }} width={80} stroke="hsl(var(--muted-foreground))" />
                       <Tooltip formatter={(value) => [formatAmount(Number(value)), 'Amount']} />
-                      <Bar dataKey="amount" fill="hsl(210, 100%, 44%)" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="amount" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
                     </RechartsBarChart>
                   </ResponsiveContainer>
                 </div>
