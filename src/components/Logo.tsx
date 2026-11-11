@@ -9,17 +9,17 @@ interface LogoProps {
 }
 
 const MARK_COLORS = {
-  color: { upper: "#F7931A", lower: "#003087" },
+  color: { upper: "#F7931A", lower: "#002991" },
   white: { upper: "#FFFFFF", lower: "#FFFFFF" },
   black: { upper: "#000000", lower: "#000000" },
-  navy: { upper: "#003087", lower: "#003087" },
+  navy: { upper: "#002991", lower: "#002991" },
 } as const;
 
 const WORDMARK_COLORS = {
-  color: "text-[#003087]",
+  color: "text-[#002991]",
   white: "text-white",
   black: "text-black",
-  navy: "text-[#003087]",
+  navy: "text-[#002991]",
 } as const;
 
 /**

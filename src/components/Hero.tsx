@@ -47,7 +47,7 @@ const Hero = ({ isAuthenticated }: HeroProps) => {
             </Link>
             <a
               href="#bitcoin"
-              className="mt-5 inline-flex items-center gap-1.5 text-[15px] font-semibold text-[#003087] dark:text-white hover:underline underline-offset-4"
+              className="mt-5 inline-flex items-center gap-1.5 text-[15px] font-semibold text-[#002991] dark:text-white hover:underline underline-offset-4"
             >
               See how the wallet works
               <ArrowDown className="h-4 w-4" />

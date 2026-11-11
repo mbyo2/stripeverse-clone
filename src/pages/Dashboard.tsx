@@ -127,10 +127,10 @@ const Dashboard = () => {
               <FrozenAccountBanner />
             </div>
           )}
-          {/* Balance Summary — navy emphasis surface (#003087, the
+          {/* Balance Summary — navy emphasis surface (#002991, the
               primary family's dark shade); PayPal blue is reserved
               for actions/links, not large surfaces. */}
-          <div className="bg-[#003087] rounded-lg px-6 py-6 md:px-8 mb-6">
+          <div className="bg-[#002991] rounded-lg px-6 py-6 md:px-8 mb-6">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
               <div>
                 <p className="text-white/80 text-sm font-medium mb-1">Welcome back, {firstName}</p>

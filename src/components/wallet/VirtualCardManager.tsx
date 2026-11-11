@@ -180,7 +180,7 @@ const VirtualCardManager = ({ maxCards = 5 }: VirtualCardManagerProps) => {
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {virtualCards.map((card) => (
-              <div key={card.id} className="bg-[#003087] rounded-2xl p-4 text-white relative overflow-hidden">
+              <div key={card.id} className="bg-[#002991] rounded-2xl p-4 text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
                 <div className="relative z-10">
                   <div className="flex justify-between items-start mb-4">

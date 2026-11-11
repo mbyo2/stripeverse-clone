@@ -21,9 +21,9 @@ import { TrendingDown, TrendingUp, PiggyBank, Target, Plus, Download, ArrowDownT
 import { format } from 'date-fns';
 
 // Chart palette drawn from the design tokens only (hex equivalents):
-// --primary #0070E0, navy #003087, --bitcoin #F7931A, --success,
+// --primary #0066F5, navy #002991, --bitcoin #F7931A, --success,
 // --muted-foreground, --paypal-blue-light, --warning, --destructive.
-const COLORS = ['#0070E0', '#003087', '#F7931A', '#198653', '#5C6B7F', '#3D9EFF', '#F59F0A', '#DC2828'];
+const COLORS = ['#0066F5', '#002991', '#F7931A', '#198653', '#5C6B7F', '#3D9EFF', '#F59F0A', '#DC2828'];
 
 const SpendingInsights = () => {
   const { user } = useAuth();
@@ -145,7 +145,7 @@ const SpendingInsights = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[#003087]/10"><Target className="h-5 w-5 text-[#003087]" /></div>
+                <div className="p-2 rounded-lg bg-[#002991]/10"><Target className="h-5 w-5 text-[#002991]" /></div>
                 <div>
                   <p className="text-xs text-muted-foreground">Active Goals</p>
                   <p className="text-xl font-bold">{goals.filter(g => g.status === 'active').length}</p>

@@ -11,21 +11,21 @@
     --card-foreground: 220 20% 14%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 14%;
-    /* One blue system, PayPal's: --primary is PayPal blue #0070E0 —
+    /* One blue system, PayPal's: --primary is PayPal blue #0066F5 —
        primary buttons, links, active/selected states and focus rings
-       all read from it. The navy #003087 (--paypal-dark) is the
+       all read from it. The navy #002991 (--paypal-dark) is the
        family's dark shade: emphasis/header surfaces (balance bands,
        card faces) and text on pale tints, never the action colour.
        Bitcoin orange lives ONLY in --bitcoin, reserved for Bitcoin
        itself (amounts, Bitcoin branding moments, the logo). */
-    --primary: 210 100% 44%;
+    --primary: 215 100% 48%;
     --primary-foreground: 0 0% 100%;
     --secondary: 216 33% 97%;
-    --secondary-foreground: 219 100% 26%;
+    --secondary-foreground: 223 100% 28%;
     --muted: 216 33% 97%;
     --muted-foreground: 215 16% 43%;
     --accent: 216 33% 97%;
-    --accent-foreground: 219 100% 26%;
+    --accent-foreground: 223 100% 28%;
     --bitcoin: 33 93% 54%;
     --bitcoin-foreground: 0 0% 0%;
     --destructive: 0 72% 51%;
@@ -36,18 +36,18 @@
     --warning-foreground: 220 26% 14%;
     --border: 216 24% 90%;
     --input: 216 24% 90%;
-    --ring: 210 100% 44%;
+    --ring: 215 100% 48%;
     /* Radius ladder: controls 6px (rounded-md), cards 8px
        (rounded-lg), overlays 12px (rounded-xl). */
     --radius: 0.5rem;
-    --chart-1: 210 100% 44%;
-    --chart-2: 219 100% 26%;
+    --chart-1: 215 100% 48%;
+    --chart-2: 223 100% 28%;
     --chart-3: 33 93% 54%;
     --chart-4: 152 69% 31%;
     --chart-5: 215 16% 43%;
-    --paypal-blue: 210 100% 44%;
-    --paypal-blue-light: 210 100% 62%;
-    --paypal-dark: 219 100% 26%;
+    --paypal-blue: 215 100% 48%;
+    --paypal-blue-light: 215 100% 62%;
+    --paypal-dark: 223 100% 28%;
     --paypal-gold: 38 92% 50%;
   }
 
@@ -58,7 +58,7 @@
     --card-foreground: 210 40% 98%;
     --popover: 222 40% 14%;
     --popover-foreground: 210 40% 98%;
-    --primary: 210 100% 55%;
+    --primary: 215 100% 66%;
     --primary-foreground: 0 0% 100%;
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
@@ -76,14 +76,14 @@
     --warning-foreground: 222 47% 11%;
     --border: 217 33% 22%;
     --input: 217 33% 22%;
-    --ring: 210 100% 60%;
-    --chart-1: 210 100% 60%;
-    --chart-2: 217 91% 65%;
+    --ring: 215 100% 66%;
+    --chart-1: 215 100% 66%;
+    --chart-2: 223 91% 65%;
     --chart-3: 33 93% 54%;
     --chart-4: 152 69% 45%;
     --chart-5: 215 20% 65%;
-    --paypal-blue: 210 100% 55%;
-    --paypal-blue-light: 210 100% 68%;
+    --paypal-blue: 215 100% 66%;
+    --paypal-blue-light: 215 100% 68%;
     --paypal-dark: 222 47% 11%;
     --paypal-gold: 38 92% 50%;
   }

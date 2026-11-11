@@ -10,7 +10,7 @@ import { CreditCard, Plus, Star, Trash2, Shield, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const brandColors: Record<string, string> = {
-  visa: 'bg-[#003087]',
+  visa: 'bg-[#002991]',
   mastercard: 'bg-[#7A1E1E]',
   amex: 'bg-[#1F5C46]',
   discover: 'bg-[#9A6206]',

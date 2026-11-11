@@ -323,7 +323,7 @@ export const RouteShellSkeleton = ({
 export const DashboardSkeleton = () => (
   <div role="status" aria-label="Loading dashboard">
     {/* Balance band — mirrors the dashboard's navy band */}
-    <div className="bg-[#003087] rounded-lg px-6 py-6 md:px-8 mb-6" aria-hidden="true">
+    <div className="bg-[#002991] rounded-lg px-6 py-6 md:px-8 mb-6" aria-hidden="true">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
         <div>
           <Skeleton className="h-4 w-36 bg-white/25 mb-1.5" />
@@ -456,7 +456,7 @@ export const WalletPageSkeleton = () => (
         <SkeletonCardShell titleWidth="w-36" linkWidth="w-20" className="h-full">
           <div className="grid gap-4 md:grid-cols-2">
             {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="bg-[#003087] rounded-2xl p-4">
+              <div key={i} className="bg-[#002991] rounded-2xl p-4">
                 <div className="flex justify-between items-start mb-4">
                   <Skeleton className="h-4 w-20 bg-white/25" />
                   <Skeleton className="h-5 w-14 rounded-full bg-white/20" />

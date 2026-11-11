@@ -39,7 +39,7 @@ const WalletBalance = ({ onSendMoney, accountId }: WalletBalanceProps) => {
   if (isLoading) {
     return (
       <Card className="mb-8 overflow-hidden rounded-[24px]">
-        <div className="bg-[#003087] p-6 md:p-8" role="status" aria-label="Loading balance">
+        <div className="bg-[#002991] p-6 md:p-8" role="status" aria-label="Loading balance">
           <div className="flex items-start justify-between mb-6" aria-hidden="true">
             <div>
               <Skeleton className="h-4 w-36 bg-primary-foreground/20 mb-2" />
@@ -59,9 +59,9 @@ const WalletBalance = ({ onSendMoney, accountId }: WalletBalanceProps) => {
   return (
     <>
       <Card className="mb-8 overflow-hidden rounded-[24px]">
-        {/* Balance hero is a navy emphasis surface (#003087); PayPal
+        {/* Balance hero is a navy emphasis surface (#002991); PayPal
             blue (--primary) is the action colour, not a surface. */}
-        <div className="bg-[#003087] p-6 md:p-8">
+        <div className="bg-[#002991] p-6 md:p-8">
           <div className="flex items-start justify-between mb-6">
             <div>
               <div className="flex items-center gap-2 mb-1">

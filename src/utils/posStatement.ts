@@ -6,7 +6,7 @@
 //
 // These documents are PAPER artefacts: always a light background and
 // dark text, whatever theme the app is in. Brand system: PayPal
-// palette (deep navy #003087, blue #0070ba), Bitcoin orange #F7931A
+// palette (deep navy #002991, blue #0070ba), Bitcoin orange #F7931A
 // accents, cream #FEF3E2 bands.
 //
 // summariseForStatement mirrors summarisePosRequests in
@@ -172,13 +172,13 @@ const SHARED_CSS = `
     color: #ffffff; font-size: 20px; font-weight: 800;
     display: flex; align-items: center; justify-content: center;
   }
-  .brand-name { font-size: 19px; font-weight: 800; color: #003087; letter-spacing: -0.2px; }
+  .brand-name { font-size: 19px; font-weight: 800; color: #002991; letter-spacing: -0.2px; }
   .brand-sub { font-size: 9.5px; color: #71808e; text-transform: uppercase; letter-spacing: 1.4px; white-space: nowrap; }
 `;
 
 function brandHeader(docTitle: string, periodLine: string, generatedAt: Date): string {
   return `
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 3px solid #003087; padding-bottom: 14px;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 3px solid #002991; padding-bottom: 14px;">
     <div class="brand">
       <div class="brand-mark">B</div>
       <div>
@@ -275,7 +275,7 @@ export function buildPosStatementHtml(data: PosStatementData): string {
   <style>
     thead { display: table-header-group; }
     thead th {
-      font-size:9.5px; text-transform:uppercase; letter-spacing:0.5px; color:#003087;
+      font-size:9.5px; text-transform:uppercase; letter-spacing:0.5px; color:#002991;
       padding:7px 6px; border-bottom:2px solid #F7931A; line-height:1.3; vertical-align:bottom;
     }
     tbody td { padding:6px; border-bottom:1px solid #e6ebef; vertical-align:top; }

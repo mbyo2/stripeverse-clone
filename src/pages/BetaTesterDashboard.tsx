@@ -113,7 +113,7 @@ const BetaTesterDashboard = () => {
       case 'coming_soon':
         return <Badge className="bg-orange-500">Coming Soon</Badge>;
       case 'development':
-        return <Badge className="bg-[#003087]">In Development</Badge>;
+        return <Badge className="bg-[#002991]">In Development</Badge>;
       default:
         return <Badge variant="secondary">Unknown</Badge>;
     }

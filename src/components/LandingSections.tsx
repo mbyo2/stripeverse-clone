@@ -11,7 +11,7 @@ import { FadeIn } from '@/components/animations';
 
 const DISPLAY = "font-display font-extrabold text-black dark:text-white tracking-[-0.025em] leading-[1.1] text-[32px] md:text-[44px] lg:text-[52px]";
 const BODY = "text-[17px] leading-[1.55] text-[#44464A] dark:text-white/70";
-const TEXT_LINK = "inline-flex items-center gap-1.5 font-semibold text-[#003087] dark:text-[#F7931A] hover:underline underline-offset-4";
+const TEXT_LINK = "inline-flex items-center gap-1.5 font-semibold text-[#002991] dark:text-[#F7931A] hover:underline underline-offset-4";
 
 interface SplitProps {
   image: string;
@@ -142,7 +142,7 @@ export const BusinessSection = () => (
 /** Deep-blue security & compliance band. Regulatory wording mirrors the Compliance page exactly. */
 export const SecurityBand = () => {
   return (
-    <section className="bg-[#003087] text-white">
+    <section className="bg-[#002991] text-white">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-16 md:py-24">
         <FadeIn duration={0.6} distance={20}>
           <div className="max-w-3xl">
@@ -162,7 +162,7 @@ export const SecurityBand = () => {
             </p>
             <Link
               to="/compliance"
-              className="inline-flex items-center h-12 rounded-full bg-white px-7 text-[15px] font-semibold text-[#003087] hover:bg-white/90 transition-colors"
+              className="inline-flex items-center h-12 rounded-full bg-white px-7 text-[15px] font-semibold text-[#002991] hover:bg-white/90 transition-colors"
             >
               Read our compliance page
             </Link>

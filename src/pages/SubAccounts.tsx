@@ -281,7 +281,7 @@ const SubAccounts = () => {
         </div>
 
         {/* Summary */}
-        <div className="bg-[#003087] rounded-[24px] px-6 py-8 md:px-8 mb-6">
+        <div className="bg-[#002991] rounded-[24px] px-6 py-8 md:px-8 mb-6">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
             <div>
               <p className="text-white/80 text-sm font-medium mb-1">Total balance across all accounts</p>
