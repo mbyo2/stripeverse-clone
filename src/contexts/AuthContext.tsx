@@ -81,7 +81,7 @@ type AuthContextType = {
    */
   recoverSession: () => Promise<RecoveryOutcome>;
   signIn: (email: string, password: string, twoFactorCode?: string) => Promise<SignInResult>;
-  signUp: (email: string, password: string, userData: UserData) => Promise<SignUpResult>;
+  signUp: (email: string, password: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<boolean>;
   updateUserPassword: (password: string) => Promise<boolean>;
@@ -96,13 +96,11 @@ type AuthContextType = {
   verifySession: () => Promise<void>;
 };
 
-// Sign-up collects names only — no phone number (CEO directive,
-// 2026-10-30). Phone is collected during identity verification
-// (KYC) and stored on profiles.phone at that point.
-type UserData = {
-  first_name: string;
-  last_name: string;
-};
+// Sign-up collects an email and password only — no phone number
+// (CEO directive, 2026-10-30) and no first/last name (CEO
+// directive, 2026-11-12). Names and phone are collected during
+// identity verification (KYC) and stored on the profile at that
+// point, so signUp takes no user-data payload at all.
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -429,7 +427,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (
     email: string,
     password: string,
-    userData: UserData,
   ): Promise<SignUpResult> => {
     try {
       setIsLoading(true);
@@ -451,10 +448,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email,
         password,
         options: {
-          data: {
-            first_name: userData.first_name,
-            last_name: userData.last_name,
-          },
+          // No metadata: names and phone arrive at KYC, not
+          // sign-up, so handle_new_user creates the profile with
+          // empty names and a NULL phone until verification.
           emailRedirectTo: `${window.location.origin}/login`
         }
       });

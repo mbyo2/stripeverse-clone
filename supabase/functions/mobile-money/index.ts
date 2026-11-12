@@ -197,14 +197,19 @@ async function verifyKyc(
     return { level: KycVerificationLevel.NONE, message: KYC_PHONE_REQUIRED_MESSAGE };
   }
 
-  // Store the phone on the profile — profiles.phone is the
-  // platform's phone of record — before the KYC row, so a failed
-  // submission never leaves a "submitted" record behind. The write
+  // Store the phone AND the names on the profile — profiles.phone /
+  // profiles.first_name / profiles.last_name are the platform's
+  // records of each — before the KYC row, so a failed submission
+  // never leaves a "submitted" record behind. Names are written
+  // here because sign-up no longer collects them (CEO directive,
+  // 2026-11-12): KYC is the only place they are asked for, so this
+  // is where the profile learns the user's name — greetings,
+  // onboarding and admin views all read it from profiles. The write
   // requests its row back and is asserted, like the KYC writes
   // below: a 0-row update must fail loudly, never pass as success.
   const { data: profileRows, error: profileError } = await supabase
     .from("profiles")
-    .update({ phone })
+    .update({ phone, first_name: firstName, last_name: lastName })
     .eq("id", userId)
     .select("id");
   if (profileError) throw profileError;

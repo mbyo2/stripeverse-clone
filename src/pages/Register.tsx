@@ -12,11 +12,9 @@ import { isAuthPending } from "@/lib/sessionHint";
 import { RouteShellSkeleton } from "@/components/ui/skeletons";
 import { useToast } from "@/hooks/use-toast";
 import { createSubmitGuard } from "@/lib/submitGuard";
-import { UserPlus, Mail, Lock, User, CheckCircle2, XCircle, MailCheck, CircleAlert } from "lucide-react";
+import { UserPlus, Mail, Lock, CheckCircle2, XCircle, MailCheck, CircleAlert } from "lucide-react";
 
 const Register = () => {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -61,13 +59,11 @@ const Register = () => {
       }
 
       setFormError(null);
-      // No phone number at sign-up (CEO directive, 2026-10-30):
-      // phone is collected later, during identity verification
-      // (KYC) — the only place it is asked for.
-      const result = await signUp(email, password, {
-        first_name: firstName,
-        last_name: lastName,
-      });
+      // No phone number and no first/last name at sign-up (CEO
+      // directives, 2026-10-30 and 2026-11-12): phone and names are
+      // collected later, during identity verification (KYC) — the
+      // only place they are asked for.
+      const result = await signUp(email, password);
 
       // Every outcome lands somewhere deliberate — the pre-fix flow
       // awaited a void and stayed on the form for all of them.
@@ -186,37 +182,6 @@ const Register = () => {
           <Card className="shadow-medium">
             <CardContent className="pt-8 pb-6 px-8">
               <form onSubmit={handleRegister} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-sm font-medium">First Name</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="firstName"
-                        placeholder="John"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        required
-                        className="pl-10 h-12 rounded-lg"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName" className="text-sm font-medium">Last Name</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="lastName"
-                        placeholder="Doe"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        required
-                        className="pl-10 h-12 rounded-lg"
-                      />
-                    </div>
-                  </div>
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                   <div className="relative">
