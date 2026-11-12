@@ -55,7 +55,7 @@
     }
   },
   "info": {
-    "description": "The shipped public developer API. Base URL is the developer-api edge function. Auth is an API key in the X-Api-Key header. Keys are created in the app (Business -> API); only the SHA-256 hash is stored and the full key is shown once.\n\nENVIRONMENTS: every key belongs to one environment, derived only from the key itself. Production keys (bmg_live_..., legacy bmp_live_...) move real money. Sandbox keys (bmg_sandbox_..., legacy bmp_test_...) run on mainnet formats with simulated money: API-created objects (invoices, payment links, webhook endpoints) are segregated per environment and never listed across environments, and a sandbox payment reaches paid only through the simulate-payment endpoints, which fire the normal webhook flow flagged simulated. Sandbox activity never touches a real wallet, ledger or chain. Legacy bmp_test_ keys are sandbox keys under this model (they gain the sandbox simulation flows; the historical read-only test mode no longer exists). Real-money transfers stay production-only: a sandbox key attempting one gets 403 test_mode_read_only.\n\nKEY SCOPES are least-privilege: config:read, invoices:create, invoices:read, webhooks:manage, plus the read/write scopes for wallets, transactions, payment links, bitcoin and transfers. No scope can withdraw, pay out, change a settlement destination, change the business country, or manage keys.\n\nNot available via the API (documented honestly): MoonPay and virtual-card issuing to third parties.",
+    "description": "The shipped public developer API. Base URL is the developer-api edge function. Auth is an API key in the X-Api-Key header. Keys are created in the app (Business -> API); only the SHA-256 hash is stored and the full key is shown once.\n\nENVIRONMENTS: every key belongs to one environment, derived only from the key itself. Production keys (bmg_live_..., legacy bmp_live_...) move real money. Sandbox keys (bmg_sandbox_..., legacy bmp_test_...) run on mainnet formats with simulated money: API-created objects (invoices, payment links, webhook endpoints) are segregated per environment and never listed across environments, and a sandbox payment reaches paid only through the simulate-payment endpoints, which fire the normal webhook flow flagged simulated. Sandbox activity never touches a real wallet, ledger or chain. Legacy bmp_test_ keys are sandbox keys under this model (they gain the sandbox simulation flows; the historical read-only test mode no longer exists). Real-money transfers stay production-only: a sandbox key attempting one gets 403 test_mode_read_only.\n\nKEY SCOPES are least-privilege: config:read, invoices:create, invoices:read, webhooks:manage, plus the read/write scopes for wallets, transactions, payment links, bitcoin, mobile money and transfers. No scope can withdraw, pay out, change a settlement destination, change the business country, or manage keys.\n\nNot available via the API (documented honestly): MoonPay and virtual-card issuing to third parties.",
     "title": "BMaGlass Pay Developer API",
     "version": "1.0.0"
   },
@@ -763,6 +763,101 @@
           }
         },
         "summary": "Simulate a payment on a sandbox payment link"
+      }
+    },
+    "/mobile-money/collections": {
+      "post": {
+        "description": "Scope: mobile_money:create. Starts a mobile money collection (ZMW) on the merchant's own connected mobile money account — the customer approves the prompt on their phone (MTN, Airtel or Zamtel). The key's environment selects which of the merchant's connections is used: a sandbox key uses the sandbox connection (the gateway's test numbers; no real phone is ever charged), a production key uses the production connection. Gates: no business profile -> 400 business_not_set_up; business not registered in Zambia, or mobile money switched off for the business -> 403 not_entitled; entitled but no connection for the key's environment -> 400 not_configured; frozen account -> 403 business_inactive. reference (or idempotency_key, or the Idempotency-Key header) is the merchant's own reference and doubles as the idempotency key: replaying a create with the same reference returns the original collection (200) instead of charging the customer twice. The response carries the platform reference (BMG-...), the status (pending until the customer approves) and the merchant_reference echoed back. On settlement the merchant's ZMW wallet is credited in full, and mobile_money.collection.completed fires to the environment's webhook endpoints — announced when the create call or a status poll through this API observes the settlement.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "amount": {
+                    "type": "number"
+                  },
+                  "currency": {
+                    "default": "ZMW",
+                    "type": "string"
+                  },
+                  "idempotency_key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "enum": [
+                      "mtn",
+                      "airtel",
+                      "zamtel"
+                    ],
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "reference": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "amount",
+                  "phone"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent replay: the original collection for this reference."
+          },
+          "201": {
+            "description": "The collection (status pending until the customer approves; may already be settled)."
+          },
+          "400": {
+            "description": "invalid_request / business_not_set_up / not_configured"
+          },
+          "403": {
+            "description": "insufficient_scope / not_entitled / business_inactive"
+          },
+          "409": {
+            "description": "idempotency_conflict"
+          },
+          "422": {
+            "description": "collection_failed"
+          }
+        },
+        "summary": "Start a mobile money collection"
+      }
+    },
+    "/mobile-money/collections/{reference}": {
+      "get": {
+        "description": "Scope: mobile_money:read. {reference} accepts the platform reference (BMG-...) or the merchant's own reference. Refreshes the collection from the rail: when the rail reports a terminal state the settlement runs (the merchant's ZMW wallet is credited in full) and a fresh settlement fires mobile_money.collection.completed exactly once. A collection from the other environment answers 404 — environments never leak across.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reference",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The collection, with its current status."
+          },
+          "403": {
+            "description": "insufficient_scope"
+          },
+          "404": {
+            "description": "not_found"
+          },
+          "502": {
+            "description": "collection_status_unavailable"
+          }
+        },
+        "summary": "Get a mobile money collection"
       }
     }
   },

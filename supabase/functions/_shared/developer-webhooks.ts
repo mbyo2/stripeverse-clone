@@ -32,6 +32,7 @@ export const KNOWN_DEVELOPER_EVENTS = [
   "payment_link.paid",
   "invoice.created",
   "invoice.paid",
+  "mobile_money.collection.completed",
   "webhook.test",
 ];
 

@@ -86,6 +86,8 @@ describe("developer-api contract", () => {
       "/invoices",
       "/invoices/{id}",
       "/invoices/{id}/simulate-payment",
+      "/mobile-money/collections",
+      "/mobile-money/collections/{reference}",
       "/payment-links",
       "/payment-links/{id}/attempts",
       "/payment-links/{id}/simulate-payment",

@@ -54,6 +54,11 @@
 //                           sandbox: the simulate-payment endpoint)
 //   invoice.created       — an API invoice was created
 //   invoice.paid          — a sandbox invoice was simulated to paid
+//   mobile_money.collection.completed
+//                         — a mobile-money collection created via
+//                           this API settled (announced exactly once,
+//                           when the create or a status poll through
+//                           this API observes the settlement)
 //   webhook.test          — sent by POST /webhooks/{id}/test
 // Deliveries are HMAC-SHA256 signed (header X-BMaGlass-Signature:
 // sha256=<hex> over the exact request body) and every attempt is logged
@@ -88,6 +93,18 @@ import {
   type BusinessFacts,
   type Environment,
 } from "../_shared/connector-config.ts";
+import { validateFiatAmount } from "../_shared/fiat-amount.ts";
+import {
+  MOMO_NOT_CONFIGURED_MESSAGE,
+  detectOperator,
+  generateCollectionReference,
+  isValidZmPhone,
+} from "../_shared/momo-rail.ts";
+import {
+  loadConnection,
+  refreshCollectionFromRail,
+  startCollection,
+} from "../_shared/momo-rail-server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -175,14 +192,20 @@ function requireLive(key: ApiKeyRow): Response | null {
 // time on every money-creating route — never cached from a config
 // fetch, never trusted from the client.
 // deno-lint-ignore no-explicit-any
-async function businessFacts(db: any, userId: string): Promise<BusinessFacts> {
+async function businessFacts(db: any, userId: string, environment: Environment): Promise<BusinessFacts> {
   const [{ data: merchant }, { data: profile }, { data: momoConnection }] = await Promise.all([
     db.from("merchant_accounts")
       .select("business_name, address, status, mobile_money_enabled")
       .eq("user_id", userId).maybeSingle(),
     db.from("profiles").select("first_name, last_name, is_frozen").eq("id", userId).maybeSingle(),
+    // The connection is PER ENVIRONMENT: a sandbox connection must
+    // not make a production key's config claim mobile money is
+    // connected (or the reverse) — the merchant connects each
+    // environment separately, and the config tells the truth for
+    // THIS key's environment only.
     db.from("merchant_momo_connections")
       .select("id").eq("user_id", userId).eq("status", "connected")
+      .eq("environment", environment)
       .limit(1).maybeSingle(),
   ]);
   const profileName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim();
@@ -206,6 +229,96 @@ async function frozenGuard(db: any, userId: string): Promise<Response | null> {
       "This account is frozen, so it can't take payments right now. Please contact support to restore it.");
   }
   return null;
+}
+
+// ── Mobile money collections (the merchant's own connected account) ──
+// Connector-created collections run through the SAME rail path as the
+// first-party flow: _shared/momo-rail-server.ts (ledger-first begin →
+// rail call → shared refresh/settle funnel). The ledger's source enum
+// is 'direct' | 'payment_link', so API rows are written as 'direct'
+// and told apart by their idempotency key, namespaced per merchant:
+//   api:<userId>:<the merchant's own reference>
+// The namespace matters twice over: the ledger's idempotency key is
+// globally unique, so the merchant id prevents cross-merchant
+// collisions, and the prefix is how merchant statements (and this
+// API's status lookup by merchant reference) recognise connector
+// collections. The status route accepts either the platform
+// reference (BMG-…) or the merchant's own reference.
+const MOMO_COLLECTION_EVENT = "mobile_money.collection.completed";
+const MOMO_COLUMNS =
+  "id, reference, idempotency_key, transaction_id, wallet_id, amount, currency, operator, phone, status, failure_reason, environment, settled_at, created_at";
+
+// deno-lint-ignore no-explicit-any
+function momoMerchantReference(row: any, userId: string): string | null {
+  const prefix = `api:${userId}:`;
+  const key = row?.idempotency_key;
+  if (typeof key !== "string" || !key.startsWith(prefix)) return null;
+  const rest = key.slice(prefix.length);
+  // The default key embeds the platform reference itself — that is
+  // "no merchant reference was supplied", not a merchant reference.
+  return rest === row.reference ? null : rest;
+}
+
+// deno-lint-ignore no-explicit-any
+function momoCollectionOut(row: any, userId: string, walletBalance: number | null) {
+  return {
+    reference: row.reference,
+    merchant_reference: momoMerchantReference(row, userId),
+    collection_id: row.id,
+    transaction_id: row.transaction_id ?? null,
+    amount: Number(row.amount),
+    currency: row.currency,
+    operator: row.operator,
+    phone: row.phone,
+    status: row.status,
+    failure_reason: row.status === "failed" ? (row.failure_reason ?? null) : null,
+    environment: row.environment,
+    livemode: row.environment === "production",
+    wallet_balance: walletBalance,
+    settled_at: row.settled_at ?? null,
+    created_at: row.created_at,
+  };
+}
+
+/**
+ * Announce a settled connector collection exactly once
+ * (mobile_money.collection.completed), claimed on the settlement's
+ * ledger transaction id in developer_event_dispatches — the
+ * transaction.completed pattern. Dispatched only to webhook
+ * endpoints registered in the collection's own environment.
+ * Settlements that land through the rail webhook / requery poller
+ * are announced when the connector next polls the collection's
+ * status through this API (the settle funnel itself is shared with
+ * the first-party flow and stays untouched).
+ */
+// deno-lint-ignore no-explicit-any
+async function dispatchMomoCollectionSettled(db: any, userId: string, row: any): Promise<void> {
+  const txId = row?.transaction_id;
+  if (!txId || row.status !== "successful") return;
+  let claimed = true;
+  const { error: claimError } = await db
+    .from("developer_event_dispatches")
+    .insert({ event_key: `${MOMO_COLLECTION_EVENT}:${txId}`, user_id: userId });
+  if (claimError) {
+    if ((claimError as { code?: string }).code === "23505") {
+      claimed = false; // Already announced — a replay stays silent.
+    } else {
+      console.error("momo dispatch claim failed:", claimError.message ?? claimError);
+    }
+  }
+  if (!claimed) return;
+  await dispatchEvent(db, userId, MOMO_COLLECTION_EVENT, {
+    reference: row.reference,
+    merchant_reference: momoMerchantReference(row, userId),
+    collection_id: row.id,
+    transaction_id: txId,
+    amount: Number(row.amount),
+    currency: row.currency,
+    operator: row.operator,
+    status: "successful",
+    environment: row.environment,
+    settled_at: row.settled_at ?? null,
+  }, row.environment === "production" ? "live" : "test").catch(() => []);
 }
 
 // ── Router ───────────────────────────────────────────────────────────
@@ -233,7 +346,7 @@ serve(async (req) => {
         name: "BMaGlass Pay Developer API",
         version: "1",
         mode_note: "Production keys (bmg_live_…, legacy bmp_live_…) move real money. Sandbox keys (bmg_sandbox_…, legacy bmp_test_…) run on mainnet formats with simulated money: segregated sandbox objects, simulation-only settlement, no real wallet, ledger or chain activity.",
-        resources: ["connector/config", "wallets", "transactions", "transfers", "invoices", "payment-links", "settings", "bitcoin", "webhooks", "webhook-deliveries"],
+        resources: ["connector/config", "wallets", "transactions", "transfers", "invoices", "payment-links", "mobile-money", "settings", "bitcoin", "webhooks", "webhook-deliveries"],
         unavailable: ["moonpay", "card-issuing"],
       });
     }
@@ -306,7 +419,7 @@ serve(async (req) => {
       if (hasExplicitScopes && !scopesOf(key).includes("config:read")) {
         return err(403, "insufficient_scope", "This key does not have the config:read scope.");
       }
-      const facts = await businessFacts(db, userId);
+      const facts = await businessFacts(db, userId, envOf(key));
       const config = buildConnectorConfig({
         environment: envOf(key),
         keyId: key.id,
@@ -705,6 +818,131 @@ serve(async (req) => {
       const out = invoiceOut(data);
       await dispatchEvent(db, userId, "invoice.paid", { ...out, simulated: true }, "test").catch(() => []);
       return json(200, { data: out, mode: modeOf(key), environment: envOf(key), simulated: true });
+    }
+
+    // ── Mobile money collections (the merchant's own connected account) ──
+    // The connector twin of the first-party collection flow: same
+    // gates, same rail path, same settle funnel. The environment —
+    // and therefore which of the merchant's connections is used —
+    // comes ONLY from the key: a sandbox key runs against the
+    // merchant's sandbox connection (the gateway's own test numbers;
+    // no real phone is ever charged), a production key against the
+    // production connection. Gate errors mirror the checkout's
+    // truth: no business → business_not_set_up; not Zambian or the
+    // toggle is off → not_entitled; entitled but nothing connected
+    // for this environment → not_configured.
+    if (resource === "mobile-money" && sub === "collections" && method === "POST" && !parts[2]) {
+      const denied = requireScope(key, "mobile_money:create"); if (denied) return denied;
+      const frozen = await frozenGuard(db, userId); if (frozen) return frozen;
+      const environment = envOf(key);
+      const { data: merchant } = await db.from("merchant_accounts")
+        .select("address, mobile_money_enabled").eq("user_id", userId).maybeSingle();
+      if (!merchant) {
+        return err(400, "business_not_set_up",
+          "Set up your business profile first — mobile money connects to your business.");
+      }
+      // deno-lint-ignore no-explicit-any
+      if (countryToIso((merchant.address as any)?.country) !== "ZM") {
+        return err(403, "not_entitled", "Mobile money is available to businesses registered in Zambia.");
+      }
+      if (!merchant.mobile_money_enabled) {
+        return err(403, "not_entitled",
+          "Mobile money isn't switched on for this business. It can be switched on in the business settings.");
+      }
+      if (body.currency !== undefined && body.currency !== null &&
+        String(body.currency).toUpperCase() !== "ZMW") {
+        return err(400, "invalid_request", "Mobile money collections are in ZMW.");
+      }
+      const amountCheck = validateFiatAmount(body.amount);
+      if (!amountCheck.ok) return err(400, "invalid_request", amountCheck.error);
+      const phone = typeof body.phone === "string" ? body.phone : "";
+      if (!isValidZmPhone(phone)) {
+        return err(400, "invalid_request", "Enter a valid Zambian mobile money number, like 0977123456.");
+      }
+      const operator = body.operator === "mtn" || body.operator === "airtel" || body.operator === "zamtel"
+        ? body.operator
+        : detectOperator(phone);
+      if (!operator) {
+        return err(400, "invalid_request", "That phone number doesn't look like an MTN, Airtel or Zamtel number.");
+      }
+      const connection = await loadConnection(db, userId, environment);
+      if (!connection) return err(400, "not_configured", MOMO_NOT_CONFIGURED_MESSAGE);
+      // The merchant's reference doubles as the idempotency key
+      // (body.reference, body.idempotency_key, or the Idempotency-Key
+      // header): replaying a create with the same reference returns
+      // the original collection instead of charging the customer
+      // twice.
+      const clientKey =
+        (typeof body.idempotency_key === "string" && body.idempotency_key) ||
+        (typeof body.reference === "string" && body.reference) ||
+        req.headers.get("idempotency-key") || "";
+      if (clientKey && (clientKey.length < 8 || clientKey.length > 128)) {
+        return err(400, "invalid_request", "reference / idempotency_key must be between 8 and 128 characters.");
+      }
+      const reference = generateCollectionReference();
+      const result = await startCollection(db, connection, {
+        merchantUserId: userId,
+        accountId: null,
+        amount: amountCheck.amount,
+        phone,
+        operator,
+        environment,
+        source: "direct",
+        paymentLinkId: null,
+        idempotencyKey: `api:${userId}:${clientKey || reference}`,
+        reference,
+      });
+      if (result.kind === "conflict") return err(409, "idempotency_conflict", result.message);
+      if (result.kind === "start_failed") return err(422, "collection_failed", result.message);
+      const { data: row } = await db.from("momo_collections")
+        .select(MOMO_COLUMNS).eq("reference", result.reference).maybeSingle();
+      if (!row) throw new Error("collection row missing after start");
+      if (row.status === "successful") await dispatchMomoCollectionSettled(db, userId, row);
+      return json(result.kind === "existing" ? 200 : 201, {
+        data: momoCollectionOut(row, userId, null),
+        mode: modeOf(key), environment,
+      });
+    }
+
+    // Collection status: accepts the platform reference (BMG-…) or
+    // the merchant's own reference. Refreshes through the shared
+    // helper — when the rail reports a terminal state the shared
+    // settle funnel runs (wallet credited in full; the platform
+    // charge recorded by the funnel, never by this endpoint) — and a
+    // fresh settlement fires mobile_money.collection.completed once.
+    if (resource === "mobile-money" && sub === "collections" && parts[2] && method === "GET") {
+      const denied = requireScope(key, "mobile_money:read"); if (denied) return denied;
+      const environment = envOf(key);
+      const refParam = decodeURIComponent(parts[2]);
+      let row = (await db.from("momo_collections")
+        .select(MOMO_COLUMNS).eq("reference", refParam)
+        .eq("user_id", userId).eq("environment", environment).maybeSingle()).data;
+      if (!row) {
+        row = (await db.from("momo_collections")
+          .select(MOMO_COLUMNS).eq("idempotency_key", `api:${userId}:${refParam}`)
+          .eq("user_id", userId).eq("environment", environment).maybeSingle()).data;
+      }
+      if (!row) return err(404, "not_found", "Mobile money collection not found in this environment.");
+      let outcome;
+      try {
+        outcome = await refreshCollectionFromRail(db, row.reference);
+      } catch {
+        return err(502, "collection_status_unavailable",
+          "We couldn't check that collection just now. Please try again in a moment.");
+      }
+      const fresh = (await db.from("momo_collections")
+        .select(MOMO_COLUMNS).eq("id", row.id).maybeSingle()).data ?? row;
+      if (outcome.just_settled) await dispatchMomoCollectionSettled(db, userId, fresh);
+      let walletBalance = outcome.wallet_balance;
+      if (walletBalance === null && fresh.status !== "pending" && fresh.wallet_id) {
+        const { data: wallet } = await db.from("wallets")
+          .select("balance").eq("id", fresh.wallet_id).maybeSingle();
+        walletBalance = wallet ? Number(wallet.balance) : null;
+      }
+      return json(200, {
+        data: momoCollectionOut(fresh, userId, walletBalance),
+        mode: modeOf(key), environment,
+      });
     }
 
     // ── Webhooks (registered per environment; lists are segregated) ──

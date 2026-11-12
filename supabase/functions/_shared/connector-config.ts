@@ -69,6 +69,8 @@ export const ALLOWED_KEY_SCOPES = [
   "payment_links:read",
   "payment_links:write",
   "bitcoin:read",
+  "mobile_money:create",
+  "mobile_money:read",
   "transfers:write",
 ] as const;
 
@@ -82,6 +84,8 @@ export const DEFAULT_KEY_SCOPES = [
   "payment_links:read",
   "payment_links:write",
   "bitcoin:read",
+  "mobile_money:create",
+  "mobile_money:read",
 ] as const;
 
 export function sanitizeScopes(input: unknown): { scopes: string[]; rejected: string[] } {
