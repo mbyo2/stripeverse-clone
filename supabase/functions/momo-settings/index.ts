@@ -8,7 +8,10 @@
 // Actions (merchant JWT):
 //   { action: "status" }
 //       → business gate facts, per-environment connection summaries,
-//         recent collections, the separate 1% platform charges, and
+//         recent collections, the separate 1% platform charges (each
+//         with its collection state — collected / outstanding — and
+//         collected + outstanding totals; charges are collected
+//         automatically from the wallet, migration 20261263), and
 //         the indicative USD/ZMW display rate (display only).
 //   { action: "connect", environment, secret_key, public_key?, account_id? }
 //       → Zambia-gated server-side (the same merchant_accounts source
@@ -125,13 +128,13 @@ serve(async (req) => {
         .limit(10);
       const { data: charges } = await db
         .from("momo_platform_charges")
-        .select("id, collection_id, amount, currency, percent, description, created_at")
+        .select("id, collection_id, amount, currency, percent, description, status, collected_at, created_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(10);
       const { data: chargesTotal } = await db
         .from("momo_platform_charges")
-        .select("amount")
+        .select("amount, status")
         .eq("user_id", userId);
       // Indicative FX for display only — never used in settlement
       // math (collections are ZMW-native end to end).
@@ -154,6 +157,12 @@ serve(async (req) => {
         collections: collections ?? [],
         charges: charges ?? [],
         charges_total_zmw: (chargesTotal ?? []).reduce((s, r) => s + Number(r.amount || 0), 0),
+        charges_collected_total_zmw: (chargesTotal ?? [])
+          .filter((r) => r.status === "collected")
+          .reduce((s, r) => s + Number(r.amount || 0), 0),
+        charges_outstanding_total_zmw: (chargesTotal ?? [])
+          .filter((r) => r.status !== "collected")
+          .reduce((s, r) => s + Number(r.amount || 0), 0),
         fx_display: rateRow ? { pair: "USD/ZMW", rate: Number(rateRow.rate), valid_until: rateRow.valid_until } : null,
       });
     }

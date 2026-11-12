@@ -15,7 +15,8 @@ import { CheckCircle2, Loader2, Plug, Smartphone, Unplug } from "lucide-react";
  * never shown again (a last-4 hint is all that ever comes back).
  * Collections taken through the connection settle into the
  * merchant's BMaGlass wallet in full; the 1% platform service charge
- * is recorded separately and listed here for transparency.
+ * is then collected automatically from the wallet balance (never
+ * out of the settlement itself) and listed here, charge by charge.
  */
 
 const WEBHOOK_URL = "https://hhxwwozpvgktuqutfkhc.supabase.co/functions/v1/momo-webhook";
@@ -59,9 +60,13 @@ interface MomoStatus {
     currency: string;
     percent: number;
     description: string;
+    status: string;
+    collected_at: string | null;
     created_at: string;
   }>;
   charges_total_zmw: number;
+  charges_collected_total_zmw: number;
+  charges_outstanding_total_zmw: number;
   fx_display: { pair: string; rate: number } | null;
 }
 
@@ -275,8 +280,8 @@ export function MobileMoneySettings() {
         <p>
           Connect your own mobile money account and customers can pay you with MTN, Airtel or Zamtel mobile
           money — in your shop plugins, through the API, and on your payment links. Payments settle into your
-          BMaGlass wallet in full; BMaGlass charges a separate 1% service charge per payment, listed below —
-          it is never taken out of your settlement.
+          BMaGlass wallet in full — the 1% service charge for each payment is collected afterwards from your
+          wallet balance, never out of the settlement itself, and every charge is listed below.
         </p>
       </div>
 
@@ -344,15 +349,34 @@ export function MobileMoneySettings() {
           <div className="divide-y divide-border rounded-lg border border-border">
             {status.charges.map((ch) => (
               <div key={ch.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                <span className="text-muted-foreground">{ch.description}</span>
-                <span className="font-medium">
-                  {ch.currency} {Number(ch.amount).toFixed(2)}
-                </span>
+                <div>
+                  <span className="text-muted-foreground">{ch.description}</span>
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(ch.created_at).toLocaleString()}
+                    {ch.status === "collected" && ch.collected_at
+                      ? ` — collected ${new Date(ch.collected_at).toLocaleString()}`
+                      : ""}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">
+                    {ch.currency} {Number(ch.amount).toFixed(2)}
+                  </span>
+                  <Badge
+                    variant={ch.status === "collected" ? "default" : "secondary"}
+                    className="capitalize"
+                  >
+                    {ch.status === "collected" ? "Collected" : "Outstanding"}
+                  </Badge>
+                </div>
               </div>
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            These charges are billed to your business separately — your settlements above were credited in full.
+            Collected ZMW {status.charges_collected_total_zmw.toFixed(2)} · Outstanding ZMW{" "}
+            {status.charges_outstanding_total_zmw.toFixed(2)}. Charges are collected automatically from
+            your wallet balance after each settlement is credited in full; if your balance is too low, a
+            charge stays outstanding and is collected as soon as funds are available.
           </p>
         </div>
       )}
