@@ -17,10 +17,24 @@ import { toUserFacingError } from "@/utils/userFacingError";
 interface Props {
   linkCode: string;
   /** The amount to charge: the link's fixed price, or the buyer's
-   *  entered amount for any-amount links. */
+   *  entered amount for any-amount links. This is the PRODUCT
+   *  amount — the server grosses it up when the buyer pays the
+   *  service charge, so the client never computes the total it
+   *  sends. */
   amount: number;
   currency: string;
   email?: string;
+  /** Who pays the 1% service charge on this link (describe) —
+   *  'seller' by default. In buyer mode the buyer pays the product
+   *  amount plus the service charge, and the seller receives the
+   *  full product amount. */
+  feeBearer?: "seller" | "buyer";
+  /** The service charge added to the buyer's total (0 in seller
+   *  mode). */
+  serviceCharge?: number;
+  /** The total the buyer actually pays (product + service charge
+   *  in buyer mode; the product amount in seller mode). */
+  buyerTotal?: number;
   onPaid: (transactionId: string | null) => void;
 }
 
@@ -37,7 +51,16 @@ function operatorName(phone: string): string | null {
   return OPERATOR_BY_PREFIX[p.slice(0, 3)] ?? null;
 }
 
-export default function MobileMoneyLinkPayment({ linkCode, amount, currency, email, onPaid }: Props) {
+export default function MobileMoneyLinkPayment({
+  linkCode,
+  amount,
+  currency,
+  email,
+  feeBearer = "seller",
+  serviceCharge = 0,
+  buyerTotal,
+  onPaid,
+}: Props) {
   const [phone, setPhone] = useState("");
   const [phase, setPhase] = useState<Phase>("form");
   const [starting, setStarting] = useState(false);
@@ -47,6 +70,12 @@ export default function MobileMoneyLinkPayment({ linkCode, amount, currency, ema
   const referenceRef = useRef<string | null>(null);
   const attemptKeyRef = useRef<string | null>(null);
   const pollRef = useRef<number | null>(null);
+  // The total the buyer is charged: the product amount plus the
+  // service charge in buyer mode, the product amount alone in
+  // seller mode. Every number the buyer sees — the breakdown, the
+  // approve prompt and the Pay button — uses this total, never the
+  // product amount alone.
+  const total = Math.round((buyerTotal ?? (amount + (feeBearer === "buyer" ? serviceCharge : 0))) * 100) / 100;
 
   const stopPolling = () => {
     if (pollRef.current) {
@@ -161,7 +190,7 @@ export default function MobileMoneyLinkPayment({ linkCode, amount, currency, ema
           <p className="font-medium">Approve the prompt on your phone</p>
           <p className="text-sm text-muted-foreground mt-1">
             We sent a payment prompt to {phone}. Enter your mobile money PIN to approve{" "}
-            {currency} {amount.toFixed(2)}.
+            {currency} {total.toFixed(2)}.
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -212,13 +241,35 @@ export default function MobileMoneyLinkPayment({ linkCode, amount, currency, ema
       <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground flex gap-2">
         <Smartphone className="h-4 w-4 shrink-0 mt-0.5" />
         <span>
-          You'll get a prompt on your phone to approve {currency} {amount.toFixed(2)} with your mobile money
+          You'll get a prompt on your phone to approve {currency} {total.toFixed(2)} with your mobile money
           PIN. The seller is paid once you approve.
         </span>
       </div>
+      {feeBearer === "buyer" && serviceCharge > 0 && (
+        <div className="rounded-lg border border-border p-3 space-y-1 text-sm">
+          <div className="flex justify-between text-muted-foreground">
+            <span>Product</span>
+            <span>
+              {currency} {amount.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex justify-between text-muted-foreground">
+            <span>Service charge</span>
+            <span>
+              {currency} {serviceCharge.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex justify-between font-medium">
+            <span>Total you'll pay</span>
+            <span>
+              {currency} {total.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      )}
       <Button onClick={start} disabled={starting} className="w-full h-12 text-base">
         {starting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-        {starting ? "Sending prompt..." : `Pay ${currency} ${amount.toFixed(2)}`}
+        {starting ? "Sending prompt..." : `Pay ${currency} ${total.toFixed(2)}`}
       </Button>
     </div>
   );

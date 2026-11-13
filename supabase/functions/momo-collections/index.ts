@@ -162,6 +162,13 @@ serve(async (req) => {
         status: result.status,
         environment,
         message: result.message,
+        // The total the buyer is charged and its breakdown: in buyer
+        // mode amount = product + the 1% service charge, and the
+        // seller receives exactly base_amount.
+        amount: result.amount,
+        base_amount: result.baseAmount,
+        service_charge: result.serviceCharge,
+        fee_bearer: result.feeBearer,
       });
     }
 

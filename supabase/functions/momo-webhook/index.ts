@@ -79,7 +79,10 @@ serve(async (req) => {
           currency: "ZMW",
           paymentMethod: "mobile_money",
           feePayer: link.fee_payer === "buyer" ? "buyer" : "seller",
-          feeAmount: platformChargeFor(outcome.amount),
+          // The recorded 1% charge is 1% of the PRODUCT amount —
+          // never of the grossed total a buyer-bears collection
+          // charges on top (migration 20261266).
+          feeAmount: platformChargeFor(outcome.base_amount ?? outcome.amount),
           totalCharged: outcome.amount,
           settledAt: new Date().toISOString(),
         }).catch((e) => console.error("payment_link.paid dispatch failed:", e));

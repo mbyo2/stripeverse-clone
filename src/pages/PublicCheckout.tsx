@@ -39,6 +39,13 @@ interface PaymentLinkData {
   fee_amount?: number | null;
   buyer_total?: number | null;
   seller_receives?: number | null;
+  /** Mobile money's fee picture (describe): who pays the 1%
+   *  service charge, and the buyer total for fixed-price links.
+   *  Null on any-amount links — the page computes it live from
+   *  the same rule. */
+  momo_fee_bearer?: "seller" | "buyer";
+  momo_service_charge?: number | null;
+  momo_buyer_total?: number | null;
   /** Return context for shop checkouts ("Return to store"). */
   redirect_url: string | null;
 }
@@ -275,6 +282,20 @@ const PublicCheckout = () => {
     </div>
   );
 
+  // Mobile money's own fee picture: in buyer mode the buyer pays
+  // the product amount plus the 1% service charge and the seller
+  // receives the full product amount; in seller mode the buyer pays
+  // exactly the product amount. Fixed-price links carry the
+  // server-computed breakdown from describe; any-amount links
+  // compute it live from the same rule.
+  const checkoutPrice = linkData?.amount || Number(customAmount) || 0;
+  const momoFeeBearer = linkData?.momo_fee_bearer === "buyer" ? "buyer" : "seller";
+  const momoServiceCharge =
+    linkData?.momo_service_charge ??
+    (momoFeeBearer === "buyer" ? Math.round(checkoutPrice * 0.01 * 100) / 100 : 0);
+  const momoBuyerTotal =
+    linkData?.momo_buyer_total ?? Math.round((checkoutPrice + momoServiceCharge) * 100) / 100;
+
   if (success) {
     const paidPrice = linkData?.amount || Number(customAmount) || 0;
     const paidBd = momoPaid ? null : feeBreakdownFor(paidPrice);
@@ -285,11 +306,16 @@ const PublicCheckout = () => {
           <CheckCircle className="h-14 w-14 mx-auto text-green-500" />
           <h2 className="text-xl font-semibold">Payment Successful!</h2>
           <div className="bg-muted rounded-lg p-4 space-y-2">
-            <p className="text-2xl font-bold">{linkData?.currency} {(paidBd?.total ?? paidPrice).toFixed(2)}</p>
+            <p className="text-2xl font-bold">{linkData?.currency} {(momoPaid ? momoBuyerTotal : (paidBd?.total ?? paidPrice)).toFixed(2)}</p>
             <p className="text-sm text-muted-foreground">to {linkData?.title}</p>
             {paidBd && (
               <p className="text-xs text-muted-foreground">
                 {linkData?.currency} {paidBd.price.toFixed(2)} to the seller + {linkData?.currency} {paidBd.fee.toFixed(2)} platform fee
+              </p>
+            )}
+            {momoPaid && momoServiceCharge > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {linkData?.currency} {paidPrice.toFixed(2)} to the seller + {linkData?.currency} {momoServiceCharge.toFixed(2)} service charge
               </p>
             )}
           </div>
@@ -318,8 +344,9 @@ const PublicCheckout = () => {
   }
 
   const amount = linkData?.amount || Number(customAmount) || 0;
-  // Mobile money charges the buyer exactly the link amount — the
-  // wallet rail's buyer-fee breakdown must never be quoted for it.
+  // The wallet rail's buyer-fee breakdown must never be quoted for
+  // mobile money — momo has its own fee picture (momoFeeBearer /
+  // momoServiceCharge / momoBuyerTotal, computed above).
   const bd = momoSelected ? null : feeBreakdownFor(amount);
   const payTotal = bd?.total ?? amount;
   // Method tiles (CEO order 2026-10-26): for now this checkout takes
@@ -537,6 +564,9 @@ const PublicCheckout = () => {
                   amount={linkData.amount == null ? Number(customAmount) : linkData.amount}
                   currency={linkData.currency}
                   email={email || undefined}
+                  feeBearer={momoFeeBearer}
+                  serviceCharge={momoServiceCharge}
+                  buyerTotal={momoBuyerTotal}
                   onPaid={(txId) => {
                     if (txId) setReceiptRef(`RCP-${txId.slice(0, 8).toUpperCase()}`);
                     setMomoPaid(true);

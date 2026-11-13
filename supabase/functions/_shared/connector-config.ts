@@ -23,6 +23,12 @@ export type Environment = "sandbox" | "production";
 /** Storage value used by existing tables (api_keys.mode, object rows). */
 export type ModeValue = "test" | "live";
 
+/** Who pays the mobile-money service charge on a collection —
+ *  the merchant's own choice (merchant_accounts.momo_fee_bearer,
+ *  CEO decision 2026-11-12). Kept as the rail's own type so the
+ *  config, the rail helper and the database can never drift apart. */
+export type { MomoFeeBearer } from "./momo-rail.ts";
+
 export function modeToEnvironment(mode: string | null | undefined, keyPrefix?: string | null): Environment {
   if (mode === "live") return "production";
   if (mode === "test") return "sandbox";
@@ -163,6 +169,10 @@ export interface BusinessFacts {
    *  account is actually linked, so it can prompt for the keys
    *  instead of offering a method that would refuse. */
   mobileMoneyConnected?: boolean;
+  /** Who pays the mobile-money service charge on a collection
+   *  ('seller' default). Connectors render the buyer's total from
+   *  this — they never decide it themselves. */
+  feeBearer?: MomoFeeBearer;
 }
 
 /** The mobile-money gate matrix, in one place:
@@ -218,6 +228,10 @@ export function buildConnectorConfig(input: {
       mobile_money: {
         ...mobileMoneyFeature(facts),
         connected: !!facts.mobileMoneyConnected,
+        // Read-only: the merchant's own choice, so a plugin can show
+        // the buyer the true total (product + service charge when
+        // the buyer pays) before it starts a collection.
+        fee_bearer: facts.feeBearer ?? "seller",
       },
     },
     // Settlement TYPE and currency only — never destinations, numbers

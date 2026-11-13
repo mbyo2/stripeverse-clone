@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { toUserFacingError } from "@/utils/userFacingError";
@@ -38,6 +39,9 @@ interface MomoStatus {
     toggle_on: boolean;
     frozen: boolean;
   };
+  /** Who pays the 1% service charge on a collection — the
+   *  merchant's own choice (CEO decision 2026-11-12). */
+  fee_bearer: "seller" | "buyer";
   connections: {
     sandbox: ConnectionSummary | null;
     production: ConnectionSummary | null;
@@ -211,6 +215,84 @@ function EnvironmentSection({
   );
 }
 
+function FeeBearerSection({
+  feeBearer,
+  onChanged,
+}: {
+  feeBearer: "seller" | "buyer";
+  onChanged: () => void;
+}) {
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+
+  const save = async (value: string) => {
+    const next = value === "buyer" ? "buyer" : "seller";
+    if (next === feeBearer) return;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("momo-settings", {
+        body: { action: "update_fee_bearer", fee_bearer: next },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Couldn't save that choice");
+      toast({
+        title: next === "buyer" ? "Buyers now pay the service charge" : "You now pay the service charge",
+        description:
+          next === "buyer"
+            ? "Customers pay the product price plus the 1% service charge — you receive the full product amount."
+            : "Customers pay exactly the product price — the 1% service charge is collected from your wallet after each payment.",
+      });
+      onChanged();
+    } catch (e) {
+      toast({ title: "Couldn't save that choice", description: toUserFacingError(e), variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-border p-4 space-y-3">
+      <h4 className="text-sm font-medium">Who pays the service charge?</h4>
+      <p className="text-xs text-muted-foreground">
+        Every mobile money payment carries a 1% service charge on top of the rail's own fee. Choose who it
+        comes from — this applies to your shop plugins, the API and your payment links.
+      </p>
+      <RadioGroup
+        value={feeBearer}
+        onValueChange={save}
+        disabled={busy}
+        className="space-y-3"
+      >
+        <div className="flex items-start gap-2">
+          <RadioGroupItem value="seller" id="momo-fee-bearer-seller" className="mt-0.5" />
+          <div>
+            <Label htmlFor="momo-fee-bearer-seller" className="text-sm font-medium">
+              The seller pays (me)
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Your customers pay exactly the product price. The 1% charge is collected from your wallet
+              balance after each payment settles.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-start gap-2">
+          <RadioGroupItem value="buyer" id="momo-fee-bearer-buyer" className="mt-0.5" />
+          <div>
+            <Label htmlFor="momo-fee-bearer-buyer" className="text-sm font-medium">
+              The buyer pays
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Your customers pay the product price plus the 1% service charge on top. You receive the full
+              product amount from every payment.
+            </p>
+          </div>
+        </div>
+      </RadioGroup>
+      {busy && <p className="text-xs text-muted-foreground">Saving…</p>}
+    </div>
+  );
+}
+
 export function MobileMoneySettings() {
   const [status, setStatus] = useState<MomoStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -282,6 +364,9 @@ export function MobileMoneySettings() {
           money — in your shop plugins, through the API, and on your payment links. Payments settle into your
           BMaGlass wallet in full — the 1% service charge for each payment is collected afterwards from your
           wallet balance, never out of the settlement itself, and every charge is listed below.
+          {status.fee_bearer === "buyer"
+            ? " Your customers pay the product price plus the charge, so each settlement leaves the full product amount in your wallet."
+            : ""}
         </p>
       </div>
 
@@ -291,6 +376,8 @@ export function MobileMoneySettings() {
           mobile money on in Business Settings so customers can pay you this way.
         </p>
       )}
+
+      <FeeBearerSection feeBearer={status.fee_bearer ?? "seller"} onChanged={load} />
 
       <EnvironmentSection
         environment="production"

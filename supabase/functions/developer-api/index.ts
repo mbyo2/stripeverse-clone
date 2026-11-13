@@ -99,6 +99,7 @@ import {
   detectOperator,
   generateCollectionReference,
   isValidZmPhone,
+  platformChargeFor,
 } from "../_shared/momo-rail.ts";
 import {
   loadConnection,
@@ -195,7 +196,7 @@ function requireLive(key: ApiKeyRow): Response | null {
 async function businessFacts(db: any, userId: string, environment: Environment): Promise<BusinessFacts> {
   const [{ data: merchant }, { data: profile }, { data: momoConnection }] = await Promise.all([
     db.from("merchant_accounts")
-      .select("business_name, address, status, mobile_money_enabled")
+      .select("business_name, address, status, mobile_money_enabled, momo_fee_bearer")
       .eq("user_id", userId).maybeSingle(),
     db.from("profiles").select("first_name, last_name, is_frozen").eq("id", userId).maybeSingle(),
     // The connection is PER ENVIRONMENT: a sandbox connection must
@@ -218,6 +219,7 @@ async function businessFacts(db: any, userId: string, environment: Environment):
     frozen: !!profile?.is_frozen,
     mobileMoneyToggleOn: !!merchant?.mobile_money_enabled,
     mobileMoneyConnected: !!momoConnection,
+    feeBearer: merchant?.momo_fee_bearer === "buyer" ? "buyer" : "seller",
   };
 }
 
@@ -246,7 +248,7 @@ async function frozenGuard(db: any, userId: string): Promise<Response | null> {
 // reference (BMG-…) or the merchant's own reference.
 const MOMO_COLLECTION_EVENT = "mobile_money.collection.completed";
 const MOMO_COLUMNS =
-  "id, reference, idempotency_key, transaction_id, wallet_id, amount, currency, operator, phone, status, failure_reason, environment, settled_at, created_at";
+  "id, reference, idempotency_key, transaction_id, wallet_id, amount, base_amount, currency, operator, phone, status, failure_reason, environment, settled_at, created_at";
 
 // deno-lint-ignore no-explicit-any
 function momoMerchantReference(row: any, userId: string): string | null {
@@ -261,12 +263,23 @@ function momoMerchantReference(row: any, userId: string): string | null {
 
 // deno-lint-ignore no-explicit-any
 function momoCollectionOut(row: any, userId: string, walletBalance: number | null) {
+  // amount is the total the buyer is charged; base_amount is the
+  // product amount the 1% service charge is computed on. They are
+  // equal in seller mode; in buyer mode amount = base + charge and
+  // the seller receives exactly base_amount. fee_bearer is derived
+  // from the row itself so the output can never disagree with the
+  // ledger that settled it.
+  const baseAmount = row.base_amount != null ? Number(row.base_amount) : Number(row.amount);
+  const feeBearer = Number(row.amount) > baseAmount ? "buyer" : "seller";
   return {
     reference: row.reference,
     merchant_reference: momoMerchantReference(row, userId),
     collection_id: row.id,
     transaction_id: row.transaction_id ?? null,
     amount: Number(row.amount),
+    base_amount: baseAmount,
+    service_charge: platformChargeFor(baseAmount),
+    fee_bearer: feeBearer,
     currency: row.currency,
     operator: row.operator,
     phone: row.phone,
@@ -307,12 +320,16 @@ async function dispatchMomoCollectionSettled(db: any, userId: string, row: any):
     }
   }
   if (!claimed) return;
+  const baseAmount = row.base_amount != null ? Number(row.base_amount) : Number(row.amount);
   await dispatchEvent(db, userId, MOMO_COLLECTION_EVENT, {
     reference: row.reference,
     merchant_reference: momoMerchantReference(row, userId),
     collection_id: row.id,
     transaction_id: txId,
     amount: Number(row.amount),
+    base_amount: baseAmount,
+    service_charge: platformChargeFor(baseAmount),
+    fee_bearer: Number(row.amount) > baseAmount ? "buyer" : "seller",
     currency: row.currency,
     operator: row.operator,
     status: "successful",

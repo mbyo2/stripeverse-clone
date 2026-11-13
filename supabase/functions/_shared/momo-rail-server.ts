@@ -17,9 +17,11 @@ import {
   detectOperator,
   friendlyFailureReason,
   mapProviderStatus,
+  momoBuyerTotalFor,
   normalizeZmPhone,
   railBaseUrl,
   type MomoEnvironment,
+  type MomoFeeBearer,
   type MomoInternalStatus,
   type MomoOperator,
 } from "./momo-rail.ts";
@@ -216,12 +218,30 @@ export async function validateRailCredential(
   return { ok: env.status !== false, accountId };
 }
 
+/** The merchant's fee-bearer choice (merchant_accounts, default
+ *  'seller'). Read server-side on every collection start — never
+ *  from the client, never cached. An unknown value or a missing
+ *  merchant row falls back to 'seller' (today's behaviour); a
+ *  database error fails the start instead of guessing. */
+export async function loadFeeBearer(db: Db, userId: string): Promise<MomoFeeBearer> {
+  const { data, error } = await db
+    .from("merchant_accounts")
+    .select("momo_fee_bearer")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.momo_fee_bearer === "buyer" ? "buyer" : "seller";
+}
+
 /** Create a collection on the merchant's gateway account. The
  *  customer authorises on their handset; the returned status is
- *  normally 'pay-offline' (pending) at this point. */
+ *  normally 'pay-offline' (pending) at this point. The rail bearer
+ *  follows the merchant's fee-bearer choice: 'customer' when the
+ *  buyer pays the charges on top, 'merchant' when the seller
+ *  absorbs them. */
 export async function createRailCollection(
   conn: MomoConnection,
-  input: { amount: number; reference: string; phone: string; operator: MomoOperator },
+  input: { amount: number; reference: string; phone: string; operator: MomoOperator; bearer: "merchant" | "customer" },
 ): Promise<RailCollectionData> {
   const env = await railFetch(conn, "/collections/mobile-money", {
     method: "POST",
@@ -232,7 +252,7 @@ export async function createRailCollection(
       phone: normalizeZmPhone(input.phone),
       operator: input.operator,
       country: "zm",
-      bearer: "merchant",
+      bearer: input.bearer,
     }),
   });
   if (!env.data) throw new RailApiError(502, "gateway_empty_response");
@@ -263,6 +283,9 @@ export interface SettleOutcome {
   payment_link_id: string | null;
   merchant_user_id: string | null;
   amount: number | null;
+  /** The product amount the 1% charge is computed on (== amount in
+   *  seller mode; smaller than amount in buyer mode). */
+  base_amount: number | null;
 }
 
 /** Requery the gateway for one collection and apply the result
@@ -276,7 +299,7 @@ export async function refreshCollectionFromRail(
 ): Promise<SettleOutcome> {
   const { data: row, error } = await db
     .from("momo_collections")
-    .select("id, user_id, environment, status, created_at")
+    .select("id, user_id, environment, status, base_amount, created_at")
     .eq("reference", reference)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -285,7 +308,7 @@ export async function refreshCollectionFromRail(
       outcome: "not_found", collection_status: null, transaction_status: null,
       wallet_balance: null, just_settled: false, just_failed: false,
       collection_id: null, transaction_id: null, payment_link_id: null,
-      merchant_user_id: null, amount: null,
+      merchant_user_id: null, amount: null, base_amount: null,
     };
   }
   if (row.status !== "pending") {
@@ -295,6 +318,7 @@ export async function refreshCollectionFromRail(
       wallet_balance: null, just_settled: false, just_failed: false,
       collection_id: row.id, transaction_id: null, payment_link_id: null,
       merchant_user_id: row.user_id, amount: null,
+      base_amount: row.base_amount != null ? Number(row.base_amount) : null,
     };
   }
   const conn = await loadConnection(db, row.user_id, row.environment as MomoEnvironment);
@@ -304,6 +328,7 @@ export async function refreshCollectionFromRail(
       wallet_balance: null, just_settled: false, just_failed: false,
       collection_id: row.id, transaction_id: null, payment_link_id: null,
       merchant_user_id: row.user_id, amount: null,
+      base_amount: row.base_amount != null ? Number(row.base_amount) : null,
     };
   }
   let data: RailCollectionData;
@@ -340,6 +365,7 @@ export async function refreshCollectionFromRail(
         payment_link_id: rpc?.payment_link_id ?? null,
         merchant_user_id: rpc?.merchant_user_id ?? row.user_id,
         amount: rpc?.amount != null ? Number(rpc.amount) : null,
+        base_amount: rpc?.base_amount != null ? Number(rpc.base_amount) : null,
       };
     }
     throw e;
@@ -371,6 +397,7 @@ export async function refreshCollectionFromRail(
     payment_link_id: rpc?.payment_link_id ?? null,
     merchant_user_id: rpc?.merchant_user_id ?? row.user_id,
     amount: rpc?.amount != null ? Number(rpc.amount) : null,
+    base_amount: rpc?.base_amount != null ? Number(rpc.base_amount) : null,
   };
 }
 
@@ -396,6 +423,15 @@ export interface StartCollectionResult {
   transactionId: string | null;
   status: string;
   message: string;
+  /** The total the buyer is charged (product + service charge in
+   *  buyer mode; the product amount in seller mode). */
+  amount: number;
+  /** The product amount the 1% charge is computed on. */
+  baseAmount: number;
+  /** The 1% service charge (0 in seller mode — the seller absorbs
+   *  it from their wallet after settlement instead). */
+  serviceCharge: number;
+  feeBearer: MomoFeeBearer;
 }
 
 /** Ledger-first collection start: the begin RPC writes the
@@ -404,17 +440,29 @@ export interface StartCollectionResult {
  *  validation refusal closes the ledger row as failed (never a
  *  credit); a network ambiguity leaves it pending for the requery
  *  paths to resolve — money is only ever credited by the settle RPC
- *  from a re-queried successful status. */
+ *  from a re-queried successful status.
+ *
+ *  The merchant's fee-bearer choice is applied HERE, once, for
+ *  every caller (website checkout, payment links, developer API):
+ *  in buyer mode the collection amount is the product amount
+ *  grossed up by the 1% service charge, the ledger records the
+ *  product amount as base_amount, and the rail is told the buyer
+ *  bears its own fee (bearer 'customer'); in seller mode the
+ *  amounts are unchanged and the rail bearer stays 'merchant'.
+ *  `input.amount` is always the PRODUCT amount. */
 export async function startCollection(
   db: Db,
   conn: MomoConnection,
   input: StartCollectionInput,
 ): Promise<StartCollectionResult> {
+  const feeBearer = await loadFeeBearer(db, input.merchantUserId);
+  const breakdown = momoBuyerTotalFor(input.amount, feeBearer);
   const { data: rpcRows, error } = await db.rpc("begin_momo_collection", {
     p_user_id: input.merchantUserId,
     p_account_id: input.accountId,
     p_reference: input.reference,
-    p_amount: input.amount,
+    p_amount: breakdown.total,
+    p_base_amount: breakdown.baseAmount,
     p_operator: input.operator,
     p_phone: normalizeZmPhone(input.phone),
     p_environment: input.environment,
@@ -430,6 +478,8 @@ export async function startCollection(
       kind: "conflict", reference: input.reference, collectionId: null,
       transactionId: null, status: "failed",
       message: "That request was already used for a different payment. Start a new payment instead.",
+      amount: breakdown.total, baseAmount: breakdown.baseAmount,
+      serviceCharge: breakdown.serviceCharge, feeBearer,
     };
   }
   if (rpc.outcome === "existing") {
@@ -437,14 +487,17 @@ export async function startCollection(
       kind: "existing", reference: rpc.reference, collectionId: rpc.collection_id,
       transactionId: rpc.transaction_id, status: rpc.collection_status,
       message: "This payment was already started.",
+      amount: breakdown.total, baseAmount: breakdown.baseAmount,
+      serviceCharge: breakdown.serviceCharge, feeBearer,
     };
   }
   try {
     const data = await createRailCollection(conn, {
-      amount: input.amount,
+      amount: breakdown.total,
       reference: input.reference,
       phone: input.phone,
       operator: input.operator,
+      bearer: feeBearer === "buyer" ? "customer" : "merchant",
     });
     // Record whatever the gateway already knows (its reference and
     // any instantly-terminal status) through the settle path.
@@ -465,6 +518,8 @@ export async function startCollection(
       kind: "pending", reference: input.reference, collectionId: rpc.collection_id,
       transactionId: rpc.transaction_id, status: "pending",
       message: "Approve the payment prompt on your phone to complete this payment.",
+      amount: breakdown.total, baseAmount: breakdown.baseAmount,
+      serviceCharge: breakdown.serviceCharge, feeBearer,
     };
   } catch (e) {
     if (e instanceof RailApiError && e.status >= 400 && e.status < 500) {
@@ -485,6 +540,8 @@ export async function startCollection(
         kind: "start_failed", reference: input.reference, collectionId: rpc.collection_id,
         transactionId: rpc.transaction_id, status: "failed",
         message: "The payment couldn't be started. Check the phone number and try again — no money was taken.",
+        amount: breakdown.total, baseAmount: breakdown.baseAmount,
+        serviceCharge: breakdown.serviceCharge, feeBearer,
       };
     }
     // Network/5xx ambiguity: the gateway may or may not have created
@@ -494,6 +551,8 @@ export async function startCollection(
       kind: "unknown", reference: input.reference, collectionId: rpc.collection_id,
       transactionId: rpc.transaction_id, status: "pending",
       message: "Approve the payment prompt on your phone if one arrives — we're confirming the payment's status.",
+      amount: breakdown.total, baseAmount: breakdown.baseAmount,
+      serviceCharge: breakdown.serviceCharge, feeBearer,
     };
   }
 }

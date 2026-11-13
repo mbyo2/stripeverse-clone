@@ -248,10 +248,11 @@ serve(async (req) => {
       // method when it's true (an unconnected method is never shown,
       // let alone clicked through to a failure).
       let mobileMoneyAvailable = false;
+      let momoFeeBearer: "seller" | "buyer" = "seller";
       {
         const { data: ownerMerchant } = await admin
           .from("merchant_accounts")
-          .select("address, mobile_money_enabled")
+          .select("address, mobile_money_enabled, momo_fee_bearer")
           .eq("user_id", link.user_id)
           .maybeSingle();
         // deno-lint-ignore no-explicit-any
@@ -260,6 +261,7 @@ serve(async (req) => {
           const conn = await loadConnectionSummary(admin, link.user_id, "production").catch(() => null);
           mobileMoneyAvailable = !!conn;
         }
+        if (ownerMerchant?.momo_fee_bearer === "buyer") momoFeeBearer = "buyer";
       }
       // The fee picture for the link's fixed price, computed with
       // the same rule the settlement charges (shared fee-math). The
@@ -280,6 +282,21 @@ serve(async (req) => {
       const fixed = link.amount == null || feeRate === null
         ? null
         : paymentLinkAmounts(Number(link.amount), String(feeRate), feePayer);
+      // The mobile-money fee picture for the link's fixed price,
+      // computed with the same rule the rail charges (1% of the
+      // product amount). momo_service_charge is the charge ADDED to
+      // the buyer's total: the 1% in buyer mode, 0 in seller mode
+      // (there the charge comes off the seller's side instead).
+      // Buyer mode: the buyer pays product + the service charge on
+      // top and the seller receives the full product amount. Null
+      // on any-amount links — the pay page computes the breakdown
+      // live from the fee_bearer + the entered amount.
+      const momoServiceCharge = link.amount == null
+        ? null
+        : momoFeeBearer === "buyer" ? platformChargeFor(Number(link.amount)) : 0;
+      const momoBuyerTotal = link.amount == null || momoServiceCharge === null
+        ? null
+        : Math.round((Number(link.amount) + momoServiceCharge) * 100) / 100;
       return json({
         success: true,
         settlement_account_name: settlementAccountName,
@@ -304,6 +321,9 @@ serve(async (req) => {
           fee_amount: fixed?.fee_amount ?? null,
           buyer_total: fixed?.buyer_total ?? null,
           seller_receives: fixed?.seller_receives ?? null,
+          momo_fee_bearer: momoFeeBearer,
+          momo_service_charge: momoServiceCharge,
+          momo_buyer_total: momoBuyerTotal,
           // Return context for shop checkouts: when the link carries
           // a return URL, the page offers "Return to store" after a
           // completed payment (wallet and Bitcoin alike).
@@ -808,10 +828,13 @@ async function btcStatus(admin: Admin, link: Admin, body: Admin) {
 // _shared/momo-rail-server.ts: the momo ledger (migration 20261259)
 // credits the owner's wallet for the link's settlement account IN
 // FULL and records the platform's 1% as a separate merchant charge;
-// the link fee model (fee_payer etc.) belongs to the wallet/Bitcoin
-// rails and is not applied on top — the buyer pays exactly the link
-// amount, and payment_link.paid reports fee_amount as that recorded
-// 1% charge with total_charged = the link amount.
+// the 1% is computed on the product (base) amount (migration
+// 20261266). Who pays it is the merchant's fee-bearer choice: in
+// seller mode the buyer pays exactly the link amount; in buyer
+// mode the buyer pays the link amount plus the 1% service charge
+// on top, the seller receives the full link amount, and
+// payment_link.paid reports fee_amount as that recorded 1% charge
+// with total_charged = the grossed amount the buyer actually paid.
 
 async function momoCreate(admin: Admin, link: Admin, body: Admin, req: Request) {
   if (link.expires_at && new Date(link.expires_at).getTime() <= Date.now()) {
@@ -891,6 +914,14 @@ async function momoCreate(admin: Admin, link: Admin, body: Admin, req: Request) 
     reference: result.reference,
     transaction_id: result.transactionId,
     message: result.message,
+    // The total the buyer is charged and its breakdown, so the pay
+    // page can show the true total before the buyer approves: in
+    // buyer mode amount = product + the 1% service charge, and the
+    // seller receives exactly base_amount.
+    amount: result.amount,
+    base_amount: result.baseAmount,
+    service_charge: result.serviceCharge,
+    fee_bearer: result.feeBearer,
   });
 }
 
@@ -922,7 +953,10 @@ async function momoStatus(admin: Admin, link: Admin, body: Admin) {
           currency: "ZMW",
           paymentMethod: "mobile_money",
           feePayer: link.fee_payer === "buyer" ? "buyer" : "seller",
-          feeAmount: platformChargeFor(outcome.amount),
+          // The recorded 1% charge is 1% of the PRODUCT amount —
+          // never of the grossed total a buyer-bears collection
+          // charges on top (migration 20261266).
+          feeAmount: platformChargeFor(outcome.base_amount ?? outcome.amount),
           totalCharged: outcome.amount,
           settledAt: new Date().toISOString(),
         });

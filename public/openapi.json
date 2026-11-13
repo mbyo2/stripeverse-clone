@@ -493,7 +493,7 @@
     },
     "/connector/config": {
       "get": {
-        "description": "Authenticated by the pasted key alone \u2014 there is no business parameter. Returns the environment (from the key), the business's display name, country (ISO 3166-1 alpha-2, resolved from the saved record), currency and status, feature states, and the settlement type/currency. Feature states: enabled | disabled | not_entitled | pending_verification, with a machine-readable reason_code. mobile_money is Zambia-only: not_entitled/country_not_eligible for businesses whose saved country is not Zambia (ZM), disabled when a Zambian business has not switched it on, enabled when it has. Never returns balances, settlement destinations, account/mobile numbers or personal data. Supports ETag/If-None-Match (304) and Cache-Control: private, max-age=300. Gates are re-checked server-side on every money call; this payload only tells a connector what to render.",
+        "description": "Authenticated by the pasted key alone \u2014 there is no business parameter. Returns the environment (from the key), the business's display name, country (ISO 3166-1 alpha-2, resolved from the saved record), currency and status, feature states, and the settlement type/currency. Feature states: enabled | disabled | not_entitled | pending_verification, with a machine-readable reason_code. mobile_money is Zambia-only: not_entitled/country_not_eligible for businesses whose saved country is not Zambia (ZM), disabled when a Zambian business has not switched it on, enabled when it has. features.mobile_money also carries fee_bearer ('seller' | 'buyer', read-only): who pays the 1% service charge on a collection \u2014 when 'buyer', the buyer is charged the product amount plus the charge and the merchant receives the full product amount; when 'seller', the buyer pays the product amount and the charge is collected from the merchant's wallet after settlement. Never returns balances, settlement destinations, account/mobile numbers or personal data. Supports ETag/If-None-Match (304) and Cache-Control: private, max-age=300. Gates are re-checked server-side on every money call; this payload only tells a connector what to render.",
         "responses": {
           "200": {
             "content": {
@@ -812,7 +812,7 @@
             "description": "Idempotent replay: the original collection for this reference."
           },
           "201": {
-            "description": "The collection (status pending until the customer approves; may already be settled)."
+            "description": "The collection (status pending until the customer approves; may already be settled). It carries amount (the total charged to the buyer), base_amount (the product amount the 1% service charge is computed on), service_charge and fee_bearer ('seller' | 'buyer'): when the merchant chose buyer-pays, amount = base_amount + service_charge and the merchant receives the full base_amount; when seller-pays, amount = base_amount and the charge is collected from the merchant's wallet after settlement."
           },
           "400": {
             "description": "invalid_request / business_not_set_up / not_configured"

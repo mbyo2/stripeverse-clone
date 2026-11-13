@@ -23,6 +23,16 @@
 export type MomoOperator = "mtn" | "airtel" | "zamtel";
 export type MomoEnvironment = "sandbox" | "production";
 
+/** Who pays the additional charges on a collection (CEO decision
+ *  2026-11-12, the rail's own bearer option, merchant-chosen):
+ *    seller — the buyer pays the product amount; the 1% platform
+ *      charge is collected from the seller's wallet after
+ *      settlement (the default, today's behaviour).
+ *    buyer  — the buyer is charged the product amount PLUS the 1%
+ *      service charge on top; the seller receives the full product
+ *      amount. */
+export type MomoFeeBearer = "seller" | "buyer";
+
 /** Gateway base URLs per environment. Sandbox simulates with test
  *  phone numbers; production moves real money. The environment comes
  *  from the merchant's saved connection, never from a request. */
@@ -96,15 +106,39 @@ export function mapProviderStatus(raw: string | null | undefined): MomoInternalS
   }
 }
 
-/** The platform charge on a settled collection: 1% of the collected
- *  amount, rounded to the ngwee. Recorded as its own ledger entry —
- *  the settlement itself is always credited in full. */
+/** The platform charge on a settled collection: 1% of the PRODUCT
+ *  (base) amount, rounded to the ngwee. Recorded as its own ledger
+ *  entry — the settlement itself is always credited in full.
+ *  Callers must pass the base amount: in buyer-bears mode the
+ *  collection's grossed total is larger than the product amount,
+ *  and the charge is 1% of the product, never of the grossed
+ *  total. */
 export function platformChargeFor(amount: number): number {
   if (!(amount > 0)) return 0;
   return Math.round(amount * 0.01 * 100) / 100;
 }
 
 export const PLATFORM_CHARGE_PERCENT = 1;
+
+/** The buyer-facing breakdown for one collection, from the product
+ *  amount and the merchant's fee-bearer choice. One place, so the
+ *  rail helper, the checkout describe payload and the API all quote
+ *  the same numbers:
+ *    seller — the buyer pays exactly the product amount;
+ *    buyer  — the buyer pays product + the 1% service charge, and
+ *      the seller receives the full product amount. */
+export function momoBuyerTotalFor(
+  productAmount: number,
+  feeBearer: MomoFeeBearer,
+): { baseAmount: number; serviceCharge: number; total: number } {
+  const baseAmount = Math.round(productAmount * 100) / 100;
+  const serviceCharge = feeBearer === "buyer" ? platformChargeFor(baseAmount) : 0;
+  return {
+    baseAmount,
+    serviceCharge,
+    total: Math.round((baseAmount + serviceCharge) * 100) / 100,
+  };
+}
 
 /** Webhook signature per the gateway's published contract:
  *  header value = HMAC-SHA512 hex of the RAW request body, keyed with

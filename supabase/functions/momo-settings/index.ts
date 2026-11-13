@@ -17,6 +17,11 @@
 //       → Zambia-gated server-side (the same merchant_accounts source
 //         of truth as the connector config), the credential is
 //         validated against the gateway before it is stored.
+//   { action: "update_fee_bearer", fee_bearer: "seller" | "buyer" }
+//       → the merchant's choice of who pays the additional charges
+//         on a collection (CEO decision 2026-11-12). Stored on the
+//         merchant record; the rail helper reads it server-side on
+//         every collection start, so all surfaces honour it.
 //   { action: "disconnect", environment }
 //       → wipes the stored credential and marks the row disconnected.
 //
@@ -97,7 +102,7 @@ serve(async (req) => {
 
     const { data: merchant } = await db
       .from("merchant_accounts")
-      .select("business_name, address, status, mobile_money_enabled")
+      .select("id, business_name, address, status, mobile_money_enabled, momo_fee_bearer")
       .eq("user_id", userId)
       .maybeSingle();
     const { data: profile } = await db
@@ -150,6 +155,7 @@ serve(async (req) => {
       return json({
         success: true,
         facts,
+        fee_bearer: merchant?.momo_fee_bearer === "buyer" ? "buyer" : "seller",
         connections: {
           sandbox: connectionSummary(sandboxConn),
           production: connectionSummary(productionConn),
@@ -229,6 +235,38 @@ serve(async (req) => {
         saved?.key_hint ?? secretHint(secretKey),
       );
       return json({ success: true, connection: connectionSummary(saved), environment });
+    }
+
+    if (action === "update_fee_bearer") {
+      if (facts.frozen) {
+        return json({ success: false, error: "This account is frozen, so its payment settings can't be changed right now. Please contact support." }, 403);
+      }
+      if (!facts.has_business) {
+        return json({ success: false, error: "Set up your business profile first — mobile money connects to your business." }, 400);
+      }
+      const feeBearer = body.fee_bearer === "buyer" ? "buyer" : body.fee_bearer === "seller" ? "seller" : null;
+      if (!feeBearer) {
+        return json({ success: false, error: "Choose who pays the service charge: the buyer or the seller." }, 400);
+      }
+      const { error: updateError } = await db
+        .from("merchant_accounts")
+        .update({ momo_fee_bearer: feeBearer })
+        .eq("user_id", userId);
+      if (updateError) throw new Error(updateError.message);
+      // Best-effort audit: a billing preference change is worth a
+      // trail, and auditing must never break the settings flow.
+      try {
+        await db.from("audit_logs").insert({
+          user_id: userId,
+          action: "momo_fee_bearer_changed",
+          table_name: "merchant_accounts",
+          record_id: merchant?.id ?? null,
+          new_values: { fee_bearer: feeBearer },
+        });
+      } catch (e) {
+        console.error("momo fee-bearer audit failed:", e instanceof Error ? e.message : e);
+      }
+      return json({ success: true, fee_bearer: feeBearer });
     }
 
     if (action === "disconnect") {
