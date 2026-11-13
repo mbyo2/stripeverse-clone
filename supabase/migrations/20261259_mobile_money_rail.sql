@@ -1,6 +1,11 @@
 -- Merchant mobile-money rail (CEO decisions 2026-11-09; build ordered
 -- 2026-11-11).
 --
+-- NOTE (2026-11-13, N-1): the live grants on the three tables below
+-- drifted from this file (platform defaults gave anon + authenticated
+-- FULL privileges incl. TRUNCATE). The revokes live in migration
+-- 20261265_momo_grant_revoke_n1.sql — do not re-add broad grants here.
+--
 -- Model: each merchant connects their OWN mobile-money gateway
 -- account by pasting their own API keys. Collections run against the
 -- merchant's account — the platform has no gateway account of its own
