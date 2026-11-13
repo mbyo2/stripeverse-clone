@@ -1,7 +1,7 @@
 import { toUserFacingError } from "@/utils/userFacingError";
 import { SkeletonListRows } from "@/components/ui/skeletons";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,8 +22,10 @@ import {
   TRANSFER_FEE_PERCENT_DEFAULT,
 } from '@/utils/transferFee';
 import { roundMoney } from '@/utils/splitPayments';
-import { QrCode, Download, Share2, Copy, ScanLine, Store, User, Smartphone, History, CheckCircle, ArrowRight, Camera, X, Loader2 } from 'lucide-react';
+import { QrCode, Download, Share2, Copy, ScanLine, Store, User, Smartphone, History, CheckCircle, ArrowRight, Camera, Loader2 } from 'lucide-react';
 import QRCode from 'qrcode.react';
+import { QrPaymentsScanner } from '@/components/qr/QrPaymentsScanner';
+import { parseBmaglassQrPayment } from '@/lib/qrPaymentsPayload';
 
 const QrPayments = () => {
   const { user } = useAuth();
@@ -57,11 +59,9 @@ const QrPayments = () => {
   const payAmountValue = parseFloat(payAmount || '0');
   const payFee = computeTransferFee(payAmountValue, feeRate);
   const payTotal = roundMoney(payAmountValue + payFee);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Bumps whenever a fresh scan starts so the scanner remounts and
+  // its camera starts cleanly (a remount is the restart).
+  const [scanSession, setScanSession] = useState(0);
 
   const qrData = JSON.stringify({
     platform: 'bmaglass',
@@ -104,96 +104,43 @@ const QrPayments = () => {
     }
   };
 
-  // Camera-based QR scanner
-  const startCamera = useCallback(async () => {
-    setCameraError(null);
-    setScanResult(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setScanMode(true);
-
-      // Start scanning frames
-      scanIntervalRef.current = setInterval(() => {
-        scanFrame();
-      }, 500);
-    } catch (err: any) {
-      if (err.name === 'NotAllowedError') {
-        setCameraError('Camera access was denied. Please allow camera permissions.');
-      } else if (err.name === 'NotFoundError') {
-        setCameraError('No camera found on this device.');
-      } else {
-        setCameraError('Unable to access camera. Try using a mobile device.');
-      }
-    }
-  }, []);
-
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-    }
-    setScanMode(false);
-  }, []);
-
-  const scanFrame = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx || video.readyState !== video.HAVE_ENOUGH_DATA) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Use the built-in BarcodeDetector API if available
-    if ('BarcodeDetector' in window) {
-      const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-      detector.detect(canvas).then((barcodes: any[]) => {
-        if (barcodes.length > 0) {
-          handleScanResult(barcodes[0].rawValue);
-        }
-      }).catch(() => {});
-    }
-  }, []);
-
+  // The camera itself lives in QrPaymentsScanner (html5-qrcode owns
+  // attach / play / decode — the old hand-rolled loop attached the
+  // stream to a <video> that did not exist yet and scanned nothing).
+  // This handler only classifies what was read: a BMaGlass code
+  // opens the payment review; anything else is shown back, never paid.
   const handleScanResult = (rawValue: string) => {
-    stopCamera();
+    setScanMode(false);
     setPayError(null);
     setPayDone(false);
-    try {
-      const parsed = JSON.parse(rawValue);
-      if (parsed.platform === 'bmaglass') {
-        setScanResult(rawValue);
-        setScannedPayload(parsed);
-        setPayAmount(parsed.amount ? String(parsed.amount) : '');
-        toast({
-          title: 'QR Code Scanned!',
-          description: `Payment to ${parsed.recipient?.slice(0, 8)}... ${parsed.amount ? `for ${parsed.currency} ${parsed.amount}` : ''}`,
-        });
-      } else {
-        setScanResult(rawValue);
-        setScannedPayload(null);
-        toast({ title: 'QR Code Detected', description: 'Non-BMaGlass QR code scanned' });
-      }
-    } catch {
+    const classified = parseBmaglassQrPayment(rawValue);
+    if (classified.status === "valid") {
+      const parsed = classified.payload;
+      setScanResult(rawValue);
+      setScannedPayload({
+        platform: "bmaglass",
+        type: parsed.type,
+        recipient: parsed.recipient,
+        amount: parsed.amount,
+        currency: parsed.currency,
+        description: parsed.description,
+      });
+      setPayAmount(parsed.amount ? String(parsed.amount) : "");
+      toast({
+        title: "QR Code Scanned!",
+        description: `Payment to ${parsed.recipient?.slice(0, 8)}... ${parsed.amount ? `for ${parsed.currency} ${parsed.amount}` : ""}`,
+      });
+      return;
+    }
+    if (classified.status === "non-bmaglass") {
       setScanResult(rawValue);
       setScannedPayload(null);
-      toast({ title: 'QR Code Detected', description: rawValue.slice(0, 100) });
+      toast({ title: "QR Code Detected", description: "Non-BMaGlass QR code scanned" });
+      return;
     }
+    setScanResult(rawValue);
+    setScannedPayload(null);
+    toast({ title: "QR Code Detected", description: "That code couldn't be read as a payment code." });
   };
 
   // Resolve the account named in a scanned BMaGlass code, so the payer sees
@@ -268,9 +215,8 @@ const QrPayments = () => {
     }
   };
 
-  useEffect(() => {
-    return () => { stopCamera(); };
-  }, [stopCamera]);
+  // The scanner stops its own camera stream on unmount, so there
+  // is no page-level camera cleanup to do here.
 
   const [recentQrPayments, setRecentQrPayments] = useState<
     { id: number; from: string; amount: number; currency: string; time: string; type: 'received' | 'paid' }[]
@@ -420,7 +366,7 @@ const QrPayments = () => {
                     {qrGenerated ? (
                       <>
                         <div className="bg-white p-6 rounded-2xl shadow-sm mb-6" id="qr-canvas">
-                          <QRCode value={qrData} size={220} level="H" includeMargin />
+                          <QRCode value={qrData} size={220} level="M" includeMargin />
                         </div>
                         <div className="text-center mb-4">
                           {amount && <p className="text-2xl font-bold">{currency} {parseFloat(amount).toFixed(2)}</p>}
@@ -456,35 +402,14 @@ const QrPayments = () => {
               <Card>
                 <CardContent className="p-8">
                   {scanMode ? (
-                    <div className="space-y-4">
-                      <div className="relative w-full aspect-square max-w-sm mx-auto rounded-2xl overflow-hidden bg-black">
-                        <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
-                        <div className="absolute inset-8 border-2 border-primary/60 rounded-xl pointer-events-none" />
-                        <div className="absolute top-2 right-2">
-                          <Button variant="secondary" size="icon" onClick={stopCamera}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-                          <Badge variant="secondary" className="animate-pulse">Scanning...</Badge>
-                        </div>
-                      </div>
-                      <canvas ref={canvasRef} className="hidden" />
-                      <p className="text-center text-sm text-muted-foreground">
-                        Point your camera at a QR code
-                      </p>
-                    </div>
+                    <QrPaymentsScanner
+                      key={scanSession}
+                      onScan={handleScanResult}
+                      onClose={() => setScanMode(false)}
+                    />
                   ) : (
                     <div className="text-center">
-                      {cameraError ? (
-                        <div className="space-y-4">
-                          <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
-                            <Camera className="h-8 w-8 text-destructive" />
-                          </div>
-                          <p className="text-sm text-destructive">{cameraError}</p>
-                          <Button onClick={startCamera} variant="outline">Try Again</Button>
-                        </div>
-                      ) : scanResult ? (
+                      {scanResult ? (
                         <div className="space-y-4">
                           <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto">
                             <CheckCircle className="h-8 w-8 text-green-500" />
@@ -551,7 +476,7 @@ const QrPayments = () => {
                             </>
                           )}
                           <div className="flex gap-3 justify-center">
-                            <Button onClick={() => { setScanResult(null); setScannedPayload(null); setPayDone(false); startCamera(); }}>
+                            <Button onClick={() => { setScanResult(null); setScannedPayload(null); setPayDone(false); setScanSession(s => s + 1); setScanMode(true); }}>
                               <ScanLine className="h-4 w-4 mr-2" /> Scan Another
                             </Button>
                             <Button variant="outline" onClick={() => { setScanResult(null); setScannedPayload(null); setPayDone(false); }}>
@@ -568,7 +493,7 @@ const QrPayments = () => {
                             <h3 className="text-lg font-semibold mb-2">Scan QR Code</h3>
                             <p className="text-sm text-muted-foreground mb-6">Point your camera at a BMaGlass QR code to make a payment</p>
                           </div>
-                          <Button size="lg" className="w-full" onClick={startCamera}>
+                          <Button size="lg" className="w-full" onClick={() => { setScanResult(null); setScannedPayload(null); setPayDone(false); setScanSession(s => s + 1); setScanMode(true); }}>
                             <Camera className="h-4 w-4 mr-2" /> Open Camera
                           </Button>
                           <p className="text-xs text-muted-foreground">Camera access requires permission and a device with a camera</p>
