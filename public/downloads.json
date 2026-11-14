@@ -1,1 +1,135 @@
-[{"file":"bmaglasspay-woocommerce-1.0.0.zip","name":"WooCommerce","platform":"woocommerce","url":"https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-woocommerce-1.0.0.zip","version":"1.0.0"},{"file":"bmaglasspay-odoo-1.0.0.zip","name":"Odoo","platform":"odoo","url":"https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-1.0.0.zip","version":"1.0.0"},{"file":"bmaglasspay-magento-1.0.0.zip","name":"Magento 2","platform":"magento","url":"https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-magento-1.0.0.zip","version":"1.0.0"},{"file":"bmaglasspay-prestashop-1.0.0.zip","name":"PrestaShop","platform":"prestashop","url":"https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-prestashop-1.0.0.zip","version":"1.0.0"},{"file":"bmaglasspay-opencart-1.0.0.zip","name":"OpenCart","platform":"opencart","url":"https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-opencart-1.0.0.zip","version":"1.0.0"},{"file":"bmaglasspay-embed-1.0.0.zip","name":"Embed button — any website","platform":"embed","url":"https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-embed-1.0.0.zip","version":"1.0.0"},{"file":"bmaglasspay-automation-1.0.0.zip","name":"Zapier / Make automation","platform":"automation","url":"https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-automation-1.0.0.zip","version":"1.0.0"}]
+[
+  {
+    "file": "bmaglasspay-woocommerce-1.0.0.zip",
+    "name": "WooCommerce",
+    "platform": "woocommerce",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-woocommerce-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-odoo-16.0-1.0.0.zip",
+    "name": "Odoo 16.0",
+    "platform": "odoo-16.0",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-16.0-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-odoo-17.0-1.0.0.zip",
+    "name": "Odoo 17.0",
+    "platform": "odoo-17.0",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-17.0-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-odoo-18.0-1.0.0.zip",
+    "name": "Odoo 18.0",
+    "platform": "odoo-18.0",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-18.0-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-odoo-19.0-1.0.0.zip",
+    "name": "Odoo 19.0",
+    "platform": "odoo-19.0",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-19.0-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-odoo-20.0-1.0.0.zip",
+    "name": "Odoo 20.0",
+    "platform": "odoo-20.0",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-20.0-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-magento-1.0.0.zip",
+    "name": "Magento 2",
+    "platform": "magento",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-magento-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-prestashop-1.7-1.0.0.zip",
+    "name": "PrestaShop 1.7",
+    "platform": "prestashop-1.7",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-prestashop-1.7-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-prestashop-8-1.0.0.zip",
+    "name": "PrestaShop 8",
+    "platform": "prestashop-8",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-prestashop-8-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-prestashop-9-1.0.0.zip",
+    "name": "PrestaShop 9",
+    "platform": "prestashop-9",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-prestashop-9-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-opencart-3-1.0.0.zip",
+    "name": "OpenCart 3",
+    "platform": "opencart-3",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-opencart-3-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-opencart-4-1.0.0.zip",
+    "name": "OpenCart 4",
+    "platform": "opencart-4",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-opencart-4-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-sdk-typescript-1.0.0.zip",
+    "name": "TypeScript SDK",
+    "platform": "sdk-typescript",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-typescript-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-sdk-python-1.0.0.zip",
+    "name": "Python SDK",
+    "platform": "sdk-python",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-python-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-sdk-php-1.0.0.zip",
+    "name": "PHP SDK",
+    "platform": "sdk-php",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-php-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-sdk-flutter-1.0.0.zip",
+    "name": "Flutter SDK",
+    "platform": "sdk-flutter",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-flutter-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-sdk-react-native-1.0.0.zip",
+    "name": "React Native SDK",
+    "platform": "sdk-react-native",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-react-native-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-embed-button-1.0.0.zip",
+    "name": "Embed button \u2014 any website",
+    "platform": "embed-button",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-embed-button-1.0.0.zip",
+    "version": "1.0.0"
+  },
+  {
+    "file": "bmaglasspay-automation-1.0.0.zip",
+    "name": "Zapier / Make automation",
+    "platform": "automation",
+    "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-automation-1.0.0.zip",
+    "version": "1.0.0"
+  }
+]

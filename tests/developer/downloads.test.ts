@@ -27,16 +27,28 @@ const BUCKET_URL =
 
 const EXPECTED = [
   { name: "WooCommerce", platform: "woocommerce" },
-  { name: "Odoo", platform: "odoo" },
+  { name: "Odoo 16.0", platform: "odoo-16.0" },
+  { name: "Odoo 17.0", platform: "odoo-17.0" },
+  { name: "Odoo 18.0", platform: "odoo-18.0" },
+  { name: "Odoo 19.0", platform: "odoo-19.0" },
+  { name: "Odoo 20.0", platform: "odoo-20.0" },
   { name: "Magento 2", platform: "magento" },
-  { name: "PrestaShop", platform: "prestashop" },
-  { name: "OpenCart", platform: "opencart" },
-  { name: "Embed button — any website", platform: "embed" },
+  { name: "PrestaShop 1.7", platform: "prestashop-1.7" },
+  { name: "PrestaShop 8", platform: "prestashop-8" },
+  { name: "PrestaShop 9", platform: "prestashop-9" },
+  { name: "OpenCart 3", platform: "opencart-3" },
+  { name: "OpenCart 4", platform: "opencart-4" },
+  { name: "TypeScript SDK", platform: "sdk-typescript" },
+  { name: "Python SDK", platform: "sdk-python" },
+  { name: "PHP SDK", platform: "sdk-php" },
+  { name: "Flutter SDK", platform: "sdk-flutter" },
+  { name: "React Native SDK", platform: "sdk-react-native" },
+  { name: "Embed button — any website", platform: "embed-button" },
   { name: "Zapier / Make automation", platform: "automation" },
 ];
 
 describe("downloads manifest (public/downloads.json)", () => {
-  it("lists exactly the seven downloadable integrations at version 1.0.0", () => {
+  it("lists exactly the nineteen downloadable integrations at version 1.0.0", () => {
     const manifest = JSON.parse(read("public/downloads.json")) as Array<
       Record<string, unknown>
     >;
