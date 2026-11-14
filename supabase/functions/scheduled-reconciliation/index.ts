@@ -46,7 +46,7 @@ serve(async (req) => {
           user_id: discrepancy.user_id,
           title: 'Wallet Balance Alert',
           message: `We detected a balance discrepancy of ${discrepancy.difference.toFixed(2)} in your wallet. Please review your transactions.`,
-          type: 'security'
+          type: 'alert' // notifications_type_check allows only transaction/system/alert (workstream A: 'security' violated it and the alert row was silently lost)
         });
 
         console.log(`[SCHEDULED-RECONCILIATION] Alert sent for wallet ${discrepancy.wallet_id}`);

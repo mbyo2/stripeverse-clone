@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
       user_id: userId,
       title: emailContent.subject,
       message: `Email notification: ${type}`,
-      type: type === 'security_alert' ? 'security' : 'transaction',
+      type: type === 'security_alert' ? 'alert' : 'transaction', // 'alert': notifications_type_check allows only transaction/system/alert (workstream A: 'security' violated it and the row was silently lost)
     })
 
     console.log(`Email notification queued: ${type} for user ${userId}`)

@@ -22,8 +22,16 @@ serve(async (req) => {
     const authToken = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
     const { data: { user }, error: authError } = await supabase.auth.getUser(authToken);
     
+    // Unauthenticated callers get 401, not the generic 500 below: throwing
+    // here used to mask "no/invalid token" as a server error (workstream A).
     if (authError || !user) {
-      throw new Error('Unauthorized');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      );
     }
 
     // Get client IP from headers (in production)
