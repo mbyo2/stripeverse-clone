@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { getSupabaseClient } from "../_shared/supabase-client.ts"
+import { getServiceRoleClient } from "../_shared/supabase-client.ts"
 import { requireAdmin, requireCronSecret } from "../_shared/auth.ts"
 
 const corsHeaders = {
@@ -23,7 +23,13 @@ serve(async (req) => {
       if ('response' in auth && !('user' in auth)) return auth.response
     }
 
-    const supabase = getSupabaseClient(req);
+    // Both RPCs are EXECUTE-granted to service_role only (workstream A,
+    // 2026-11-15: calling them through the user-scoped client, which
+    // forwards the caller's JWT, 42501'd for EVERY caller -- admin or
+    // cron -- so maintenance never ran and every call 500'd). The caller
+    // was already verified above (admin JWT or CRON_SECRET), so the
+    // service-role client is safe here.
+    const supabase = getServiceRoleClient();
 
     // Run comprehensive security maintenance
     const { error: maintenanceError } = await supabase.rpc('run_security_maintenance');

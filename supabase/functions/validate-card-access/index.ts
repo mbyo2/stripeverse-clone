@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { getSupabaseClient } from "../_shared/supabase-client.ts"
+import { getSupabaseClient, getServiceRoleClient } from "../_shared/supabase-client.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,8 +33,16 @@ serve(async (req) => {
     
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
-    // Validate card access using enhanced security function
-    const { data: accessGranted, error: validationError } = await supabase.rpc(
+    // Validate card access using enhanced security function.
+    // log_card_access_attempt is EXECUTE-granted to service_role only
+    // (workstream A, 2026-11-15: the user-scoped client forwards the
+    // caller's JWT, so PostgREST denied the call with 42501 for EVERY
+    // user and this control never ran -- every call 500'd). The user id
+    // below comes from the verified JWT, never from the request body,
+    // so the service-role client cannot be confused into logging
+    // access for someone else.
+    const service = getServiceRoleClient();
+    const { data: accessGranted, error: validationError } = await service.rpc(
       'log_card_access_attempt',
       {
         p_user_id: user.id,
