@@ -112,6 +112,19 @@ serve(async (req) => {
     const mode = environment === "production" ? "live" : "test";
     const prefix = environment === "production" ? KEY_PREFIXES.production : KEY_PREFIXES.sandbox;
 
+    // WSC audit 2026-11-15 (Low): an expires_at in the past minted an
+    // already-dead key (200, then 401 api_key_expired on first use).
+    // Reject it at mint time instead of issuing a key that can never work.
+    if (expires_at != null && expires_at !== "") {
+      const expMs = Date.parse(String(expires_at));
+      if (!Number.isFinite(expMs)) {
+        return json(400, { error: "invalid_request", message: "expires_at must be an ISO 8601 date." });
+      }
+      if (expMs <= Date.now()) {
+        return json(400, { error: "invalid_request", message: "expires_at must be in the future." });
+      }
+    }
+
     const { scopes: cleanScopes, rejected } = sanitizeScopes(scopes);
     if (rejected.length > 0) {
       return json(400, {

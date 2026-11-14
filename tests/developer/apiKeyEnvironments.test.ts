@@ -225,6 +225,12 @@ describe("key storage and lifecycle", () => {
     expect(router).toContain("api_key_revoked");
     expect(router).toContain("api_key_expired");
   });
+
+  it("minting with an expires_at in the past is refused (WSC audit 2026-11-15)", () => {
+    expect(generate).toContain("expires_at must be in the future");
+    expect(generate).toContain("Date.parse(String(expires_at))");
+    expect(generate).toContain("expMs <= Date.now()");
+  });
 });
 
 describe("environment segregation wiring", () => {
