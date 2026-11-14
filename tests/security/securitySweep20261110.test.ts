@@ -120,10 +120,17 @@ describe("transaction-webhook signature fix", () => {
     expect(src).not.toContain("encoder.encode(JSON.stringify(webhookData))");
   });
 
-  it("generateWebhookSignature uses the passed client (no undefined supabase)", () => {
+  it("generateWebhookSignature signs with the webhook row's own secret (no phantom columns)", () => {
     const src = fn("transaction-webhook/index.ts");
-    expect(src).toContain("generateWebhookSignature(supabaseClient, payload, webhook.business_id)");
-    expect(src).toContain("async function generateWebhookSignature(supabaseClient: any, payload: any, businessId: string)");
+    // Bug-free gate 2026-11-14: the previous call re-queried webhooks
+    // by `webhook_secret` / `business_id` — neither column exists
+    // live — so every signature came back empty and no merchant
+    // webhook was ever delivered. The secret now comes from the
+    // already-fetched row (live column `secret`).
+    expect(src).toContain("generateWebhookSignature(webhook.secret, payload)");
+    expect(src).toContain("async function generateWebhookSignature(secret: string | null | undefined, payload: any)");
+    expect(src).not.toContain(".select('webhook_secret')");
+    expect(src).not.toContain("webhook.business_id");
     expect(src).not.toMatch(/await supabase\n\s+\.from\('webhooks'\)/);
   });
 });
