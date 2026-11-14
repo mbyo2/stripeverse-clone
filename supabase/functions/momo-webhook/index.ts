@@ -19,6 +19,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyWebhookSignature } from "../_shared/momo-rail.ts";
 import { loadConnection, refreshCollectionFromRail } from "../_shared/momo-rail-server.ts";
 import { dispatchPaymentLinkPaid } from "../_shared/developer-webhooks.ts";
+import { notifyMerchantMomoOutcome } from "../_shared/merchant-webhooks.ts";
 import { platformChargeFor } from "../_shared/momo-rail.ts";
 
 const json = (body: unknown, status = 200) =>
@@ -87,6 +88,17 @@ serve(async (req) => {
           settledAt: new Date().toISOString(),
         }).catch((e) => console.error("payment_link.paid dispatch failed:", e));
       }
+    }
+
+    // The merchant's own webhook hears about the same settlement
+    // (or failure): momo settles through the rail requery path,
+    // never through transaction-webhook.
+    if ((outcome.just_settled || outcome.just_failed) && outcome.transaction_id) {
+      await notifyMerchantMomoOutcome(db, {
+        merchantUserId: outcome.merchant_user_id ?? row.user_id,
+        transactionUuid: outcome.transaction_id,
+        status: outcome.just_settled ? "completed" : "failed",
+      }).catch((e) => console.error("merchant webhook dispatch failed:", e));
     }
 
     return json({ received: true, status: outcome.collection_status ?? "pending" });

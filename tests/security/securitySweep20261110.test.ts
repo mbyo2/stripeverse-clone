@@ -66,15 +66,24 @@ describe("mobile-money-sim is gone", () => {
 });
 
 describe("developer-api webhook gates", () => {
-  it("webhook routes require scope, and POST/test require live", () => {
+  it("webhook routes require scope; POST/test are open to sandbox keys (environment-segregated)", () => {
     const src = fn("developer-api/index.ts");
     expect(src).toContain('requireScope(key, "webhooks:read")');
     expect(src).toContain('requireScope(key, "webhooks:write")');
-    // POST and test both call requireLive after the write-scope check.
+    // Gate14 2026-11-14: POST and test used to call requireLive, so
+    // a sandbox key could never register an endpoint — and the
+    // dashboard insert stamps environment 'live' by default — which
+    // made the documented sandbox webhook flow unreachable (no
+    // sandbox endpoint could ever exist). A sandbox endpoint is
+    // stamped environment 'test' and can only ever receive sandbox
+    // events, so registration moves no live money and no live data.
     const postBlock = src.slice(src.indexOf('resource === "webhooks" && method === "POST"'));
-    expect(postBlock).toContain("requireLive(key)");
+    expect(postBlock).not.toContain("requireLive(key)");
     const testBlock = src.slice(src.indexOf('parts[2] === "test"'));
-    expect(testBlock).toContain("requireLive(key)");
+    expect(testBlock).not.toContain("requireLive(key)");
+    // Transfers still require a live key — the money move stays gated.
+    const transfersBlock = src.slice(src.indexOf('resource === "transfers"'));
+    expect(transfersBlock).toContain("requireLive(key)");
     // The legacy webhooks:manage umbrella still grants both.
     expect(src).toContain('held.includes("webhooks:manage")');
   });
@@ -120,18 +129,22 @@ describe("transaction-webhook signature fix", () => {
     expect(src).not.toContain("encoder.encode(JSON.stringify(webhookData))");
   });
 
-  it("generateWebhookSignature signs with the webhook row's own secret (no phantom columns)", () => {
+  it("merchantWebhookSignature signs with the webhook row's own secret (no phantom columns)", () => {
+    // Gate14 2026-11-14: the signing + notification code moved from
+    // transaction-webhook into the shared notifier
+    // (_shared/merchant-webhooks.ts) so the momo settlement paths
+    // can use it too. The secret still comes from the already-
+    // fetched row (live column `secret`) — never re-queried by
+    // `webhook_secret` / `business_id`, neither of which exists live.
+    const shared = fn("_shared/merchant-webhooks.ts");
+    expect(shared).toContain("merchantWebhookSignature(hook.secret, body)");
+    expect(shared).toContain("async function merchantWebhookSignature(secret: string, body: string)");
+    expect(shared).not.toContain(".select('webhook_secret')");
+    expect(shared).not.toContain("webhook.business_id");
     const src = fn("transaction-webhook/index.ts");
-    // Bug-free gate 2026-11-14: the previous call re-queried webhooks
-    // by `webhook_secret` / `business_id` — neither column exists
-    // live — so every signature came back empty and no merchant
-    // webhook was ever delivered. The secret now comes from the
-    // already-fetched row (live column `secret`).
-    expect(src).toContain("generateWebhookSignature(webhook.secret, payload)");
-    expect(src).toContain("async function generateWebhookSignature(secret: string | null | undefined, payload: any)");
-    expect(src).not.toContain(".select('webhook_secret')");
-    expect(src).not.toContain("webhook.business_id");
-    expect(src).not.toMatch(/await supabase\n\s+\.from\('webhooks'\)/);
+    expect(src).toContain('from "../_shared/merchant-webhooks.ts"');
+    expect(src).toContain("notifyMerchantWebhooks(supabaseClient, {");
+    expect(src).not.toContain("generateWebhookSignature");
   });
 });
 

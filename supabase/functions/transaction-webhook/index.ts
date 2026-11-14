@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-import { assertSafeWebhookUrl } from "../_shared/url-guard.ts"
+import { notifyMerchantWebhooks } from "../_shared/merchant-webhooks.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -116,8 +116,16 @@ serve(async (req) => {
         })
       }
 
-      // Send notification to business webhooks
-      await notifyBusinessWebhooks(supabaseClient, transaction, transactionUpdate)
+      // Send notification to business webhooks (shared notifier:
+      // merchant-facing event names, exactly-once per settlement).
+      await notifyMerchantWebhooks(supabaseClient, {
+        userId: transaction.user_id,
+        transactionId: transaction.transaction_id ?? transaction.uuid_id,
+        amount: Number(transaction.amount),
+        currency: transaction.currency,
+        status: transactionUpdate.status,
+        externalReference: transactionUpdate.external_reference ?? null,
+      })
     }
 
     return new Response(
@@ -294,128 +302,5 @@ function mapZamtelStatus(zamtelStatus: string): string {
       return 'pending'
     default:
       return 'pending'
-  }
-}
-
-async function notifyBusinessWebhooks(supabaseClient: any, transaction: any, update: any) {
-  try {
-    // Resolve the merchant that owns this transaction. Without a merchant
-    // association we do NOT broadcast to unrelated businesses.
-    let merchantIds: string[] = []
-
-    if (transaction?.user_id) {
-      const { data: merchants } = await supabaseClient
-        .from('merchant_accounts')
-        .select('id')
-        .eq('user_id', transaction.user_id)
-      merchantIds = (merchants || []).map((m: any) => m.id)
-    }
-
-    if (merchantIds.length === 0) {
-      console.log('No merchant associated with transaction; skipping business webhook notifications', {
-        transaction_id: transaction?.transaction_id,
-      })
-      return
-    }
-
-    const eventName = `transaction.${update.status}`
-    // Only notify webhooks owned by the transaction's merchant(s) and
-    // subscribed to this specific event type. Webhook rows are keyed
-    // by the owning USER (webhooks.user_id); merchant_accounts ids
-    // are not webhook keys. The previous `.in('business_id',
-    // merchantIds)` filtered on a column that does not exist live, so
-    // the query errored and NO merchant webhook was ever delivered
-    // (bug-free gate, 2026-11-14).
-    const { data: owners } = await supabaseClient
-      .from('merchant_accounts')
-      .select('user_id')
-      .in('id', merchantIds)
-    const ownerIds = [...new Set((owners || []).map((o: any) => o.user_id).filter(Boolean))]
-    if (ownerIds.length === 0) return
-    const { data: webhooks } = await supabaseClient
-      .from('webhooks')
-      .select('*')
-      .in('user_id', ownerIds)
-
-    for (const webhook of webhooks || []) {
-      // events is a text[] of enabled names (update-webhook stores
-      // it that way); a boolean map is accepted for older rows.
-      const events = webhook.events || []
-      const subscribed = Array.isArray(events)
-        ? events.includes(eventName)
-        : !!events[eventName]
-      if (!subscribed) continue
-      try {
-        const payload = {
-          event: eventName,
-          data: {
-            transaction_id: transaction.transaction_id,
-            amount: transaction.amount,
-            currency: transaction.currency,
-            status: update.status,
-            external_reference: update.external_reference,
-            timestamp: new Date().toISOString()
-          }
-        }
-
-        try { assertSafeWebhookUrl(webhook.url) } catch (e) {
-          console.error('Blocked unsafe webhook URL:', webhook.url, (e as Error).message)
-          continue
-        }
-        await fetch(webhook.url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // Sign with the secret on the webhook row itself: the
-            // live column is `secret`, and there is no second lookup
-            // to get wrong.
-            'X-Webhook-Signature': await generateWebhookSignature(webhook.secret, payload)
-          },
-          body: JSON.stringify(payload)
-        })
-
-        console.log('Webhook notification sent:', webhook.url)
-      } catch (error) {
-        console.error('Failed to send webhook notification:', error)
-      }
-    }
-  } catch (error) {
-    console.error('Error notifying business webhooks:', error)
-  }
-}
-
-async function generateWebhookSignature(secret: string | null | undefined, payload: any): Promise<string> {
-  try {
-    // Sign with the secret from the webhook row itself. The previous
-    // version re-queried webhooks by `webhook_secret` / `business_id`
-    // — neither column exists live — so it always threw and every
-    // outbound webhook carried an empty X-Webhook-Signature
-    // (bug-free gate, 2026-11-14).
-    if (!secret) {
-      console.warn('No webhook secret found for webhook; sending unsigned');
-      return '';
-    }
-
-    // Generate HMAC-SHA256 signature
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(secret);
-    const bodyData = encoder.encode(JSON.stringify(payload));
-    
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-    
-    const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, bodyData);
-    const signatureArray = Array.from(new Uint8Array(signatureBuffer));
-    const signatureHex = signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
-    return `sha256=${signatureHex}`;
-  } catch (error) {
-    console.error('Error generating webhook signature:', error);
-    return '';
   }
 }
