@@ -3449,31 +3449,34 @@ export type Database = {
       }
       webhooks: {
         Row: {
-          business_id: string
           created_at: string | null
-          events: Json
+          events: string[]
           id: string
+          is_active: boolean | null
+          secret: string
           updated_at: string | null
           url: string
-          webhook_secret: string
+          user_id: string
         }
         Insert: {
-          business_id: string
           created_at?: string | null
-          events?: Json
+          events?: string[]
           id?: string
+          is_active?: boolean | null
+          secret?: string
           updated_at?: string | null
           url: string
-          webhook_secret?: string
+          user_id: string
         }
         Update: {
-          business_id?: string
           created_at?: string | null
-          events?: Json
+          events?: string[]
           id?: string
+          is_active?: boolean | null
+          secret?: string
           updated_at?: string | null
           url?: string
-          webhook_secret?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -3622,6 +3625,13 @@ export type Database = {
       }
       find_transfer_recipient: {
         Args: { p_query: string }
+        Returns: {
+          display_name: string | null
+          user_id: string
+        }[]
+      }
+      resolve_qr_recipient: {
+        Args: { p_user_id: string }
         Returns: {
           display_name: string | null
           user_id: string

@@ -26,6 +26,7 @@ import { QrCode, Download, Share2, Copy, ScanLine, Store, User, Smartphone, Hist
 import QRCode from 'qrcode.react';
 import { QrPaymentsScanner } from '@/components/qr/QrPaymentsScanner';
 import { parseBmaglassQrPayment } from '@/lib/qrPaymentsPayload';
+import { resolveQrRecipient } from '@/lib/qrRecipient';
 
 const QrPayments = () => {
   const { user } = useAuth();
@@ -38,7 +39,7 @@ const QrPayments = () => {
   const [scanMode, setScanMode] = useState(false);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [scannedPayload, setScannedPayload] = useState<any>(null);
-  const [recipientProfile, setRecipientProfile] = useState<{ id: string; full_name: string | null } | null>(null);
+  const [recipientProfile, setRecipientProfile] = useState<{ id: string; display_name: string | null } | null>(null);
   const [recipientState, setRecipientState] = useState<'idle' | 'loading' | 'found' | 'missing'>('idle');
   const [payAmount, setPayAmount] = useState('');
   const [isPaying, setIsPaying] = useState(false);
@@ -154,20 +155,26 @@ const QrPayments = () => {
     }
     let cancelled = false;
     setRecipientState('loading');
-    supabase
-      .from('profiles')
-      .select('id, full_name')
-      .eq('id', recipient)
-      .maybeSingle()
-      .then(({ data }) => {
+    // Resolution goes through the resolve_qr_recipient RPC, not a
+    // profiles select: profiles.full_name does not exist live, and
+    // profiles RLS only ever returns the caller's own row, so a
+    // direct select could never resolve another user (bug-free gate,
+    // 2026-11-14).
+    resolveQrRecipient(supabase, recipient)
+      .then((profile) => {
         if (cancelled) return;
-        if (data) {
-          setRecipientProfile(data as { id: string; full_name: string | null });
+        if (profile) {
+          setRecipientProfile(profile);
           setRecipientState('found');
         } else {
           setRecipientProfile(null);
           setRecipientState('missing');
         }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRecipientProfile(null);
+        setRecipientState('missing');
       });
     return () => { cancelled = true; };
   }, [scannedPayload]);
@@ -194,7 +201,7 @@ const QrPayments = () => {
           reference_id: null,
           idempotency_key: `qr-${user.id}-${Date.now()}`,
           description: scannedPayload.description || 'QR code payment',
-          recipient_name: recipientProfile.full_name || 'BMaGlass user',
+          recipient_name: recipientProfile.display_name || 'BMaGlass user',
           payment_method: 'qr_code',
         },
       });
@@ -418,7 +425,7 @@ const QrPayments = () => {
                             <>
                               <h3 className="text-lg font-semibold">Payment Sent</h3>
                               <p className="text-sm text-muted-foreground">
-                                ZMW {parseFloat(payAmount || '0').toFixed(2)} sent to {recipientProfile?.full_name || 'the account in this code'}. It will appear in your transaction history.
+                                ZMW {parseFloat(payAmount || '0').toFixed(2)} sent to {recipientProfile?.display_name || 'the account in this code'}. It will appear in your transaction history.
                               </p>
                             </>
                           ) : scannedPayload ? (
@@ -437,7 +444,7 @@ const QrPayments = () => {
                               ) : recipientProfile ? (
                                 <div className="space-y-4 text-left">
                                   <div className="bg-muted rounded-lg p-4 space-y-1 text-sm">
-                                    <p><span className="text-muted-foreground">To:</span> <span className="font-medium">{recipientProfile.full_name || 'BMaGlass user'}</span></p>
+                                    <p><span className="text-muted-foreground">To:</span> <span className="font-medium">{recipientProfile.display_name || 'BMaGlass user'}</span></p>
                                     {scannedPayload.description && <p><span className="text-muted-foreground">For:</span> {scannedPayload.description}</p>}
                                   </div>
                                   {scannedPayload.amount ? (

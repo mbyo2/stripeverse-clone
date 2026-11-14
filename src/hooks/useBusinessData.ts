@@ -43,7 +43,9 @@ export const useBusinessData = () => {
       const { data, error } = await supabase
         .from('webhooks')
         .select('*')
-        .eq('business_id', user.id)
+        // Webhook rows are keyed by the owning user; there is no
+        // business_id column live (bug-free gate, 2026-11-14).
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];

@@ -48,10 +48,14 @@ export function WebhookManager() {
     setLoadError(null);
     try {
       
+      // Webhook rows are keyed by the owning user (webhooks.user_id is
+      // UNIQUE). The previous `.eq('business_id', ...)` filtered on a
+      // column that does not exist live, so loading always 400d
+      // (bug-free gate, 2026-11-14).
       const response = await supabase
         .from('webhooks')
         .select('url, events')
-        .eq('business_id', user.id)
+        .eq('user_id', user.id)
         .single();
 
       if (response.error) {
@@ -68,11 +72,17 @@ export function WebhookManager() {
       if (response.data) {
         
         setWebhookUrl(response.data.url || "");
-        setSelectedEvents(response.data.events as WebhookConfig['events'] || {
-          payment_success: true,
-          payment_failed: true,
-          settlement: true,
-          refund: true
+        // Live `events` is a text[] of enabled event names (the
+        // update-webhook edge function stores it that way); the UI
+        // works with a boolean map, so convert array -> map here.
+        const enabledNames = Array.isArray(response.data.events)
+          ? (response.data.events as string[])
+          : [];
+        setSelectedEvents({
+          payment_success: enabledNames.includes('payment_success'),
+          payment_failed: enabledNames.includes('payment_failed'),
+          settlement: enabledNames.includes('settlement'),
+          refund: enabledNames.includes('refund'),
         });
       }
     } catch (error) {
@@ -124,11 +134,15 @@ export function WebhookManager() {
 
     setIsSaving(true);
     try {
+      // Webhook rows are keyed by the authenticated user; do NOT send
+      // business_id — update-webhook treats a supplied business_id as
+      // a merchant_accounts id to ownership-check, and the caller's
+      // user id is never a merchant id, so the save always 403d
+      // (bug-free gate, 2026-11-14).
       const { data, error } = await supabase.functions.invoke('update-webhook', {
         body: {
           url: webhookUrl,
           events: selectedEvents,
-          business_id: user.id
         }
       });
 

@@ -320,15 +320,27 @@ async function notifyBusinessWebhooks(supabaseClient: any, transaction: any, upd
 
     const eventName = `transaction.${update.status}`
     // Only notify webhooks owned by the transaction's merchant(s) and
-    // subscribed to this specific event type.
+    // subscribed to this specific event type. Webhook rows are keyed
+    // by the owning USER (webhooks.user_id); merchant_accounts ids
+    // are not webhook keys. The previous `.in('business_id',
+    // merchantIds)` filtered on a column that does not exist live, so
+    // the query errored and NO merchant webhook was ever delivered
+    // (bug-free gate, 2026-11-14).
+    const { data: owners } = await supabaseClient
+      .from('merchant_accounts')
+      .select('user_id')
+      .in('id', merchantIds)
+    const ownerIds = [...new Set((owners || []).map((o: any) => o.user_id).filter(Boolean))]
+    if (ownerIds.length === 0) return
     const { data: webhooks } = await supabaseClient
       .from('webhooks')
       .select('*')
-      .in('business_id', merchantIds)
+      .in('user_id', ownerIds)
 
     for (const webhook of webhooks || []) {
-      // events is a jsonb map like { "transaction.completed": true }
-      const events = webhook.events || {}
+      // events is a text[] of enabled names (update-webhook stores
+      // it that way); a boolean map is accepted for older rows.
+      const events = webhook.events || []
       const subscribed = Array.isArray(events)
         ? events.includes(eventName)
         : !!events[eventName]
@@ -354,7 +366,10 @@ async function notifyBusinessWebhooks(supabaseClient: any, transaction: any, upd
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Webhook-Signature': await generateWebhookSignature(supabaseClient, payload, webhook.business_id)
+            // Sign with the secret on the webhook row itself: the
+            // live column is `secret`, and there is no second lookup
+            // to get wrong.
+            'X-Webhook-Signature': await generateWebhookSignature(webhook.secret, payload)
           },
           body: JSON.stringify(payload)
         })
@@ -369,26 +384,21 @@ async function notifyBusinessWebhooks(supabaseClient: any, transaction: any, upd
   }
 }
 
-async function generateWebhookSignature(supabaseClient: any, payload: any, businessId: string): Promise<string> {
+async function generateWebhookSignature(secret: string | null | undefined, payload: any): Promise<string> {
   try {
-    // Get business-specific webhook secret. The client is passed in:
-    // the previous version referenced a bare `supabase` that does not
-    // exist in this scope, so it always threw and every outbound
-    // webhook carried an empty X-Webhook-Signature.
-    const { data: webhook } = await supabaseClient
-      .from('webhooks')
-      .select('webhook_secret')
-      .eq('business_id', businessId)
-      .single();
-    
-    if (!webhook?.webhook_secret) {
-      console.warn('No webhook secret found for business:', businessId);
+    // Sign with the secret from the webhook row itself. The previous
+    // version re-queried webhooks by `webhook_secret` / `business_id`
+    // — neither column exists live — so it always threw and every
+    // outbound webhook carried an empty X-Webhook-Signature
+    // (bug-free gate, 2026-11-14).
+    if (!secret) {
+      console.warn('No webhook secret found for webhook; sending unsigned');
       return '';
     }
-    
+
     // Generate HMAC-SHA256 signature
     const encoder = new TextEncoder();
-    const keyData = encoder.encode(webhook.webhook_secret);
+    const keyData = encoder.encode(secret);
     const bodyData = encoder.encode(JSON.stringify(payload));
     
     const cryptoKey = await crypto.subtle.importKey(

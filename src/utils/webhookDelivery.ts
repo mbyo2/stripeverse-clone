@@ -39,17 +39,20 @@ export interface WebhookEventLog {
  * @param retryCount - Number of retry attempts (for internal use)
  */
 export async function deliverWebhook(
-  businessId: string, 
-  eventType: string, 
+  businessId: string,
+  eventType: string,
   data: unknown,
   retryCount = 0
 ): Promise<WebhookDeliveryResult> {
   try {
-    // Fetch webhook configuration for the business
+    // Fetch webhook configuration for the business. Webhook rows are
+    // keyed by the owning user (webhooks.user_id is UNIQUE; there is
+    // no business_id column live), so `businessId` here is the
+    // webhook owner's user id (bug-free gate, 2026-11-14).
     const { data: webhook, error } = await supabase
       .from('webhooks')
       .select('url, events')
-      .eq('business_id', businessId)
+      .eq('user_id', businessId)
       .single();
 
     if (error || !webhook) {
@@ -57,8 +60,9 @@ export async function deliverWebhook(
       return { success: false, message: 'No webhook configuration found' };
     }
 
-    // Check if the business has subscribed to this event type
-    if (!webhook.events[eventType]) {
+    // Check if the business has subscribed to this event type.
+    // Live `events` is a text[] of enabled event names, not a map.
+    if (!isSubscribedToEvent(webhook.events, eventType)) {
       return { success: false, message: 'Business not subscribed to this event' };
     }
 
@@ -154,26 +158,45 @@ export async function deliverWebhook(
 }
 
 /**
+ * Whether a stored `events` value subscribes to `eventType`.
+ * Live storage is a text[] of enabled names; older callers stored a
+ * boolean map, so both shapes are accepted.
+ */
+export function isSubscribedToEvent(
+  events: unknown,
+  eventType: string,
+): boolean {
+  if (Array.isArray(events)) return events.includes(eventType);
+  if (events && typeof events === 'object') {
+    return Boolean((events as Record<string, unknown>)[eventType]);
+  }
+  return false;
+}
+
+/**
  * Generates a secure HMAC-SHA256 signature for webhook verification
  */
 async function generateWebhookSignature(payload: WebhookPayload, businessId: string): Promise<string> {
   try {
-    // Fetch business webhook secret from database
+    // Fetch business webhook secret from database. Live column is
+    // `secret` on the row keyed by the owning user; the previous
+    // `webhook_secret` / `business_id` pair does not exist, so every
+    // signature came back empty (bug-free gate, 2026-11-14).
     const { data: webhook } = await supabase
       .from('webhooks')
-      .select('webhook_secret')
-      .eq('business_id', businessId)
+      .select('secret')
+      .eq('user_id', businessId)
       .single();
-    
-    if (!webhook?.webhook_secret) {
+
+    if (!webhook?.secret) {
       console.warn('No webhook secret configured for business:', businessId);
       return '';
     }
-    
+
     // Generate HMAC-SHA256 signature
     const payloadString = JSON.stringify(payload);
     const encoder = new TextEncoder();
-    const keyData = encoder.encode(webhook.webhook_secret);
+    const keyData = encoder.encode(webhook.secret);
     const messageData = encoder.encode(payloadString);
     
     // Create HMAC key

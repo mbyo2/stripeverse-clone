@@ -128,32 +128,32 @@ export const useProcessBulkPayment = () => {
           // funds leave the sender's wallet and the disbursement is recorded.
           let toUserId: string | null = null;
           if (item.recipient_phone || item.recipient_email) {
-            // Match the phone in the form it was entered AND in its
-            // canonical +260… form (shared rule, utils/phoneNumber) —
-            // profiles.phone is free text, so either form may be the
-            // stored one. Strictly additive vs the previous raw-only
-            // comparison. NOTE: this select is still limited by
-            // profiles RLS (a sender can only ever see their own
-            // profile), unlike /transfer and /send-money, which resolve
-            // recipients through the find_transfer_recipient RPC.
-            const phoneForms = Array.from(
-              new Set(
-                [item.recipient_phone, normalizeZambianPhone(item.recipient_phone ?? "")].filter(
-                  (p): p is string => !!p,
-                ),
-              ),
-            );
-            const orFilter = [
-              ...phoneForms.map((p) => `phone.eq.${p}`),
-              `email.eq.${item.recipient_email || ''}`,
-            ].join(',');
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('id')
-              .or(orFilter)
-              .limit(1)
-              .maybeSingle();
-            if (profile) toUserId = profile.id;
+            // Resolve through the find_transfer_recipient RPC, like
+            // /transfer and /send-money. The previous profiles select
+            // could never work: it filtered on `email`, a column
+            // profiles does not have (PostgREST 400), and profiles RLS
+            // only ever returns the caller's OWN row anyway — so a
+            // bulk recipient who is another user never resolved and
+            // every such item settled as an external disbursement
+            // (bug-free gate, 2026-11-14). The RPC matches exactly on
+            // email or canonical phone and returns only id + name.
+            const queries = [
+              item.recipient_phone
+                ? normalizeZambianPhone(item.recipient_phone)
+                : null,
+              item.recipient_email || null,
+            ].filter((q): q is string => !!q);
+            for (const q of queries) {
+              const { data: matches } = await supabase.rpc(
+                "find_transfer_recipient",
+                { p_query: q },
+              );
+              const match = Array.isArray(matches) ? matches[0] : matches;
+              if (match?.user_id) {
+                toUserId = match.user_id as string;
+                break;
+              }
+            }
           }
 
           const { data, error } = await supabase.functions.invoke('atomic-transfer', {
