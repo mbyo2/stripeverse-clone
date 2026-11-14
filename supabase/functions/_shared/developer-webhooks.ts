@@ -62,7 +62,13 @@ export interface WebhookDispatchResult {
 /** Sign + deliver one event to every subscribed active endpoint of the
  *  account, logging each attempt. Mirrors the behaviour the
  *  developer-api shipped with; never throws for a failed delivery
- *  (a dead endpoint is a logged "failed" row, not an exception). */
+ *  (a dead endpoint is a logged "failed" row, not an exception).
+ *
+ *  `onlyWebhookId` (workstream E, 2026-11-15): when set, deliver ONLY
+ *  to that endpoint. The developer-api /test route passes it so a test
+ *  ping can never fan out to the account's whole endpoint list — the
+ *  fan-out made one test call N outbound POSTs (spam cannon). All
+ *  settlement emitters omit it and keep the full fan-out. */
 export async function dispatchEvent(
   db: Db,
   userId: string,
@@ -75,11 +81,13 @@ export async function dispatchEvent(
   // endpoints), used by production settlement paths whose endpoints
   // predate environments.
   environment?: string,
+  onlyWebhookId?: string,
 ): Promise<WebhookDispatchResult[]> {
   const { data: hooks } = await db.from("developer_webhooks")
     .select("*").eq("user_id", userId).eq("is_active", true);
   const results: WebhookDispatchResult[] = [];
   for (const hook of hooks ?? []) {
+    if (onlyWebhookId && hook.id !== onlyWebhookId) continue;
     if (environment && hook.environment && hook.environment !== environment) continue;
     if (Array.isArray(hook.events) && hook.events.length > 0 && !hook.events.includes(eventType)) continue;
     const event = {

@@ -95,6 +95,7 @@ import {
   type Environment,
 } from "../_shared/connector-config.ts";
 import { validateFiatAmount } from "../_shared/fiat-amount.ts";
+import { clientIp, withinLimit } from "../_shared/rate-limit.ts";
 import {
   MOMO_NOT_CONFIGURED_MESSAGE,
   detectOperator,
@@ -146,17 +147,34 @@ async function authenticate(req: Request, db: any): Promise<ApiKeyRow | Response
   const raw = req.headers.get("x-api-key") ||
     (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!raw || !isApiKeyShape(raw)) {
-    return err(401, "invalid_api_key", "Send your API key in the X-Api-Key header (bmg_live_…, bmg_sandbox_…, or a legacy bmp_ key).");
+    return authFail(db, req, 401, "invalid_api_key", "Send your API key in the X-Api-Key header (bmg_live_…, bmg_sandbox_…, or a legacy bmp_ key).");
   }
   const hash = await sha256Hex(raw);
   const { data, error } = await db.from("api_keys").select("*").eq("key_hash", hash).maybeSingle();
-  if (error || !data) return err(401, "invalid_api_key", "That API key was not recognised.");
-  if (!data.is_active) return err(401, "api_key_revoked", "That API key has been revoked.");
+  if (error || !data) return authFail(db, req, 401, "invalid_api_key", "That API key was not recognised.");
+  if (!data.is_active) return authFail(db, req, 401, "api_key_revoked", "That API key has been revoked.");
   if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) {
-    return err(401, "api_key_expired", "That API key has expired.");
+    return authFail(db, req, 401, "api_key_expired", "That API key has expired.");
   }
   await db.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
   return data as ApiKeyRow;
+}
+
+// Workstream E (security audit 2026-11-15): failed API-key
+// authentications were never throttled — live-proven 30/30 invalid-key
+// calls in 27s, 0x429, each costing a SHA-256 + DB lookup. The per-key
+// 600/hr limiter below only counts calls AFTER a key authenticates, so
+// it cannot see this path. Failed attempts are throttled per source IP
+// (30/min); a legitimate client that mistypes a key gets 29 free
+// mistakes a minute, an invalid-key flood gets 429. Fail-open on
+// limiter error. (Per-IP only stops single-source floods — a
+// distributed flood still needs gateway-level controls, a CEO call.)
+async function authFail(db: any, req: Request, status: number, code: string, message: string): Promise<Response> {
+  const ok = await withinLimit(db, `ip:${clientIp(req)}`, "developer_api_auth_fail", 30, 1);
+  if (!ok) {
+    return err(429, "rate_limited", "Too many failed authentication attempts. Please wait a moment and try again.");
+  }
+  return err(status, code, message);
 }
 
 function modeOf(key: ApiKeyRow): "test" | "live" {
@@ -1020,6 +1038,17 @@ serve(async (req) => {
       let parsed: URL;
       try { parsed = new URL(hookUrl); } catch { return err(400, "invalid_request", "url is not a valid URL."); }
       if (parsed.protocol !== "https:") return err(400, "invalid_request", "Webhook URLs must use HTTPS.");
+      // Workstream E (security audit 2026-11-15): webhook registrations
+      // were uncapped, and one test delivery fans out to EVERY active
+      // endpoint (see dispatchEvent) — register N webhooks at a victim
+      // URL and one /test call becomes N outbound POSTs. Cap: 20 active
+      // endpoints per user per environment; deactivate one to add one.
+      const { count: activeHooks } = await db.from("developer_webhooks")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId).eq("is_active", true).eq("environment", modeOf(key));
+      if ((activeHooks ?? 0) >= 20) {
+        return err(400, "webhook_limit_reached", "You already have 20 active webhook endpoints in this environment. Deactivate one before adding another.");
+      }
       const evts = Array.isArray(events) && events.length > 0
         ? events.filter((e: unknown) => typeof e === "string" && KNOWN_EVENTS.includes(e as string))
         : KNOWN_EVENTS;
@@ -1057,7 +1086,18 @@ serve(async (req) => {
         .select("id").eq("id", sub).eq("user_id", userId)
         .eq("environment", modeOf(key)).maybeSingle();
       if (!ownHook) return err(404, "not_found", "Webhook endpoint not found in this environment.");
-      const deliveries = await dispatchEvent(db, userId, "webhook.test", { ping: true, via: "developer-api" }, modeOf(key));
+      // Workstream E (security audit 2026-11-15): test deliveries were
+      // unthrottled (live-proven 8/8 in 15s, 0x429) and each one fans
+      // out to every subscribed endpoint — a spam cannon against any
+      // registered URL. 20 test pings per endpoint per hour is generous
+      // for legitimate debugging; the per-key 600/hr cap still applies.
+      const testOk = await withinLimit(db, `webhook_test:${sub}`, "webhook_test", 20, 60);
+      if (!testOk) {
+        return err(429, "rate_limited", "Too many test deliveries for this endpoint. Please wait a while before testing again.");
+      }
+      // Single-target delivery: a test ping fires ONLY the named
+      // endpoint, never the account's whole fan-out (see dispatchEvent).
+      const deliveries = await dispatchEvent(db, userId, "webhook.test", { ping: true, via: "developer-api" }, modeOf(key), sub);
       const mine = deliveries.filter((d: any) => d.webhook_id === sub);
       return json(200, { data: mine, mode: modeOf(key), environment: envOf(key) });
     }

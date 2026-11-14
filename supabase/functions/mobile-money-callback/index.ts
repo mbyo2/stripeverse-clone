@@ -42,6 +42,7 @@ import {
 } from "../_shared/airtel-money.ts";
 import { createAirtelMoneyClient } from "../_shared/airtel-money-server.ts";
 import { normalizeTelcoProvider } from "../_shared/telco-payments.ts";
+import { ipRateLimitResponse } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,6 +70,15 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
+
+  // Workstream E (security audit 2026-11-15): provider callbacks are
+  // unauthenticated hints, and the endpoint never throttled them — a
+  // forged flood costs a hint-counter write + (when live) a provider
+  // status re-query per hit. Per-IP 60/min, before any body work.
+  // Fail-open on limiter error. Providers retry on 429; the handler
+  // otherwise always answers 200, and 429 is the deliberate exception.
+  const limited = await ipRateLimitResponse(service, req, "mobile_money_callback", 60, corsHeaders);
+  if (limited) return limited;
 
   let body: Record<string, unknown> = {};
   try {

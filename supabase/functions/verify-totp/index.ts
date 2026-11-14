@@ -3,6 +3,15 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { decode as base32Decode } from "https://deno.land/std@0.168.0/encoding/base32.ts"
 import { getSupabaseClient } from '../_shared/supabase-client.ts'
+import { withinLimit } from '../_shared/rate-limit.ts'
+
+// Workstream E (security audit 2026-11-15): TOTP guesses were
+// unlimited — live-proven 12/12 wrong guesses in ~4s, 0x429, no
+// lockout, against a 6-digit code. 5 attempts per 15 minutes per user
+// keeps legitimate use (a mistyped code + retry) working while making
+// brute force infeasible (~500k guesses needed on average).
+const MAX_TOTP_ATTEMPTS = 5;
+const TOTP_ATTEMPT_WINDOW_MINUTES = 15;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +44,15 @@ async function hotp(secret: Uint8Array, counter: number): Promise<string> {
 
 async function totp(secret: string, timeStep = 30): Promise<string> {
   const counter = Math.floor(Date.now() / 1000 / timeStep);
+  const secretBytes = base32Decode(secret);
+  return await hotp(secretBytes, counter);
+}
+
+// Workstream E: totp() always uses the CURRENT counter — the old loop
+// called it with a fixed 30s step, so the "±1 window" check compared
+// the same code three times and clock drift always failed. This variant
+// takes the counter directly, so each window is genuinely checked.
+async function totpAt(secret: string, counter: number): Promise<string> {
   const secretBytes = base32Decode(secret);
   return await hotp(secretBytes, counter);
 }
@@ -74,6 +92,24 @@ serve(async (req) => {
       throw new Error('2FA not set up');
     }
 
+    // Workstream E: attempt limit, checked after the secret exists so
+    // accounts without 2FA never consume budget. 5 wrong guesses per
+    // 15 minutes, then 429 until the window passes. Fail-open on
+    // limiter error, like every other check_advanced_rate_limit caller.
+    const attemptsOk = await withinLimit(
+      supabaseClient,
+      `user:${userId}`,
+      "verify_totp",
+      MAX_TOTP_ATTEMPTS,
+      TOTP_ATTEMPT_WINDOW_MINUTES,
+    );
+    if (!attemptsOk) {
+      return new Response(
+        JSON.stringify({ error: "Too many verification attempts. Please wait a few minutes and try again." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 },
+      );
+    }
+
     // Check for replay attacks - verify token hasn't been used before
     const { data: usedTokens } = await supabaseClient
       .from('used_totp_tokens')
@@ -90,8 +126,10 @@ serve(async (req) => {
     let isValid = false;
 
     for (let i = -1; i <= 1; i++) {
-      const timeStep = currentTime + i;
-      const expectedToken = await totp(twoFactorData.secret, 30);
+      // Workstream E: the old code called totp(secret, 30) here, which
+      // recomputes the CURRENT counter every iteration — the ±1 window
+      // was dead code. totpAt checks each window genuinely.
+      const expectedToken = await totpAt(twoFactorData.secret, currentTime + i);
       if (token === expectedToken) {
         isValid = true;
         break;
@@ -114,19 +152,21 @@ serve(async (req) => {
         .update({ enabled: true })
         .eq('user_id', userId);
 
-      // Log security event
+      // Log security event — Workstream E: NEVER log the token value
+      // itself (the old code stored both attempted and valid codes in
+      // the audit log). Only the outcome is recorded.
       await supabaseClient.rpc('log_security_event', {
         p_user_id: userId,
         p_event_type: '2fa_verification_success',
-        p_event_data: { token_used: token },
+        p_event_data: {},
         p_risk_score: 1
       });
     } else {
-      // Log failed verification attempt
+      // Log failed verification attempt (outcome only, never the code).
       await supabaseClient.rpc('log_security_event', {
         p_user_id: userId,
         p_event_type: '2fa_verification_failed',
-        p_event_data: { token_attempted: token },
+        p_event_data: {},
         p_risk_score: 3
       });
     }

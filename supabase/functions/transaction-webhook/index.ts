@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { notifyMerchantWebhooks } from "../_shared/merchant-webhooks.ts"
+import { ipRateLimitResponse } from "../_shared/rate-limit.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,6 +19,13 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
+
+    // Workstream E (security audit 2026-11-15): invalid-signature
+    // deliveries were never throttled (live-proven 10/10 in ~7s,
+    // 0x429). Per-IP 60/min, before any verification work. Fail-open
+    // on limiter error; providers retry on 429.
+    const limited = await ipRateLimitResponse(supabaseClient, req, "transaction_webhook", 60, corsHeaders);
+    if (limited) return limited;
 
     // The raw body is read ONCE and kept: the signature is verified
     // over these exact bytes, never over a re-serialized object

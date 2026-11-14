@@ -21,6 +21,7 @@ import { loadConnection, refreshCollectionFromRail } from "../_shared/momo-rail-
 import { dispatchPaymentLinkPaid } from "../_shared/developer-webhooks.ts";
 import { notifyMerchantMomoOutcome } from "../_shared/merchant-webhooks.ts";
 import { platformChargeFor } from "../_shared/momo-rail.ts";
+import { ipRateLimitResponse } from "../_shared/rate-limit.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -40,6 +41,14 @@ serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   const db = admin();
   try {
+    // Workstream E (security audit 2026-11-15): the gateway endpoint
+    // never throttled deliveries — each unverifiable hit costs a DB
+    // lookup + connection load. Per-IP 60/min, before any body work.
+    // Fail-open on limiter error; the gateway retries on 429.
+    // (The Doc-side relay adds the same guard at the shared ingress.)
+    const limited = await ipRateLimitResponse(db, req, "momo_webhook", 60, {});
+    if (limited) return limited;
+
     const rawBody = await req.text();
     let payload: { event?: string; data?: { reference?: string } } = {};
     try {

@@ -25,10 +25,20 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
+import { withinLimit } from "../_shared/rate-limit.ts";
 import {
   KEY_PREFIXES,
   sanitizeScopes,
 } from "../_shared/connector-config.ts";
+
+// Workstream E (security audit 2026-11-15): key-minting was unbounded —
+// live-proven 25 keys minted in 34s by one user, 0x429, no cap. A
+// leaked session (or a bot account) could mint keys without end, and
+// each live key moves real money. 10 mints/hour per user is generous
+// for legitimate use (dashboards mint a handful); 20 active keys per
+// user caps the row spam and the blast radius.
+const MAX_MINTS_PER_HOUR = 10;
+const MAX_ACTIVE_KEYS_PER_USER = 20;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,6 +81,30 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return json(401, { error: "unauthorized", message: "Sign in to create an API key." });
+    }
+
+    // Workstream E: mint rate limit (10/hour per user). Fail-open on
+    // limiter error, like every other check_advanced_rate_limit caller.
+    const mintOk = await withinLimit(supabase, `user:${user.id}`, "generate_api_key", MAX_MINTS_PER_HOUR, 60);
+    if (!mintOk) {
+      return json(429, {
+        error: "rate_limited",
+        message: "Too many API keys created. Please wait a while before creating another.",
+      });
+    }
+
+    // Workstream E: active-key cap. Revoke an old key before minting
+    // past the cap (revoke-api-key, or the dashboard key list).
+    const { count: activeCount } = await supabase
+      .from("api_keys")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_active", true);
+    if ((activeCount ?? 0) >= MAX_ACTIVE_KEYS_PER_USER) {
+      return json(400, {
+        error: "key_limit_reached",
+        message: `You already have ${MAX_ACTIVE_KEYS_PER_USER} active API keys. Revoke one before creating another.`,
+      });
     }
 
     const { name, type, scopes, expires_at } = await req.json().catch(() => ({}));

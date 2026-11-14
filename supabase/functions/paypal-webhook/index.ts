@@ -28,6 +28,7 @@ import {
   verifyPayPalWebhookSignature,
 } from "../_shared/paypal-webhook-verify.ts";
 import { orderIdFromWebhookEvent } from "../_shared/deposit-capture.ts";
+import { ipRateLimitResponse } from "../_shared/rate-limit.ts";
 import {
   payoutBatchIdFromWebhookResource,
   payoutItemIdFromWebhookResource,
@@ -64,6 +65,15 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
+
+    // Workstream E (security audit 2026-11-15): invalid-signature
+    // deliveries were never throttled (live-proven 10/10 in ~7s,
+    // 0x429), and each one costs a PayPal verify API call. Per-IP
+    // 60/min, before any verification work. Fail-open on limiter
+    // error so real PayPal deliveries are never dropped by a counter
+    // outage; PayPal retries on 429.
+    const limited = await ipRateLimitResponse(supabaseClient, req, "paypal_webhook", 60, corsHeaders);
+    if (limited) return limited;
 
     const body = await req.text();
     const webhookData = JSON.parse(body);
