@@ -14,7 +14,7 @@ serve(async (req) => {
 
   try {
     const supabase = getSupabaseClient(req);
-    const { cardId, accessType } = await req.json();
+    const { cardId, accessType: rawAccessType } = await req.json();
 
     // Get the authenticated user. The token is passed explicitly: a
     // bare getUser() ignores the Authorization header on pinned
@@ -34,12 +34,22 @@ serve(async (req) => {
       );
     }
 
-    // Get client IP from headers (in production)
-    const clientIP = req.headers.get('x-forwarded-for') || 
-                    req.headers.get('x-real-ip') || 
-                    'unknown';
-    
+    // Get client IP from headers (in production). Only a syntactically
+    // valid IP is forwarded: log_card_access_attempt takes p_ip_address as
+    // inet, and 'unknown' (or a multi-value X-Forwarded-For) would fail
+    // the cast and 500 the whole check (workstream A).
+    const rawIP = (req.headers.get('x-forwarded-for') || '')
+      .split(',')[0].trim() || req.headers.get('x-real-ip') || '';
+    const clientIP = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(rawIP) || rawIP.includes(':')
+      ? rawIP
+      : null;
+
     const userAgent = req.headers.get('user-agent') || 'unknown';
+
+    // accessType defaults: log_card_access_attempt has NO default for
+    // p_access_type, and supabase-js drops undefined keys, so an omitted
+    // accessType made PostgREST reject the RPC call (workstream A).
+    const accessType = typeof rawAccessType === 'string' && rawAccessType ? rawAccessType : 'view';
 
     // Validate card access using enhanced security function.
     // log_card_access_attempt is EXECUTE-granted to service_role only

@@ -11,14 +11,17 @@ export const useSecureCardAccess = () => {
     if (!user?.id) return;
 
     try {
-      // Use enhanced security logging
-      await supabase.rpc('log_card_access_attempt', {
-        p_user_id: user.id,
-        p_card_id: cardId,
-        p_access_type: accessType,
-        p_ip_address: null, // Would be set by server in production
-        p_user_agent: navigator.userAgent
+      // Card-access logging runs server-side: log_card_access_attempt is
+      // EXECUTE-granted to service_role only, so a direct supabase.rpc
+      // from the browser always failed with 42501 (and the failure was
+      // swallowed here, while the UI still toasted "Access logged").
+      // The validate-card-access edge function holds the service-role
+      // client; the user id it logs comes from the verified JWT, never
+      // from the request body (workstream A, 2026-11-15).
+      const { error } = await supabase.functions.invoke('validate-card-access', {
+        body: { cardId, accessType },
       });
+      if (error) throw error;
     } catch (error) {
       console.error('Failed to log card access:', error);
     }
