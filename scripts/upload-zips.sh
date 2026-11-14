@@ -89,6 +89,7 @@ PY
     -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
     -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
     -H "Content-Type: application/zip" \
+    -H "x-upsert: true" \
     --data-binary "@$ZIP")"
   HTTP="${RESP##*$'\n'}"
   if [ "$HTTP" -ge 200 ] && [ "$HTTP" -lt 300 ]; then

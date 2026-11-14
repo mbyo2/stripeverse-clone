@@ -5,8 +5,8 @@
     "platform": "woocommerce",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-woocommerce-1.0.0.zip",
     "version": "1.0.0",
-    "size": 30014,
-    "sha256": "f9ddf0783258b5e76e1ed79b2cc35cfbe18b89bfa21e759c76c247786d7fc6b2"
+    "size": 31767,
+    "sha256": "4c6bef1c4c981c9184bf5dc44477cc88341f6457b43e90d873325bf9451d27ad"
   },
   {
     "file": "bmaglasspay-odoo-16.0-1.0.0.zip",
@@ -14,8 +14,8 @@
     "platform": "odoo-16.0",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-16.0-1.0.0.zip",
     "version": "1.0.0",
-    "size": 20573,
-    "sha256": "344040efd92d7caef284134aeb14909314d98062269a743c60113a2947909fdb"
+    "size": 20575,
+    "sha256": "ed524e9d8b461f3f2f2e4aa64d48a32949a4e2af4f589512f7624d00690d1d59"
   },
   {
     "file": "bmaglasspay-odoo-17.0-1.0.0.zip",
@@ -23,8 +23,8 @@
     "platform": "odoo-17.0",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-17.0-1.0.0.zip",
     "version": "1.0.0",
-    "size": 21090,
-    "sha256": "7f750ca3b002b202ee943d9971837dea8e1b35d0eafd1056a37a08df0d15cf0a"
+    "size": 21092,
+    "sha256": "eff4e1b3349b09068479af71421c2baec3df8a91fa92b0392abd82b7e5797f47"
   },
   {
     "file": "bmaglasspay-odoo-18.0-1.0.0.zip",
@@ -32,8 +32,8 @@
     "platform": "odoo-18.0",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-18.0-1.0.0.zip",
     "version": "1.0.0",
-    "size": 21059,
-    "sha256": "56f7f3291952574a35478d476f7991fe95aa0c9f0494bec07ac4388fec2bd01b"
+    "size": 21061,
+    "sha256": "6e761d599f279d0a2849cb7ce9a643dcb99f61ecb30940339ca44cdc4ceae4e5"
   },
   {
     "file": "bmaglasspay-odoo-19.0-1.0.0.zip",
@@ -41,8 +41,8 @@
     "platform": "odoo-19.0",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-19.0-1.0.0.zip",
     "version": "1.0.0",
-    "size": 21233,
-    "sha256": "970e9839ec5892f40d01e0aaa9b414805f8167265ad1a50c5b7ad5ac6b666678"
+    "size": 21235,
+    "sha256": "1ead1e4f8c819fd02bed191a702e4798800aae48a69815db3e7e003c435faa2c"
   },
   {
     "file": "bmaglasspay-odoo-20.0-1.0.0.zip",
@@ -50,8 +50,8 @@
     "platform": "odoo-20.0",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-20.0-1.0.0.zip",
     "version": "1.0.0",
-    "size": 23294,
-    "sha256": "e09343627346d3e6b1cbe244f549b04dfb292e0bb1fa3b605bf86ddba0324a6c"
+    "size": 23298,
+    "sha256": "62d6a85ee3372e7c01b708c5704c551ad104f4627a2beb85eaa595e1c8579068"
   },
   {
     "file": "bmaglasspay-magento-1.0.0.zip",
@@ -59,8 +59,8 @@
     "platform": "magento",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-magento-1.0.0.zip",
     "version": "1.0.0",
-    "size": 17347,
-    "sha256": "59474dd3a445d23f9fe5692dd86a08e2afb3356dbc409171f3e066fe8d08a421"
+    "size": 17721,
+    "sha256": "757dba6397448f4e7cf6a305e5383e3eb92b71562526fefe9d99af119cb46a50"
   },
   {
     "file": "bmaglasspay-prestashop-1.7-1.0.0.zip",
@@ -68,8 +68,8 @@
     "platform": "prestashop-1.7",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-prestashop-1.7-1.0.0.zip",
     "version": "1.0.0",
-    "size": 13161,
-    "sha256": "f9c7c63400025c1db1cba2f9ae0b0b1379826e39f78683606b73ba4afd0dc264"
+    "size": 13591,
+    "sha256": "942a6cae2d717756d63c6aac53c1bc372c0b01bf6f1265ab40cdeb0580c9b004"
   },
   {
     "file": "bmaglasspay-prestashop-8-1.0.0.zip",
@@ -77,8 +77,8 @@
     "platform": "prestashop-8",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-prestashop-8-1.0.0.zip",
     "version": "1.0.0",
-    "size": 13131,
-    "sha256": "bc08fd47acdaee6d68c4c87404b35b066bd299946c7e46061cc1f63c988a7205"
+    "size": 13561,
+    "sha256": "a729586b36a12e8cf42f2e1137c1cbe28740a69a710befd049b63a1a218f87ba"
   },
   {
     "file": "bmaglasspay-prestashop-9-1.0.0.zip",
@@ -86,8 +86,8 @@
     "platform": "prestashop-9",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-prestashop-9-1.0.0.zip",
     "version": "1.0.0",
-    "size": 13486,
-    "sha256": "bffffc681b26fe340cf5fbd1d12a446fabc3416cce1552373a0eef9da5a79e0d"
+    "size": 13916,
+    "sha256": "c2158d365891dec8d89af353995f087375c3b51c2dc756cde67f1339971c9603"
   },
   {
     "file": "bmaglasspay-opencart-3-1.0.0.zip",
@@ -95,8 +95,8 @@
     "platform": "opencart-3",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-opencart-3-1.0.0.zip",
     "version": "1.0.0",
-    "size": 15067,
-    "sha256": "04a3d2f46941fb5cf9fdb8c5b7d46f7195d29fdc026bc308440064655acfda63"
+    "size": 15442,
+    "sha256": "03f0f73b48cab04de040beafdae815db422602952fcaa978f6114ff621f73aa5"
   },
   {
     "file": "bmaglasspay-opencart-4-1.0.0.zip",
@@ -104,8 +104,8 @@
     "platform": "opencart-4",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-opencart-4-1.0.0.zip",
     "version": "1.0.0",
-    "size": 14304,
-    "sha256": "f94cbdadc684157896266b60abbab507241fbab4e9ced5aa893cce71100d66ad"
+    "size": 14675,
+    "sha256": "85805582f51116a8439807eb89f8e627f8f295f5b484cc347101b2aea0f5945b"
   },
   {
     "file": "bmaglasspay-sdk-typescript-1.0.0.zip",
@@ -113,8 +113,8 @@
     "platform": "sdk-typescript",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-typescript-1.0.0.zip",
     "version": "1.0.0",
-    "size": 12954,
-    "sha256": "da584225fc896f1d48786da32918f415d5eaa3ea7b1d0014cd86a52b38df3363"
+    "size": 14461,
+    "sha256": "6a9597f20aa114c003cca069dd116ae0a8d185f3b4f57208c4b30b90be067f8e"
   },
   {
     "file": "bmaglasspay-sdk-python-1.0.0.zip",
@@ -122,8 +122,8 @@
     "platform": "sdk-python",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-python-1.0.0.zip",
     "version": "1.0.0",
-    "size": 4556,
-    "sha256": "70a3b616d168a9e0b50b0c7588835c340421fdd5dad904ef6eb8580c2fb0635e"
+    "size": 4837,
+    "sha256": "4c1090b0973806e713048e143f34a177298e3f9e86bcb2e398397a6f4d2c48c9"
   },
   {
     "file": "bmaglasspay-sdk-php-1.0.0.zip",
@@ -131,8 +131,8 @@
     "platform": "sdk-php",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-php-1.0.0.zip",
     "version": "1.0.0",
-    "size": 11133,
-    "sha256": "af709c37c4e174ba593d4f006d569b8e80670c9643483608b0ab9af0d540c714"
+    "size": 11994,
+    "sha256": "48819c6a34ecc1e27382bdf95c4addbc781e8c9df4f7aca1a775aed0e5261412"
   },
   {
     "file": "bmaglasspay-sdk-flutter-1.0.0.zip",
@@ -140,8 +140,8 @@
     "platform": "sdk-flutter",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-flutter-1.0.0.zip",
     "version": "1.0.0",
-    "size": 11151,
-    "sha256": "684aceafd6022edd24d4cc4f0aaedcecfefde61641e2c2634bb0de25d16937db"
+    "size": 12263,
+    "sha256": "6711c4b90df2a4028a49df5a208b236ca161d042e1bd101c4531ce2c4c3ec0c2"
   },
   {
     "file": "bmaglasspay-sdk-react-native-1.0.0.zip",
@@ -149,8 +149,8 @@
     "platform": "sdk-react-native",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-react-native-1.0.0.zip",
     "version": "1.0.0",
-    "size": 11389,
-    "sha256": "db10e40dde97f894f7a2f1704d4325f738cc1d97bb4b8f7bb8de0a582517f585"
+    "size": 12372,
+    "sha256": "c9b33fc91e510eb9d58816a3b3ab61b1825e5c41e7fc25c62f9aacd3420cc988"
   },
   {
     "file": "bmaglasspay-embed-button-1.0.0.zip",
@@ -167,7 +167,7 @@
     "platform": "automation",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-automation-1.0.0.zip",
     "version": "1.0.0",
-    "size": 7087,
-    "sha256": "f00abf1be1b61fa6412d86d947fea9f8c0f148735beb688db134f81232fffe3a"
+    "size": 8455,
+    "sha256": "c65ba8276256acb7302dc0d2af97abc98bb12e8640cee7bb7b19c0adf9c587a1"
   }
 ]
