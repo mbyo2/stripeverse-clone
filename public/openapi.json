@@ -383,7 +383,7 @@
         "summary": "List webhook endpoints (secrets are never returned)"
       },
       "post": {
-        "description": "HTTPS URLs only. The signing secret (whsec_\u2026) is returned exactly once in this response. Events: transaction.completed, payment_link.created, payment_link.paid, webhook.test. Allowed with test keys (no money moves). The payment_link.paid payload's data carries the link id/code/title, the amount and currency, the fee truth (fee_payer, fee_amount and total_charged \u2014 what the buyer actually paid in total, so a shop can reconcile the paid total against its order total plus the fee where it added one), the settlement transaction ids and the link's current payment_count/total_collected.",
+        "description": "HTTPS URLs only. The signing secret (whsec_\u2026) is returned exactly once in this response. Events: transaction.completed, payment_link.created, payment_link.paid, invoice.created, invoice.paid, mobile_money.collection.completed, webhook.test. Allowed with test keys (no money moves). The payment_link.paid payload's data carries the link id/code/title, the amount and currency, the fee truth (fee_payer, fee_amount and total_charged \u2014 what the buyer actually paid in total, so a shop can reconcile the paid total against its order total plus the fee where it added one), the settlement transaction ids and the link's current payment_count/total_collected.",
         "operationId": "createWebhook",
         "requestBody": {
           "content": {

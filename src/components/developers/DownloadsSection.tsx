@@ -31,6 +31,11 @@ import { CONNECTORS_REPO_URL } from "@/lib/connectors";
 //   - No pricing discussion in this section.
 //   - If the manifest cannot be loaded, show that plainly and link the
 //     connectors repository — never render invented buttons.
+//   - If a single package file is missing/unreachable, the button must
+//     not be a dead link: the click first verifies the file answers,
+//     and on failure shows a clear per-file error with a way forward
+//     (retry, or the connectors repository) instead of navigating the
+//     user to a storage error page.
 
 export interface DownloadEntry {
   name: string;
@@ -53,6 +58,46 @@ function formatSize(bytes: number): string {
 export default function DownloadsSection() {
   const [entries, setEntries] = useState<DownloadEntry[] | null>(null);
   const [failed, setFailed] = useState(false);
+  // Platforms whose file did not answer the pre-download check —
+  // the button stays, but the user gets a clear error, not a dead
+  // link to a storage error page.
+  const [unreachable, setUnreachable] = useState<Record<string, boolean>>({});
+  const [checking, setChecking] = useState<Record<string, boolean>>({});
+
+  // Verify the file answers before downloading it: a manifest entry
+  // can outlive its object (re-upload, rename, bucket mishap), and a
+  // plain link would land the user on a bare storage error page.
+  // A HEAD that fails (404, network, or a CORS-blocked error page)
+  // shows the per-file error instead; a HEAD that answers starts
+  // the same download the link would have. One retry rides out the
+  // storage endpoint's occasional dropped connection (seen live)
+  // so a transient drop does not cry wolf on a healthy file.
+  function handleDownload(e: React.MouseEvent<HTMLAnchorElement>, entry: DownloadEntry) {
+    e.preventDefault();
+    if (checking[entry.platform]) return;
+    setChecking((prev) => ({ ...prev, [entry.platform]: true }));
+    const head = (): Promise<Response> =>
+      fetch(entry.url, { method: "HEAD" }).catch(() =>
+        new Promise<Response>((resolve) => setTimeout(() => resolve(fetch(entry.url, { method: "HEAD" })), 300)),
+      );
+    head()
+      .then((res) => {
+        if (!res.ok) throw new Error(`download file answered ${res.status}`);
+        const a = document.createElement("a");
+        a.href = entry.url;
+        a.download = entry.file;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setUnreachable((prev) => ({ ...prev, [entry.platform]: false }));
+      })
+      .catch(() => {
+        setUnreachable((prev) => ({ ...prev, [entry.platform]: true }));
+      })
+      .finally(() => {
+        setChecking((prev) => ({ ...prev, [entry.platform]: false }));
+      });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -119,10 +164,20 @@ export default function DownloadsSection() {
                     SHA-256: <code>{entry.sha256}</code>
                   </p>
                 )}
+                {unreachable[entry.platform] && (
+                  <p role="alert" className="mt-1">
+                    This package could not be reached — the file may have been removed. Try
+                    again, or get the same code from the connectors repository:{" "}
+                    <a className="underline" href={CONNECTORS_REPO_URL} target="_blank" rel="noreferrer">
+                      {CONNECTORS_REPO_URL}
+                    </a>
+                    .
+                  </p>
+                )}
               </div>
               <Button asChild className="shrink-0">
-                <a href={entry.url} download={entry.file}>
-                  Download {entry.name} — v{entry.version}
+                <a href={entry.url} download={entry.file} onClick={(e) => handleDownload(e, entry)}>
+                  {checking[entry.platform] ? `Checking ${entry.name}…` : `Download ${entry.name} — v${entry.version}`}
                 </a>
               </Button>
             </div>

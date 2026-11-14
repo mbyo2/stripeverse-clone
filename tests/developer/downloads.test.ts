@@ -15,6 +15,9 @@
 //   4. No fee talk in any of the new copy.
 //   5. The upload script reads the service_role key from the environment
 //      only — no secret value lives in the repo.
+//   6. A per-file error state: the click verifies the file answers
+//      (HEAD) before downloading; an unreachable file shows a clear
+//      in-app error with a retry, never a dead button.
 
 import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync, statSync } from "node:fs";
@@ -109,6 +112,24 @@ describe("Downloads section on the Developers page", () => {
     expect(section.toLowerCase()).not.toContain("fee");
     expect(section).toContain("could not be loaded");
     expect(section).not.toContain("mock");
+  });
+
+  it("verifies each file before downloading and shows a clear per-file error when it is unreachable", () => {
+    const section = read("src/components/developers/DownloadsSection.tsx");
+    // The click checks the file first — a missing object must surface as
+    // an in-app error, never a dead button landing on a storage error page.
+    expect(section).toContain('method: "HEAD"');
+    // One retry rides out the storage endpoint's occasional dropped
+    // connection, so a transient drop does not cry wolf on a healthy file.
+    expect(section).toContain("setTimeout(() => resolve(fetch(entry.url");
+    expect(section).toContain("onClick={(e) => handleDownload(e, entry)}");
+    expect(section).toContain("could not be reached");
+    expect(section).toContain('role="alert"');
+    expect(section).toContain("Try");
+    expect(section).toContain("again");
+    // The failed state never hides the retry: the button stays and the
+    // error points at the connectors repository for the same code.
+    expect(section).toContain("CONNECTORS_REPO_URL");
   });
 
   it("is wired into src/pages/Developers.tsx after the Connectors card", () => {
