@@ -33,7 +33,7 @@ const ENDPOINTS = [
   { method: "GET", path: "/webhook-deliveries", scope: "any valid key", desc: "Delivery log: status, HTTP response and error per attempt" },
 ];
 
-const EVENTS = ["transaction.completed", "payment_link.created", "payment_link.paid", "webhook.test"];
+const EVENTS = ["transaction.completed", "payment_link.created", "payment_link.paid", "invoice.created", "invoice.paid", "mobile_money.collection.completed", "webhook.test"];
 
 export default function Developers() {
   return (

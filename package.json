@@ -67,7 +67,7 @@
     "react-hook-form": "^7.53.0",
     "react-intersection-observer": "^9.16.0",
     "react-resizable-panels": "^2.1.3",
-    "react-router-dom": "^6.26.2",
+    "react-router-dom": "^6.30.6",
     "recharts": "^2.12.7",
     "sonner": "^2.0.3",
     "tailwind-merge": "^2.5.2",
@@ -98,6 +98,7 @@
     "vitest": "^2.1.9"
   },
   "overrides": {
-    "lodash": "^4.17.23"
+    "lodash": "^4.17.23",
+    "decode-uri-component": "0.5.1"
   }
 }
