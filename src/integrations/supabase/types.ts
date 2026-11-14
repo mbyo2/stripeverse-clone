@@ -1368,6 +1368,7 @@ export type Database = {
           api_key: string | null
           api_key_masked: string | null
           business_name: string
+          trading_name: string | null
           business_type: string
           contact_info: Json
           created_at: string
@@ -1388,6 +1389,7 @@ export type Database = {
           api_key?: string | null
           api_key_masked?: string | null
           business_name: string
+          trading_name: string | null
           business_type: string
           contact_info: Json
           created_at?: string
@@ -1408,6 +1410,7 @@ export type Database = {
           api_key?: string | null
           api_key_masked?: string | null
           business_name?: string
+          trading_name?: string | null
           business_type?: string
           contact_info?: Json
           created_at?: string
@@ -3487,6 +3490,7 @@ export type Database = {
           address: Json | null
           api_key_masked: string | null
           business_name: string | null
+          trading_name: string | null
           business_type: string | null
           contact_info: Json | null
           created_at: string | null
@@ -3504,6 +3508,7 @@ export type Database = {
           address?: Json | null
           api_key_masked?: string | null
           business_name?: string | null
+          trading_name?: string | null
           business_type?: string | null
           contact_info?: Json | null
           created_at?: string | null
@@ -3521,6 +3526,7 @@ export type Database = {
           address?: Json | null
           api_key_masked?: string | null
           business_name?: string | null
+          trading_name?: string | null
           business_type?: string | null
           contact_info?: Json | null
           created_at?: string | null

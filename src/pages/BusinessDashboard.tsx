@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
 import { TrendingUp, Activity, CreditCard, DollarSign, ArrowLeft, ArrowUpRight, ArrowDownRight, ChevronRight } from "lucide-react";
 import { useBusinessData } from "@/hooks/useBusinessData";
+import { displayBusinessName } from "@/utils/merchantDisplay";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -70,7 +71,7 @@ const BusinessDashboard = () => {
               )}
             </div>
             <p className="text-muted-foreground">
-              {merchantAccount?.business_name || 'Your business'} — Performance overview
+              {displayBusinessName(merchantAccount, 'Your business')} — Performance overview
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => navigate('/business')}>

@@ -26,6 +26,7 @@ import { WebhookManager } from "@/components/business/WebhookManager";
 import { ApiDocs } from "@/components/business/ApiDocs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { transactionTitle, isCardFundingTransaction } from "@/utils/transactionLabels";
+import { displayBusinessName, hasDistinctTradingName } from "@/utils/merchantDisplay";
 
 const Business = () => {
   const { user } = useAuth();
@@ -85,7 +86,7 @@ const Business = () => {
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-greeting text-foreground">
-                  {merchantAccount?.business_name || 'Business Portal'}
+                  {displayBusinessName(merchantAccount)}
                 </h1>
                 {merchantAccount?.status && (
                   <Badge className={`text-xs ${merchantAccount.status === 'active' ? 'bg-success/15 text-success border-success/30' : 'bg-warning text-warning-foreground border-0'}`}>
@@ -446,7 +447,15 @@ const Business = () => {
                     {merchantAccount ? (
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                         {[
-                          { label: 'Business Name', value: merchantAccount.business_name },
+                          {
+                            label: 'Business Name',
+                            value: displayBusinessName(merchantAccount, '—'),
+                            // The registered legal name stays truthful as
+                            // a secondary line when a trading name is set.
+                            sub: hasDistinctTradingName(merchantAccount)
+                              ? `Registered business name: ${merchantAccount.business_name}`
+                              : undefined,
+                          },
                           { label: 'Business Type', value: merchantAccount.business_type },
                           { label: 'Contact Email', value: (merchantAccount.contact_info as any)?.email || '—' },
                           { label: 'Status', value: merchantAccount.status, isBadge: true },
@@ -459,6 +468,9 @@ const Business = () => {
                               </Badge>
                             ) : (
                               <p className="text-sm font-medium text-foreground capitalize">{field.value}</p>
+                            )}
+                            {field.sub && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{field.sub}</p>
                             )}
                           </div>
                         ))}

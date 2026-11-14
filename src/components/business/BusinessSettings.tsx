@@ -21,7 +21,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 const businessSettingsSchema = z.object({
-  businessName: z.string().min(2, "Business name must be at least 2 characters."),
+  // Trading name: the name shown in the Business portal. Optional —
+  // blank falls back to the registered business name. The registered
+  // name itself is a legal fact and is never written from this form.
+  tradingName: z.string().max(120, "Trading name must be at most 120 characters.").optional(),
   contactEmail: z.string().email("Please enter a valid email address."),
   contactPhone: z.string().min(10, "Please enter a valid phone number."),
   notificationPreference: z.enum(["email", "sms", "both"]),
@@ -49,7 +52,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
   const form = useForm<BusinessSettingsFormValues>({
     resolver: zodResolver(businessSettingsSchema),
     defaultValues: {
-      businessName: "",
+      tradingName: "",
       contactEmail: "",
       contactPhone: "",
       notificationPreference: "email",
@@ -76,7 +79,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
         const contact = data.contact_info as any || {};
         const address = data.address as any || {};
         form.reset({
-          businessName: data.business_name || "",
+          tradingName: data.trading_name || "",
           contactEmail: contact.email || user.email || "",
           contactPhone: contact.phone || "",
           notificationPreference: contact.notification_preference || "email",
@@ -89,7 +92,7 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
         });
       } else {
         form.reset({
-          businessName: "",
+          tradingName: "",
           contactEmail: user.email || "",
           contactPhone: "",
           notificationPreference: "email",
@@ -126,11 +129,17 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
         .eq('user_id', user.id)
         .maybeSingle();
 
+      // The registered business name is a legal fact: this form only
+      // ever writes the trading name. A first-time merchant has no
+      // record yet, so their entered name becomes the registered
+      // name at creation (trading name stays null and the portal
+      // falls back to it).
+      const tradingName = data.tradingName?.trim() || null;
       if (existing) {
         const { error } = await supabase
           .from('merchant_accounts')
           .update({
-            business_name: data.businessName,
+            trading_name: tradingName,
             contact_info: contactInfo,
             address: address,
             mobile_money_enabled: data.mobileMoney,
@@ -138,11 +147,16 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
           .eq('user_id', user.id);
         if (error) throw error;
       } else {
+        if (!tradingName) {
+          toast({ title: "Business name required", description: "Please enter your business name to set up your account.", variant: "destructive" });
+          return;
+        }
         const { error } = await supabase
           .from('merchant_accounts')
           .insert({
             user_id: user.id,
-            business_name: data.businessName,
+            business_name: tradingName,
+            trading_name: null,
             business_type: 'general',
             contact_info: contactInfo,
             address: address,
@@ -190,8 +204,13 @@ export function BusinessSettings({ isOpen, onClose }: BusinessSettingsProps) {
                   <BusinessLogo initialLogo={null} onLogoChange={setLogoFile} disabled={isSubmitting} />
                 </div>
 
-                <FormField control={form.control} name="businessName" render={({ field }) => (
-                  <FormItem><FormLabel>Business Name</FormLabel><FormControl><Input {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                <FormField control={form.control} name="tradingName" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Trading name</FormLabel>
+                    <FormControl><Input {...field} disabled={isSubmitting} placeholder="e.g. BMaGlass Pay" /></FormControl>
+                    <FormDescription>The name shown in your Business portal. Leave blank to use your registered business name.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
                 )} />
 
                 <FormField control={form.control} name="businessAddress" render={({ field }) => (
