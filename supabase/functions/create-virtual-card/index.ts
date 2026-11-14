@@ -6,6 +6,7 @@ import {
   generateNonce,
   signMastercardRequest,
 } from "../_shared/mastercard-oauth.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 import {
   cardVaultKeyFromEnv,
   encryptCardDetails,
@@ -346,7 +347,7 @@ async function createCardViaProcessing(args: {
     .single();
   if (createError) {
     logStep("Error recording Processing card", { message: createError.message, providerCardId });
-    throw new Error(`Failed to create virtual card: ${createError.message}`);
+    throw new Error("Failed to create virtual card");
   }
 
   logStep("Virtual card created via Mastercard Processing", { cardId: newCard.id, providerCardId });
@@ -400,7 +401,7 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
+    if (userError) throw new Error("Authentication failed");
     
     const user = userData.user;
     if (!user?.id) throw new Error("User not authenticated");
@@ -587,7 +588,7 @@ serve(async (req) => {
 
     if (createError) {
       logStep("Error creating card", createError);
-      throw new Error(`Failed to create virtual card: ${createError.message}`);
+      throw new Error("Failed to create virtual card");
     }
 
     logStep("Virtual card created successfully", { cardId: newCard.id });
@@ -624,17 +625,29 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in create-virtual-card", { message: errorMessage });
     
-    // Return generic error to user, log details server-side
-    const userError = error instanceof Error && error.message.includes("Invalid") 
-      ? error.message 
-      : "Failed to create virtual card";
+    // Only this function's own crafted validation messages reach
+    // the client. The old substring check ("Invalid") also passed
+    // through raw database errors that merely contain the word
+    // "Invalid" (e.g. "invalid input syntax for type uuid").
+    const userError = publicErrorMessage(error, "Failed to create virtual card", [
+      "No authorization header provided",
+      "Authentication failed",
+      "User not authenticated",
+      "Invalid card name",
+      "Invalid provider",
+      "Invalid card type",
+      "Failed to resolve wallet for card",
+      "Wallet is not active",
+      "Failed to generate card number",
+      "Failed to create virtual card",
+    ]);
     
     return new Response(JSON.stringify({ 
       success: false, 
       error: userError
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: error instanceof Error && error.message.includes("Invalid") ? 400 : 500,
+      status: userError === "Failed to create virtual card" ? 500 : 400,
     });
   }
 });

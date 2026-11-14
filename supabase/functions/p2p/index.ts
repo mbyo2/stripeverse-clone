@@ -47,6 +47,7 @@ import {
   getServiceRoleClient,
   getSupabaseClient,
 } from "../_shared/supabase-client.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 import {
   buildRpcArgs,
   buildTransferArgs,
@@ -578,12 +579,16 @@ async function handleAccountTransfer(admin: any, user: any, action: string, body
   if (!built.ok) return json(400, { error: built.error });
 
   // Freeze guard: a frozen account cannot move money out of either
-  // wallet. The guard throws the crafted frozen/unverified message,
-  // which is written for the user, so it passes through verbatim.
+  // wallet. Only the guard's own crafted frozen message passes
+  // through: a database failure inside the status read must never
+  // surface as a 403 carrying raw internals (Workstream D).
   try {
     await assertAccountNotFrozen(admin, user.id);
   } catch (e) {
-    return json(403, { error: thrownMessage(e, ACCOUNT_FROZEN_MESSAGE) });
+    if (e instanceof Error && e.message === ACCOUNT_FROZEN_MESSAGE) {
+      return json(403, { error: ACCOUNT_FROZEN_MESSAGE });
+    }
+    return json(503, { error: "Account status could not be verified. Please try again." });
   }
 
   const { data, error } = await admin.rpc("p2p_account_transfer", {
@@ -816,7 +821,7 @@ serve(async (req) => {
   } catch (e) {
     console.error("p2p error:", e);
     return json(500, {
-      error: thrownMessage(e, "Something went wrong. Please try again."),
+      error: publicErrorMessage(e, "Something went wrong. Please try again."),
     });
   }
 });

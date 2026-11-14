@@ -84,6 +84,7 @@ import {
   dispatchEvent,
   KNOWN_DEVELOPER_EVENTS,
 } from "../_shared/developer-webhooks.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 import { notifyMerchantMomoOutcome } from "../_shared/merchant-webhooks.ts";
 import { linkFeeRateForMethod, paymentLinkAmounts, type FeePayer } from "../_shared/fee-math.ts";
 import {
@@ -555,7 +556,7 @@ serve(async (req) => {
         p_description: description ?? null, p_recipient_name: recipient_name ?? null,
         p_payment_method: "wallet",
       });
-      if (error) return err(422, "transfer_failed", error.message);
+      if (error) return err(422, "transfer_failed", publicErrorMessage(error, "Transfer failed"));
       const row = Array.isArray(data) ? data[0] : data;
       // Announce exactly once. The transfer RPC is idempotent: a
       // replayed request returns the SAME transaction_id and moves
@@ -1117,7 +1118,9 @@ serve(async (req) => {
 
     return err(404, "not_found", `No route for ${method} /${parts.join("/")}. See the OpenAPI spec for the shipped surface.`);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Unexpected error";
+    const message = publicErrorMessage(e, "Unexpected error", [
+      "collection row missing after start",
+    ]);
     return err(500, "internal_error", message);
   }
 });

@@ -24,6 +24,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 import {
   ACCOUNT_FROZEN_MESSAGE,
   isAccountFrozen,
@@ -298,6 +299,6 @@ serve(async (req) => {
     return json(400, { error: `Unknown action: ${action}` });
   } catch (e) {
     console.error("btc-trade error:", e);
-    return json(500, { error: thrownMessage(e, "Trade failed") });
+    return json(500, { error: publicErrorMessage(e, "Trade failed") });
   }
 });

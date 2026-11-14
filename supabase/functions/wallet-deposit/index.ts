@@ -48,7 +48,8 @@ import {
   paypalLandingPageForFunding,
 } from "../_shared/payment-providers.ts";
 import { getPayPalAccessToken, paypalBaseUrl } from "../_shared/paypal-deposit.ts";
-import { validateFiatAmount } from "../_shared/fiat-amount.ts";
+import { FIAT_DECIMAL_PLACES_ERROR, FIAT_POSITIVE_ERROR, validateFiatAmount } from "../_shared/fiat-amount.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 import { paypalErrorTrace } from "../_shared/deposit-capture.ts";
 
 const corsHeaders = {
@@ -88,7 +89,7 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
+    if (userError) throw new Error("Authentication failed");
 
     const user = userData.user;
     if (!user?.id) throw new Error("User not authenticated");
@@ -127,7 +128,7 @@ serve(async (req) => {
         .select("id, currency, status, user_id")
         .eq("id", body.wallet_id)
         .maybeSingle();
-      if (error) throw new Error(`Wallet lookup failed: ${error.message}`);
+      if (error) throw new Error("Wallet lookup failed");
       if (!data) throw new Error("Target wallet not found");
       if (data.user_id !== user.id) {
         return json({ success: false, status: "forbidden", error: "Target wallet does not belong to you" }, 403);
@@ -147,7 +148,7 @@ serve(async (req) => {
         .eq("currency", currency)
         .is("account_id", null)
         .maybeSingle();
-      if (error) throw new Error(`Wallet lookup failed: ${error.message}`);
+      if (error) throw new Error("Wallet lookup failed");
       wallet = data;
       if (!wallet) {
         const { data: created, error: createError } = await supabase
@@ -155,7 +156,7 @@ serve(async (req) => {
           .insert({ user_id: user.id, balance: 0, currency, status: "active" })
           .select("id, currency, status")
           .single();
-        if (createError) throw new Error(`Failed to create wallet: ${createError.message}`);
+        if (createError) throw new Error("Failed to create wallet");
         wallet = created;
       }
     }
@@ -253,7 +254,7 @@ serve(async (req) => {
 
     if (txError) {
       logStep("Pending deposit insert failed", txError);
-      throw new Error(`Failed to record deposit: ${txError.message}`);
+      throw new Error("Failed to record deposit");
     }
 
     logStep("Deposit pending PayPal confirmation", {
@@ -272,7 +273,21 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in wallet-deposit", { message: errorMessage });
-    return json({ success: false, status: "error", error: errorMessage }, 500);
+    return json({ success: false, status: "error", error: publicErrorMessage(error, "Deposit failed", [
+      FIAT_POSITIVE_ERROR,
+      FIAT_DECIMAL_PLACES_ERROR,
+      "No authorization header provided",
+      "Authentication failed",
+      "User not authenticated",
+      "Target wallet not found",
+      "Target wallet could not be resolved",
+      "Target wallet is not active",
+      "Wallet lookup failed",
+      "Failed to create wallet",
+      "Failed to record deposit",
+      "does not match the target wallet's currency",
+      "Amount exceeds the limit",
+    ]) }, 500);
   }
 });
 

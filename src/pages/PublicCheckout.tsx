@@ -13,6 +13,7 @@ import BitcoinLinkPayment from '@/components/payments/BitcoinLinkPayment';
 import MobileMoneyLinkPayment from '@/components/payments/MobileMoneyLinkPayment';
 import { useToast } from '@/hooks/use-toast';
 import { useInvalidateMoneyState } from '@/utils/moneyFreshness';
+import { isSafeHttpUrl } from '@/utils/safeRedirect';
 import {
   feeBreakdownForLink,
   resolveLinkAmount,
@@ -326,7 +327,7 @@ const PublicCheckout = () => {
             </div>
           )}
           <p className="text-sm text-muted-foreground">A receipt has been sent to {email}</p>
-          {linkData?.redirect_url ? (
+          {isSafeHttpUrl(linkData?.redirect_url) ? (
             <Button asChild className="w-full">
               <a href={linkData.redirect_url}>
                 <Store className="mr-2 h-4 w-4" /> Return to store
@@ -587,7 +588,7 @@ const PublicCheckout = () => {
                   linkCode={code!}
                   amount={linkData.amount == null ? Number(customAmount) : null}
                   currency={linkData.currency}
-                  redirectUrl={linkData.redirect_url}
+                  redirectUrl={isSafeHttpUrl(linkData.redirect_url) ? linkData.redirect_url : null}
                   initialRail={bitcoinRail}
                 />
               )

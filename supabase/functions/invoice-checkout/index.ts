@@ -32,6 +32,7 @@ import {
   ACCOUNT_FROZEN_MESSAGE,
   isAccountFrozen,
 } from "../_shared/account-freeze.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 import {
   invoicePayableError,
   mapSettlementError,
@@ -94,7 +95,7 @@ serve(async (req) => {
         .select("id, merchant_id, customer_email, customer_name, invoice_number, items, subtotal, tax_amount, total_amount, currency, due_date, notes, status, paid_at, created_at")
         .eq("payment_link_code", code)
         .maybeSingle();
-      if (error) throw new Error(error.message);
+      if (error) throwRpcError(error, "Payment could not be processed");
       invoice = data;
       if (!invoice) {
         return json({ success: false, status: "not_found", error: "Invoice not found." }, 404);
@@ -105,7 +106,7 @@ serve(async (req) => {
         .select("id, requester_id, recipient_email, amount, currency, description, status, expires_at, paid_at, created_at")
         .eq("payment_link_code", code)
         .maybeSingle();
-      if (error) throw new Error(error.message);
+      if (error) throwRpcError(error, "Payment could not be processed");
       request = data;
       if (!request) {
         return json({ success: false, status: "not_found", error: "Payment request not found." }, 404);
@@ -227,7 +228,7 @@ serve(async (req) => {
       ),
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Payment could not be processed";
+    const message = publicErrorMessage(e, "Payment could not be processed");
     return json({ success: false, status: "error", error: message }, 400);
   }
 });

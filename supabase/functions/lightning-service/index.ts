@@ -56,6 +56,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 import {
   AWAITING_REBALANCE_MESSAGE,
   decodeBolt11,
@@ -916,9 +917,13 @@ serve(async (req) => {
       try {
         await assertAccountNotFrozen(admin, user.id);
       } catch (e) {
-        const msg = thrownMessage(e, ACCOUNT_STATUS_UNVERIFIED_MESSAGE);
-        if (msg === ACCOUNT_FROZEN_MESSAGE) return json(403, { error: msg });
-        return json(503, { error: msg });
+        // Only the guard's own crafted messages pass through: a
+        // database/provider failure inside the status read must never
+        // surface as a 503 carrying raw internals.
+        if (e instanceof Error && e.message === ACCOUNT_FROZEN_MESSAGE) {
+          return json(403, { error: ACCOUNT_FROZEN_MESSAGE });
+        }
+        return json(503, { error: ACCOUNT_STATUS_UNVERIFIED_MESSAGE });
       }
 
       if (!bolt11 || typeof bolt11 !== "string") {
@@ -1163,9 +1168,13 @@ serve(async (req) => {
       try {
         await assertAccountNotFrozen(admin, user.id);
       } catch (e) {
-        const msg = thrownMessage(e, ACCOUNT_STATUS_UNVERIFIED_MESSAGE);
-        if (msg === ACCOUNT_FROZEN_MESSAGE) return json(403, { error: msg });
-        return json(503, { error: msg });
+        // Only the guard's own crafted messages pass through: a
+        // database/provider failure inside the status read must never
+        // surface as a 503 carrying raw internals.
+        if (e instanceof Error && e.message === ACCOUNT_FROZEN_MESSAGE) {
+          return json(403, { error: ACCOUNT_FROZEN_MESSAGE });
+        }
+        return json(503, { error: ACCOUNT_STATUS_UNVERIFIED_MESSAGE });
       }
       if (!input || typeof input !== "string" || !input.trim()) {
         return json(400, { error: LNURL_INPUT_REQUIRED });
@@ -1396,6 +1405,6 @@ serve(async (req) => {
       });
     }
     console.error("lightning-service error:", e);
-    return json(500, { error: thrownMessage(e, "Lightning operation failed") });
+    return json(500, { error: publicErrorMessage(e, "Lightning operation failed") });
   }
 });

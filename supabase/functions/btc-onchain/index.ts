@@ -70,6 +70,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 import {
   ACCOUNT_FROZEN_MESSAGE,
   isAccountFrozen,
@@ -408,7 +409,7 @@ serve(async (req) => {
     if (e instanceof Error && e.message === "UTXO_SCAN_UNAVAILABLE") {
       return json(503, { error: UTXO_SCAN_UNAVAILABLE_MESSAGE });
     }
-    return json(500, { error: thrownMessage(e, "Bitcoin operation failed") });
+    return json(500, { error: publicErrorMessage(e, "Bitcoin operation failed") });
   }
 });
 
@@ -566,7 +567,7 @@ async function checkDeposits(supabase: any) {
     } catch (e) {
       errors.push({
         address: assignment.address,
-        error: e instanceof Error ? e.message : String(e),
+        error: publicErrorMessage(e, "Deposit check failed for this address"),
       });
     }
   }
@@ -580,7 +581,7 @@ async function checkDeposits(supabase: any) {
     console.error("check_deposits: link-attempt scan failed (user scan unaffected):", e);
     errors.push({
       address: "(payment-link attempts)",
-      error: e instanceof Error ? e.message : String(e),
+      error: publicErrorMessage(e, "Payment-link attempt check failed"),
     });
   }
 

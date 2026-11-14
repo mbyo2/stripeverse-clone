@@ -54,8 +54,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
-import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
-import { validateFiatAmount } from "../_shared/fiat-amount.ts";
+import { ACCOUNT_FROZEN_MESSAGE, assertAccountNotFrozen } from "../_shared/account-freeze.ts";
+import { FIAT_DECIMAL_PLACES_ERROR, FIAT_POSITIVE_ERROR, validateFiatAmount } from "../_shared/fiat-amount.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -163,7 +164,7 @@ serve(async (req) => {
         p_payment_method: payment_method || "wallet",
       });
 
-      if (error) throw new Error(error.message);
+      if (error) throwRpcError(error, "Transfer failed");
 
       const row = Array.isArray(data) ? data[0] : data;
       return new Response(JSON.stringify({
@@ -199,7 +200,7 @@ serve(async (req) => {
         p_payment_method: payment_method || "wallet",
       });
 
-      if (error) throw new Error(error.message);
+      if (error) throwRpcError(error, "Transfer failed");
 
       const row = Array.isArray(data) ? data[0] : data;
       return new Response(JSON.stringify({
@@ -225,7 +226,7 @@ serve(async (req) => {
       p_payment_method: payment_method || "wallet",
     });
 
-    if (error) throw new Error(error.message);
+    if (error) throwRpcError(error, "Transfer failed");
 
     const row = Array.isArray(data) ? data[0] : data;
     return new Response(JSON.stringify({
@@ -236,7 +237,17 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Transfer failed";
+    const message = publicErrorMessage(e, "Transfer failed", [
+      ACCOUNT_FROZEN_MESSAGE,
+      FIAT_POSITIVE_ERROR,
+      FIAT_DECIMAL_PLACES_ERROR,
+      "from_user_id required",
+      "reference_type required",
+      "idempotency_key required",
+      "Cannot transfer to yourself",
+      "to_user_id required",
+      "Amount exceeds the limit",
+    ]);
     return new Response(JSON.stringify({ error: message }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

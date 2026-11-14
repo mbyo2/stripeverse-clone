@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useVisibilityPolling } from '@/lib/polling';
 import { toUserFacingError } from '@/utils/userFacingError';
+import { isSafeHttpUrl } from '@/utils/safeRedirect';
 
 /**
  * "Pay with Bitcoin" on the public payment-link page (CEO order
@@ -272,7 +273,7 @@ export default function BitcoinLinkPayment({ linkCode, amount, currency, redirec
               {attempt.fiat_amount.toFixed(2)}.
             </p>
           </div>
-          {redirectUrl && (
+          {isSafeHttpUrl(redirectUrl) && (
             <Button asChild className="w-full">
               <a href={redirectUrl}>
                 <Store className="mr-2 h-4 w-4" /> Return to store
@@ -308,7 +309,7 @@ export default function BitcoinLinkPayment({ linkCode, amount, currency, redirec
               of the {attempt.fiat_currency} {attempt.fiat_amount.toFixed(2)}.
             </p>
           </div>
-          {redirectUrl && (
+          {isSafeHttpUrl(redirectUrl) && (
             <Button asChild variant="outline" className="w-full">
               <a href={redirectUrl}>
                 <Store className="mr-2 h-4 w-4" /> Return to store

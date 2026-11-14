@@ -82,6 +82,7 @@ import {
   isAccountFrozen,
 } from "../_shared/account-freeze.ts";
 import { validateFiatAmount } from "../_shared/fiat-amount.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 import {
   LINK_BTC_ATTEMPT_WINDOW_MINUTES,
   btcLinkBelowMinimum,
@@ -178,7 +179,7 @@ serve(async (req) => {
       .eq("link_code", linkCode)
       .maybeSingle();
 
-    if (linkError) throw new Error(linkError.message);
+    if (linkError) throw new Error("Payment link could not be loaded");
     // Sandbox links (created with a sandbox API key) can never settle
     // real money — they exist so merchants can test the integration,
     // and their only settlement path is the developer API's
@@ -406,7 +407,7 @@ serve(async (req) => {
       p_payment_method: "wallet",
       p_description: `Payment link: ${link.title}`,
     });
-    if (error) throw new Error(error.message);
+    if (error) throwRpcError(error, "Payment could not be processed");
 
     const row = Array.isArray(data) ? data[0] : data;
 
@@ -458,7 +459,11 @@ serve(async (req) => {
       total_charged: row.total_charged != null ? Number(row.total_charged) : amount,
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Payment could not be processed";
+    const message = publicErrorMessage(e, "Payment could not be processed", [
+      "Payment link could not be loaded",
+      "Bitcoin price sources diverge — refusing to quote",
+      "Could not allocate a Bitcoin address for this payment",
+    ]);
     return json({ success: false, status: "error", error: message }, 400);
   }
 });

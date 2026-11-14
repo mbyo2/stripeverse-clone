@@ -30,7 +30,8 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getServiceRoleClient, getSupabaseClient } from "../_shared/supabase-client.ts";
-import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
+import { ACCOUNT_FROZEN_MESSAGE, assertAccountNotFrozen } from "../_shared/account-freeze.ts";
+import { publicErrorMessage } from "../_shared/public-error.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -125,7 +126,20 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Settlement failed";
+    // The inner mapping already converts RPC failures to crafted
+    // throws, but this catch also sees the freeze guard and any
+    // unexpected error — only crafted messages pass through.
+    const message = publicErrorMessage(e, "Settlement failed", [
+      ACCOUNT_FROZEN_MESSAGE,
+      "escrow_id required",
+      "action must be 'release' or 'refund'",
+      "Only the buyer can settle this escrow",
+      "Escrow not found",
+      "Escrow already settled",
+      "Escrow must be funded to settle",
+      "No completed hold found for this escrow",
+      "Settlement failed",
+    ]);
     return new Response(JSON.stringify({ error: message }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,7 +1,8 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
+import { ACCOUNT_FROZEN_MESSAGE, assertAccountNotFrozen } from "../_shared/account-freeze.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,7 +33,7 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
+    if (userError) throw new Error("Authentication failed");
     
     const user = userData.user;
     if (!user?.id) throw new Error("User not authenticated");
@@ -209,7 +210,19 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({ 
       success: false, 
-      error: errorMessage 
+      error: publicErrorMessage(error, "Failed to fund virtual card", [
+        "No authorization header provided",
+        "Authentication failed",
+        "User not authenticated",
+        "Invalid amount",
+        "Virtual card not found",
+        "Wallet not found",
+        "Wallet is not active",
+        "Insufficient wallet balance",
+        "Failed to debit wallet",
+        "Failed to credit virtual card",
+        ACCOUNT_FROZEN_MESSAGE,
+      ])
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

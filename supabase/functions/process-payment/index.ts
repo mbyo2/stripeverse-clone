@@ -48,7 +48,8 @@ import {
   paypalOrderCurrencyRefusal,
 } from "../_shared/payment-providers.ts";
 import { getPayPalAccessToken, paypalBaseUrl } from "../_shared/paypal-deposit.ts";
-import { assertAccountNotFrozen } from "../_shared/account-freeze.ts";
+import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
+import { ACCOUNT_FROZEN_MESSAGE, assertAccountNotFrozen } from "../_shared/account-freeze.ts";
 import { paypalErrorTrace } from "../_shared/deposit-capture.ts";
 import { parseCheckoutTerms } from "../_shared/checkout-capture.ts";
 
@@ -160,7 +161,7 @@ serve(async (req) => {
         .select("id, user_id, status")
         .eq("id", terms.accountId)
         .maybeSingle();
-      if (accountError) throw new Error(`Settlement account lookup failed: ${accountError.message}`);
+      if (accountError) throw new Error("Settlement account lookup failed");
       if (!account || account.user_id !== terms.merchantUserId) {
         return json({
           success: false,
@@ -191,7 +192,7 @@ serve(async (req) => {
       ? walletQuery.eq("account_id", terms.accountId)
       : walletQuery.is("account_id", null);
     const { data: existingWallet, error: walletError } = await walletQuery.maybeSingle();
-    if (walletError) throw new Error(`Settlement wallet lookup failed: ${walletError.message}`);
+    if (walletError) throw new Error("Settlement wallet lookup failed");
 
     let settlementWallet = existingWallet;
     if (!settlementWallet) {
@@ -206,7 +207,7 @@ serve(async (req) => {
         })
         .select("id, status")
         .single();
-      if (createError) throw new Error(`Failed to resolve settlement wallet: ${createError.message}`);
+      if (createError) throw new Error("Failed to resolve settlement wallet");
       settlementWallet = created;
     }
     if (!settlementWallet) throw new Error("Settlement wallet could not be resolved");
@@ -302,7 +303,13 @@ serve(async (req) => {
   } catch (error) {
     console.error("Process payment error:", error);
     return json(
-      { success: false, status: "error", error: error instanceof Error ? error.message : "Payment processing failed" },
+      { success: false, status: "error", error: publicErrorMessage(error, "Payment processing failed", [
+        "Settlement account lookup failed",
+        "Settlement wallet lookup failed",
+        "Failed to resolve settlement wallet",
+        "Settlement wallet could not be resolved",
+        ACCOUNT_FROZEN_MESSAGE,
+      ]) },
       400,
     );
   }
