@@ -195,7 +195,7 @@
             "description": "Missing scope or test key"
           }
         },
-        "summary": "Create a payment link (live keys only)"
+        "summary": "Create a payment link"
       }
     },
     "/settings": {
