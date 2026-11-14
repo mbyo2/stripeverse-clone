@@ -4,132 +4,170 @@
     "name": "WooCommerce",
     "platform": "woocommerce",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-woocommerce-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 30014,
+    "sha256": "f9ddf0783258b5e76e1ed79b2cc35cfbe18b89bfa21e759c76c247786d7fc6b2"
   },
   {
     "file": "bmaglasspay-odoo-16.0-1.0.0.zip",
     "name": "Odoo 16.0",
     "platform": "odoo-16.0",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-16.0-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 20573,
+    "sha256": "344040efd92d7caef284134aeb14909314d98062269a743c60113a2947909fdb"
   },
   {
     "file": "bmaglasspay-odoo-17.0-1.0.0.zip",
     "name": "Odoo 17.0",
     "platform": "odoo-17.0",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-17.0-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 21090,
+    "sha256": "7f750ca3b002b202ee943d9971837dea8e1b35d0eafd1056a37a08df0d15cf0a"
   },
   {
     "file": "bmaglasspay-odoo-18.0-1.0.0.zip",
     "name": "Odoo 18.0",
     "platform": "odoo-18.0",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-18.0-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 21059,
+    "sha256": "56f7f3291952574a35478d476f7991fe95aa0c9f0494bec07ac4388fec2bd01b"
   },
   {
     "file": "bmaglasspay-odoo-19.0-1.0.0.zip",
     "name": "Odoo 19.0",
     "platform": "odoo-19.0",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-19.0-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 21233,
+    "sha256": "970e9839ec5892f40d01e0aaa9b414805f8167265ad1a50c5b7ad5ac6b666678"
   },
   {
     "file": "bmaglasspay-odoo-20.0-1.0.0.zip",
     "name": "Odoo 20.0",
     "platform": "odoo-20.0",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-odoo-20.0-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 23294,
+    "sha256": "e09343627346d3e6b1cbe244f549b04dfb292e0bb1fa3b605bf86ddba0324a6c"
   },
   {
     "file": "bmaglasspay-magento-1.0.0.zip",
     "name": "Magento 2",
     "platform": "magento",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-magento-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 17347,
+    "sha256": "59474dd3a445d23f9fe5692dd86a08e2afb3356dbc409171f3e066fe8d08a421"
   },
   {
     "file": "bmaglasspay-prestashop-1.7-1.0.0.zip",
     "name": "PrestaShop 1.7",
     "platform": "prestashop-1.7",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-prestashop-1.7-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 13161,
+    "sha256": "f9c7c63400025c1db1cba2f9ae0b0b1379826e39f78683606b73ba4afd0dc264"
   },
   {
     "file": "bmaglasspay-prestashop-8-1.0.0.zip",
     "name": "PrestaShop 8",
     "platform": "prestashop-8",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-prestashop-8-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 13131,
+    "sha256": "bc08fd47acdaee6d68c4c87404b35b066bd299946c7e46061cc1f63c988a7205"
   },
   {
     "file": "bmaglasspay-prestashop-9-1.0.0.zip",
     "name": "PrestaShop 9",
     "platform": "prestashop-9",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-prestashop-9-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 13486,
+    "sha256": "bffffc681b26fe340cf5fbd1d12a446fabc3416cce1552373a0eef9da5a79e0d"
   },
   {
     "file": "bmaglasspay-opencart-3-1.0.0.zip",
     "name": "OpenCart 3",
     "platform": "opencart-3",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-opencart-3-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 15067,
+    "sha256": "04a3d2f46941fb5cf9fdb8c5b7d46f7195d29fdc026bc308440064655acfda63"
   },
   {
     "file": "bmaglasspay-opencart-4-1.0.0.zip",
     "name": "OpenCart 4",
     "platform": "opencart-4",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-opencart-4-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 14304,
+    "sha256": "f94cbdadc684157896266b60abbab507241fbab4e9ced5aa893cce71100d66ad"
   },
   {
     "file": "bmaglasspay-sdk-typescript-1.0.0.zip",
     "name": "TypeScript SDK",
     "platform": "sdk-typescript",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-typescript-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 12954,
+    "sha256": "da584225fc896f1d48786da32918f415d5eaa3ea7b1d0014cd86a52b38df3363"
   },
   {
     "file": "bmaglasspay-sdk-python-1.0.0.zip",
     "name": "Python SDK",
     "platform": "sdk-python",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-python-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 4556,
+    "sha256": "70a3b616d168a9e0b50b0c7588835c340421fdd5dad904ef6eb8580c2fb0635e"
   },
   {
     "file": "bmaglasspay-sdk-php-1.0.0.zip",
     "name": "PHP SDK",
     "platform": "sdk-php",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-php-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 11133,
+    "sha256": "af709c37c4e174ba593d4f006d569b8e80670c9643483608b0ab9af0d540c714"
   },
   {
     "file": "bmaglasspay-sdk-flutter-1.0.0.zip",
     "name": "Flutter SDK",
     "platform": "sdk-flutter",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-flutter-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 11151,
+    "sha256": "684aceafd6022edd24d4cc4f0aaedcecfefde61641e2c2634bb0de25d16937db"
   },
   {
     "file": "bmaglasspay-sdk-react-native-1.0.0.zip",
     "name": "React Native SDK",
     "platform": "sdk-react-native",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-sdk-react-native-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 11389,
+    "sha256": "db10e40dde97f894f7a2f1704d4325f738cc1d97bb4b8f7bb8de0a582517f585"
   },
   {
     "file": "bmaglasspay-embed-button-1.0.0.zip",
     "name": "Embed button \u2014 any website",
     "platform": "embed-button",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-embed-button-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 4798,
+    "sha256": "449cff1d7845183ea74c4a4d3f9bafb17fc1e0129e18ebf39953c53e25d1bb79"
   },
   {
     "file": "bmaglasspay-automation-1.0.0.zip",
     "name": "Zapier / Make automation",
     "platform": "automation",
     "url": "https://hhxwwozpvgktuqutfkhc.supabase.co/storage/v1/object/public/downloads/bmaglasspay-automation-1.0.0.zip",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "size": 7087,
+    "sha256": "f00abf1be1b61fa6412d86d947fea9f8c0f148735beb688db134f81232fffe3a"
   }
 ]
