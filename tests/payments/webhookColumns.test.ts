@@ -86,18 +86,28 @@ describe("webhook column pins — client", () => {
 });
 
 describe("webhook column pins — transaction-webhook edge function", () => {
+  // Gate14 2026-11-14: the notification code moved into the shared
+  // notifier (_shared/merchant-webhooks.ts) so the momo settlement
+  // paths can use it too; transaction-webhook now just calls it.
+  const shared = read("../../supabase/functions/_shared/merchant-webhooks.ts");
   const src = read("../../supabase/functions/transaction-webhook/index.ts");
 
   it("resolves merchant owners to user ids and notifies by user_id", () => {
-    expect(src).toContain(".in('user_id', ownerIds)");
-    expect(src).not.toContain(".in('business_id', merchantIds)");
-    expect(src).not.toContain(".eq('business_id'");
+    expect(shared).toContain('.in("user_id", ownerIds)');
+    expect(shared).not.toContain(".in('business_id', merchantIds)");
+    expect(shared).not.toContain(".eq('business_id'");
+    expect(src).toContain("notifyMerchantWebhooks(supabaseClient, {");
   });
 
   it("signs with the secret from the fetched webhook row", () => {
-    expect(src).toContain("generateWebhookSignature(webhook.secret, payload)");
-    expect(src).not.toContain(".select('webhook_secret')");
-    expect(src).not.toContain("webhook.business_id");
+    expect(shared).toContain("merchantWebhookSignature(hook.secret, body)");
+    expect(shared).not.toContain(".select('webhook_secret')");
+    expect(shared).not.toContain("webhook.business_id");
+  });
+
+  it("delivers the merchant-facing event names (payment_success / payment_failed)", () => {
+    expect(shared).toContain('completed: "payment_success"');
+    expect(shared).toContain('failed: "payment_failed"');
   });
 });
 

@@ -13,6 +13,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { refreshCollectionFromRail } from "../_shared/momo-rail-server.ts";
 import { dispatchPaymentLinkPaid } from "../_shared/developer-webhooks.ts";
+import { notifyMerchantMomoOutcome } from "../_shared/merchant-webhooks.ts";
 import { platformChargeFor } from "../_shared/momo-rail.ts";
 
 const json = (body: unknown, status = 200) =>
@@ -78,6 +79,17 @@ serve(async (req) => {
           failed++;
         } else {
           stillPending++;
+        }
+        // The merchant's own webhook hears about the settlement (or
+        // failure) exactly once — the notifier claims the
+        // settlement, so the API poll, provider callback and this
+        // poller can never triple-notify.
+        if ((outcome.just_settled || outcome.just_failed) && outcome.transaction_id) {
+          await notifyMerchantMomoOutcome(db, {
+            merchantUserId: outcome.merchant_user_id ?? "",
+            transactionUuid: outcome.transaction_id,
+            status: outcome.just_settled ? "completed" : "failed",
+          }).catch(() => null);
         }
       } catch (e) {
         errors++;

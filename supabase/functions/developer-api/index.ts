@@ -84,6 +84,7 @@ import {
   dispatchEvent,
   KNOWN_DEVELOPER_EVENTS,
 } from "../_shared/developer-webhooks.ts";
+import { notifyMerchantMomoOutcome } from "../_shared/merchant-webhooks.ts";
 import { linkFeeRateForMethod, paymentLinkAmounts, type FeePayer } from "../_shared/fee-math.ts";
 import {
   buildConnectorConfig,
@@ -336,6 +337,13 @@ async function dispatchMomoCollectionSettled(db: any, userId: string, row: any):
     environment: row.environment,
     settled_at: row.settled_at ?? null,
   }, row.environment === "production" ? "live" : "test").catch(() => []);
+  // The merchant's own webhook hears about the same settlement:
+  // a mobile-money payment settles through the rail requery path,
+  // never through transaction-webhook, so without this call a
+  // merchant webhook could never fire for a momo collection.
+  await notifyMerchantMomoOutcome(db, {
+    merchantUserId: userId, transactionUuid: txId, status: "completed",
+  }).catch(() => []);
 }
 
 // ── Router ───────────────────────────────────────────────────────────
@@ -467,11 +475,18 @@ serve(async (req) => {
     // it connects. Plugins have no fee-bearer setting of their own.
     if (resource === "settings" && method === "GET") {
       const { feePayerDefault, rate, paypalRate } = await feeContext();
+      const facts = await businessFacts(db, userId, envOf(key));
       return json(200, {
         data: {
           fee_payer_default: feePayerDefault,
           platform_fee_percent: rate === null ? null : Number(rate),
           paypal_platform_fee_percent: paypalRate,
+          // The merchant's mobile-money fee-bearer choice (their
+          // dashboard setting): who funds the 1% momo service
+          // charge, 'seller' (default) or 'buyer'. A connector
+          // learns it here instead of discovering it from a
+          // collection's fee_bearer after the fact.
+          momo_fee_bearer: facts.feeBearer,
           note: "fee_payer_default decides who funds the payment-link platform fee: 'seller' — the fee comes out of what the seller receives; 'buyer' — the fee is added on top of the price and the seller receives the full price. It is set in the BMaGlass Pay dashboard (Settings → Payment) and can be overridden per payment link at creation. Settlement always follows the link's stored fee_payer. Payments collected through PayPal carry the PayPal platform fee (paypal_platform_fee_percent) instead of the payment-link rate, on payment links and checkout payments alike.",
         },
         mode: modeOf(key), environment: envOf(key),
@@ -950,6 +965,14 @@ serve(async (req) => {
       const fresh = (await db.from("momo_collections")
         .select(MOMO_COLUMNS).eq("id", row.id).maybeSingle()).data ?? row;
       if (outcome.just_settled) await dispatchMomoCollectionSettled(db, userId, fresh);
+      if (outcome.just_failed && fresh.transaction_id) {
+        // A failed collection is a failed payment: the merchant's
+        // webhook hears payment_failed exactly once (claimed inside
+        // the notifier, so a later poll stays silent).
+        await notifyMerchantMomoOutcome(db, {
+          merchantUserId: userId, transactionUuid: fresh.transaction_id, status: "failed",
+        }).catch(() => []);
+      }
       let walletBalance = outcome.wallet_balance;
       if (walletBalance === null && fresh.status !== "pending" && fresh.wallet_id) {
         const { data: wallet } = await db.from("wallets")
@@ -963,10 +986,17 @@ serve(async (req) => {
     }
 
     // ── Webhooks (registered per environment; lists are segregated) ──
-    // Webhook registration is a write with a live money-event stream
-    // behind it: a read-only or sandbox key must never be able to
-    // point a merchant's transaction.completed / payment_link.*
-    // events at an attacker URL, or trigger test deliveries.
+    // Registration is open to sandbox keys too: an endpoint created
+    // with a sandbox key is stamped environment 'test' and can only
+    // ever receive sandbox events (the dispatcher filters by
+    // environment), which carry simulated money and no real data —
+    // so pointing one at an attacker URL leaks nothing live. The
+    // old requireLive gate made the documented sandbox webhook flow
+    // unreachable: no sandbox endpoint could ever be registered
+    // (and the dashboard insert stamps environment 'live' by
+    // default), so simulate-payment and sandbox momo settlements
+    // dispatched into the void (gate14, 2026-11-14). A production
+    // key's endpoints still only ever receive live events.
     if (resource === "webhooks" && method === "GET") {
       const denied = requireScope(key, "webhooks:read"); if (denied) return denied;
       const { data, error } = await db.from("developer_webhooks")
@@ -985,7 +1015,6 @@ serve(async (req) => {
     }
     if (resource === "webhooks" && method === "POST" && !sub) {
       const denied = requireScope(key, "webhooks:write"); if (denied) return denied;
-      const ro = requireLive(key); if (ro) return ro;
       const { url: hookUrl, events } = body;
       if (!hookUrl || typeof hookUrl !== "string") return err(400, "invalid_request", "url is required.");
       let parsed: URL;
@@ -1019,10 +1048,11 @@ serve(async (req) => {
     }
     if (resource === "webhooks" && sub && parts[2] === "test" && method === "POST") {
       const denied = requireScope(key, "webhooks:write"); if (denied) return denied;
-      const ro = requireLive(key); if (ro) return ro;
-      // The test delivery must target one of THIS key's own
-      // endpoints: an id from another merchant answers 404, never
-      // fires a delivery to a foreign URL.
+      // A sandbox key's test delivery only ever reaches its own
+      // sandbox endpoints (the dispatcher filters by environment),
+      // so it moves no live money and no live data. The delivery
+      // must target one of THIS key's own endpoints: an id from
+      // another merchant answers 404, never fires to a foreign URL.
       const { data: ownHook } = await db.from("developer_webhooks")
         .select("id").eq("id", sub).eq("user_id", userId)
         .eq("environment", modeOf(key)).maybeSingle();
