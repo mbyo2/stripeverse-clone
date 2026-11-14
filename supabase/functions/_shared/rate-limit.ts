@@ -14,10 +14,13 @@
 type Db = any;
 
 /**
- * Caller IP for unauthenticated ingress. Supabase sits behind a proxy,
- * so the first x-forwarded-for entry is the caller; x-real-ip is the
- * fallback (payment-link-checkout pattern). "unknown" buckets callers
- * with no forwarding headers together — still bounded, never bypassed.
+ * Caller IP for authenticated or semi-trusted callers. NOTE (workstream
+ * E, corrected 2026-11-15): do NOT use this to key limits on
+ * UNAUTHENTICATED ingress — x-forwarded-for[0] at the Supabase edge is
+ * a rotating Cloudflare address (one flood produced ~20 distinct
+ * 104.29.x.x identifiers), so every request gets a fresh bucket and a
+ * per-IP limit never trips. Unauthenticated ingress must use
+ * globalRateLimitResponse below.
  */
 export function clientIp(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for") ?? "";
@@ -53,18 +56,26 @@ export async function withinLimit(
 }
 
 /**
- * Per-source-IP limit for UNAUTHENTICATED webhook ingress. Returns a
- * 429 Response when the source is over the limit, or null when the
- * request may proceed.
+ * GLOBAL per-function limit for UNAUTHENTICATED webhook ingress.
+ * Returns a 429 Response when the function is over the limit, or null
+ * when the request may proceed.
+ *
+ * Why global, not per-IP (workstream E, corrected 2026-11-15): there
+ * is no stable per-client identifier at the Supabase edge — the first
+ * x-forwarded-for entry rotates across Cloudflare addresses per
+ * request, so a per-IP bucket never fills (70 invalid deliveries drew
+ * 0x429). A global bucket is the only key that bounds a flood.
+ * Legitimate provider traffic is a handful/minute against a 60/min
+ * cap, and providers retry on 429, so a genuine burst is delayed,
+ * never lost. Fail-open on limiter error (see withinLimit).
  */
-export async function ipRateLimitResponse(
+export async function globalRateLimitResponse(
   db: Db,
-  req: Request,
   action: string,
   limitPerMinute: number,
   corsHeaders: Record<string, string>,
 ): Promise<Response | null> {
-  const ok = await withinLimit(db, `ip:${clientIp(req)}`, action, limitPerMinute, 1);
+  const ok = await withinLimit(db, "global", action, limitPerMinute, 1);
   if (ok) return null;
   return new Response(
     JSON.stringify({ error: "rate_limited", message: "Too many requests. Please try again later." }),

@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { notifyMerchantWebhooks } from "../_shared/merchant-webhooks.ts"
-import { ipRateLimitResponse } from "../_shared/rate-limit.ts"
+import { globalRateLimitResponse } from "../_shared/rate-limit.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,9 +22,9 @@ serve(async (req) => {
 
     // Workstream E (security audit 2026-11-15): invalid-signature
     // deliveries were never throttled (live-proven 10/10 in ~7s,
-    // 0x429). Per-IP 60/min, before any verification work. Fail-open
+    // 0x429). Global 60/min, before any verification work. Fail-open
     // on limiter error; providers retry on 429.
-    const limited = await ipRateLimitResponse(supabaseClient, req, "transaction_webhook", 60, corsHeaders);
+    const limited = await globalRateLimitResponse(supabaseClient, "transaction_webhook", 60, corsHeaders);
     if (limited) return limited;
 
     // The raw body is read ONCE and kept: the signature is verified

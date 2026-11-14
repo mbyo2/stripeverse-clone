@@ -85,7 +85,7 @@ describe("workstream E — developer API auth + webhooks", () => {
 });
 
 describe("workstream E — inbound webhook floods", () => {
-  it("every public provider webhook enforces a per-IP limit", () => {
+  it("every public provider webhook enforces a global per-function limit", () => {
     for (const f of [
       "paypal-webhook/index.ts",
       "transaction-webhook/index.ts",
@@ -93,15 +93,14 @@ describe("workstream E — inbound webhook floods", () => {
       "momo-webhook/index.ts",
     ]) {
       const src = fn(f);
-      expect(src).toContain("ipRateLimitResponse");
+      expect(src).toContain("globalRateLimitResponse");
     }
   });
 
-  it("the shared limiter is fail-open and IP-aware", () => {
+  it("the shared limiter is fail-open and global for unauthenticated ingress", () => {
     const src = fn("_shared/rate-limit.ts");
     expect(src).toContain("check_advanced_rate_limit");
-    expect(src).toContain("clientIp");
-    expect(src).toContain("x-forwarded-for");
+    expect(src).toContain("globalRateLimitResponse");
     expect(src).toContain("data !== false");
   });
 });

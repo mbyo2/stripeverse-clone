@@ -95,7 +95,7 @@ import {
   type Environment,
 } from "../_shared/connector-config.ts";
 import { validateFiatAmount } from "../_shared/fiat-amount.ts";
-import { clientIp, withinLimit } from "../_shared/rate-limit.ts";
+import { withinLimit } from "../_shared/rate-limit.ts";
 import {
   MOMO_NOT_CONFIGURED_MESSAGE,
   detectOperator,
@@ -164,13 +164,18 @@ async function authenticate(req: Request, db: any): Promise<ApiKeyRow | Response
 // authentications were never throttled — live-proven 30/30 invalid-key
 // calls in 27s, 0x429, each costing a SHA-256 + DB lookup. The per-key
 // 600/hr limiter below only counts calls AFTER a key authenticates, so
-// it cannot see this path. Failed attempts are throttled per source IP
-// (30/min); a legitimate client that mistypes a key gets 29 free
-// mistakes a minute, an invalid-key flood gets 429. Fail-open on
-// limiter error. (Per-IP only stops single-source floods — a
-// distributed flood still needs gateway-level controls, a CEO call.)
+// it cannot see this path.
+//
+// Corrected same day: the first attempt keyed failures per source IP,
+// but x-forwarded-for[0] at the Supabase edge is a rotating Cloudflare
+// address (one flood produced ~20 distinct 104.29.x.x identifiers), so
+// a per-IP bucket never fills. Failed attempts are therefore throttled
+// on a GLOBAL bucket (30/min). A legitimate client that mistypes a key
+// is unaffected unless an attack is actively running — and a correct
+// key never touches this path at all. Fail-open on limiter error.
+// (A distributed flood still needs gateway-level controls, a CEO call.)
 async function authFail(db: any, req: Request, status: number, code: string, message: string): Promise<Response> {
-  const ok = await withinLimit(db, `ip:${clientIp(req)}`, "developer_api_auth_fail", 30, 1);
+  const ok = await withinLimit(db, "global", "developer_api_auth_fail", 30, 1);
   if (!ok) {
     return err(429, "rate_limited", "Too many failed authentication attempts. Please wait a moment and try again.");
   }
