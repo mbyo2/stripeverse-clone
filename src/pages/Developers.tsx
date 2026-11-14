@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Code2, Key, Shield, Webhook, AlertTriangle, Store } from "lucide-react";
 import { Link } from "react-router-dom";
 import ApiPlayground from "@/components/developers/ApiPlayground";
+import DownloadsSection from "@/components/developers/DownloadsSection";
 import { CONNECTORS_REPO_URL } from "@/lib/connectors";
 
 // Truth pass (2026-10-26): this page previously documented an API that
@@ -194,8 +195,11 @@ final wallets = await client.wallets();`}</pre>
               <Button asChild><Link to="/developers/connectors">Open the connectors directory</Link></Button>
               <Button asChild variant="outline"><a href={CONNECTORS_REPO_URL} target="_blank" rel="noreferrer">Open the GitHub repository</a></Button>
             </div>
+            <p className="text-muted-foreground">Ready-made packages for each integration above are in <strong>Downloads</strong> below — download, upload to your store, connect with your API key.</p>
           </CardContent>
         </Card>
+
+        <DownloadsSection />
 
         <Card className="border-amber-500/40">
           <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5" /> Not available via the API</CardTitle></CardHeader>
