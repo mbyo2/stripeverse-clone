@@ -34,7 +34,7 @@
 // only). No frontend calls the provider actions yet.
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { classifyProvider } from "../_shared/payment-providers.ts";
 import {
   buildMtnMomoRequestToPayBody,

@@ -79,7 +79,7 @@
 // settlement is enforced server-side from the link's stored value.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import {
   dispatchEvent,
   KNOWN_DEVELOPER_EVENTS,

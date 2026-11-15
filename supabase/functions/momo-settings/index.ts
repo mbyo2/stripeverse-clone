@@ -28,7 +28,7 @@
 // WHITE-LABEL: no user-facing string here names the underlying rail.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { countryToIso } from "../_shared/connector-config.ts";
 import { encryptSecret, secretHint, secretVaultKeyFromEnv } from "../_shared/secret-vault.ts";
 import {

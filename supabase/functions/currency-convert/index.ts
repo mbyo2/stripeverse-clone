@@ -28,7 +28,7 @@
 //            to_amount, new_from_balance, new_to_balance }
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { getSupabaseClient } from "../_shared/supabase-client.ts";
 import { ACCOUNT_FROZEN_MESSAGE, assertAccountNotFrozen } from "../_shared/account-freeze.ts";
 import { FIAT_DECIMAL_PLACES_ERROR, FIAT_POSITIVE_ERROR, validateFiatAmount } from "../_shared/fiat-amount.ts";

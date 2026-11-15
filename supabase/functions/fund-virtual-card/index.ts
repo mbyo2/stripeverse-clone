@@ -1,6 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { ACCOUNT_FROZEN_MESSAGE, assertAccountNotFrozen } from "../_shared/account-freeze.ts";
 import { publicErrorMessage, throwRpcError } from "../_shared/public-error.ts";
 

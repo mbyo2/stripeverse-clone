@@ -73,7 +73,7 @@
 //         coverage + payment_link.paid dispatch, expiry close-out).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { classifyLinkMethod } from "../_shared/payment-providers.ts";
 import { dispatchPaymentLinkPaid } from "../_shared/developer-webhooks.ts";
 import { linkFeeRateForMethod, paymentLinkAmounts, type FeePayer } from "../_shared/fee-math.ts";

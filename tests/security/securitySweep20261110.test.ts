@@ -209,12 +209,12 @@ describe("auth hygiene", () => {
     expect(src).toContain("requireAuth(req, corsHeaders)");
   });
 
-  it("every supabase-js edge import is pinned to 2.49.1", () => {
+  it("every supabase-js edge import is pinned to 2.119.0", () => {
     // No floating `@2` import (quote-terminated) may remain anywhere.
     const { execSync } = require("node:child_process");
     const out = execSync("grep -rn \"supabase-js@2['\\\"]\" supabase/functions --include='*.ts' || true", { cwd: root, encoding: "utf8" });
     expect(out.trim()).toBe("");
-    expect(fn("_shared/supabase-client.ts")).toContain("@supabase/supabase-js@2.49.1");
+    expect(fn("_shared/supabase-client.ts")).toContain("@supabase/supabase-js@2.119.0");
   });
 });
 
