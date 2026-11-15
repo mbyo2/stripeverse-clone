@@ -477,6 +477,32 @@
         "summary": "Send a signed webhook.test event to an endpoint"
       }
     },
+    "/payment-links/{id}": {
+      "get": {
+        "summary": "Get one payment link by id or link code",
+        "operationId": "getPaymentLink",
+        "description": "Scope: payment_links:read. Returns one of the key owner's payment links by its UUID id or its link_code, with the same computed fee_amount, buyer_total and seller_receives as the list. The list endpoint caps at 100 (newest first), so this read is how a shop reconciler verifies a link older than the 100 newest. Scoped to the key's owner and environment: a link from another merchant or the other environment answers 404.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The link's UUID id or its link_code."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The payment link"
+          },
+          "404": {
+            "description": "Payment link not found"
+          }
+        }
+      }
+    },
     "/payment-links/{id}/attempts": {
       "get": {
         "summary": "List a payment link's Bitcoin payment attempts",

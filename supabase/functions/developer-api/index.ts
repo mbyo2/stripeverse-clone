@@ -623,6 +623,25 @@ serve(async (req) => {
         livemode: row.environment === "live",
       };
     };
+    // GET /payment-links/{id} — one link by UUID id or link_code.
+    // The list endpoint caps at 100 (newest first), so a shop
+    // reconciler cannot verify a link older than the 100 newest from
+    // the list alone. This read is scoped to the key's owner +
+    // environment, like every other read: another merchant's link, or
+    // a link from the other environment, answers 404.
+    if (resource === "payment-links" && sub && !parts[2] && method === "GET") {
+      const denied = requireScope(key, "payment_links:read"); if (denied) return denied;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sub);
+      let q = db.from("payment_links")
+        .select("id, title, description, amount, currency, link_code, status, fee_payer, payment_count, total_collected, expires_at, redirect_url, metadata, environment, created_at")
+        .eq("user_id", userId).eq("environment", modeOf(key));
+      q = isUuid ? q.eq("id", sub) : q.eq("link_code", sub);
+      const { data, error } = await q.maybeSingle();
+      if (error) throw error;
+      if (!data) return err(404, "not_found", "Payment link not found.");
+      const { rate } = await feeContext();
+      return json(200, { data: linkOut(data, rate), mode: modeOf(key), environment: envOf(key) });
+    }
     if (resource === "payment-links" && method === "GET") {
       const denied = requireScope(key, "payment_links:read"); if (denied) return denied;
       const { data, error } = await db.from("payment_links")

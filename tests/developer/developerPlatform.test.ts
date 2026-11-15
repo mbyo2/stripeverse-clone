@@ -21,6 +21,7 @@ describe("developer-api contract", () => {
     expect(paths).toContain("/transactions");
     expect(paths).toContain("/transfers");
     expect(paths).toContain("/payment-links");
+    expect(paths).toContain("/payment-links/{id}");
     expect(paths).toContain("/bitcoin/balance");
     expect(paths).toContain("/bitcoin/deposit-address");
     expect(paths).toContain("/bitcoin/quote");
@@ -69,7 +70,7 @@ describe("developer-api contract", () => {
     expect(JSON.stringify(spec)).toContain("payment_link.paid");
   });
 
-  it("public/openapi.json is the complete served contract (18 path templates)", () => {
+  it("public/openapi.json is the complete served contract (21 path templates)", () => {
     // This replaces the old sdk-copy byte-identity pin: the second copy
     // moved to the bmaglasspay-connectors repo, so the guard now pins
     // the served copy itself — complete and self-contained.
@@ -89,6 +90,7 @@ describe("developer-api contract", () => {
       "/mobile-money/collections",
       "/mobile-money/collections/{reference}",
       "/payment-links",
+      "/payment-links/{id}",
       "/payment-links/{id}/attempts",
       "/payment-links/{id}/simulate-payment",
       "/settings",
@@ -101,6 +103,16 @@ describe("developer-api contract", () => {
       "/webhooks/{id}/test",
     ]);
     expect(router).toContain('resource === "settings"');
+  });
+
+  it("GET /payment-links/{id} reads one link by id or link_code (list caps at 100)", () => {
+    // The single-link read is how shop reconcilers verify a link older
+    // than the 100 newest: scoped to the key's owner + environment,
+    // 404 otherwise. Added 2026-11-15 (ext-hunt O1).
+    expect(spec.paths["/payment-links/{id}"].get.operationId).toBe("getPaymentLink");
+    expect(router).toContain("GET /payment-links/{id} — one link by UUID id or link_code.");
+    expect(router).toContain('q.eq("link_code", sub)');
+    expect(router).toContain('"Payment link not found."');
   });
 });
 
