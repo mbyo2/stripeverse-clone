@@ -54,16 +54,27 @@ const AVAILABLE_EVENTS = [
   "transaction.completed",
   "payment_link.created",
   "payment_link.paid",
+  "invoice.created",
+  "invoice.paid",
+  "mobile_money.collection.completed",
   "webhook.test",
 ];
 
 const AVAILABLE_SCOPES = [
+  "config:read",
   "wallets:read",
   "transactions:read",
   "transfers:write",
   "payment_links:read",
   "payment_links:write",
   "bitcoin:read",
+  "invoices:create",
+  "invoices:read",
+  "webhooks:manage",
+  "webhooks:read",
+  "webhooks:write",
+  "mobile_money:create",
+  "mobile_money:read",
 ];
 
 const API = () => {
@@ -404,7 +415,7 @@ const API = () => {
                         { fn: "GET /transactions", desc: "Recent transactions — scope transactions:read" },
                         { fn: "POST /transfers", desc: "Wallet-to-wallet transfer, 1.5% fee — live keys only, scope transfers:write" },
                         { fn: "GET /payment-links", desc: "List payment links — scope payment_links:read" },
-                        { fn: "POST /payment-links", desc: "Create a payment link — live keys only, scope payment_links:write" },
+                        { fn: "POST /payment-links", desc: "Create a payment link — a sandbox key creates a sandbox link, scope payment_links:write" },
                         { fn: "GET /payment-links/{id}/attempts", desc: "A link's Bitcoin payment attempts — scope payment_links:read" },
                         { fn: "GET /settings", desc: "Your fee-bearer default and the platform fee rates (link rate + PayPal rate) — any valid key" },
                         { fn: "GET /bitcoin/balance", desc: "Custodial Bitcoin balance — scope bitcoin:read" },

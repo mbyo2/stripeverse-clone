@@ -144,6 +144,29 @@ describe("Downloads section on the Developers page", () => {
   });
 });
 
+describe("embed script served from the app (public/embed/)", () => {
+  it("serves the pay-button script at the documented canonical URL", () => {
+    // The embed's own header comment tells merchants to load
+    // https://bmaglasspay.online/embed/bmaglass-pay-button.js — that URL
+    // used to answer the SPA's index.html (the vercel rewrite), so the
+    // script tag parsed HTML as JS and no button ever rendered. The
+    // file must exist in public/ (served before the rewrite) and be
+    // the real script, kept in sync with the connectors repository's
+    // integrations/embed/bmaglass-pay-button.js.
+    const path = resolve(process.cwd(), "public/embed/bmaglass-pay-button.js");
+    expect(existsSync(path)).toBe(true);
+    const script = read("public/embed/bmaglass-pay-button.js");
+    expect(script).toContain("bmaglass-pay-button");
+    expect(script).toContain("https://bmaglasspay.online/pay/");
+    expect(script).not.toContain("<!DOCTYPE html>");
+    expect(script).not.toContain("<html");
+    // The script's own guards: link-shape check + API-key refusal.
+    expect(script).toContain("LINK_RE");
+    expect(script).toContain("bmg_");
+    expect(script).toContain("Refusing to render");
+  });
+});
+
 describe("upload mechanism (scripts/upload-zips.sh)", () => {
   it("exists, is executable, and uploads to the downloads bucket", () => {
     const path = resolve(process.cwd(), "scripts/upload-zips.sh");

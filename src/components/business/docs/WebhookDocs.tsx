@@ -17,7 +17,7 @@ export function WebhookDocs() {
         <div>
           <p className="font-medium mb-2">Events that really occur</p>
           <div className="flex flex-wrap gap-2">
-            {["transaction.completed", "payment_link.created", "payment_link.paid", "invoice.created", "invoice.paid", "webhook.test"].map((ev) => (
+            {["transaction.completed", "payment_link.created", "payment_link.paid", "invoice.created", "invoice.paid", "mobile_money.collection.completed", "webhook.test"].map((ev) => (
               <Badge key={ev} variant="secondary" className="font-mono">{ev}</Badge>
             ))}
           </div>
@@ -26,7 +26,9 @@ export function WebhookDocs() {
             API payment link is created; payment_link.paid when a payment link is paid (exactly
             once per settlement, with the link code, amount, currency and settlement transaction id);
             invoice.created / invoice.paid for API invoices (invoice.paid fires when a sandbox invoice is
-            simulated to paid, flagged simulated); webhook.test when you send a test delivery.
+            simulated to paid, flagged simulated); mobile_money.collection.completed when a
+            mobile-money collection settles (exactly once per settlement, with the platform reference,
+            the merchant reference, the amount and the fee bearer); webhook.test when you send a test delivery.
             Endpoints are registered per environment: an endpoint created with a sandbox key only ever
             receives sandbox events.
           </p>

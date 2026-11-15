@@ -148,11 +148,19 @@
               "schema": {
                 "properties": {
                   "amount": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "description": "Fixed price. Must be greater than zero when present; omit it for an any-amount link (fee_amount, buyer_total and seller_receives are then null)."
                   },
                   "currency": {
                     "default": "ZMW",
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "ZMW",
+                      "USD"
+                    ],
+                    "description": "ZMW or USD only \u2014 wallets hold ZMW/USD and the hosted pay page cannot settle other currencies."
                   },
                   "description": {
                     "type": "string"
@@ -176,6 +184,10 @@
                     "type": "string",
                     "format": "uri",
                     "description": "Optional buyer return URL. After a completed payment the hosted pay page offers a Return to store action pointing here."
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Optional merchant metadata (at most 4096 characters as JSON), stored on the link and returned on payment_link.paid \u2014 set metadata.reference (e.g. {\"reference\": \"Order #1042\"}) so an automation can match the payment to the order."
                   }
                 },
                 "required": [
@@ -646,11 +658,19 @@
               "schema": {
                 "properties": {
                   "amount": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "description": "Must be greater than zero."
                   },
                   "currency": {
                     "default": "ZMW",
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "ZMW",
+                      "USD"
+                    ],
+                    "description": "ZMW or USD only."
                   },
                   "customer_email": {
                     "type": "string"
@@ -737,7 +757,7 @@
     },
     "/payment-links/{id}/simulate-payment": {
       "post": {
-        "description": "Sandbox keys only (production keys get 403 simulation_not_available). The link must have a fixed amount. Marks one simulated payment (payment_count + 1, total_collected += amount, on the sandbox link row only) and fires payment_link.paid to sandbox webhook endpoints with simulated: true. Sandbox links are refused by the hosted checkout and can never settle real money.",
+        "description": "Sandbox keys only (production keys get 403 simulation_not_available). The link must have a fixed amount. Marks one simulated payment (payment_count + 1, total_collected += amount, on the sandbox link row only) and fires payment_link.paid to sandbox webhook endpoints with simulated: true. The simulated payload has the same shape as a real payment_link.paid (payment_link_id, total_charged, reference/metadata from the link) with payment_method \"simulated\" and null transaction ids. Sandbox links are refused by the hosted checkout and can never settle real money.",
         "parameters": [
           {
             "in": "path",

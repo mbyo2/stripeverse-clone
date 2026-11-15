@@ -20,7 +20,7 @@ const ENDPOINTS = [
   { method: "GET", path: "/transactions", scope: "transactions:read", desc: "Recent transactions (limit 1–100)" },
   { method: "POST", path: "/transfers", scope: "transfers:write", desc: "Wallet-to-wallet transfer — live keys only, 1.5% fee charged on top, Idempotency-Key supported" },
   { method: "GET", path: "/payment-links", scope: "payment_links:read", desc: "List your payment links — each carries its fee_payer plus the computed fee_amount, buyer_total and seller_receives" },
-  { method: "POST", path: "/payment-links", scope: "payment_links:write", desc: "Create a payment link — live keys only; optional fee_payer ('seller' | 'buyer') overrides your account default for this link" },
+  { method: "POST", path: "/payment-links", scope: "payment_links:write", desc: "Create a payment link — a sandbox key creates a sandbox link (settled only through simulate-payment), a production key a live one; optional fee_payer ('seller' | 'buyer') overrides your account default for this link" },
   { method: "GET", path: "/payment-links/{id}/attempts", scope: "payment_links:read", desc: "A link's Bitcoin payment attempts — quote, sats received and status per attempt" },
   { method: "GET", path: "/settings", scope: "any valid key", desc: "Your account's fee-bearer default (fee_payer_default) and the platform fee rates (platform_fee_percent for wallet/Bitcoin link settlements, paypal_platform_fee_percent for PayPal collection) — set in your BMaGlass dashboard, read here" },
   { method: "GET", path: "/bitcoin/balance", scope: "bitcoin:read", desc: "Custodial Bitcoin balance (sats)" },
@@ -181,8 +181,8 @@ final wallets = await client.wallets();`}</pre>
               (<code>github.com/mbyo2/bmaglasspay-connectors</code>) under <code>integrations/</code>. Each one
               talks to <strong>your own</strong> BMaGlass account and wallets through your API key; checkout
               creates a payment link and sends the buyer to the hosted payment page, where guests pay
-              with Bitcoin from their own wallet — no BMaGlass account needed. All of them require a live key for checkout and
-              a ZMW or USD store currency.</p>
+              with Bitcoin from their own wallet — no BMaGlass account needed. Live checkout uses a live
+              key (sandbox keys drive the same flow end-to-end with simulated payments) and a ZMW or USD store currency.</p>
             <ul className="list-disc pl-5 space-y-1">
               <li><strong>WooCommerce</strong> (WordPress 6.0+, WooCommerce 7.0 – 11.2) — <code>integrations/wordpress</code>: a payment gateway plugin covering HPOS and legacy order storage, and both the Checkout Blocks and classic checkout, with connection test, hosted-link checkout and automatic order completion.</li>
               <li><strong>Odoo 16, 17, 18, 19 and 20</strong> — <code>integrations/odoo</code>: a payment provider module per Odoo major (version folders <code>16.0/</code> – <code>20.0/</code>), each adapted to that version's payment framework.</li>
