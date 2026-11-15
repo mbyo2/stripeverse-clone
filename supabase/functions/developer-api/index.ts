@@ -626,7 +626,7 @@ serve(async (req) => {
     if (resource === "payment-links" && method === "GET") {
       const denied = requireScope(key, "payment_links:read"); if (denied) return denied;
       const { data, error } = await db.from("payment_links")
-        .select("id, title, description, amount, currency, link_code, status, fee_payer, payment_count, total_collected, expires_at, redirect_url, environment, created_at")
+        .select("id, title, description, amount, currency, link_code, status, fee_payer, payment_count, total_collected, expires_at, redirect_url, metadata, environment, created_at")
         .eq("user_id", userId).eq("environment", modeOf(key)).order("created_at", { ascending: false }).limit(100);
       if (error) throw error;
       const { rate } = await feeContext();
@@ -642,6 +642,36 @@ serve(async (req) => {
       if (!title || typeof title !== "string") return err(400, "invalid_request", "title is required.");
       if (fee_payer !== undefined && fee_payer !== "seller" && fee_payer !== "buyer") {
         return err(400, "invalid_request", "fee_payer must be 'seller' or 'buyer'.");
+      }
+      // Currency is ZMW or USD only — wallets are ZMW/USD and every doc
+      // says so. The API used to accept any string (EUR/GBP/XXX links
+      // were created live 2026-11-15) and the hosted pay page cannot
+      // settle them. Reject before insert.
+      const linkCurrency = typeof currency === "string" ? currency.toUpperCase() : "ZMW";
+      if (linkCurrency !== "ZMW" && linkCurrency !== "USD") {
+        return err(400, "invalid_request", "currency must be 'ZMW' or 'USD'.");
+      }
+      // A fixed amount must be greater than zero. Omitted amount stays
+      // an any-amount link (computed amounts null). Zero/negative amounts
+      // created live 2026-11-15 (buyer_total -5) and can never settle.
+      if (amount != null && (!Number.isFinite(Number(amount)) || Number(amount) <= 0)) {
+        return err(400, "invalid_request", "amount must be greater than zero.");
+      }
+      // Optional merchant metadata (e.g. { reference: "Order #1042" }):
+      // stored on the link and returned on payment_link.paid so an
+      // automation can match the payment to the order. The column exists
+      // and the real paid dispatcher reads link.metadata.reference, but
+      // the API used to drop metadata silently — API-created links could
+      // never carry a reference. Cap the size so a link row stays small.
+      let linkMetadata: Record<string, unknown> | null = null;
+      if (body.metadata !== undefined && body.metadata !== null) {
+        if (typeof body.metadata !== "object" || Array.isArray(body.metadata)) {
+          return err(400, "invalid_request", "metadata must be an object.");
+        }
+        if (JSON.stringify(body.metadata).length > 4096) {
+          return err(400, "invalid_request", "metadata must be at most 4096 characters.");
+        }
+        linkMetadata = body.metadata as Record<string, unknown>;
       }
       // Resolution: explicit per-link choice > the merchant's
       // account default (their BMaGlass dashboard setting) > 'seller'.
@@ -667,12 +697,13 @@ serve(async (req) => {
       const { data, error } = await db.from("payment_links").insert({
         user_id: userId, title: title.slice(0, 200), description: description ?? null,
         amount: amount != null ? Number(amount) : null,
-        currency: typeof currency === "string" ? currency : "ZMW",
+        currency: linkCurrency,
         expires_at: expires_at ?? null,
         fee_payer: resolvedFeePayer,
         redirect_url: redirectUrl,
+        metadata: linkMetadata,
         environment: modeOf(key),
-      }).select("id, title, amount, currency, link_code, status, fee_payer, redirect_url, environment, created_at").single();
+      }).select("id, title, amount, currency, link_code, status, fee_payer, redirect_url, metadata, environment, created_at").single();
       if (error) throw error;
       const out = linkOut(data, rate);
       await dispatchEvent(db, userId, "payment_link.created", out, modeOf(key)).catch(() => []);
@@ -705,13 +736,42 @@ serve(async (req) => {
       const { data, error } = await db.from("payment_links")
         .update({ payment_count: newCount, total_collected: newTotal, updated_at: new Date().toISOString() })
         .eq("id", link.id)
-        .select("id, title, amount, currency, link_code, status, fee_payer, redirect_url, environment, payment_count, total_collected, created_at")
+        .select("id, title, amount, currency, link_code, status, fee_payer, redirect_url, metadata, environment, payment_count, total_collected, created_at")
         .single();
       if (error) throw error;
       const { rate } = await feeContext();
       const out = linkOut(data, rate);
+      // The simulated payment must announce the SAME payment_link.paid
+      // shape a real settlement does (see dispatchPaymentLinkPaid in
+      // _shared/developer-webhooks.ts): automations are built and tested
+      // against simulations, and the old payload was the bare link row —
+      // no payment_link_id, no total_charged, no payment_method, no
+      // reference/metadata — so a Zapier/Make mapping built on a
+      // simulation broke on the first real payment. A simulation has no
+      // settlement transaction: the ids are null and the method is
+      // "simulated"; the flag marks it as a test.
+      const simReference =
+        data.metadata && typeof data.metadata.reference === "string"
+          ? data.metadata.reference
+          : null;
       await dispatchEvent(db, userId, "payment_link.paid", {
-        ...out, simulated: true, settled_at: new Date().toISOString(),
+        payment_link_id: data.id,
+        link_code: data.link_code,
+        title: data.title,
+        amount: data.amount,
+        currency: data.currency,
+        fee_payer: out.fee_payer,
+        fee_amount: out.fee_amount,
+        total_charged: out.buyer_total ?? data.amount,
+        transaction_id: null,
+        payer_transaction_id: null,
+        payment_method: "simulated",
+        payment_count: data.payment_count,
+        total_collected: data.total_collected,
+        reference: simReference,
+        metadata: data.metadata ?? null,
+        settled_at: new Date().toISOString(),
+        simulated: true,
       }, "test").catch(() => []);
       return json(200, { data: out, mode: modeOf(key), environment: envOf(key), simulated: true });
     }
@@ -809,6 +869,12 @@ serve(async (req) => {
       const frozen = await frozenGuard(db, userId); if (frozen) return frozen;
       const amt = Number(body.amount);
       if (!amt || amt <= 0) return err(400, "invalid_request", "amount must be greater than zero.");
+      // Invoices settle in ZMW/USD like payment links (the handler used
+      // to accept any 3-letter code, e.g. EUR, which no wallet can hold).
+      const invCurrency = typeof body.currency === "string" ? body.currency.toUpperCase() : "ZMW";
+      if (invCurrency !== "ZMW" && invCurrency !== "USD") {
+        return err(400, "invalid_request", "currency must be 'ZMW' or 'USD'.");
+      }
       if (body.customer_email !== undefined && body.customer_email !== null &&
           (typeof body.customer_email !== "string" || !body.customer_email.includes("@"))) {
         return err(400, "invalid_request", "customer_email must be an email address.");
@@ -818,7 +884,7 @@ serve(async (req) => {
         key_id: key.id,
         environment: modeOf(key),
         amount: amt,
-        currency: typeof body.currency === "string" ? body.currency.toUpperCase().slice(0, 3) : "ZMW",
+        currency: invCurrency,
         description: typeof body.description === "string" ? body.description.slice(0, 500) : null,
         customer_email: typeof body.customer_email === "string" ? body.customer_email : null,
         metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : {},

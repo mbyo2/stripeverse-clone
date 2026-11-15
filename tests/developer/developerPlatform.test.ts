@@ -166,5 +166,62 @@ describe("docs truth pass", () => {
     expect(api).toContain("transaction.completed");
     expect(api).toContain("developer_webhooks");
     expect(api).toContain("developer_webhook_deliveries");
+    // All seven developer events are subscribable from the API page —
+    // invoice.* and mobile_money.collection.completed were missing
+    // (2026-11-15 ext-hunt: only 4 checkboxes rendered).
+    for (const ev of ["transaction.completed", "payment_link.created", "payment_link.paid",
+      "invoice.created", "invoice.paid", "mobile_money.collection.completed", "webhook.test"]) {
+      expect(api, `API page must offer ${ev}`).toContain(`"${ev}"`);
+      expect(read("src/components/business/docs/WebhookDocs.tsx"), `WebhookDocs must list ${ev}`).toContain(`"${ev}"`);
+      expect(read("src/pages/Developers.tsx"), `Developers page must list ${ev}`).toContain(`"${ev}"`);
+    }
+    // All fourteen issuable scopes are offered at key creation — the
+    // six beyond the original six (config/invoices/webhooks:manage/
+    // mobile money) are what plugins, invoices and MoMo need.
+    for (const sc of ["config:read", "invoices:create", "invoices:read", "webhooks:manage",
+      "webhooks:read", "webhooks:write", "mobile_money:create", "mobile_money:read"]) {
+      expect(api, `API page must offer scope ${sc}`).toContain(`"${sc}"`);
+    }
+  });
+
+  it("payment links are not described as live-keys-only anywhere", () => {
+    // Sandbox keys create sandbox links (proven live 2026-11-14); the
+    // Developers and API pages used to say "live keys only".
+    for (const p of ["src/pages/Developers.tsx", "src/pages/API.tsx"]) {
+      const src = read(p);
+      expect(src).not.toMatch(/POST \/payment-links[^"]*live keys only/);
+      expect(src).not.toContain("Create a payment link — live keys only");
+    }
+    expect(read("src/pages/Developers.tsx")).toContain("a sandbox key creates a sandbox link");
+  });
+
+  it("payment-link creation validates currency/amount and keeps metadata", () => {
+    // EUR/GBP/XXX, zero and negative-amount links were created live
+    // 2026-11-15; metadata was dropped silently although the paid
+    // dispatcher reads link.metadata.reference.
+    expect(router).toContain("currency must be 'ZMW' or 'USD'");
+    expect(router).toContain("amount must be greater than zero");
+    expect(router).toContain("linkMetadata");
+    expect(router).toContain("metadata: linkMetadata");
+    expect(router).toContain("redirect_url, metadata, environment, created_at");
+    // The spec carries the same contract.
+    const linkSchema = spec.paths["/payment-links"].post.requestBody.content["application/json"].schema;
+    expect(linkSchema.properties.currency.enum).toEqual(["ZMW", "USD"]);
+    expect(linkSchema.properties.amount.exclusiveMinimum).toBe(true);
+    expect(linkSchema.properties.metadata.type).toBe("object");
+    const invSchema = spec.paths["/invoices"].post.requestBody.content["application/json"].schema;
+    expect(invSchema.properties.currency.enum).toEqual(["ZMW", "USD"]);
+  });
+
+  it("simulated payment_link.paid matches the real payload shape", () => {
+    // The simulation used to emit the bare link row (no payment_link_id,
+    // total_charged, payment_method, reference/metadata), so automations
+    // built on simulations broke on the first real payment.
+    const sim = router.slice(router.indexOf('parts[2] === "simulate-payment"'));
+    expect(sim).toContain("payment_link_id: data.id");
+    expect(sim).toContain('payment_method: "simulated"');
+    expect(sim).toContain("total_charged: out.buyer_total");
+    expect(sim).toContain("simReference");
+    expect(sim).toContain("simulated: true");
   });
 });
