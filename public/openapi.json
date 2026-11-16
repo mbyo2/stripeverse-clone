@@ -90,7 +90,7 @@
     },
     "/bitcoin/quote": {
       "post": {
-        "description": "Scope: bitcoin:read. Creates a price-locked quote using the same live price sources and 1.5% (150 bps) fee as the app's btc-trade function. Quote only \u2014 execution happens in the app, not via the API. Test keys may create quotes (no money moves).",
+        "description": "Scope: bitcoin:read. Creates a price-locked quote using the same live price sources and 1.5% (150 bps) fee as the app's btc-trade function. Quote only \u2014 execution happens in the app, not via the API. Test keys may create quotes (no money moves). side must be 'buy' or 'sell': any other value (or a missing side) returns 400 invalid_side \u2014 a bad side is never silently treated as a buy.",
         "operationId": "bitcoinQuote",
         "requestBody": {
           "content": {
@@ -121,6 +121,9 @@
           "201": {
             "description": "Quote with expires_at (60s)"
           },
+          "400": {
+            "description": "invalid_side (side must be 'buy' or 'sell') or invalid_request (amount below the minimum)"
+          },
           "502": {
             "description": "Price source unavailable or diverging"
           }
@@ -140,8 +143,18 @@
         "summary": "List payment links"
       },
       "post": {
-        "description": "Creates a payment link for the key's owner and fires payment_link.created. fee_payer is optional: omit it to inherit the merchant's account default (see GET /settings). The response carries the RESOLVED fee_payer plus the computed fee_amount, buyer_total and seller_receives for the link's price at the current platform rate \u2014 seller-pays at K100/2.5%: buyer_total 100.00, seller_receives 97.50; buyer-pays: buyer_total 102.50, seller_receives 100.00. The computed amounts are null on any-amount links (no fixed price). The hosted pay page for every link offers Pay with Bitcoin (QR, on-chain + Lightning) to any guest \u2014 no connector code change is needed for shop checkouts to offer it. Bitcoin settlements fire payment_link.paid with payment_method bitcoin_onchain or bitcoin_lightning.",
+        "description": "Creates a payment link for the key's owner and fires payment_link.created. fee_payer is optional: omit it to inherit the merchant's account default (see GET /settings). The response carries the RESOLVED fee_payer plus the computed fee_amount, buyer_total and seller_receives for the link's price at the current platform rate \u2014 seller-pays at K100/2.5%: buyer_total 100.00, seller_receives 97.50; buyer-pays: buyer_total 102.50, seller_receives 100.00. The computed amounts are null on any-amount links (no fixed price). The hosted pay page for every link offers Pay with Bitcoin (QR, on-chain + Lightning) to any guest \u2014 no connector code change is needed for shop checkouts to offer it. Bitcoin settlements fire payment_link.paid with payment_method bitcoin_onchain or bitcoin_lightning. Send an Idempotency-Key header (or idempotency_key in the body) to make retries safe: repeating the create with the same key returns the original link (201) instead of a second link.",
         "operationId": "createPaymentLink",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        
         "requestBody": {
           "content": {
             "application/json": {
@@ -677,7 +690,16 @@
         "summary": "List invoices in the key's environment"
       },
       "post": {
-        "description": "Scope: invoices:create. Creates an invoice in the key's environment. Sandbox invoices settle only via /invoices/{id}/simulate-payment. Fires invoice.created to the environment's webhook endpoints.",
+        "description": "Scope: invoices:create. Creates an invoice in the key's environment. Sandbox invoices settle only via /invoices/{id}/simulate-payment. Fires invoice.created to the environment's webhook endpoints. Send an Idempotency-Key header (or idempotency_key in the body) to make retries safe: repeating the create with the same key returns the original invoice (201) instead of a second invoice.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {

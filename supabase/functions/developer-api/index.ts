@@ -213,6 +213,27 @@ function requireLive(key: ApiKeyRow): Response | null {
   return null;
 }
 
+// ── Idempotency for API creates ──────────────────────────────────────
+// Payment links and invoices had no dedupe: a client that retried a
+// create after a 503 (CEO decision 2026-11-15: SDKs retry transient
+// 502/503/504) would mint a second object. The SDKs send one
+// Idempotency-Key per logical create (auto-generated UUID when the
+// caller supplies none); the server honours the header (or
+// body.idempotency_key) and replays the original row instead of
+// creating again. Scoped to (user_id, environment, key) — the same
+// scoping as every other developer-API object — and backstopped by a
+// partial unique index (migration 20261272), so a concurrent
+// double-submit trips 23505 and the handler returns the winning row.
+function readIdempotencyKey(req: Request, body: any): string | Response | null {
+  const raw = req.headers.get("idempotency-key") ||
+    (typeof body?.idempotency_key === "string" ? body.idempotency_key : null);
+  if (!raw) return null;
+  if (raw.length < 8 || raw.length > 128) {
+    return err(400, "invalid_request", "idempotency_key must be between 8 and 128 characters.");
+  }
+  return raw;
+}
+
 // ── Business facts: the authoritative record every gate reads ──────
 // (merchant_accounts + the profile freeze flag). Re-loaded at call
 // time on every money-creating route — never cached from a config
@@ -713,6 +734,21 @@ serve(async (req) => {
           return err(400, "invalid_request", "redirect_url must be a valid http(s) URL.");
         }
       }
+      // Idempotency (CEO decision 2026-11-15): a retry of this create
+      // with the same key returns the original link — no second link,
+      // no second payment_link.created event. The unique index
+      // (20261272) is the backstop; this lookup is the fast path.
+      const idemKey = readIdempotencyKey(req, body);
+      if (idemKey instanceof Response) return idemKey;
+      if (idemKey) {
+        const { data: existing } = await db.from("payment_links")
+          .select("id, title, amount, currency, link_code, status, fee_payer, redirect_url, metadata, environment, created_at")
+          .eq("user_id", userId).eq("environment", modeOf(key)).eq("idempotency_key", idemKey).maybeSingle();
+        if (existing) {
+          const { rate: replayRate } = await feeContext();
+          return json(201, { data: linkOut(existing, replayRate), mode: modeOf(key), environment: envOf(key) });
+        }
+      }
       const { data, error } = await db.from("payment_links").insert({
         user_id: userId, title: title.slice(0, 200), description: description ?? null,
         amount: amount != null ? Number(amount) : null,
@@ -722,8 +758,22 @@ serve(async (req) => {
         redirect_url: redirectUrl,
         metadata: linkMetadata,
         environment: modeOf(key),
+        idempotency_key: idemKey ?? null,
       }).select("id, title, amount, currency, link_code, status, fee_payer, redirect_url, metadata, environment, created_at").single();
-      if (error) throw error;
+      if (error) {
+        // A concurrent create with the same key won the race: return
+        // its row instead of a second link (see 20261272).
+        if (idemKey && (error as { code?: string }).code === "23505") {
+          const { data: winner } = await db.from("payment_links")
+            .select("id, title, amount, currency, link_code, status, fee_payer, redirect_url, metadata, environment, created_at")
+            .eq("user_id", userId).eq("environment", modeOf(key)).eq("idempotency_key", idemKey).maybeSingle();
+          if (winner) {
+            const { rate } = await feeContext();
+            return json(201, { data: linkOut(winner, rate), mode: modeOf(key), environment: envOf(key) });
+          }
+        }
+        throw error;
+      }
       const out = linkOut(data, rate);
       await dispatchEvent(db, userId, "payment_link.created", out, modeOf(key)).catch(() => []);
       return json(201, { data: out, mode: modeOf(key), environment: envOf(key) });
@@ -821,7 +871,16 @@ serve(async (req) => {
       // Quotes are read-only price locks stored by the app; creating one
       // moves no money, so test keys may use it — it calls the same live
       // price sources as the btc-trade function.
-      const side = body.side === "sell" ? "sell" : "buy";
+      // DECISION (CEO, 2026-11-15 16:35): a raw caller that sends a
+      // bad side gets 400 invalid_side — never a silently coerced
+      // buy quote. A typo used to flip the money direction (any
+      // non-"sell" side became "buy", live-proven 2026-11-16). The
+      // SDKs already refuse bad sides client-side with invalid_side;
+      // the server now agrees. Valid quotes are unchanged.
+      if (body.side !== "buy" && body.side !== "sell") {
+        return err(400, "invalid_side", "side must be 'buy' or 'sell'.");
+      }
+      const side = body.side;
       const amountZmw = Number(body.amount_zmw);
       const amountSats = Number(body.amount_sats);
       if (side === "buy" && !(amountZmw >= 10)) return err(400, "invalid_request", "amount_zmw must be at least 10 for a buy quote.");
@@ -898,6 +957,20 @@ serve(async (req) => {
           (typeof body.customer_email !== "string" || !body.customer_email.includes("@"))) {
         return err(400, "invalid_request", "customer_email must be an email address.");
       }
+      // Idempotency (CEO decision 2026-11-15): same rule as payment
+      // links — a retry with the same key returns the original
+      // invoice, never a second one. Backstopped by the unique index
+      // (migration 20261272).
+      const invIdemKey = readIdempotencyKey(req, body);
+      if (invIdemKey instanceof Response) return invIdemKey;
+      if (invIdemKey) {
+        const { data: existingInv } = await db.from("developer_invoices")
+          .select("*").eq("user_id", userId).eq("environment", modeOf(key))
+          .eq("idempotency_key", invIdemKey).maybeSingle();
+        if (existingInv) {
+          return json(201, { data: invoiceOut(existingInv), mode: modeOf(key), environment: envOf(key) });
+        }
+      }
       const { data, error } = await db.from("developer_invoices").insert({
         user_id: userId,
         key_id: key.id,
@@ -907,8 +980,19 @@ serve(async (req) => {
         description: typeof body.description === "string" ? body.description.slice(0, 500) : null,
         customer_email: typeof body.customer_email === "string" ? body.customer_email : null,
         metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : {},
+        idempotency_key: invIdemKey ?? null,
       }).select("*").single();
-      if (error) throw error;
+      if (error) {
+        if (invIdemKey && (error as { code?: string }).code === "23505") {
+          const { data: winnerInv } = await db.from("developer_invoices")
+            .select("*").eq("user_id", userId).eq("environment", modeOf(key))
+            .eq("idempotency_key", invIdemKey).maybeSingle();
+          if (winnerInv) {
+            return json(201, { data: invoiceOut(winnerInv), mode: modeOf(key), environment: envOf(key) });
+          }
+        }
+        throw error;
+      }
       const out = invoiceOut(data);
       await dispatchEvent(db, userId, "invoice.created", out, modeOf(key)).catch(() => []);
       return json(201, { data: out, mode: modeOf(key), environment: envOf(key) });
