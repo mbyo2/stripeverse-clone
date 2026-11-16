@@ -21,6 +21,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { createRealtimeChannel, removeRealtimeChannel } from "@/lib/realtimeChannel";
 import { Transaction, TransactionFilter } from "@/types/transaction";
 import { transactionCounterpartyLabel } from "@/utils/transactionLabels";
 import { format, subDays, isValid } from "date-fns";
@@ -194,8 +195,11 @@ const EnhancedTransactionManager = ({
   }, [dateRange, typeFilter, statusFilter]);
   
   useEffect(() => {
-    const channel = supabase
-      .channel('transactions_changes')
+    // Unique channel name per mount (lib/realtimeChannel): a fixed
+    // name is handed back still-joining after a fast unmount →
+    // remount, and realtime-js 2.119 throws on .on() for a joined
+    // channel — the 2026-11-15 dashboard crash.
+    const channel = createRealtimeChannel('transactions_changes')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -206,7 +210,7 @@ const EnhancedTransactionManager = ({
       .subscribe();
       
     return () => {
-      supabase.removeChannel(channel);
+      removeRealtimeChannel(channel);
     };
   }, [queryClient]);
   

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { createRealtimeChannel, removeRealtimeChannel } from "@/lib/realtimeChannel";
 import { Separator } from "@/components/ui/separator";
 import { useNavigate } from "react-router-dom";
 
@@ -27,7 +28,11 @@ export interface Notification {
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  // Derived, never a separate counter: while an old channel drains
+  // after a remount it can deliver a row the new channel also
+  // delivers — a counter incremented per delivery would double-count
+  // it, while the list (deduped by id below) stays exact.
+  const unreadCount = notifications.filter((n) => !n.read).length;
   const [loading, setLoading] = useState<boolean>(true);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -51,7 +56,6 @@ const NotificationBell = () => {
         
         // Use type assertion to convert data to the expected Notification[]
         setNotifications(data as unknown as Notification[]);
-        setUnreadCount((data as unknown as Notification[]).filter((notification: Notification) => !notification.read).length);
       } catch (error) {
         console.error("Error fetching notifications:", error);
       } finally {
@@ -61,9 +65,12 @@ const NotificationBell = () => {
 
     fetchNotifications();
 
-    // Set up real-time subscription
-    const channel = supabase
-      .channel("notification_changes")
+    // Set up real-time subscription. The channel name MUST be unique
+    // per mount (lib/realtimeChannel): a fixed "notification_changes"
+    // name is handed back still-joining after a fast unmount →
+    // remount (login → dashboard), and realtime-js 2.119 throws on
+    // .on() for a joined channel — the 2026-11-15 dashboard crash.
+    const channel = createRealtimeChannel("notification_changes")
       .on(
         "postgres_changes",
         {
@@ -74,14 +81,19 @@ const NotificationBell = () => {
         },
         (payload) => {
           const newNotification = payload.new as unknown as Notification;
-          setNotifications((current) => [newNotification, ...current]);
-          setUnreadCount((count) => count + 1);
+          // Dedupe by id: while the previous mount's channel drains
+          // it can deliver the same row this channel also delivers.
+          setNotifications((current) =>
+            current.some((n) => n.id === newNotification.id)
+              ? current
+              : [newNotification, ...current],
+          );
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      removeRealtimeChannel(channel);
     };
   }, [user]);
 
@@ -102,7 +114,7 @@ const NotificationBell = () => {
             n.id === notificationId ? { ...n, read: true } : n
           )
         );
-        setUnreadCount(Math.max(0, unreadCount - 1));
+        // unreadCount is derived from the list — marking read drops it.
       } else {
         // Mark all as read
         const { error } = await supabase
@@ -116,7 +128,7 @@ const NotificationBell = () => {
         setNotifications(
           notifications.map((n) => ({ ...n, read: true }))
         );
-        setUnreadCount(0);
+        // unreadCount is derived from the list — marking all read zeroes it.
       }
     } catch (error) {
       console.error("Error marking notifications as read:", error);

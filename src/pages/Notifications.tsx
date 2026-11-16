@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Bell, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { createRealtimeChannel, removeRealtimeChannel } from "@/lib/realtimeChannel";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Notification } from "@/components/notifications/NotificationBell";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -84,9 +85,11 @@ const Notifications = () => {
     fetchNotifications();
     fetchPreferences();
     
-    // Set up real-time subscription
-    const channel = supabase
-      .channel("notification_changes")
+    // Set up real-time subscription. Unique name per mount
+    // (lib/realtimeChannel): this page's Header bell already holds
+    // a "notification_changes" channel, and a fixed name here would
+    // throw on .on() under realtime-js 2.119 — the 2026-11-15 crash.
+    const channel = createRealtimeChannel("notification_changes")
       .on(
         "postgres_changes",
         {
@@ -97,13 +100,19 @@ const Notifications = () => {
         },
         (payload) => {
           const newNotification = payload.new as unknown as Notification;
-          setNotifications((current) => [newNotification, ...current]);
+          // Dedupe by id: while the previous mount's channel drains
+          // it can deliver the same row this channel also delivers.
+          setNotifications((current) =>
+            current.some((n) => n.id === newNotification.id)
+              ? current
+              : [newNotification, ...current],
+          );
         }
       )
       .subscribe();
       
     return () => {
-      supabase.removeChannel(channel);
+      removeRealtimeChannel(channel);
     };
   }, [user, toast]);
   

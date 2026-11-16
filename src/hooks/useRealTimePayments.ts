@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { createRealtimeChannel, removeRealtimeChannel } from '@/lib/realtimeChannel';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,9 +23,12 @@ export const useRealTimePayments = () => {
   useEffect(() => {
     if (!user?.id) return;
 
-    // Subscribe to real-time payment updates
-    const channel = supabase
-      .channel('payment-updates')
+    // Subscribe to real-time payment updates. Unique channel name
+    // per mount (lib/realtimeChannel): a fixed name is handed back
+    // still-joining after a fast unmount → remount, and realtime-js
+    // 2.119 throws on .on() for a joined channel — the 2026-11-15
+    // dashboard crash.
+    const channel = createRealtimeChannel('payment-updates')
       .on(
         'postgres_changes',
         {
@@ -127,7 +131,7 @@ export const useRealTimePayments = () => {
     fetchInitialPayments();
 
     return () => {
-      supabase.removeChannel(channel);
+      removeRealtimeChannel(channel);
     };
   }, [user?.id, toast]);
 

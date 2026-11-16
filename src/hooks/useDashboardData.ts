@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAuthFailure } from '@/lib/authFailure';
+import { createRealtimeChannel, removeRealtimeChannel } from '@/lib/realtimeChannel';
 
 interface DashboardStats {
   totalBalance: number;
@@ -54,8 +55,11 @@ export const useDashboardData = () => {
   useEffect(() => {
     if (!user?.id) return;
 
-    const channel = supabase
-      .channel('dashboard-realtime')
+    // Unique channel name per mount (lib/realtimeChannel): the
+    // fixed 'dashboard-realtime' name is handed back still-joining
+    // after a fast unmount → remount, and realtime-js 2.119 throws
+    // on .on() for a joined channel — the 2026-11-15 dashboard crash.
+    const channel = createRealtimeChannel('dashboard-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` },
@@ -86,7 +90,7 @@ export const useDashboardData = () => {
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      removeRealtimeChannel(channel);
     };
   }, [user?.id, queryClient]);
 
