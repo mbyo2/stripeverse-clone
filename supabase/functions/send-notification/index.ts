@@ -122,13 +122,21 @@ Deno.serve(async (req) => {
 
     const { type, userId, data } = await req.json() as EmailPayload
 
-    // Users may only send notifications to themselves. Admins may send to anyone.
+    // Users may only send notifications to themselves. Admins (admin
+    // or super_admin — super_admin is additive over admin) may send
+    // to anyone.
     if (userId !== caller.id) {
-      const { data: isAdmin } = await supabaseClient.rpc('has_role', {
-        user_id: caller.id,
-        required_role: 'admin',
-      })
-      if (!isAdmin) {
+      const [{ data: isAdmin }, { data: isSuperAdmin }] = await Promise.all([
+        supabaseClient.rpc('has_role', {
+          user_id: caller.id,
+          required_role: 'admin',
+        }),
+        supabaseClient.rpc('has_role', {
+          user_id: caller.id,
+          required_role: 'super_admin',
+        }),
+      ])
+      if (!isAdmin && !isSuperAdmin) {
         return new Response(JSON.stringify({ error: 'Forbidden' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

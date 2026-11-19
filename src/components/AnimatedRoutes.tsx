@@ -74,6 +74,8 @@ const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
+const AdminMerchants = lazy(() => import('@/pages/AdminMerchants'));
+const AdminSettings = lazy(() => import('@/pages/AdminSettings'));
 const AdminMastercardMove = lazy(() => import('@/pages/AdminMastercardMove'));
 const AdminMoonpay = lazy(() => import('@/pages/AdminMoonpay'));
 const AdminPaypal = lazy(() => import('@/pages/AdminPaypal'));
@@ -313,6 +315,12 @@ const AnimatedRoutes = () => {
         <Route path="/verify-identity" element={<ProtectedPage><VerifyIdentity /></ProtectedPage>} />
         <Route path="/ussd-access" element={<ProtectedPage><FeatureRouteGate feature="ussdAccess"><UssdAccess /></FeatureRouteGate></ProtectedPage>} />
         <Route path="/admin/users" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminUsers /></RoleGuardedPage>} />
+        <Route path="/admin/merchants" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminMerchants /></RoleGuardedPage>} />
+        {/* Platform Settings is super_admin ONLY (like Treasury):
+            it edits the platform's fees and kill switches, and the
+            admin_update_platform_settings RPC enforces the same
+            gate server-side. */}
+        <Route path="/admin/settings" element={<RoleGuardedPage roles={['super_admin']}><AdminSettings /></RoleGuardedPage>} />
         <Route path="/admin/transactions" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminTransactions /></RoleGuardedPage>} />
         {/* Treasury & Reports is super_admin ONLY (stricter than the
             ADMIN_ROLES consoles): it exposes the platform's own

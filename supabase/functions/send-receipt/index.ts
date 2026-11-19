@@ -69,11 +69,17 @@ Deno.serve(async (req) => {
     // function already verified the event (checkout-webhook's HMAC)
     // and the receipt goes to the payer email on the transaction.
     if (!isInternalCall && transaction.user_id !== caller!.id) {
-      const { data: isAdmin } = await supabase.rpc('has_role', {
-        user_id: caller!.id,
-        required_role: 'admin',
-      })
-      if (!isAdmin) {
+      const [{ data: isAdmin }, { data: isSuperAdmin }] = await Promise.all([
+        supabase.rpc('has_role', {
+          user_id: caller!.id,
+          required_role: 'admin',
+        }),
+        supabase.rpc('has_role', {
+          user_id: caller!.id,
+          required_role: 'super_admin',
+        }),
+      ])
+      if (!isAdmin && !isSuperAdmin) {
         return new Response(JSON.stringify({ error: 'Forbidden' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

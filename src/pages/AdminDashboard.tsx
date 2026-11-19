@@ -14,7 +14,7 @@ import { adminDashboardVisibility } from "@/lib/roleVisibility";
 import { supabase } from "@/integrations/supabase/client";
 import { countActiveUsers, activityWindowStart } from "@/utils/adminStats";
 import { Link } from "react-router-dom";
-import { Users, Shield, Activity, AlertTriangle, Settings, Database, ScanFace, Globe2, Inbox, ReceiptText, CreditCard, Landmark, Building2 } from "lucide-react";
+import { Users, Shield, Activity, AlertTriangle, Settings, Database, ScanFace, Globe2, Inbox, ReceiptText, CreditCard, Landmark, Building2, Store } from "lucide-react";
 
 interface UserStat {
   total_users: number;
@@ -34,10 +34,12 @@ interface AdminAction {
   description: string;
   icon: React.ReactNode;
   link: string;
-  /** super_admin-only destination: the card is not rendered at
-   *  all for any other viewer (least privilege — see
-   *  adminDashboardVisibility in src/lib/roleVisibility.ts). */
-  superAdminOnly?: boolean;
+  /** super_admin-only destination gated on the named model flag in
+   *  adminDashboardVisibility (src/lib/roleVisibility.ts): the card
+   *  is not rendered at all for any other viewer (least privilege).
+   *  Each gated surface names its OWN flag so its rule is pinned
+   *  independently. */
+  gate?: "treasuryConsole" | "platformSettings";
 }
 
 const AdminDashboard = () => {
@@ -185,7 +187,7 @@ const AdminDashboard = () => {
       description: "Platform balances, fee income and reports (super admin)",
       icon: <Landmark className="h-6 w-6" />,
       link: "/admin/treasury",
-      superAdminOnly: true
+      gate: "treasuryConsole"
     },
     {
       title: "P2P Disputes",
@@ -252,22 +254,40 @@ const AdminDashboard = () => {
       description: "Manage compliance and KYC",
       icon: <AlertTriangle className="h-6 w-6" />,
       link: "/compliance",
+    },
+    {
+      title: "Merchant Oversight",
+      description: "Every business on the platform — status, mobile money and owners",
+      icon: <Store className="h-6 w-6" />,
+      link: "/admin/merchants",
+    },
+    {
+      title: "Platform Settings",
+      description: "Feature switches, platform fees and live platform health (super admin)",
+      icon: <Settings className="h-6 w-6" />,
+      link: "/admin/settings",
+      gate: "platformSettings"
     }
   ];
 
   // Least privilege (CEO order 2026-10-27): a card whose target
   // route the viewer cannot open is not rendered for them at all.
-  // Treasury & Reports is narrower than the dashboard's own
-  // admin-tier audience — its route gate and its RPCs are
-  // super_admin-only — and the Treasury TAB below is gated by the
-  // same model (its table's RLS is super_admin since migration
-  // 20261240), so both are driven by the one model in
+  // Treasury & Reports and Platform Settings are each narrower
+  // than the dashboard's own admin-tier audience — their route
+  // gates and their server-side checks are super_admin-only — so
+  // each is driven by its own flag in the model in
   // roleVisibility.ts. Roles still loading resolves to no roles,
   // which fails closed: each appears only once super_admin is
   // actually held.
-  const visibleAdminActions = adminActions.filter(
-    (action) => !action.superAdminOnly || dashboardVisibility.treasuryConsole
-  );
+  const visibleAdminActions = adminActions.filter((action) => {
+    if (action.gate === "treasuryConsole") {
+      return dashboardVisibility.treasuryConsole;
+    }
+    if (action.gate === "platformSettings") {
+      return dashboardVisibility.platformSettings;
+    }
+    return true;
+  });
 
   if (isLoading) {
     return (

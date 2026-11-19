@@ -132,16 +132,16 @@ describe("headerMenuVisibility — the account menus show each role its own entr
 
 describe("adminDashboardVisibility — both Treasury surfaces are super_admin-only", () => {
   it("super_admin holders see the Treasury card AND the Treasury tab", () => {
-    expect(adminDashboardVisibility(["super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true });
-    expect(adminDashboardVisibility(["user", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true });
-    expect(adminDashboardVisibility(["admin", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true });
-    expect(adminDashboardVisibility(["business", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true });
+    expect(adminDashboardVisibility(["super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true });
+    expect(adminDashboardVisibility(["user", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true });
+    expect(adminDashboardVisibility(["admin", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true });
+    expect(adminDashboardVisibility(["business", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true });
   });
 
   it("a plain admin sees NEITHER the Treasury card NOR the Treasury tab", () => {
-    expect(adminDashboardVisibility(["admin"])).toEqual({ treasuryConsole: false, treasuryTab: false });
-    expect(adminDashboardVisibility(["user", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false });
-    expect(adminDashboardVisibility(["business", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false });
+    expect(adminDashboardVisibility(["admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false });
+    expect(adminDashboardVisibility(["user", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false });
+    expect(adminDashboardVisibility(["business", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false });
   });
 
   it("no other role sees either Treasury surface", () => {
@@ -149,7 +149,7 @@ describe("adminDashboardVisibility — both Treasury surfaces are super_admin-on
       ["user"], ["business"], ["p2p_admin"], ["beta_tester"],
       ["support_admin"], ["compliance_admin"], ["finance_admin"], [],
     ]) {
-      expect(adminDashboardVisibility(roles)).toEqual({ treasuryConsole: false, treasuryTab: false });
+      expect(adminDashboardVisibility(roles)).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false });
     }
   });
 
@@ -293,7 +293,7 @@ describe("AdminDashboard — the Treasury card is not rendered for non-super_adm
   it("marks the Treasury & Reports card super_admin-only and renders only visible cards", () => {
     expect(src).toContain('title: "Treasury & Reports"');
     expect(src).toContain('link: "/admin/treasury"');
-    expect(src).toContain("superAdminOnly: true");
+    expect(src).toContain('gate: "treasuryConsole"');
     expect(src).toContain("visibleAdminActions");
     expect(src).toContain("dashboardVisibility.treasuryConsole");
     expect(src).toContain("{visibleAdminActions.map((action) => (");
@@ -304,6 +304,20 @@ describe("AdminDashboard — the Treasury card is not rendered for non-super_adm
     const routes = read("../../src/components/AnimatedRoutes.tsx");
     expect(routes).toContain(
       'path="/admin/treasury" element={<RoleGuardedPage roles={[\'super_admin\']}>',
+    );
+  });
+
+  it("marks the Platform Settings card super_admin-only on its own model flag", () => {
+    expect(src).toContain('title: "Platform Settings"');
+    expect(src).toContain('link: "/admin/settings"');
+    expect(src).toContain('gate: "platformSettings"');
+    expect(src).toContain("dashboardVisibility.platformSettings");
+  });
+
+  it("the /admin/settings route gate itself is super_admin-only", () => {
+    const routes = read("../../src/components/AnimatedRoutes.tsx");
+    expect(routes).toContain(
+      'path="/admin/settings" element={<RoleGuardedPage roles={[\'super_admin\']}>',
     );
   });
 });

@@ -132,6 +132,10 @@ export interface AdminDashboardVisibility {
   treasuryConsole: boolean;
   /** "Treasury" tab (payout-treasury Safe config) — super_admin only. */
   treasuryTab: boolean;
+  /** Platform Settings card — super_admin holders only (its route
+   *  gate is ['super_admin'] and the settings RPC enforces the
+   *  same server-side; added 2026-11-19 with /admin/settings). */
+  platformSettings: boolean;
 }
 
 export const adminDashboardVisibility = (
@@ -139,4 +143,5 @@ export const adminDashboardVisibility = (
 ): AdminDashboardVisibility => ({
   treasuryConsole: holdsAnyRole(roles, ["super_admin"]),
   treasuryTab: holdsAnyRole(roles, ["super_admin"]),
+  platformSettings: holdsAnyRole(roles, ["super_admin"]),
 });
