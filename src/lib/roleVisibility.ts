@@ -67,8 +67,11 @@ export const isAdminTier = (roles: readonly string[]): boolean =>
  * in the account menus (desktop dropdown + mobile drawer) belong to
  * roles, not to every signed-in user:
  *
- *   - Subscription, Audit Logs, Backup & Export are admin-console
- *     destinations: admin tier only.
+ *   - Subscription and Audit Logs are admin-console destinations:
+ *     admin tier only.
+ *   - Backup & Export is platform governance (data export): since
+ *     the 2026-11-19 role split it is super_admin ONLY, matching
+ *     its route gate and the data-backup function's gate.
  *   - Fraud Rules is a business surface whose route gate ALSO admits
  *     the admin tier (BusinessRouteGuard / /fraud-rules parity), so
  *     it renders for business holders OR the admin tier — a
@@ -80,8 +83,10 @@ export const isAdminTier = (roles: readonly string[]): boolean =>
  * menu model is pinned directly by tests.
  */
 export interface HeaderMenuVisibility {
-  /** Subscription, Audit Logs, Backup & Export — admin tier only. */
+  /** Subscription, Audit Logs — admin tier only. */
   adminLinks: boolean;
+  /** Backup & Export — super_admin holders only (2026-11-19 split). */
+  backupExport: boolean;
   /** Fraud Rules — business holders OR the admin tier. */
   fraudRules: boolean;
 }
@@ -92,6 +97,7 @@ export const headerMenuVisibility = (
   const adminTier = isAdminTier(roles);
   return {
     adminLinks: adminTier,
+    backupExport: holdsAnyRole(roles, ["super_admin"]),
     fraudRules: adminTier || holdsAnyRole(roles, ["business"]),
   };
 };
@@ -117,15 +123,24 @@ export const headerMenuVisibility = (
  *     super_admin, and the tab trigger + content follow the data
  *     gate, so a plain admin never renders the tab at all.
  *
+ * Since the 2026-11-19 role split, five more cards target
+ * super_admin-only surfaces and carry their own flags: Role
+ * Management, Role Requests (approving a request grants a role),
+ * Cross-Border Payouts, Receiving Accounts and MoonPay — their
+ * route gates and server-side checks are super_admin-only, so a
+ * plain admin never renders the cards at all. Bank Payouts, PayPal
+ * Withdrawals and the Refunds Console STAY for admin (queue
+ * viewing is operations); their money-release action controls
+ * gate separately inside those pages.
+ *
  * Every other card (User Management, Transaction Oversight, P2P
- * Disputes, Identity Review, Role Management, Role Requests,
- * Refunds Console, Cross-Border Payouts, MoonPay, PayPal
- * Withdrawals, Compliance Center) and every other tab targets a
- * route that admits the dashboard's whole audience, so it renders
- * for every viewer who can open the dashboard. The two treasury
- * flags are kept separate so each surface's rule is pinned on its
- * own. Kept as a pure function of the held roles so the rule is
- * pinned directly by tests.
+ * Disputes, Identity Review, Refunds Console, PayPal Withdrawals,
+ * Bank Payouts, Compliance Center, Merchant Oversight) and every
+ * other tab targets a route that admits the dashboard's whole
+ * audience, so it renders for every viewer who can open the
+ * dashboard. Each flag is kept separate so every surface's rule is
+ * pinned on its own. Kept as a pure function of the held roles so
+ * the rule is pinned directly by tests.
  */
 export interface AdminDashboardVisibility {
   /** Treasury & Reports card — super_admin holders only. */
@@ -136,6 +151,16 @@ export interface AdminDashboardVisibility {
    *  gate is ['super_admin'] and the settings RPC enforces the
    *  same server-side; added 2026-11-19 with /admin/settings). */
   platformSettings: boolean;
+  /** Role Management card — super_admin only (2026-11-19 split). */
+  roleManagement: boolean;
+  /** Role Requests card — super_admin only: approving grants a role. */
+  roleRequests: boolean;
+  /** Cross-Border Payouts card — super_admin only (money movement). */
+  crossBorderPayouts: boolean;
+  /** Receiving Accounts card — super_admin only (partner config). */
+  receivingAccounts: boolean;
+  /** MoonPay card — super_admin only (partner integration console). */
+  moonpay: boolean;
 }
 
 export const adminDashboardVisibility = (
@@ -144,4 +169,9 @@ export const adminDashboardVisibility = (
   treasuryConsole: holdsAnyRole(roles, ["super_admin"]),
   treasuryTab: holdsAnyRole(roles, ["super_admin"]),
   platformSettings: holdsAnyRole(roles, ["super_admin"]),
+  roleManagement: holdsAnyRole(roles, ["super_admin"]),
+  roleRequests: holdsAnyRole(roles, ["super_admin"]),
+  crossBorderPayouts: holdsAnyRole(roles, ["super_admin"]),
+  receivingAccounts: holdsAnyRole(roles, ["super_admin"]),
+  moonpay: holdsAnyRole(roles, ["super_admin"]),
 });

@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { requireAdmin } from '../_shared/auth.ts';
+import { requireSuperAdmin } from '../_shared/auth.ts';
 import { mtnProvisionSandboxUser } from '../_shared/momo-providers.ts';
 
 const corsHeaders = {
@@ -29,7 +29,7 @@ serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   try {
-    const auth = await requireAdmin(req, corsHeaders);
+    const auth = await requireSuperAdmin(req, corsHeaders);
     if ('response' in auth && !auth.user) return auth.response!;
 
     const body = await req.json().catch(() => ({}));

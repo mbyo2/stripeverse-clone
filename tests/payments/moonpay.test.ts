@@ -232,8 +232,8 @@ describe("buildMoonpayBuyUrl", () => {
 // ── Roles ────────────────────────────────────────────────────────────
 
 describe("canUseMoonpay (admin role set)", () => {
-  it("admits admin and super_admin, refuses everyone else", () => {
-    expect(canUseMoonpay(["admin"])).toBe(true);
+  it("admits super_admin only, refuses everyone else (2026-11-19 role split: the MoonPay console is governance)", () => {
+    expect(canUseMoonpay(["admin"])).toBe(false);
     expect(canUseMoonpay(["super_admin"])).toBe(true);
     expect(canUseMoonpay(["user"])).toBe(false);
     expect(canUseMoonpay([])).toBe(false);

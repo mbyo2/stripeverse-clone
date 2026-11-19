@@ -193,8 +193,8 @@ describe("honest copy", () => {
 });
 
 describe("receiving-admin shared gate", () => {
-  it("admin and super_admin pass; plain users do not", () => {
-    expect(canUseReceivingAdmin(["user", "admin"])).toBe(true);
+  it("super_admin passes; admin and plain users do not (2026-11-19 role split)", () => {
+    expect(canUseReceivingAdmin(["user", "admin"])).toBe(false);
     expect(canUseReceivingAdmin(["super_admin"])).toBe(true);
     expect(canUseReceivingAdmin(["user"])).toBe(false);
     expect(canUseReceivingAdmin([])).toBe(false);
@@ -341,11 +341,11 @@ describe("migration 20261246 — RPC guards", () => {
 });
 
 describe("wiring", () => {
-  it("routes exist; the admin route is role-guarded", () => {
+  it("routes exist; the admin route is super_admin-only (2026-11-19 role split)", () => {
     expect(routes).toContain('path="/receiving-accounts"');
     expect(routes).toContain('path="/admin/receiving-accounts"');
     expect(routes).toMatch(
-      /admin\/receiving-accounts[\s\S]{0,200}roles=\{\['admin', 'super_admin'\]\}/,
+      /admin\/receiving-accounts[\s\S]{0,200}roles=\{\['super_admin'\]\}/,
     );
   });
 

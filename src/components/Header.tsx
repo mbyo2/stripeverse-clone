@@ -99,6 +99,7 @@ const Header = () => {
   // may see them — admin tier always, regular users only when live.
   const { canSee: canSeeFeature } = useFeatureVisibility();
   const showAdminLinks = menuVisibility.adminLinks;
+  const showBackupExport = menuVisibility.backupExport;
   const showFraudRules = menuVisibility.fraudRules;
   const location = useLocation();
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -597,18 +598,18 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   {showAdminLinks && (
-                  <>
                   <DropdownMenuItem asChild>
                     <Link to="/audit-logs" className="flex items-center gap-2">
                       <FileText className="h-4 w-4" /> Audit Logs
                     </Link>
                   </DropdownMenuItem>
+                  )}
+                  {showBackupExport && (
                   <DropdownMenuItem asChild>
                     <Link to="/backup-export" className="flex items-center gap-2">
                       <Package className="h-4 w-4" /> Backup & Export
                     </Link>
                   </DropdownMenuItem>
-                  </>
                   )}
                   {showFraudRules && (
                   <DropdownMenuItem asChild>
@@ -753,7 +754,7 @@ const Header = () => {
                     <MobileNavLink to="/settings" icon={Settings}>Settings</MobileNavLink>
                     <MobileNavLink to="/security-settings" icon={Shield}>Security</MobileNavLink>
                     {showAdminLinks && <MobileNavLink to="/audit-logs" icon={FileText}>Audit Logs</MobileNavLink>}
-                    {showAdminLinks && <MobileNavLink to="/backup-export" icon={Package}>Backup & Export</MobileNavLink>}
+                    {showBackupExport && <MobileNavLink to="/backup-export" icon={Package}>Backup & Export</MobileNavLink>}
                     {showFraudRules && <MobileNavLink to="/fraud-rules" icon={Shield}>Fraud Rules</MobileNavLink>}
                     
                     <Separator className="my-2" />

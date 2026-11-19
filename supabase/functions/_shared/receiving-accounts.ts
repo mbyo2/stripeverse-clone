@@ -11,7 +11,7 @@
 // The RPCs re-check the actor's role server-side (defence in depth)
 // and audit-log under the actor id.
 
-export const RECEIVING_ADMIN_ROLES = ["admin", "super_admin"] as const;
+export const RECEIVING_ADMIN_ROLES = ["super_admin"] as const;
 
 export const RECEIVING_ADMIN_REFUSAL_MESSAGE =
   "Receiving account administration is limited to platform admins. If you believe this is a mistake, contact the platform owner.";
@@ -37,7 +37,8 @@ export function isReceivingAdminAction(
   );
 }
 
-/** Pure role gate: admin or super_admin may administer receiving accounts. */
+/** Pure role gate: super_admin only (2026-11-19 role split) — receiving
+ *  partner/account configuration and deposit crediting are governance. */
 export function canUseReceivingAdmin(roles: readonly string[]): boolean {
   return roles.some((r) =>
     (RECEIVING_ADMIN_ROLES as readonly string[]).includes(r),

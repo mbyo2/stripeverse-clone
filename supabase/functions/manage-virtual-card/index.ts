@@ -70,12 +70,12 @@ serve(async (req) => {
     }
     const user = userData.user;
 
-    // ── The card gate: admin-only while cards are "Coming soon" ──
+    // ── The card gate: super-admin-only while cards are "Coming soon" ──
     const { data: gateRole } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .in("role", ["admin", "super_admin"])
+      .eq("role", "super_admin")
       .limit(1)
       .maybeSingle();
     if (!gateRole) {

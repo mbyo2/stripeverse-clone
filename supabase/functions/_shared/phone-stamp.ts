@@ -32,11 +32,13 @@ export const PHONE_STAMP_FAILED_MESSAGE =
 export const PHONE_STAMP_AUDIT_FAILED_MESSAGE =
   "The phone number was confirmed, but we couldn't record that action in the audit log. Please let a super administrator know.";
 
-/** Roles allowed to stamp a phone number. */
+/** Roles allowed to stamp a phone number: super_admin only
+ *  (2026-11-19 role split) — stamping confers a confirmed identity
+ *  attribute on another user via the GoTrue admin API. */
 export function isPhoneStampAdminRole(
   role: string | null | undefined,
 ): boolean {
-  return role === "admin" || role === "super_admin";
+  return role === "super_admin";
 }
 
 export function hasPhoneStampAdmin(

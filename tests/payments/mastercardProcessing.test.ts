@@ -132,13 +132,14 @@ describe("configuration resolution (brief §1.1)", () => {
 });
 
 describe("admin gate", () => {
-  it("admits admin and super_admin only", () => {
-    expect(isProcessingAdminRole("admin")).toBe(true);
+  it("admits super_admin only (2026-11-19 role split)", () => {
+    expect(isProcessingAdminRole("admin")).toBe(false);
     expect(isProcessingAdminRole("super_admin")).toBe(true);
     for (const role of ["user", "business", "beta_tester", "p2p_admin", "", null, undefined]) {
       expect(isProcessingAdminRole(role)).toBe(false);
     }
-    expect(hasProcessingAdmin(["user", "admin"])).toBe(true);
+    expect(hasProcessingAdmin(["user", "admin"])).toBe(false);
+    expect(hasProcessingAdmin(["user", "super_admin"])).toBe(true);
     expect(hasProcessingAdmin(["user"])).toBe(false);
     expect(hasProcessingAdmin([])).toBe(false);
   });

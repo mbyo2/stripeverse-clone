@@ -103,19 +103,20 @@ describe("partner id resolution", () => {
 });
 
 describe("admin gate", () => {
-  it.each(["admin", "super_admin"])("allows %s", (role) => {
+  it.each(["super_admin"])("allows %s", (role) => {
     expect(isMastercardAdminRole(role)).toBe(true);
     expect(hasMastercardAdmin([role])).toBe(true);
   });
-  it.each(["user", "business", "beta_tester", "p2p_admin", "support_admin", "", null, undefined])(
+  it.each(["admin", "user", "business", "beta_tester", "p2p_admin", "support_admin", "", null, undefined])(
     "refuses %s",
     (role) => {
       expect(isMastercardAdminRole(role as string)).toBe(false);
       expect(hasMastercardAdmin([role as string])).toBe(false);
     },
   );
-  it("allows a user holding admin among other roles", () => {
-    expect(hasMastercardAdmin(["user", "admin"])).toBe(true);
+  it("refuses a plain admin among other roles; super_admin passes (2026-11-19 role split)", () => {
+    expect(hasMastercardAdmin(["user", "admin"])).toBe(false);
+    expect(hasMastercardAdmin(["user", "super_admin"])).toBe(true);
     expect(hasMastercardAdmin([])).toBe(false);
   });
 });
@@ -303,9 +304,9 @@ describe("mastercard_move_payments migration — source pins", () => {
 });
 
 describe("admin UI — source pins", () => {
-  it("the route is guarded to admin / super_admin only", () => {
+  it("the route is guarded to super_admin only (2026-11-19 role split: cross-border payout release is governance)", () => {
     expect(routes).toContain('path="/admin/mastercard-move"');
-    expect(routes).toContain("roles={['admin', 'super_admin']}");
+    expect(routes).toContain("roles={['super_admin']}");
   });
   it("always shows the sandbox banner", () => {
     expect(page).toContain("Sandbox — no real money moves");

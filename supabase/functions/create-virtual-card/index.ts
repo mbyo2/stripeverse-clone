@@ -408,7 +408,8 @@ serve(async (req) => {
     logStep("User authenticated", { userId: user.id });
 
     // Virtual cards are "Coming soon" for the public (CEO decision,
-    // 2026-10-22): card creation stays admin-only until the Mastercard
+    // 2026-10-22): card creation stays super-admin-only (2026-11-19
+    // role split — issuing a card creates a money instrument) until the Mastercard
     // developer-platform integration is built and tested. The pages
     // show a Coming Soon panel to everyone else; this is the same
     // rule enforced server-side so the function cannot be invoked
@@ -417,7 +418,7 @@ serve(async (req) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .in("role", ["admin", "super_admin"])
+      .eq("role", "super_admin")
       .maybeSingle();
     if (!adminRole) {
       return new Response(

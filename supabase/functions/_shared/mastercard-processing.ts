@@ -100,12 +100,12 @@ export function isProcessingConfigured(config: MastercardProcessingConfig): bool
 }
 
 // ---------------------------------------------------------------------------
-// Admin gate — admin OR super_admin, the platform-wide Mastercard
-// surface rule (same decision as _shared/mastercard-move.ts).
+// Admin gate — super_admin ONLY (2026-11-19 role split; same
+// decision as _shared/mastercard-move.ts).
 // ---------------------------------------------------------------------------
 
 export function isProcessingAdminRole(role: string | null | undefined): boolean {
-  return role === "admin" || role === "super_admin";
+  return role === "super_admin";
 }
 
 export function hasProcessingAdmin(roles: Array<string | null | undefined>): boolean {

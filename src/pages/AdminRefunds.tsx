@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useRoles } from "@/contexts/RoleContext";
 import { Eye, ReceiptText, X } from "lucide-react";
 import { listDirectoryUsers, type DirectoryUser } from "@/lib/adminConsole";
 import { toUserFacingError } from "@/utils/userFacingError";
@@ -32,6 +33,11 @@ const fmtMoney = (currency: string, amount: number) =>
 
 const AdminRefunds = () => {
   const { toast } = useToast();
+  // Every write on refunds is super_admin-only (2026-11-19 role
+  // split), so the reject decision renders only for super_admin;
+  // the console itself stays visible to the admin tier for viewing.
+  const { hasRole } = useRoles();
+  const viewerIsSuperAdmin = hasRole("super_admin");
   const [refunds, setRefunds] = useState<RefundRow[]>([]);
   const [directoryById, setDirectoryById] = useState<Map<string, DirectoryUser>>(new Map());
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -368,7 +374,7 @@ const AdminRefunds = () => {
               </div>
             )}
             <DialogFooter className="flex-col sm:flex-row gap-2">
-              {selected?.status === "pending" &&
+              {selected?.status === "pending" && viewerIsSuperAdmin &&
                 (confirmReject ? (
                   <>
                     <Button variant="outline" disabled={busyId === selected.id} onClick={() => setConfirmReject(false)}>

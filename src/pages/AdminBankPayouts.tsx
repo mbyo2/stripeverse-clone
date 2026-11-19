@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { useRoles } from "@/contexts/RoleContext";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveEdgeFunctionError } from "@/utils/edgeFunctionError";
 import { bankAccountNameMatches, bankWithdrawalStatusLabel } from "@/utils/bankPayout";
@@ -68,11 +69,16 @@ const money = (value: number) => `K${Number(value ?? 0).toFixed(2)}`;
  * mark it paid with the bank's reference. Reject or fail refunds
  * the full reservation to the user's wallet in the same action.
  * Every transition runs through the transition RPC (which owns
- * the lifecycle and re-checks the admin role) via the bank-payout
- * function, and is audit-logged.
+ * the lifecycle and re-checks the SUPER admin role — 2026-11-19
+ * role split: approving/paying a withdrawal releases money) via
+ * the bank-payout function, and is audit-logged. The queue itself
+ * stays visible to the whole admin tier; the action controls
+ * render only for super_admin.
  */
 const AdminBankPayouts = () => {
   const { toast } = useToast();
+  const { hasRole } = useRoles();
+  const viewerIsSuperAdmin = hasRole("super_admin");
   const [rows, setRows] = useState<BankQueueRow[]>([]);
   const [totals, setTotals] = useState<QueueTotals | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -212,7 +218,7 @@ const AdminBankPayouts = () => {
             {bankWithdrawalStatusLabel(row.status)}
           </Badge>
         </TableCell>
-        {isOpen && (
+        {isOpen && viewerIsSuperAdmin && (
           <TableCell className="align-top min-w-[240px]">
             <div className="space-y-2">
               {row.status === "approved" && (
@@ -358,7 +364,7 @@ const AdminBankPayouts = () => {
                       <TableHead>Amount</TableHead>
                       <TableHead>Destination</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Action</TableHead>
+                      {viewerIsSuperAdmin && <TableHead>Action</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>{actionable.map(renderRow)}</TableBody>

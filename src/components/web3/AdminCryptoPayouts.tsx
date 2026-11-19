@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CHAIN_LABELS } from "@/lib/web3/wagmiConfig";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRoles } from "@/contexts/RoleContext";
 import { toast } from "sonner";
 
 type Row = {
@@ -26,6 +27,11 @@ type Row = {
 
 export const AdminCryptoPayouts = () => {
   const { user } = useAuth();
+  // Payout approval releases platform money — super_admin only
+  // (2026-11-19 role split); the queue itself stays visible to the
+  // admin tier, and the table policy enforces the same server-side.
+  const { hasRole } = useRoles();
+  const viewerIsSuperAdmin = hasRole("super_admin");
   const [rows, setRows] = useState<Row[]>([]);
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "sent">("pending");
   const [txInputs, setTxInputs] = useState<Record<string, string>>({});
@@ -98,13 +104,13 @@ export const AdminCryptoPayouts = () => {
                   <TableCell className="font-mono text-xs">{r.destination_address.slice(0, 10)}…{r.destination_address.slice(-4)}</TableCell>
                   <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
                   <TableCell className="space-y-1">
-                    {r.status === "pending" && (
+                    {viewerIsSuperAdmin && r.status === "pending" && (
                       <div className="flex gap-1">
                         <Button size="sm" onClick={() => update(r.id, { status: "approved" })}>Approve</Button>
                         <Button size="sm" variant="destructive" onClick={() => update(r.id, { status: "rejected", admin_notes: noteInputs[r.id] || null })}>Reject</Button>
                       </div>
                     )}
-                    {r.status === "approved" && (
+                    {viewerIsSuperAdmin && r.status === "approved" && (
                       <div className="flex gap-1">
                         <Input
                           placeholder="0xtxhash…"
@@ -119,7 +125,7 @@ export const AdminCryptoPayouts = () => {
                         >Mark sent</Button>
                       </div>
                     )}
-                    {(r.status === "pending" || r.status === "approved") && (
+                    {viewerIsSuperAdmin && (r.status === "pending" || r.status === "approved") && (
                       <Input
                         placeholder="Admin notes (optional)"
                         value={noteInputs[r.id] ?? r.admin_notes ?? ""}

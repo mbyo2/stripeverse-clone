@@ -11,9 +11,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useFraudRules } from '@/hooks/useFraudRules';
 import { ShieldAlert, Plus, Activity } from 'lucide-react';
+import { useRoles } from '@/contexts/RoleContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 const FraudRules = () => {
   const { rules, createRule, toggleRule } = useFraudRules();
+  // Role split (2026-11-19): PLATFORM fraud rules (merchant_id null,
+  // which is what "New Rule" creates) are edited by super_admin
+  // only — a plain admin sees them read-only. A business user's own
+  // rules stay editable by that business, exactly as before; the
+  // table policies enforce the same split server-side.
+  const { hasRole } = useRoles();
+  const { user } = useAuth();
+  const viewerIsSuperAdmin = hasRole('super_admin');
+  const { data: ownMerchantIds } = useQuery({
+    queryKey: ['fraud-rules-own-merchants', user?.id],
+    enabled: !!user?.id && !viewerIsSuperAdmin,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('merchant_accounts')
+        .select('id')
+        .eq('user_id', user!.id);
+      return (data ?? []).map((m) => m.id as string);
+    },
+  });
+  const canEditRule = (rule: { merchant_id?: string | null }) =>
+    viewerIsSuperAdmin ||
+    (rule.merchant_id != null && (ownMerchantIds ?? []).includes(rule.merchant_id));
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', rule_type: 'velocity', action: 'flag', severity: 'medium', conditions: '' });
 
@@ -34,6 +60,7 @@ const FraudRules = () => {
             <h1 className="text-2xl font-bold text-foreground">Fraud Rules Engine</h1>
             <p className="text-muted-foreground">Configure transaction monitoring rules</p>
           </div>
+          {viewerIsSuperAdmin && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New Rule</Button></DialogTrigger>
             <DialogContent>
@@ -79,6 +106,7 @@ const FraudRules = () => {
               </div>
             </DialogContent>
           </Dialog>
+          )}
         </div>
 
         <div className="grid gap-3">
@@ -99,7 +127,11 @@ const FraudRules = () => {
                     </div>
                   </div>
                 </div>
-                <Switch checked={rule.is_active} onCheckedChange={v => toggleRule.mutate({ id: rule.id, is_active: v })} />
+                {canEditRule(rule) ? (
+                  <Switch checked={rule.is_active} onCheckedChange={v => toggleRule.mutate({ id: rule.id, is_active: v })} />
+                ) : (
+                  <Badge variant={rule.is_active ? 'default' : 'secondary'}>{rule.is_active ? 'Active' : 'Inactive'}</Badge>
+                )}
               </CardContent>
             </Card>
           ))}

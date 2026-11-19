@@ -19,9 +19,9 @@ import {
 } from "../../supabase/functions/_shared/phone-stamp";
 
 describe("phone-stamp role gate", () => {
-  it("accepts admin", () => {
-    expect(isPhoneStampAdminRole("admin")).toBe(true);
-    expect(hasPhoneStampAdmin(["admin"])).toBe(true);
+  it("refuses plain admin (2026-11-19 role split)", () => {
+    expect(isPhoneStampAdminRole("admin")).toBe(false);
+    expect(hasPhoneStampAdmin(["admin"])).toBe(false);
   });
 
   it("accepts super_admin", () => {
@@ -29,8 +29,8 @@ describe("phone-stamp role gate", () => {
     expect(hasPhoneStampAdmin(["super_admin"])).toBe(true);
   });
 
-  it("accepts a list containing an admin role among others", () => {
-    expect(hasPhoneStampAdmin(["user", "admin"])).toBe(true);
+  it("accepts a list containing super_admin among others; admin alone does not pass", () => {
+    expect(hasPhoneStampAdmin(["user", "admin"])).toBe(false);
     expect(hasPhoneStampAdmin(["user", "super_admin"])).toBe(true);
   });
 

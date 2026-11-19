@@ -31,6 +31,7 @@ import {
   grantRole,
   listDirectoryUsers,
   revokeRole,
+  isElevatedRole,
   roleChangeErrorMessage,
   roleLabel,
   setUserFrozen,
@@ -268,6 +269,11 @@ const AdminUserDetail = () => {
   }, [loadUser, loadSections]);
 
   const isFrozen = profile?.is_frozen === true;
+  // Role split (2026-11-19): a plain admin may freeze PLAIN users
+  // only. When the target holds any elevated role, the freeze card
+  // is not rendered for them at all; admin_set_user_frozen enforces
+  // the same rule server-side.
+  const targetHasElevatedRole = userRoles.some((r) => isElevatedRole(r));
   const fullName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || "No name";
 
@@ -520,6 +526,7 @@ const AdminUserDetail = () => {
               </Card>
 
               {/* Freeze control */}
+              {(viewerIsSuperAdmin || !targetHasElevatedRole) && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -579,9 +586,15 @@ const AdminUserDetail = () => {
                   )}
                 </CardContent>
               </Card>
+              )}
             </div>
 
-            {/* Role management */}
+            {/* Role management — super_admin only (2026-11-19 role
+                split): role grants/revokes are governance, so the
+                whole card is absent for a plain admin. The roles
+                themselves stay visible as badges in Profile above. */}
+            {viewerIsSuperAdmin && (
+            <>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -665,6 +678,8 @@ const AdminUserDetail = () => {
                 )}
               </CardContent>
             </Card>
+            </>
+            )}
 
             {/* Wallets */}
             <Card>

@@ -53,7 +53,9 @@ export function isConfigured(config: MastercardMoveConfig): boolean {
 
 /** Roles allowed to use the Mastercard Move surface at all. */
 export function isMastercardAdminRole(role: string | null | undefined): boolean {
-  return role === "admin" || role === "super_admin";
+  // Super_admin only (2026-11-19 role split): cross-border payout
+  // processing moves money, so it is platform governance.
+  return role === "super_admin";
 }
 
 export function hasMastercardAdmin(roles: Array<string | null | undefined>): boolean {

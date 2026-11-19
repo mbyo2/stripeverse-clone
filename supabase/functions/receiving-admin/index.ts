@@ -3,7 +3,8 @@
 //
 // Gates, in order:
 //   1. Authentication (caller resolved from their JWT).
-//   2. Role gate: admin / super_admin (canUseReceivingAdminFor).
+//   2. Role gate: super_admin ONLY (canUseReceivingAdminFor) —
+//      2026-11-19 role split; the admin_* RPCs enforce the same gate.
 //   3. The admin_* RPCs are called through the dedicated
 //      service-role client (NO caller JWT forwarded) with the
 //      caller's id passed as p_actor_id. This is the house money

@@ -39,7 +39,7 @@ interface AdminAction {
    *  is not rendered at all for any other viewer (least privilege).
    *  Each gated surface names its OWN flag so its rule is pinned
    *  independently. */
-  gate?: "treasuryConsole" | "platformSettings";
+  gate?: "treasuryConsole" | "platformSettings" | "roleManagement" | "roleRequests" | "crossBorderPayouts" | "receivingAccounts" | "moonpay";
 }
 
 const AdminDashboard = () => {
@@ -206,12 +206,14 @@ const AdminDashboard = () => {
       description: "View your roles and request changes",
       icon: <Shield className="h-6 w-6" />,
       link: "/role-management",
+      gate: "roleManagement"
     },
     {
       title: "Role Requests",
       description: "Approve or reject user role requests",
       icon: <Inbox className="h-6 w-6" />,
       link: "/admin/role-requests",
+      gate: "roleRequests"
     },
     {
       title: "Refunds Console",
@@ -224,12 +226,14 @@ const AdminDashboard = () => {
       description: "Mastercard Move payouts (sandbox)",
       icon: <Globe2 className="h-6 w-6" />,
       link: "/admin/mastercard-move",
+      gate: "crossBorderPayouts"
     },
     {
       title: "MoonPay",
       description: "Card purchases of Bitcoin — status and purchases",
       icon: <CreditCard className="h-6 w-6" />,
       link: "/admin/moonpay",
+      gate: "moonpay"
     },
     {
       title: "PayPal Withdrawals",
@@ -248,6 +252,7 @@ const AdminDashboard = () => {
       description: "Banking partners, issued account details and inbound credits",
       icon: <Landmark className="h-6 w-6" />,
       link: "/admin/receiving-accounts",
+      gate: "receivingAccounts"
     },
     {
       title: "Compliance Center",
@@ -285,6 +290,21 @@ const AdminDashboard = () => {
     }
     if (action.gate === "platformSettings") {
       return dashboardVisibility.platformSettings;
+    }
+    if (action.gate === "roleManagement") {
+      return dashboardVisibility.roleManagement;
+    }
+    if (action.gate === "roleRequests") {
+      return dashboardVisibility.roleRequests;
+    }
+    if (action.gate === "crossBorderPayouts") {
+      return dashboardVisibility.crossBorderPayouts;
+    }
+    if (action.gate === "receivingAccounts") {
+      return dashboardVisibility.receivingAccounts;
+    }
+    if (action.gate === "moonpay") {
+      return dashboardVisibility.moonpay;
     }
     return true;
   });

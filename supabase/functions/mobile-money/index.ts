@@ -839,8 +839,8 @@ async function telcoBalanceAction(
     .select("role")
     .eq("user_id", userId);
   const roles = (roleRows ?? []).map((r: { role: string }) => r.role);
-  if (!roles.includes("admin") && !roles.includes("super_admin")) {
-    return json({ success: false, status: "forbidden", error: "Only a platform admin can see the provider account balance." }, 403);
+  if (!roles.includes("super_admin")) {
+    return json({ success: false, status: "forbidden", error: "Only a super admin can see the provider account balance." }, 403);
   }
   const gate = await telcoGateRefusal(service, provider);
   if (gate.refusal) return gate.refusal;

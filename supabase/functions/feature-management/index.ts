@@ -65,9 +65,11 @@ serve(async (req) => {
   }
 
   try {
-    // ── Admin gate (security audit P0-10, 2026-10-23) ──
-    // Every action in this function — reads and feature/tier writes
-    // alike — requires a signed-in admin. Resolve the caller from
+    // ── Super-admin gate (security audit P0-10, 2026-10-23;
+    // narrowed 2026-11-19 role split) ──
+    // Feature flags are platform settings (kill-switches), so every
+    // action in this function — reads and feature/tier writes
+    // alike — requires a signed-in SUPER admin. Resolve the caller from
     // their JWT first; anonymous callers get a 401 and non-admin
     // callers a 403, and no action runs.
     const authHeader = req.headers.get("Authorization") || "";
@@ -87,7 +89,7 @@ serve(async (req) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
-      .in('role', ['admin', 'super_admin'])
+      .eq('role', 'super_admin')
       .maybeSingle()
     if (!adminRole) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {

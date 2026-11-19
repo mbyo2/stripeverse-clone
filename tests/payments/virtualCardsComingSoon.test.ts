@@ -82,14 +82,13 @@ describe("virtual card edge functions refuse non-admins server-side", () => {
   it.each([
     ["create-virtual-card", createFn],
     ["fund-virtual-card", fundFn],
-  ])("%s checks the admin role before acting", (_name, fn) => {
+  ])("%s checks the super_admin role before acting", (_name, fn) => {
     expect(fn).toContain('from("user_roles")');
-    // SweepB 2026-10-28: super_admin is additive over admin (the card
-    // pages and manage-virtual-card already treat it so) — a
-    // super_admin-only holder passed the UI gate but was refused
-    // here with the public "coming soon" message. The gate now checks
-    // both roles; everyone else still gets the 403 below.
-    expect(fn).toContain('.in("role", ["admin", "super_admin"])');
+    // Role split 2026-11-19 (supersedes the SweepB additive note):
+    // virtual-card administration is platform governance, so the
+    // gate admits super_admin ONLY — a plain admin now gets the
+    // same public "coming soon" 403 as everyone else.
+    expect(fn).toContain('.eq("role", "super_admin")');
     expect(fn).toContain("Virtual cards are coming soon");
     expect(fn).toContain("status: 403");
   });

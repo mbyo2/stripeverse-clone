@@ -55,6 +55,26 @@ export async function requireAdmin(req: Request, corsHeaders: Record<string, str
   return { user, supabase }
 }
 
+/** Require a super_admin caller (platform governance). Mirrors
+ *  requireAdmin, but a plain admin does NOT pass: role management,
+ *  platform settings, money-release configuration and exports are
+ *  super_admin-only by the 2026-11-19 role split. */
+export async function requireSuperAdmin(req: Request, corsHeaders: Record<string, string>) {
+  const auth = await requireAuth(req, corsHeaders)
+  if ('response' in auth && !auth.user) return auth
+  const { user, supabase } = auth as { user: any; supabase: any }
+  const { data: isSuperAdmin } = await supabase.rpc('has_role', { user_id: user.id, required_role: 'super_admin' })
+  if (!isSuperAdmin) {
+    return {
+      response: new Response(JSON.stringify({ error: 'Forbidden: super admin role required' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }),
+    }
+  }
+  return { user, supabase }
+}
+
 /** Guard a cron/internal endpoint with the CRON_SECRET header. */
 export function requireCronSecret(req: Request, corsHeaders: Record<string, string>) {
   const provided = req.headers.get('x-cron-secret') || req.headers.get('X-Cron-Secret')

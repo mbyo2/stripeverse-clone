@@ -14,8 +14,10 @@ serve(async (req) => {
 
   try {
     // ── Admin gate (security audit P0-7, 2026-10-23) ──
-    // Every action in this function — including data_retention, which
-    // DELETES audit history — requires a signed-in admin. Resolve the
+    // Every action in this function requires a signed-in admin-tier
+    // caller. Two actions are governance and require SUPER admin
+    // (2026-11-19 role split): data_retention, which DELETES audit
+    // history, and backup_audit_logs (export). Resolve the
     // caller from their JWT first; anonymous callers get a 401 and
     // non-admin callers a 403, and no action runs.
     const authHeader = req.headers.get("Authorization") || "";
@@ -34,13 +36,12 @@ serve(async (req) => {
 
     const supabaseClient = getServiceRoleClient()
 
-    const { data: adminRole } = await supabaseClient
+    const { data: adminRoles } = await supabaseClient
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .in('role', ['admin', 'super_admin'])
-      .maybeSingle()
-    if (!adminRole) {
+    if (!adminRoles || adminRoles.length === 0) {
       return new Response(
         JSON.stringify({ error: "Forbidden" }),
         {
@@ -59,6 +60,18 @@ serve(async (req) => {
     // back to the email whenever the name is blank.
     if (action === 'resolve_actors') {
       return await resolveActors(supabaseClient, user_ids)
+    }
+
+    // Governance actions (export + retention) are super_admin-only.
+    const isSuperAdmin = (adminRoles ?? []).some((r) => r.role === 'super_admin')
+    if ((action === 'data_retention' || action === 'backup_audit_logs') && !isSuperAdmin) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: super admin role required" }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 403,
+        }
+      )
     }
 
     switch (action) {

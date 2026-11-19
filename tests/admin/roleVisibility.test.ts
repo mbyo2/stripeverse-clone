@@ -87,32 +87,38 @@ describe("roleHomePath — every role lands on its own home", () => {
 // ---------------------------------------------------------------------
 
 describe("headerMenuVisibility — the account menus show each role its own entries", () => {
-  it("admin tier sees all four entries", () => {
+  it("admin tier sees the admin-console entries but NOT Backup & Export (2026-11-19 split)", () => {
     for (const roles of [["admin"], ["user", "admin"], ["business", "admin"]]) {
-      expect(headerMenuVisibility(roles)).toEqual({ adminLinks: true, fraudRules: true });
+      expect(headerMenuVisibility(roles)).toEqual({ adminLinks: true, backupExport: false, fraudRules: true });
     }
   });
 
-  it("super_admin sees all four entries without holding business", () => {
+  it("super_admin sees all entries without holding business", () => {
     // The owner case: super_admin is additive over admin, and the
     // Fraud Rules entry must not depend on a business role row.
-    expect(headerMenuVisibility(["super_admin"])).toEqual({ adminLinks: true, fraudRules: true });
-    expect(headerMenuVisibility(["user", "super_admin"])).toEqual({ adminLinks: true, fraudRules: true });
+    expect(headerMenuVisibility(["super_admin"])).toEqual({ adminLinks: true, backupExport: true, fraudRules: true });
+    expect(headerMenuVisibility(["user", "super_admin"])).toEqual({ adminLinks: true, backupExport: true, fraudRules: true });
   });
 
-  it("plain user sees none of the four entries", () => {
-    expect(headerMenuVisibility(["user"])).toEqual({ adminLinks: false, fraudRules: false });
-    expect(headerMenuVisibility([])).toEqual({ adminLinks: false, fraudRules: false });
+  it("Backup & Export follows super_admin alone, never the admin tier", () => {
+    expect(headerMenuVisibility(["admin"]).backupExport).toBe(false);
+    expect(headerMenuVisibility(["admin", "business"]).backupExport).toBe(false);
+    expect(headerMenuVisibility(["super_admin"]).backupExport).toBe(true);
+  });
+
+  it("plain user sees none of the entries", () => {
+    expect(headerMenuVisibility(["user"])).toEqual({ adminLinks: false, backupExport: false, fraudRules: false });
+    expect(headerMenuVisibility([])).toEqual({ adminLinks: false, backupExport: false, fraudRules: false });
   });
 
   it("business sees Fraud Rules but not the admin-console entries", () => {
-    expect(headerMenuVisibility(["business"])).toEqual({ adminLinks: false, fraudRules: true });
-    expect(headerMenuVisibility(["user", "business"])).toEqual({ adminLinks: false, fraudRules: true });
+    expect(headerMenuVisibility(["business"])).toEqual({ adminLinks: false, backupExport: false, fraudRules: true });
+    expect(headerMenuVisibility(["user", "business"])).toEqual({ adminLinks: false, backupExport: false, fraudRules: true });
   });
 
-  it("roles without a stake in either surface see none of the four", () => {
-    expect(headerMenuVisibility(["beta_tester"])).toEqual({ adminLinks: false, fraudRules: false });
-    expect(headerMenuVisibility(["user", "p2p_admin"])).toEqual({ adminLinks: false, fraudRules: false });
+  it("roles without a stake in either surface see none of the entries", () => {
+    expect(headerMenuVisibility(["beta_tester"])).toEqual({ adminLinks: false, backupExport: false, fraudRules: false });
+    expect(headerMenuVisibility(["user", "p2p_admin"])).toEqual({ adminLinks: false, backupExport: false, fraudRules: false });
   });
 });
 
@@ -132,16 +138,16 @@ describe("headerMenuVisibility — the account menus show each role its own entr
 
 describe("adminDashboardVisibility — both Treasury surfaces are super_admin-only", () => {
   it("super_admin holders see the Treasury card AND the Treasury tab", () => {
-    expect(adminDashboardVisibility(["super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true });
-    expect(adminDashboardVisibility(["user", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true });
-    expect(adminDashboardVisibility(["admin", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true });
-    expect(adminDashboardVisibility(["business", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true });
+    expect(adminDashboardVisibility(["super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true });
+    expect(adminDashboardVisibility(["user", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true });
+    expect(adminDashboardVisibility(["admin", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true });
+    expect(adminDashboardVisibility(["business", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true });
   });
 
   it("a plain admin sees NEITHER the Treasury card NOR the Treasury tab", () => {
-    expect(adminDashboardVisibility(["admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false });
-    expect(adminDashboardVisibility(["user", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false });
-    expect(adminDashboardVisibility(["business", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false });
+    expect(adminDashboardVisibility(["admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false });
+    expect(adminDashboardVisibility(["user", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false });
+    expect(adminDashboardVisibility(["business", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false });
   });
 
   it("no other role sees either Treasury surface", () => {
@@ -149,7 +155,16 @@ describe("adminDashboardVisibility — both Treasury surfaces are super_admin-on
       ["user"], ["business"], ["p2p_admin"], ["beta_tester"],
       ["support_admin"], ["compliance_admin"], ["finance_admin"], [],
     ]) {
-      expect(adminDashboardVisibility(roles)).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false });
+      expect(adminDashboardVisibility(roles)).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false });
+    }
+  });
+
+  it("the five governance cards follow super_admin alone (2026-11-19 role split)", () => {
+    for (const flag of ["roleManagement", "roleRequests", "crossBorderPayouts", "receivingAccounts", "moonpay"] as const) {
+      expect(adminDashboardVisibility(["admin"])[flag]).toBe(false);
+      expect(adminDashboardVisibility(["user", "admin"])[flag]).toBe(false);
+      expect(adminDashboardVisibility(["super_admin"])[flag]).toBe(true);
+      expect(adminDashboardVisibility(["user"])[flag]).toBe(false);
     }
   });
 
@@ -248,12 +263,16 @@ describe("Header — role-owned menu entries are not rendered for others", () =>
     // (desktop account menu + mobile drawer) and every occurrence is
     // gated: the raw link strings only exist inside gated blocks.
     expect(src).toContain("{showAdminLinks && <MobileNavLink to=\"/audit-logs\"");
-    expect(src).toContain("{showAdminLinks && <MobileNavLink to=\"/backup-export\"");
+    expect(src).toContain("{showBackupExport && <MobileNavLink to=\"/backup-export\"");
     expect(src).toContain("{showAdminLinks && <MobileNavLink to=\"/tier-management\"");
     expect(src).toContain("{showFraudRules && <MobileNavLink to=\"/fraud-rules\"");
     // Desktop dropdown items are wrapped in the same flags.
     const gatedBlocks = src.match(/showAdminLinks &&/g) ?? [];
-    expect(gatedBlocks.length).toBeGreaterThanOrEqual(5);
+    expect(gatedBlocks.length).toBeGreaterThanOrEqual(4);
+    // Backup & Export is behind its own super_admin flag in both menus.
+    const backupGates = src.match(/showBackupExport &&/g) ?? [];
+    expect(backupGates.length).toBe(2);
+    expect(src).toContain("const showBackupExport = menuVisibility.backupExport;");
   });
 
   it("Fraud Rules sits with the other role-owned entries in BOTH account menus", () => {
@@ -312,6 +331,45 @@ describe("AdminDashboard — the Treasury card is not rendered for non-super_adm
     expect(src).toContain('link: "/admin/settings"');
     expect(src).toContain('gate: "platformSettings"');
     expect(src).toContain("dashboardVisibility.platformSettings");
+  });
+
+  it("marks the five governance cards super_admin-only, each on its own flag (2026-11-19 split)", () => {
+    for (const [title, link, gate] of [
+      ["Role Management", "/role-management", "roleManagement"],
+      ["Role Requests", "/admin/role-requests", "roleRequests"],
+      ["Cross-Border Payouts", "/admin/mastercard-move", "crossBorderPayouts"],
+      ["Receiving Accounts", "/admin/receiving-accounts", "receivingAccounts"],
+      ["MoonPay", "/admin/moonpay", "moonpay"],
+    ] as const) {
+      expect(src).toContain(`title: "${title}"`);
+      expect(src).toContain(`link: "${link}"`);
+      expect(src).toContain(`gate: "${gate}"`);
+      expect(src).toContain(`dashboardVisibility.${gate}`);
+    }
+  });
+
+  it("the five governance routes are super_admin-only at the route gate too", () => {
+    const routes = read("../../src/components/AnimatedRoutes.tsx");
+    for (const route of [
+      "/admin/role-requests", "/admin/receiving-accounts",
+      "/admin/mastercard-move", "/admin/moonpay", "/backup-export",
+    ]) {
+      expect(routes).toContain(
+        `path="${route}" element={<RoleGuardedPage roles={['super_admin']}>`,
+      );
+    }
+  });
+
+  it("queue-viewing cards stay ungated for the admin tier (Bank Payouts, PayPal, Refunds)", () => {
+    for (const title of ["Bank Payouts", "PayPal Withdrawals", "Refunds Console"]) {
+      const at = src.indexOf(`title: "${title}"`);
+      expect(at).toBeGreaterThan(-1);
+      // Slice only this card's own object literal (up to its closing
+      // "},") so a FOLLOWING card's gate cannot leak into the check.
+      const end = src.indexOf("},", at);
+      const card = src.slice(at, end + 2);
+      expect(card).not.toContain("gate:");
+    }
   });
 
   it("the /admin/settings route gate itself is super_admin-only", () => {

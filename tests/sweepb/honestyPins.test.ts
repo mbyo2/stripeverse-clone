@@ -59,10 +59,10 @@ describe("sweepb virtual-card honesty", () => {
     expect(mgr).toContain("VirtualCardsComingSoon");
     expect(mgr).toContain('hasRole("super_admin")');
   });
-  it("create/fund card functions accept super_admin additively", () => {
+  it("create/fund card functions are super_admin-only (2026-11-19 role split)", () => {
     for (const fn of ["create-virtual-card", "fund-virtual-card"]) {
       const src = read(`../../supabase/functions/${fn}/index.ts`);
-      expect(src).toContain('.in("role", ["admin", "super_admin"])');
+      expect(src).toContain('.eq("role", "super_admin")');
     }
   });
 });

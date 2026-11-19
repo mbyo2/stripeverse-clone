@@ -328,14 +328,14 @@ const AnimatedRoutes = () => {
             same gate server-side, so a non-super_admin gets nothing
             even by calling them directly. */}
         <Route path="/admin/treasury" element={<RoleGuardedPage roles={['super_admin']}><AdminTreasury /></RoleGuardedPage>} />
-        <Route path="/admin/mastercard-move" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminMastercardMove /></RoleGuardedPage>} />
-        <Route path="/admin/moonpay" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminMoonpay /></RoleGuardedPage>} />
+        <Route path="/admin/mastercard-move" element={<RoleGuardedPage roles={['super_admin']}><AdminMastercardMove /></RoleGuardedPage>} />
+        <Route path="/admin/moonpay" element={<RoleGuardedPage roles={['super_admin']}><AdminMoonpay /></RoleGuardedPage>} />
         <Route path="/admin/paypal" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminPaypal /></RoleGuardedPage>} />
         <Route path="/admin/bank-payouts" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminBankPayouts /></RoleGuardedPage>} />
         <Route path="/admin/p2p" element={<RoleGuardedPage roles={P2P_ADMIN_ROLES}><AdminP2P /></RoleGuardedPage>} />
         <Route path="/admin/identity" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminIdentity /></RoleGuardedPage>} />
         <Route path="/admin/users/:userId" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminUserDetail /></RoleGuardedPage>} />
-        <Route path="/admin/role-requests" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminRoleRequests /></RoleGuardedPage>} />
+        <Route path="/admin/role-requests" element={<RoleGuardedPage roles={['super_admin']}><AdminRoleRequests /></RoleGuardedPage>} />
         <Route path="/admin/refunds" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminRefunds /></RoleGuardedPage>} />
         {/* Admin landing + natural console URLs: /admin itself and the
             section names people type land on the real console pages
@@ -371,7 +371,7 @@ const AnimatedRoutes = () => {
         <Route path="/split-payments" element={<ProtectedPage><SplitPayments /></ProtectedPage>} />
         <Route path="/multi-currency" element={<ProtectedPage><MultiCurrencyWallet /></ProtectedPage>} />
         <Route path="/receiving-accounts" element={<ProtectedPage><FeatureRouteGate feature="receivingAccounts" dataCheck={hasOwnReceivingAccount}><ReceivingAccounts /></FeatureRouteGate></ProtectedPage>} />
-        <Route path="/admin/receiving-accounts" element={<RoleGuardedPage roles={['admin', 'super_admin']}><AdminReceivingAccounts /></RoleGuardedPage>} />
+        <Route path="/admin/receiving-accounts" element={<RoleGuardedPage roles={['super_admin']}><AdminReceivingAccounts /></RoleGuardedPage>} />
         <Route path="/bulk-payments" element={<ProtectedPage><BulkPayments /></ProtectedPage>} />
         <Route path="/refunds" element={<ProtectedPage><Refunds /></ProtectedPage>} />
         <Route path="/settlements" element={<ProtectedPage><FeatureRouteGate feature="settlements"><Settlements /></FeatureRouteGate></ProtectedPage>} />
@@ -391,7 +391,7 @@ const AnimatedRoutes = () => {
         <Route path="/checkout-widget" element={<ProtectedPage><CheckoutWidget /></ProtectedPage>} />
         <Route path="/aml-screening" element={<RoleGuardedPage roles={ADMIN_ROLES}><AmlScreening /></RoleGuardedPage>} />
         <Route path="/audit-logs" element={<RoleGuardedPage roles={ADMIN_ROLES}><AuditLogs /></RoleGuardedPage>} />
-        <Route path="/backup-export" element={<RoleGuardedPage roles={ADMIN_ROLES}><BackupExport /></RoleGuardedPage>} />
+        <Route path="/backup-export" element={<RoleGuardedPage roles={['super_admin']}><BackupExport /></RoleGuardedPage>} />
         <Route path="/api-rate-limits" element={<RoleGuardedPage roles={['admin','super_admin','business']}><ApiRateLimits /></RoleGuardedPage>} />
 
         {/* Catch-all 404 route */}

@@ -534,7 +534,7 @@ export async function canUseMoonpayAdmin(
   return canUseMoonpay(roles);
 }
 
-export const MOONPAY_ADMIN_ROLES = ["admin", "super_admin"] as const;
+export const MOONPAY_ADMIN_ROLES = ["super_admin"] as const;
 
 export function canUseMoonpay(roles: readonly string[]): boolean {
   return roles.some((r) => (MOONPAY_ADMIN_ROLES as readonly string[]).includes(r));
