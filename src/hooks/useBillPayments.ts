@@ -74,7 +74,10 @@ export const useBillPayments = () => {
           reference: ref,
           status: 'completed',
           paid_at: new Date().toISOString(),
-          transaction_id: transferData.transaction_id,
+          // bill_payments has no transaction_id column live (phantom —
+          // the insert 400'd with PGRST204 after the wallet debit had
+          // already succeeded). The debit's id rides in metadata.
+          metadata: { transaction_id: transferData.transaction_id ?? null },
         })
         .select()
         .single();

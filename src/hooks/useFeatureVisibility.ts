@@ -33,8 +33,14 @@ export const usePlatformFeatureFlags = (): {
   flags: PlatformFeatureFlags;
   isLoading: boolean;
 } => {
+  const { user } = useAuth();
   const { data, isLoading } = useQuery({
-    queryKey: ["platform-feature-flags"],
+    // platform_settings is readable by authenticated users only. Firing
+    // this query before sign-in produced a 401 on every bootstrap and
+    // cached the ALL_OFF fallback as a successful result across the
+    // sign-in boundary — gate it on a session and key it per user.
+    queryKey: ["platform-feature-flags", user?.id ?? "anon"],
+    enabled: !!user,
     queryFn: async (): Promise<PlatformFeatureFlags> => {
       // The flag columns are newer than the generated types — the
       // same scoped cast useMoonpay / receivingAccountsService use
