@@ -76,6 +76,7 @@ const NotFound = lazy(() => import('@/pages/NotFound'));
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
 const AdminMerchants = lazy(() => import('@/pages/AdminMerchants'));
 const AdminSettings = lazy(() => import('@/pages/AdminSettings'));
+const AdminForensics = lazy(() => import('@/pages/AdminForensics'));
 const AdminMastercardMove = lazy(() => import('@/pages/AdminMastercardMove'));
 const AdminMoonpay = lazy(() => import('@/pages/AdminMoonpay'));
 const AdminPaypal = lazy(() => import('@/pages/AdminPaypal'));
@@ -321,6 +322,7 @@ const AnimatedRoutes = () => {
             admin_update_platform_settings RPC enforces the same
             gate server-side. */}
         <Route path="/admin/settings" element={<RoleGuardedPage roles={['super_admin']}><AdminSettings /></RoleGuardedPage>} />
+        <Route path="/admin/forensics" element={<RoleGuardedPage roles={['super_admin']}><AdminForensics /></RoleGuardedPage>} />
         <Route path="/admin/transactions" element={<RoleGuardedPage roles={ADMIN_ROLES}><AdminTransactions /></RoleGuardedPage>} />
         {/* Treasury & Reports is super_admin ONLY (stricter than the
             ADMIN_ROLES consoles): it exposes the platform's own

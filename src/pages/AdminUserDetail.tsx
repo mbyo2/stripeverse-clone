@@ -473,6 +473,16 @@ const AdminUserDetail = () => {
               <p className="text-muted-foreground">
                 Full account view — everything below is read from the live account records.
               </p>
+              {viewerIsSuperAdmin && (
+                <p className="mt-2">
+                  <Link
+                    to={`/admin/forensics?user=${userId}`}
+                    className="text-sm font-medium text-primary underline underline-offset-4"
+                  >
+                    Forensic timeline for this user →
+                  </Link>
+                </p>
+              )}
             </div>
 
             {isFrozen && (

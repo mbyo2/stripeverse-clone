@@ -138,16 +138,16 @@ describe("headerMenuVisibility — the account menus show each role its own entr
 
 describe("adminDashboardVisibility — both Treasury surfaces are super_admin-only", () => {
   it("super_admin holders see the Treasury card AND the Treasury tab", () => {
-    expect(adminDashboardVisibility(["super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true });
-    expect(adminDashboardVisibility(["user", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true });
-    expect(adminDashboardVisibility(["admin", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true });
-    expect(adminDashboardVisibility(["business", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true });
+    expect(adminDashboardVisibility(["super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true, forensics: true });
+    expect(adminDashboardVisibility(["user", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true, forensics: true });
+    expect(adminDashboardVisibility(["admin", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true, forensics: true });
+    expect(adminDashboardVisibility(["business", "super_admin"])).toEqual({ treasuryConsole: true, treasuryTab: true, platformSettings: true, roleManagement: true, roleRequests: true, crossBorderPayouts: true, receivingAccounts: true, moonpay: true, forensics: true });
   });
 
   it("a plain admin sees NEITHER the Treasury card NOR the Treasury tab", () => {
-    expect(adminDashboardVisibility(["admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false });
-    expect(adminDashboardVisibility(["user", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false });
-    expect(adminDashboardVisibility(["business", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false });
+    expect(adminDashboardVisibility(["admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false, forensics: false });
+    expect(adminDashboardVisibility(["user", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false, forensics: false });
+    expect(adminDashboardVisibility(["business", "admin"])).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false, forensics: false });
   });
 
   it("no other role sees either Treasury surface", () => {
@@ -155,12 +155,12 @@ describe("adminDashboardVisibility — both Treasury surfaces are super_admin-on
       ["user"], ["business"], ["p2p_admin"], ["beta_tester"],
       ["support_admin"], ["compliance_admin"], ["finance_admin"], [],
     ]) {
-      expect(adminDashboardVisibility(roles)).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false });
+      expect(adminDashboardVisibility(roles)).toEqual({ treasuryConsole: false, treasuryTab: false, platformSettings: false, roleManagement: false, roleRequests: false, crossBorderPayouts: false, receivingAccounts: false, moonpay: false, forensics: false });
     }
   });
 
   it("the five governance cards follow super_admin alone (2026-11-19 role split)", () => {
-    for (const flag of ["roleManagement", "roleRequests", "crossBorderPayouts", "receivingAccounts", "moonpay"] as const) {
+    for (const flag of ["roleManagement", "roleRequests", "crossBorderPayouts", "receivingAccounts", "moonpay", "forensics"] as const) {
       expect(adminDashboardVisibility(["admin"])[flag]).toBe(false);
       expect(adminDashboardVisibility(["user", "admin"])[flag]).toBe(false);
       expect(adminDashboardVisibility(["super_admin"])[flag]).toBe(true);

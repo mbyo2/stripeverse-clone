@@ -161,6 +161,11 @@ export interface AdminDashboardVisibility {
   receivingAccounts: boolean;
   /** MoonPay card — super_admin only (partner integration console). */
   moonpay: boolean;
+  /** Forensic Audit card — super_admin only (CEO order 2026-11-19:
+   *  forensic tooling is governance; its route gate is
+   *  ['super_admin'] and the forensic RPCs enforce the same
+   *  server-side, so a plain admin never renders the card). */
+  forensics: boolean;
 }
 
 export const adminDashboardVisibility = (
@@ -174,4 +179,5 @@ export const adminDashboardVisibility = (
   crossBorderPayouts: holdsAnyRole(roles, ["super_admin"]),
   receivingAccounts: holdsAnyRole(roles, ["super_admin"]),
   moonpay: holdsAnyRole(roles, ["super_admin"]),
+  forensics: holdsAnyRole(roles, ["super_admin"]),
 });

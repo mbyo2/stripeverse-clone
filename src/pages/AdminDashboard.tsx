@@ -14,7 +14,7 @@ import { adminDashboardVisibility } from "@/lib/roleVisibility";
 import { supabase } from "@/integrations/supabase/client";
 import { countActiveUsers, activityWindowStart } from "@/utils/adminStats";
 import { Link } from "react-router-dom";
-import { Users, Shield, Activity, AlertTriangle, Settings, Database, ScanFace, Globe2, Inbox, ReceiptText, CreditCard, Landmark, Building2, Store } from "lucide-react";
+import { Users, Shield, Activity, AlertTriangle, Settings, Database, ScanFace, Globe2, Inbox, ReceiptText, CreditCard, Landmark, Building2, Store, FileSearch } from "lucide-react";
 
 interface UserStat {
   total_users: number;
@@ -39,7 +39,7 @@ interface AdminAction {
    *  is not rendered at all for any other viewer (least privilege).
    *  Each gated surface names its OWN flag so its rule is pinned
    *  independently. */
-  gate?: "treasuryConsole" | "platformSettings" | "roleManagement" | "roleRequests" | "crossBorderPayouts" | "receivingAccounts" | "moonpay";
+  gate?: "treasuryConsole" | "platformSettings" | "roleManagement" | "roleRequests" | "crossBorderPayouts" | "receivingAccounts" | "moonpay" | "forensics";
 }
 
 const AdminDashboard = () => {
@@ -272,6 +272,13 @@ const AdminDashboard = () => {
       icon: <Settings className="h-6 w-6" />,
       link: "/admin/settings",
       gate: "platformSettings"
+    },
+    {
+      title: "Forensic Audit",
+      description: "Cross-source event search, per-user timelines and checksummed evidence exports (super admin)",
+      icon: <FileSearch className="h-6 w-6" />,
+      link: "/admin/forensics",
+      gate: "forensics"
     }
   ];
 
@@ -305,6 +312,9 @@ const AdminDashboard = () => {
     }
     if (action.gate === "moonpay") {
       return dashboardVisibility.moonpay;
+    }
+    if (action.gate === "forensics") {
+      return dashboardVisibility.forensics;
     }
     return true;
   });
