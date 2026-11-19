@@ -92,10 +92,10 @@ import {
   type LinkBtcDisplayState,
 } from "../_shared/link-btc.ts";
 import {
+  computeBtcIndex,
   fetchBtcUsdPrices,
   fetchSnapshotQuoteRates,
   fetchUsdZmwFallback,
-  PRICE_DIVERGENCE_LIMIT,
   type QuoteRates,
 } from "../_shared/price-index.ts";
 import {
@@ -499,16 +499,13 @@ const BTC_LINK_CURRENCY_UNSUPPORTED =
  *  carries the fee on top; seller → the fee leaves the proceeds. */
 
 /** Locked rates for a quote: the fresh on-platform snapshot first
- *  (the same source the rest of the platform prices from), else a
- *  live Coinbase/Kraken cross-check that refuses on divergence —
- *  a rate is never invented. */
+ *  (the same source the rest of the platform prices from), else the
+ *  live three-source median (Coinbase/Kraken/Binance) that refuses
+ *  on stale — a rate is never invented. */
 async function resolveRates(admin: Admin): Promise<QuoteRates> {
   const snapshot = await fetchSnapshotQuoteRates(admin);
   if (snapshot) return snapshot;
-  const { coinbaseUsd, krakenUsd } = await fetchBtcUsdPrices();
-  if (Math.abs(coinbaseUsd - krakenUsd) / coinbaseUsd > PRICE_DIVERGENCE_LIMIT) {
-    throw new Error("Bitcoin price sources diverge — refusing to quote");
-  }
+  const prices = await fetchBtcUsdPrices();
   let usdZmw: number | null = null;
   try {
     const { data: rateRow } = await admin.from("exchange_rates").select("rate")
@@ -518,7 +515,11 @@ async function resolveRates(admin: Admin): Promise<QuoteRates> {
     usdZmw = Number(rateRow?.rate) || null;
   } catch { /* fall through to the public fallback */ }
   if (!usdZmw) usdZmw = await fetchUsdZmwFallback();
-  return { btcUsd: coinbaseUsd, usdZmw };
+  const index = computeBtcIndex(prices, usdZmw);
+  if (index.isStale) {
+    throw new Error("Bitcoin price sources diverge — refusing to quote");
+  }
+  return { btcUsd: index.indexUsd, usdZmw };
 }
 
 async function btcCreateAttempt(admin: Admin, link: Admin, body: Admin) {

@@ -1,60 +1,148 @@
 // price-index: the shared BTC price index for P2P (scope §2.2).
 //
-// Generalises btc-trade's proven method: BTC/USD from Coinbase,
-// cross-checked against Kraken; USD/ZMW from the platform's
-// exchange_rates table (the caller reads it — this module stays free
-// of any Supabase import so it is unit-testable under vitest), with
-// the same public fallback source fetch-exchange-rates uses.
+// Three-source median method (upgraded 2026-11-19 from the original
+// two-source cross-check): BTC/USD is fetched from Coinbase, Kraken
+// AND Binance (public data host, no key) in parallel, and the index
+// price is the MEDIAN of the sources that answered — a single wild
+// source can neither drag the index nor (on its own) halt pricing,
+// it can only mark the index stale. Binance quotes BTC/USDT; the
+// USDT/USD basis is typically <0.1%, far inside the divergence band,
+// and the median makes the index insensitive to it. USD/ZMW comes
+// from the platform's exchange_rates table (the caller reads it —
+// this module stays free of any Supabase import so it is
+// unit-testable under vitest), with the same public fallback source
+// fetch-exchange-rates uses.
 //
-// The one deliberate difference from btc-trade: a quote REFUSES on
-// >3% divergence because it is about to settle; a snapshot cache
-// instead records the snapshot with is_stale = true (§2.2: "index
-// marked stale — order creation refuses"). The Phase 1a RPCs enforce
-// staleness twice over — this flag, and snapshot age against
+// Staleness is judged against the median: when ANY usable source
+// deviates from the median by >3% the index is marked stale — a
+// quote path about to settle refuses on stale, while the snapshot
+// writer still records the row with is_stale = true (§2.2: "index
+// marked stale — order creation refuses"). Fewer than two usable
+// sources is not an index at all: the computation throws and no
+// price is ever invented. The Phase 1a RPCs enforce staleness twice
+// over — the is_stale flag, and snapshot age against
 // platform_settings.p2p_price_stale_minutes — so a total feed outage
 // also goes stale on its own simply because no fresh row lands.
 
 export const PRICE_DIVERGENCE_LIMIT = 0.03;
 
-export interface BtcIndex {
-  /** Coinbase BTC/USD — the primary source, as in btc-trade. */
-  coinbaseUsd: number;
-  /** Kraken BTC/USD — the cross-check. */
-  krakenUsd: number;
-  /** USD/ZMW rate the ZMW figure was computed with. */
-  usdZmw: number;
-  /** |coinbase − kraken| / coinbase. */
-  divergence: number;
-  /** True when the sources diverge beyond PRICE_DIVERGENCE_LIMIT. */
-  isStale: boolean;
-  /** index_usd × usd_zmw, rounded to 2dp like btc-trade's mid rate. */
-  indexZmw: number;
+/** The three BTC price sources, each null when that source did not
+ *  return a usable price (down, timed out, or garbage payload). */
+export interface BtcSourcePrices {
+  /** Coinbase BTC/USD spot. */
+  coinbaseUsd: number | null;
+  /** Kraken BTC/USD last trade. */
+  krakenUsd: number | null;
+  /** Binance BTC/USDT last price (public data host). */
+  binanceUsdt: number | null;
 }
 
-/** Combine the three source values into an index. Pure. Throws on
- *  non-positive inputs — a zero/NaN price must never become a
- *  snapshot the marketplace prices against. */
-export function computeBtcIndex(
-  coinbaseUsd: number,
-  krakenUsd: number,
-  usdZmw: number,
-): BtcIndex {
-  if (!(coinbaseUsd > 0) || !(krakenUsd > 0) || !(usdZmw > 0)) {
-    throw new Error("Price source returned no usable price");
+export interface BtcIndex {
+  /** Coinbase BTC/USD, or null when the source was unusable. */
+  coinbaseUsd: number | null;
+  /** Kraken BTC/USD, or null when the source was unusable. */
+  krakenUsd: number | null;
+  /** Binance BTC/USDT, or null when the source was unusable. */
+  binanceUsdt: number | null;
+  /** The median BTC/USD — the price the index actually carries. */
+  indexUsd: number;
+  /** USD/ZMW rate the ZMW figure was computed with. */
+  usdZmw: number;
+  /** Max |source − median| / median across the usable sources. */
+  divergence: number;
+  /** True when any usable source deviates from the median beyond
+   *  PRICE_DIVERGENCE_LIMIT. */
+  isStale: boolean;
+  /** indexUsd × usdZmw, rounded to 2dp. */
+  indexZmw: number;
+  /** How many sources contributed (2 or 3). */
+  sourcesUsed: number;
+}
+
+/** A source value counts only when it is a finite, positive number —
+ *  a zero/NaN/garbage quote must never become part of a price. */
+function usablePrice(v: number | null | undefined): number | null {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
+}
+
+function usablePrices(prices: BtcSourcePrices): number[] {
+  return [
+    usablePrice(prices.coinbaseUsd),
+    usablePrice(prices.krakenUsd),
+    usablePrice(prices.binanceUsdt),
+  ].filter((v): v is number => v !== null);
+}
+
+/** Median of a non-empty list; the mean of the two middle values for
+ *  an even count (the two-source degradation case). Pure. */
+export function medianOf(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+export interface MedianIndex {
+  /** The median BTC/USD across the usable sources. */
+  indexUsd: number;
+  /** Max |source − median| / median across the usable sources. */
+  divergence: number;
+  /** True when any usable source deviates from the median beyond
+   *  PRICE_DIVERGENCE_LIMIT. */
+  isStale: boolean;
+  /** How many sources contributed (2 or 3). */
+  sourcesUsed: number;
+}
+
+/** The median core of the index, shared by computeBtcIndex and the
+ *  live-quote helper. Pure. Throws when fewer than two sources are
+ *  usable — below two quotes there is no cross-check left, and a
+ *  single unchallenged source must never become the price. */
+export function medianIndexUsd(prices: BtcSourcePrices): MedianIndex {
+  const usable = usablePrices(prices);
+  if (usable.length < 2) {
+    throw new Error("Price sources returned no usable price");
   }
-  const divergence = Math.abs(coinbaseUsd - krakenUsd) / coinbaseUsd;
+  const indexUsd = medianOf(usable);
+  const divergence = Math.max(
+    ...usable.map((v) => Math.abs(v - indexUsd) / indexUsd),
+  );
   return {
-    coinbaseUsd,
-    krakenUsd,
-    usdZmw,
+    indexUsd,
     divergence,
     isStale: divergence > PRICE_DIVERGENCE_LIMIT,
-    indexZmw: Math.round(coinbaseUsd * usdZmw * 100) / 100,
+    sourcesUsed: usable.length,
+  };
+}
+
+/** Combine the source prices and the USD/ZMW leg into an index.
+ *  Pure. Throws on fewer than two usable BTC sources or a
+ *  non-positive USD/ZMW — garbage must never become a snapshot the
+ *  marketplace prices against. */
+export function computeBtcIndex(
+  prices: BtcSourcePrices,
+  usdZmw: number,
+): BtcIndex {
+  if (!(usdZmw > 0)) {
+    throw new Error("Price source returned no usable price");
+  }
+  const median = medianIndexUsd(prices);
+  return {
+    coinbaseUsd: usablePrice(prices.coinbaseUsd),
+    krakenUsd: usablePrice(prices.krakenUsd),
+    binanceUsdt: usablePrice(prices.binanceUsdt),
+    indexUsd: median.indexUsd,
+    usdZmw,
+    divergence: median.divergence,
+    isStale: median.isStale,
+    indexZmw: Math.round(median.indexUsd * usdZmw * 100) / 100,
+    sourcesUsed: median.sourcesUsed,
   };
 }
 
 /** The FX leg gets its own sanity band (delta-audit E5). The BTC leg
- *  is cross-checked between two exchanges (3% above); USD/ZMW used to
+ *  is cross-checked between exchanges (3% above); USD/ZMW used to
  *  be trusted from a single exchange_rates row (or the public
  *  fallback), so one bad FX row silently mispriced EVERYTHING. USD/ZMW
  *  is a managed-float rate — genuine minute-to-minute moves are a
@@ -87,7 +175,11 @@ export function isFxDeviationStale(
 /** The p2p_price_snapshots row for an index. The sources JSONB keeps
  *  the exact key names the Phase 1a proof fixtures established
  *  (coinbase_usd / kraken_usd / usd_zmw) — order snapshots copy this
- *  object, so its shape is part of the audit record. */export function buildSnapshotInsert(index: BtcIndex): {
+ *  object, so its shape is part of the audit record — and adds
+ *  binance_usdt plus index_usd (the median actually priced with) so
+ *  every historical quote can be re-derived from its snapshot. A
+ *  source that was down is recorded as null, never omitted. */
+export function buildSnapshotInsert(index: BtcIndex): {
   asset: string;
   index_zmw: number;
   sources: Record<string, unknown>;
@@ -99,6 +191,8 @@ export function isFxDeviationStale(
     sources: {
       coinbase_usd: index.coinbaseUsd,
       kraken_usd: index.krakenUsd,
+      binance_usdt: index.binanceUsdt,
+      index_usd: index.indexUsd,
       usd_zmw: index.usdZmw,
       divergence: Math.round(index.divergence * 10000) / 10000,
       writer: "p2p-price-index",
@@ -121,22 +215,75 @@ async function fetchJson(
   return res.json();
 }
 
-/** Fetch BTC/USD from both exchanges. Mirrors btc-trade's endpoints
- *  and parsing exactly. Throws if either source fails or returns no
- *  price; divergence is computeBtcIndex's judgement, not this one's. */
+/** Binance's public data host — api.binance.com refuses this
+ *  deployment's region, data-api.binance.vision serves the same
+ *  public market data without an account or key. */
+export const BINANCE_BTC_USDT_URL =
+  "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT";
+
+/** Fetch BTC prices from all three exchanges in parallel. Each
+ *  source fails independently: a down or garbage source comes back
+ *  null instead of sinking the index (the median only needs two).
+ *  Throws only when fewer than two sources return a usable price —
+ *  with no cross-check left there is no honest price. */
 export async function fetchBtcUsdPrices(
   fetchFn: FetchFn = fetch,
-): Promise<{ coinbaseUsd: number; krakenUsd: number }> {
-  const [coinbase, kraken] = await Promise.all([
-    fetchJson("https://api.coinbase.com/v2/prices/BTC-USD/spot", fetchFn),
-    fetchJson("https://api.kraken.com/0/public/Ticker?pair=XBTUSD", fetchFn),
+): Promise<BtcSourcePrices> {
+  const attempt = async (
+    parse: () => Promise<number>,
+  ): Promise<number | null> => {
+    try {
+      return usablePrice(await parse());
+    } catch {
+      return null;
+    }
+  };
+  const [coinbaseUsd, krakenUsd, binanceUsdt] = await Promise.all([
+    attempt(async () =>
+      Number.parseFloat(
+        (await fetchJson(
+          "https://api.coinbase.com/v2/prices/BTC-USD/spot",
+          fetchFn,
+        ))?.data?.amount,
+      )
+    ),
+    attempt(async () =>
+      Number.parseFloat(
+        (await fetchJson(
+          "https://api.kraken.com/0/public/Ticker?pair=XBTUSD",
+          fetchFn,
+        ))?.result?.XXBTZUSD?.c?.[0],
+      )
+    ),
+    attempt(async () =>
+      Number.parseFloat(
+        (await fetchJson(BINANCE_BTC_USDT_URL, fetchFn))?.price,
+      )
+    ),
   ]);
-  const coinbaseUsd = Number.parseFloat(coinbase?.data?.amount);
-  const krakenUsd = Number.parseFloat(kraken?.result?.XXBTZUSD?.c?.[0]);
-  if (!(coinbaseUsd > 0) || !(krakenUsd > 0)) {
-    throw new Error("Price source returned no BTC/USD price");
+  const prices: BtcSourcePrices = { coinbaseUsd, krakenUsd, binanceUsdt };
+  if (usablePrices(prices).length < 2) {
+    throw new Error("Price sources returned no BTC/USD price");
   }
-  return { coinbaseUsd, krakenUsd };
+  return prices;
+}
+
+/** The live median BTC/USD for quote paths that price live instead
+ *  of from a snapshot (the btc-trade / btc-sell-selfcustody
+ *  fallbacks). Throws when fewer than two sources answer or when any
+ *  source deviates from the median beyond the divergence limit —
+ *  the same refusal the old two-source cross-check made, now
+ *  median-based. */
+export async function fetchMedianBtcUsd(
+  fetchFn: FetchFn = fetch,
+): Promise<number> {
+  const { indexUsd, isStale } = medianIndexUsd(
+    await fetchBtcUsdPrices(fetchFn),
+  );
+  if (isStale) {
+    throw new Error("Price sources diverge — refusing to quote");
+  }
+  return indexUsd;
 }
 
 /** USD/ZMW from the public fallback source — used only when the
@@ -159,12 +306,12 @@ export async function fetchUsdZmwFallback(
 // ---------------------------------------------------------------------
 //
 // The per-minute cron refresher above already maintains a BTC index
-// on-platform (p2p_price_snapshots, written from the same Coinbase +
-// Kraken cross-check and the same USD/ZMW leg btc-trade used to fetch
-// live on every quote). A trade quote therefore reads the latest
-// snapshot while it is fresh — fresh in exactly the sense the rest of
-// the platform already uses: the row is not flagged stale and its age
-// is within platform_settings.p2p_price_stale_minutes (default 5 —
+// on-platform (p2p_price_snapshots, written from the same three-source
+// median and the same USD/ZMW leg btc-trade used to fetch live on
+// every quote). A trade quote therefore reads the latest snapshot
+// while it is fresh — fresh in exactly the sense the rest of the
+// platform already uses: the row is not flagged stale and its age is
+// within platform_settings.p2p_price_stale_minutes (default 5 —
 // the POS bridge's latestBtcIndexZmw applies the same bound to the
 // same table). Only when no fresh snapshot exists does the caller
 // fall back to its live fetchers; if those fail too, resolution
@@ -176,27 +323,33 @@ export async function fetchUsdZmwFallback(
 export const DEFAULT_PRICE_STALE_MINUTES = 5;
 
 export interface QuoteRates {
-  /** BTC/USD — the Coinbase figure, as in btc-trade's live path. */
+  /** BTC/USD — the snapshot's index_usd (the median) when the row
+   *  carries one, else its Coinbase figure (pre-median snapshots);
+   *  on the live path, the caller's median fetch. */
   btcUsd: number;
   /** USD/ZMW the quote prices with. */
   usdZmw: number;
 }
 
 /** The BTC/USD + USD/ZMW pair a quote needs, taken from a
- *  p2p_price_snapshots row's sources (the coinbase_usd / usd_zmw keys
- *  buildSnapshotInsert writes). The product coinbase_usd × usd_zmw
- *  is the same mid rate the live path computes from the same sources
- *  — identical operands, ≤60 s older. Returns null when either leg
+ *  p2p_price_snapshots row's sources. The BTC leg prefers index_usd
+ *  (the median the snapshot priced with); rows written before the
+ *  median upgrade have no index_usd and fall back to coinbase_usd —
+ *  the figure those rows priced with, so a quote never re-prices a
+ *  snapshot at a rate it did not carry. Returns null when either leg
  *  is missing or unusable: a partial snapshot must never become a
  *  price. Pure. */
 export function snapshotQuoteRates(
   row: { sources?: unknown } | null | undefined,
 ): QuoteRates | null {
   const sources = row?.sources as
-    | { coinbase_usd?: unknown; usd_zmw?: unknown }
+    | { coinbase_usd?: unknown; index_usd?: unknown; usd_zmw?: unknown }
     | null
     | undefined;
-  const btcUsd = Number(sources?.coinbase_usd);
+  const indexUsd = Number(sources?.index_usd);
+  const btcUsd = Number.isFinite(indexUsd) && indexUsd > 0
+    ? indexUsd
+    : Number(sources?.coinbase_usd);
   const usdZmw = Number(sources?.usd_zmw);
   if (!(btcUsd > 0) || !(usdZmw > 0)) return null;
   if (!Number.isFinite(btcUsd) || !Number.isFinite(usdZmw)) return null;

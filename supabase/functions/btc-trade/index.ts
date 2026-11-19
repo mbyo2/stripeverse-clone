@@ -31,6 +31,7 @@ import {
 } from "../_shared/account-freeze.ts";
 import { custodyStatus, quoteBuySats, quoteSellZmw } from "../_shared/btc-core.ts";
 import { resolveQuoteRates } from "../_shared/price-index.ts";
+import { fetchBtcUsdPrices, medianIndexUsd } from "../_shared/price-index.ts";
 import { validateFiatAmount } from "../_shared/fiat-amount.ts";
 
 const corsHeaders = {
@@ -89,23 +90,19 @@ async function fetchJson(url: string): Promise<any> {
 
 // Live price fetchers — since the snapshot-first change these are
 // the FALLBACK path, used only when p2p_price_snapshots holds no
-// fresh row (see resolveQuoteRates in _shared/price-index.ts). Their
-// behaviour is unchanged from when they were the only path: the
-// BTC/USD pair is cross-checked and refuses on >3% divergence, and
-// USD/ZMW prefers the platform's exchange_rates table over the
-// public source.
+// fresh row (see resolveQuoteRates in _shared/price-index.ts). The
+// BTC/USD leg is the shared three-source median (Coinbase, Kraken,
+// Binance via _shared/price-index.ts): it refuses when fewer than
+// two sources answer or when any source deviates from the median
+// by >3%, and USD/ZMW prefers the platform's exchange_rates table
+// over the public source.
 async function fetchBtcUsd(): Promise<number> {
-  const [coinbase, kraken] = await Promise.all([
-    fetchJson("https://api.coinbase.com/v2/prices/BTC-USD/spot"),
-    fetchJson("https://api.kraken.com/0/public/Ticker?pair=XBTUSD"),
-  ]);
-  const cb = Number.parseFloat(coinbase?.data?.amount);
-  const kr = Number.parseFloat(kraken?.result?.XXBTZUSD?.c?.[0]);
-  if (!(cb > 0) || !(kr > 0)) throw new Error("Price source returned no BTC/USD price");
-  if (Math.abs(cb - kr) / cb > PRICE_DIVERGENCE_LIMIT) {
+  const prices = await fetchBtcUsdPrices();
+  const { indexUsd, divergence } = medianIndexUsd(prices);
+  if (divergence > PRICE_DIVERGENCE_LIMIT) {
     throw new Error("Price sources diverge — refusing to quote");
   }
-  return cb;
+  return indexUsd;
 }
 
 async function fetchUsdZmw(supabase: any): Promise<number> {

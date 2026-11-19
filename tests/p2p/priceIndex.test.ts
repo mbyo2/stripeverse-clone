@@ -1,10 +1,12 @@
 // Unit tests for supabase/functions/_shared/price-index.ts — the
 // shared BTC price index behind the p2p edge function's
 // refresh_price_index action (scope §2.2) and, since the scalability
-// fix, btc-trade's snapshot-first quote-rate resolution. Same loader
-// pattern as tests/bitcoin/btc-core.test.ts: the real source is
-// transpiled and tested byte-identical (the module is import-free
-// by design).
+// fix, btc-trade's snapshot-first quote-rate resolution. Since the
+// 2026-11-19 FX upgrade the index is a three-source median
+// (Coinbase, Kraken, Binance) with staleness judged against the
+// median. Same loader pattern as tests/bitcoin/btc-core.test.ts:
+// the real source is transpiled and tested byte-identical (the
+// module is import-free by design).
 
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import * as fs from "node:fs";
@@ -51,42 +53,111 @@ function stubFetch(responses: Record<string, unknown>) {
 }
 
 describe("computeBtcIndex", () => {
-  it("computes the ZMW index from Coinbase × USD/ZMW", () => {
-    const r = idx.computeBtcIndex(100_000, 99_000, 25);
+  it("prices at the median of the three sources", () => {
+    const r = idx.computeBtcIndex(
+      { coinbaseUsd: 100_000, krakenUsd: 99_000, binanceUsdt: 101_000 },
+      25,
+    );
+    expect(r.indexUsd).toBe(100_000);
     expect(r.divergence).toBeCloseTo(0.01);
     expect(r.isStale).toBe(false);
     expect(r.indexZmw).toBe(2_500_000);
+    expect(r.sourcesUsed).toBe(3);
   });
 
-  it("marks divergence beyond 3% as stale (§2.2)", () => {
-    const r = idx.computeBtcIndex(100_000, 96_000, 25);
-    expect(r.divergence).toBeCloseTo(0.04);
+  it("degrades to the mean of two when one source is down", () => {
+    const r = idx.computeBtcIndex(
+      { coinbaseUsd: 100_000, krakenUsd: 99_000, binanceUsdt: null },
+      25,
+    );
+    expect(r.indexUsd).toBe(99_500);
+    expect(r.divergence).toBeCloseTo(0.00503);
+    expect(r.isStale).toBe(false);
+    expect(r.indexZmw).toBe(2_487_500);
+    expect(r.sourcesUsed).toBe(2);
+  });
+
+  it("a single outlier cannot drag the index — it only marks it stale", () => {
+    const r = idx.computeBtcIndex(
+      { coinbaseUsd: 100_000, krakenUsd: 100_500, binanceUsdt: 130_000 },
+      25,
+    );
+    expect(r.indexUsd).toBe(100_500);
     expect(r.isStale).toBe(true);
   });
 
-  it("treats exactly 3% divergence as NOT stale", () => {
-    const r = idx.computeBtcIndex(100_000, 97_000, 25);
+  it("treats exactly 3% divergence from the median as NOT stale", () => {
+    const r = idx.computeBtcIndex(
+      { coinbaseUsd: 100_000, krakenUsd: 100_000, binanceUsdt: 103_000 },
+      25,
+    );
     expect(r.divergence).toBeCloseTo(0.03);
     expect(r.isStale).toBe(false);
   });
 
-  it("throws on non-positive prices instead of indexing garbage", () => {
-    expect(() => idx.computeBtcIndex(0, 99_000, 25)).toThrow();
-    expect(() => idx.computeBtcIndex(100_000, -1, 25)).toThrow();
-    expect(() => idx.computeBtcIndex(100_000, 99_000, 0)).toThrow();
-    expect(() => idx.computeBtcIndex(NaN, 99_000, 25)).toThrow();
+  it("marks 3.1% divergence from the median as stale", () => {
+    const r = idx.computeBtcIndex(
+      { coinbaseUsd: 100_000, krakenUsd: 100_000, binanceUsdt: 103_100 },
+      25,
+    );
+    expect(r.isStale).toBe(true);
+  });
+
+  it("throws on fewer than two usable sources instead of indexing garbage", () => {
+    expect(() =>
+      idx.computeBtcIndex(
+        { coinbaseUsd: 100_000, krakenUsd: null, binanceUsdt: null },
+        25,
+      ),
+    ).toThrow();
+    expect(() =>
+      idx.computeBtcIndex(
+        { coinbaseUsd: 0, krakenUsd: -1, binanceUsdt: NaN },
+        25,
+      ),
+    ).toThrow();
+    expect(() =>
+      idx.computeBtcIndex(
+        { coinbaseUsd: null, krakenUsd: null, binanceUsdt: null },
+        25,
+      ),
+    ).toThrow();
+    expect(() =>
+      idx.computeBtcIndex(
+        { coinbaseUsd: 100_000, krakenUsd: 99_000, binanceUsdt: 101_000 },
+        0,
+      ),
+    ).toThrow();
   });
 });
 
 describe("buildSnapshotInsert", () => {
   it("shapes the p2p_price_snapshots row (proof-fixture source keys)", () => {
-    const row = idx.buildSnapshotInsert(idx.computeBtcIndex(100_000, 96_000, 25));
+    const row = idx.buildSnapshotInsert(
+      idx.computeBtcIndex(
+        { coinbaseUsd: 100_000, krakenUsd: 96_000, binanceUsdt: 130_000 },
+        25,
+      ),
+    );
     expect(row.asset).toBe("BTC");
     expect(row.index_zmw).toBe(2_500_000);
     expect(row.is_stale).toBe(true);
     expect(row.sources.coinbase_usd).toBe(100_000);
     expect(row.sources.kraken_usd).toBe(96_000);
+    expect(row.sources.binance_usdt).toBe(130_000);
+    expect(row.sources.index_usd).toBe(100_000);
     expect(row.sources.usd_zmw).toBe(25);
+  });
+
+  it("records a down source as null, never omitted", () => {
+    const row = idx.buildSnapshotInsert(
+      idx.computeBtcIndex(
+        { coinbaseUsd: 100_000, krakenUsd: 99_000, binanceUsdt: null },
+        25,
+      ),
+    );
+    expect(row.sources.binance_usdt).toBeNull();
+    expect(row.sources.index_usd).toBe(99_500);
   });
 });
 
@@ -122,17 +193,31 @@ describe("isFxDeviationStale (delta-audit E5)", () => {
 });
 
 describe("fetchers", () => {
-  it("parses Coinbase and Kraken payloads like btc-trade", async () => {
+  it("parses Coinbase, Kraken and Binance payloads", async () => {
     const fetchFn = stubFetch({
       "api.coinbase.com": { data: { amount: "101234.50" } },
       "api.kraken.com": { result: { XXBTZUSD: { c: ["100900.1", "0.5"] } } },
+      "data-api.binance.vision": { symbol: "BTCUSDT", price: "100700.25" },
     });
     const r = await idx.fetchBtcUsdPrices(fetchFn as any);
     expect(r.coinbaseUsd).toBeCloseTo(101234.5);
     expect(r.krakenUsd).toBeCloseTo(100900.1);
+    expect(r.binanceUsdt).toBeCloseTo(100700.25);
   });
 
-  it("throws when a source returns no price", async () => {
+  it("one source down still resolves with that source null", async () => {
+    const fetchFn = stubFetch({
+      "api.coinbase.com": { data: { amount: "not-a-number" } },
+      "api.kraken.com": { result: { XXBTZUSD: { c: ["100900.1"] } } },
+      "data-api.binance.vision": { symbol: "BTCUSDT", price: "100700.25" },
+    });
+    const r = await idx.fetchBtcUsdPrices(fetchFn as any);
+    expect(r.coinbaseUsd).toBeNull();
+    expect(r.krakenUsd).toBeCloseTo(100900.1);
+    expect(r.binanceUsdt).toBeCloseTo(100700.25);
+  });
+
+  it("throws when fewer than two sources return a price", async () => {
     const fetchFn = stubFetch({
       "api.coinbase.com": { data: { amount: "not-a-number" } },
       "api.kraken.com": { result: { XXBTZUSD: { c: ["100900.1"] } } },
@@ -150,6 +235,48 @@ describe("fetchers", () => {
   it("throws when the fallback has no ZMW rate", async () => {
     const fetchFn = stubFetch({ "exchangerate-api.com": { rates: {} } });
     await expect(idx.fetchUsdZmwFallback(fetchFn as any)).rejects.toThrow();
+  });
+});
+
+describe("medianIndexUsd / fetchMedianBtcUsd", () => {
+  it("medianIndexUsd picks the middle of three", () => {
+    const r = idx.medianIndexUsd({
+      coinbaseUsd: 99_000,
+      krakenUsd: 101_000,
+      binanceUsdt: 100_000,
+    });
+    expect(r.indexUsd).toBe(100_000);
+    expect(r.sourcesUsed).toBe(3);
+  });
+
+  it("medianIndexUsd averages the two in the degradation case", () => {
+    const r = idx.medianIndexUsd({
+      coinbaseUsd: 100_000,
+      krakenUsd: 99_000,
+      binanceUsdt: null,
+    });
+    expect(r.indexUsd).toBe(99_500);
+    expect(r.sourcesUsed).toBe(2);
+  });
+
+  it("fetchMedianBtcUsd resolves the median from stubbed fetchers", async () => {
+    const fetchFn = stubFetch({
+      "api.coinbase.com": { data: { amount: "100000" } },
+      "api.kraken.com": { result: { XXBTZUSD: { c: ["99000"] } } },
+      "data-api.binance.vision": { symbol: "BTCUSDT", price: "101000" },
+    });
+    await expect(idx.fetchMedianBtcUsd(fetchFn as any)).resolves.toBe(100_000);
+  });
+
+  it("fetchMedianBtcUsd rejects when a source deviates >3% from the median", async () => {
+    const fetchFn = stubFetch({
+      "api.coinbase.com": { data: { amount: "100000" } },
+      "api.kraken.com": { result: { XXBTZUSD: { c: ["100500"] } } },
+      "data-api.binance.vision": { symbol: "BTCUSDT", price: "130000" },
+    });
+    await expect(idx.fetchMedianBtcUsd(fetchFn as any)).rejects.toThrow(
+      "Price sources diverge — refusing to quote",
+    );
   });
 });
 
@@ -241,11 +368,27 @@ function settingsRow(staleMinutes: unknown) {
 }
 
 describe("snapshotQuoteRates", () => {
-  it("extracts the Coinbase BTC/USD and USD/ZMW legs from sources", () => {
+  it("extracts the Coinbase BTC/USD and USD/ZMW legs from pre-median sources", () => {
     expect(idx.snapshotQuoteRates(snapshotRow(1))).toEqual({
       btcUsd: 104_000,
       usdZmw: 25,
     });
+  });
+
+  it("prefers index_usd (the median) when the snapshot carries one", () => {
+    expect(
+      idx.snapshotQuoteRates({
+        sources: { coinbase_usd: 104_000, index_usd: 103_800, usd_zmw: 25 },
+      }),
+    ).toEqual({ btcUsd: 103_800, usdZmw: 25 });
+  });
+
+  it("falls back to coinbase_usd when index_usd is unusable", () => {
+    expect(
+      idx.snapshotQuoteRates({
+        sources: { coinbase_usd: 104_000, index_usd: 0, usd_zmw: 25 },
+      }),
+    ).toEqual({ btcUsd: 104_000, usdZmw: 25 });
   });
 
   it("refuses partial or unusable snapshots instead of inventing a leg", () => {

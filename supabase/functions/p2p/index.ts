@@ -191,7 +191,7 @@ async function fetchUsdZmw(admin: any): Promise<number> {
 }
 
 async function handleRefreshPriceIndex(admin: any) {
-  let prices: { coinbaseUsd: number; krakenUsd: number };
+  let prices: Awaited<ReturnType<typeof fetchBtcUsdPrices>>;
   let usdZmw: number;
   try {
     [prices, usdZmw] = await Promise.all([
@@ -209,7 +209,7 @@ async function handleRefreshPriceIndex(admin: any) {
   }
   let index: ReturnType<typeof computeBtcIndex>;
   try {
-    index = computeBtcIndex(prices.coinbaseUsd, prices.krakenUsd, usdZmw);
+    index = computeBtcIndex(prices, usdZmw);
   } catch (e) {
     console.error("p2p price refresh: index computation failed:", e);
     return json(503, {

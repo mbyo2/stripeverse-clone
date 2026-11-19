@@ -40,6 +40,7 @@ import {
 } from "../_shared/account-freeze.ts";
 import { custodyStatus } from "../_shared/btc-core.ts";
 import { resolveQuoteRates } from "../_shared/price-index.ts";
+import { fetchBtcUsdPrices, medianIndexUsd } from "../_shared/price-index.ts";
 import {
   GRACE_SECONDS,
   INTENT_TTL_SECONDS,
@@ -83,19 +84,16 @@ async function fetchJson(url: string): Promise<any> {
 }
 
 // Live price fetchers — the FALLBACK path only, identical to
-// btc-trade's (snapshot-first via resolveQuoteRates).
+// btc-trade's (snapshot-first via resolveQuoteRates; the BTC/USD
+// leg is the shared three-source median, refusing on >3%
+// divergence from the median or fewer than two sources).
 async function fetchBtcUsd(): Promise<number> {
-  const [coinbase, kraken] = await Promise.all([
-    fetchJson("https://api.coinbase.com/v2/prices/BTC-USD/spot"),
-    fetchJson("https://api.kraken.com/0/public/Ticker?pair=XBTUSD"),
-  ]);
-  const cb = Number.parseFloat(coinbase?.data?.amount);
-  const kr = Number.parseFloat(kraken?.result?.XXBTZUSD?.c?.[0]);
-  if (!(cb > 0) || !(kr > 0)) throw new Error("Price source returned no BTC/USD price");
-  if (Math.abs(cb - kr) / cb > PRICE_DIVERGENCE_LIMIT) {
+  const prices = await fetchBtcUsdPrices();
+  const { indexUsd, divergence } = medianIndexUsd(prices);
+  if (divergence > PRICE_DIVERGENCE_LIMIT) {
     throw new Error("Price sources diverge — refusing to quote");
   }
-  return cb;
+  return indexUsd;
 }
 
 async function fetchUsdZmw(supabase: any): Promise<number> {
