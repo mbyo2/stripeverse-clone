@@ -79,46 +79,65 @@ describe("roleHomePath — every role lands on its own home", () => {
 });
 
 // ---------------------------------------------------------------------
-// headerMenuVisibility — the Header account menus' four role-owned
-// entries: Subscription, Audit Logs, Backup & Export (admin tier
-// only) and Fraud Rules (business OR admin tier — the /fraud-rules
-// route gate admits both, so the menu must too; a super_admin-only
-// holder owns no business row and must not lose the entry).
+// headerMenuVisibility — the Header's role-owned entries, as reshaped
+// by the CEO's 2026-11-21 order: the console lives in the main nav as
+// an Admin category (admin tier) and a Superadmin category
+// (super_admin ONLY — absent for plain admins), while the account
+// menus keep Subscription (admin tier) and Fraud Rules (business OR
+// admin tier — the /fraud-rules route gate admits both, so the menu
+// must too; a super_admin-only holder owns no business row and must
+// not lose the entry). Audit Logs and Backup & Export moved out of
+// the account menus into the two categories; Backup & Export's
+// super_admin-only rule (2026-11-19 split) is unchanged, now carried
+// by the superadminCategory gate instead of its own flag.
 // ---------------------------------------------------------------------
 
-describe("headerMenuVisibility — the account menus show each role its own entries", () => {
-  it("admin tier sees the admin-console entries but NOT Backup & Export (2026-11-19 split)", () => {
+describe("headerMenuVisibility — each role sees its own categories and entries", () => {
+  it("admin tier sees the Admin category but NOT the Superadmin category", () => {
     for (const roles of [["admin"], ["user", "admin"], ["business", "admin"]]) {
-      expect(headerMenuVisibility(roles)).toEqual({ adminLinks: true, backupExport: false, fraudRules: true });
+      expect(headerMenuVisibility(roles)).toEqual({ adminLinks: true, adminCategory: true, superadminCategory: false, fraudRules: true });
     }
   });
 
-  it("super_admin sees all entries without holding business", () => {
-    // The owner case: super_admin is additive over admin, and the
-    // Fraud Rules entry must not depend on a business role row.
-    expect(headerMenuVisibility(["super_admin"])).toEqual({ adminLinks: true, backupExport: true, fraudRules: true });
-    expect(headerMenuVisibility(["user", "super_admin"])).toEqual({ adminLinks: true, backupExport: true, fraudRules: true });
+  it("super_admin sees BOTH categories without holding business or admin", () => {
+    // The owner case: super_admin is additive over admin (so the
+    // Admin category renders too), and the Fraud Rules entry must
+    // not depend on a business role row.
+    expect(headerMenuVisibility(["super_admin"])).toEqual({ adminLinks: true, adminCategory: true, superadminCategory: true, fraudRules: true });
+    expect(headerMenuVisibility(["user", "super_admin"])).toEqual({ adminLinks: true, adminCategory: true, superadminCategory: true, fraudRules: true });
+    expect(headerMenuVisibility(["admin", "super_admin"])).toEqual({ adminLinks: true, adminCategory: true, superadminCategory: true, fraudRules: true });
   });
 
-  it("Backup & Export follows super_admin alone, never the admin tier", () => {
-    expect(headerMenuVisibility(["admin"]).backupExport).toBe(false);
-    expect(headerMenuVisibility(["admin", "business"]).backupExport).toBe(false);
-    expect(headerMenuVisibility(["super_admin"]).backupExport).toBe(true);
+  it("the Superadmin category follows super_admin alone, never the admin tier", () => {
+    expect(headerMenuVisibility(["admin"]).superadminCategory).toBe(false);
+    expect(headerMenuVisibility(["admin", "business"]).superadminCategory).toBe(false);
+    expect(headerMenuVisibility(["super_admin"]).superadminCategory).toBe(true);
   });
 
-  it("plain user sees none of the entries", () => {
-    expect(headerMenuVisibility(["user"])).toEqual({ adminLinks: false, backupExport: false, fraudRules: false });
-    expect(headerMenuVisibility([])).toEqual({ adminLinks: false, backupExport: false, fraudRules: false });
+  it("the Admin category follows the admin tier (admin OR super_admin)", () => {
+    expect(headerMenuVisibility(["admin"]).adminCategory).toBe(true);
+    expect(headerMenuVisibility(["super_admin"]).adminCategory).toBe(true);
+    expect(headerMenuVisibility(["user"]).adminCategory).toBe(false);
+    expect(headerMenuVisibility(["business"]).adminCategory).toBe(false);
+    expect(headerMenuVisibility(["p2p_admin"]).adminCategory).toBe(false);
   });
 
-  it("business sees Fraud Rules but not the admin-console entries", () => {
-    expect(headerMenuVisibility(["business"])).toEqual({ adminLinks: false, backupExport: false, fraudRules: true });
-    expect(headerMenuVisibility(["user", "business"])).toEqual({ adminLinks: false, backupExport: false, fraudRules: true });
+  it("plain user sees neither category and none of the entries", () => {
+    expect(headerMenuVisibility(["user"])).toEqual({ adminLinks: false, adminCategory: false, superadminCategory: false, fraudRules: false });
+    expect(headerMenuVisibility([])).toEqual({ adminLinks: false, adminCategory: false, superadminCategory: false, fraudRules: false });
+  });
+
+  it("business sees Fraud Rules but neither category nor the admin entries", () => {
+    expect(headerMenuVisibility(["business"])).toEqual({ adminLinks: false, adminCategory: false, superadminCategory: false, fraudRules: true });
+    expect(headerMenuVisibility(["user", "business"])).toEqual({ adminLinks: false, adminCategory: false, superadminCategory: false, fraudRules: true });
   });
 
   it("roles without a stake in either surface see none of the entries", () => {
-    expect(headerMenuVisibility(["beta_tester"])).toEqual({ adminLinks: false, backupExport: false, fraudRules: false });
-    expect(headerMenuVisibility(["user", "p2p_admin"])).toEqual({ adminLinks: false, backupExport: false, fraudRules: false });
+    expect(headerMenuVisibility(["beta_tester"])).toEqual({ adminLinks: false, adminCategory: false, superadminCategory: false, fraudRules: false });
+    expect(headerMenuVisibility(["user", "p2p_admin"])).toEqual({ adminLinks: false, adminCategory: false, superadminCategory: false, fraudRules: false });
+    expect(headerMenuVisibility(["support_admin"])).toEqual({ adminLinks: false, adminCategory: false, superadminCategory: false, fraudRules: false });
+    expect(headerMenuVisibility(["compliance_admin"])).toEqual({ adminLinks: false, adminCategory: false, superadminCategory: false, fraudRules: false });
+    expect(headerMenuVisibility(["finance_admin"])).toEqual({ adminLinks: false, adminCategory: false, superadminCategory: false, fraudRules: false });
   });
 });
 
@@ -255,24 +274,33 @@ describe("Header — role-owned menu entries are not rendered for others", () =>
   it("derives menu visibility from the roleVisibility menu model", () => {
     expect(src).toContain("headerMenuVisibility(roles)");
     expect(src).toContain("showAdminLinks");
+    expect(src).toContain("showAdminCategory");
+    expect(src).toContain("showSuperadminCategory");
     expect(src).toContain("showFraudRules");
+    expect(src).toContain("const showAdminCategory = menuVisibility.adminCategory;");
+    expect(src).toContain("const showSuperadminCategory = menuVisibility.superadminCategory;");
   });
 
-  it("admin destinations are behind the visibility flags (desktop + mobile)", () => {
-    // tier-management, audit-logs, backup-export each appear twice
-    // (desktop account menu + mobile drawer) and every occurrence is
-    // gated: the raw link strings only exist inside gated blocks.
-    expect(src).toContain("{showAdminLinks && <MobileNavLink to=\"/audit-logs\"");
-    expect(src).toContain("{showBackupExport && <MobileNavLink to=\"/backup-export\"");
+  it("the two nav categories are behind their own flags (desktop + mobile)", () => {
+    // Each category renders exactly twice — the desktop dropdown and
+    // the mobile drawer section — and every render is gated by its
+    // own model flag, so a plain user gets neither and a plain admin
+    // never gets the Superadmin category at all.
+    const adminGates = src.match(/\{showAdminCategory &&/g) ?? [];
+    expect(adminGates.length).toBe(2);
+    const superGates = src.match(/showSuperadminCategory &&/g) ?? [];
+    expect(superGates.length).toBe(2);
+    // The account menus keep only Subscription behind adminLinks
+    // (desktop dropdown + mobile drawer): Audit Logs and Backup &
+    // Export moved into the categories (2026-11-21), so the old
+    // account-menu occurrences are gone for good.
+    const gatedBlocks = src.match(/showAdminLinks &&/g) ?? [];
+    expect(gatedBlocks.length).toBe(2);
     expect(src).toContain("{showAdminLinks && <MobileNavLink to=\"/tier-management\"");
     expect(src).toContain("{showFraudRules && <MobileNavLink to=\"/fraud-rules\"");
-    // Desktop dropdown items are wrapped in the same flags.
-    const gatedBlocks = src.match(/showAdminLinks &&/g) ?? [];
-    expect(gatedBlocks.length).toBeGreaterThanOrEqual(4);
-    // Backup & Export is behind its own super_admin flag in both menus.
-    const backupGates = src.match(/showBackupExport &&/g) ?? [];
-    expect(backupGates.length).toBe(2);
-    expect(src).toContain("const showBackupExport = menuVisibility.backupExport;");
+    expect(src).not.toContain("{showAdminLinks && <MobileNavLink to=\"/audit-logs\"");
+    expect(src).not.toContain("showBackupExport");
+    expect(src).not.toContain("menuVisibility.backupExport");
   });
 
   it("Fraud Rules sits with the other role-owned entries in BOTH account menus", () => {
@@ -280,22 +308,29 @@ describe("Header — role-owned menu entries are not rendered for others", () =>
     // dropdown, the desktop account menu, and the mobile drawer's
     // Business and Account sections — each behind showFraudRules,
     // so the entry renders for exactly the roles its route admits
-    // (business OR admin tier) in every menu path, including the
-    // account menus where Subscription / Audit Logs / Backup &
-    // Export live.
+    // (business OR admin tier) in every menu path.
     const fraudLinks = src.match(/to="\/fraud-rules"/g) ?? [];
     expect(fraudLinks.length).toBe(4);
     const fraudGates = src.match(/showFraudRules &&/g) ?? [];
     expect(fraudGates.length).toBe(4);
-    // The desktop account-menu entry sits immediately after the
-    // Audit Logs / Backup & Export block, as a sibling DropdownMenuItem.
-    const accountMenuFraud = src.indexOf('Backup & Export');
-    expect(accountMenuFraud).toBeGreaterThan(-1);
-    const afterBackup = src.slice(accountMenuFraud);
-    expect(afterBackup.indexOf('to="/fraud-rules"')).toBeGreaterThan(-1);
-    expect(afterBackup.indexOf('to="/fraud-rules"')).toBeLessThan(
-      afterBackup.indexOf('to="/support"'),
+    // In the desktop account menu (which starts at the signed-in
+    // identity block), Fraud Rules follows Role Management and
+    // precedes Help & Support — and the consolidated Audit Logs /
+    // Backup & Export entries no longer appear there at all.
+    const accountMenuStart = src.indexOf("Signed-in identity (CEO order 2026-11-21)");
+    expect(accountMenuStart).toBeGreaterThan(-1);
+    const accountMenuEnd = src.indexOf("{/* Mobile Menu */}", accountMenuStart);
+    expect(accountMenuEnd).toBeGreaterThan(accountMenuStart);
+    const accountMenu = src.slice(accountMenuStart, accountMenuEnd);
+    expect(accountMenu.indexOf('to="/role-management"')).toBeGreaterThan(-1);
+    expect(accountMenu.indexOf('to="/fraud-rules"')).toBeGreaterThan(
+      accountMenu.indexOf('to="/role-management"'),
     );
+    expect(accountMenu.indexOf('to="/fraud-rules"')).toBeLessThan(
+      accountMenu.indexOf('to="/support"'),
+    );
+    expect(accountMenu).not.toContain('to="/audit-logs"');
+    expect(accountMenu).not.toContain('to="/backup-export"');
   });
 });
 

@@ -6,6 +6,7 @@ import GlobalSearch from "@/components/GlobalSearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoles } from "@/contexts/RoleContext";
 import { headerMenuVisibility } from "@/lib/roleVisibility";
+import { useProfile } from "@/hooks/useProfile";
 import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { RoleBadge } from "@/components/FeatureAccess";
@@ -71,7 +72,16 @@ import {
   Search,
   Store,
   Bitcoin,
-  Blocks
+  Blocks,
+  LayoutDashboard,
+  ScanFace,
+  Activity,
+  ReceiptText,
+  Landmark,
+  MessageSquare,
+  FileSearch,
+  Inbox,
+  Database
 } from "lucide-react";
 import { isAuthPending } from "@/lib/sessionHint";
 import { SkeletonHeaderBar } from "@/components/ui/skeletons";
@@ -87,20 +97,35 @@ const Header = () => {
   // belong to a role the user doesn't hold are not rendered at all —
   // an admin-console destination never appears in a plain user's
   // menus, and a business surface never appears for non-business
-  // users. The one model in roleVisibility.ts decides all four
-  // role-owned entries, including Fraud Rules in the account menus:
-  // it belongs to business holders AND the admin tier its route
-  // gate admits, so the super_admin owner (no business role row)
-  // sees it too. Presentation only; the routes and the database
-  // enforce the real rules underneath.
+  // users. The one model in roleVisibility.ts decides the role-owned
+  // entries: the Admin and Superadmin nav categories (CEO order
+  // 2026-11-21, patterned on the Business category), Subscription
+  // and Fraud Rules in the account menus. Fraud Rules belongs to
+  // business holders AND the admin tier its route gate admits, so
+  // the super_admin owner (no business role row) sees it too.
+  // Presentation only; the routes and the database enforce the real
+  // rules underneath.
   const menuVisibility = headerMenuVisibility(roles);
   // Unfinished features (CEO directive 2026-10-30): nav entries for
   // gated features render only when the registry says this viewer
   // may see them — admin tier always, regular users only when live.
   const { canSee: canSeeFeature } = useFeatureVisibility();
   const showAdminLinks = menuVisibility.adminLinks;
-  const showBackupExport = menuVisibility.backupExport;
+  const showAdminCategory = menuVisibility.adminCategory;
+  const showSuperadminCategory = menuVisibility.superadminCategory;
   const showFraudRules = menuVisibility.fraudRules;
+  // Signed-in identity for the account menus (CEO order 2026-11-21):
+  // the email is the auth record's own address — the one this
+  // account signs in with — and the display name comes from the
+  // profile when the user has saved one (profiles is the source of
+  // truth for names; see utils/displayName). Email alone renders
+  // when no name is saved.
+  const { data: profile } = useProfile();
+  const displayName =
+    [profile?.first_name, profile?.last_name]
+      .map((part) => part?.trim())
+      .filter(Boolean)
+      .join(" ") || null;
   const location = useLocation();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -133,8 +158,8 @@ const Header = () => {
   // action buttons, never for nav state.
   const navBtnClass = (active: boolean) =>
     active
-      ? "text-sm font-semibold h-9 px-3 text-white bg-white/15 hover:bg-white/15 hover:text-white"
-      : "text-sm font-medium h-9 px-3 text-white hover:bg-white/10 hover:text-white";
+      ? "text-sm font-semibold h-9 px-2.5 text-white bg-white/15 hover:bg-white/15 hover:text-white"
+      : "text-sm font-medium h-9 px-2.5 text-white hover:bg-white/10 hover:text-white";
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -177,9 +202,9 @@ const Header = () => {
   return (
     <>
     <header className="fixed top-0 left-0 right-0 z-50 bg-navy text-white border-b border-white/10">
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-2">
         {/* Logo */}
-        <div className="flex items-center gap-3 xl:gap-6 min-w-0">
+        <div className="flex items-center gap-3 xl:gap-4 min-w-0">
           <Link to="/" aria-label="BMaGlass Pay — home" className="flex items-center shrink-0">
             <Logo variant="white" />
           </Link>
@@ -201,7 +226,7 @@ const Header = () => {
 
           {/* Desktop Nav */}
           {user && (
-            <nav className="hidden xl:flex items-center gap-1 min-w-0">
+            <nav className="hidden xl:flex items-center gap-0.5 min-w-0">
               <Link to="/dashboard">
                 <Button variant="ghost" size="sm" className={navBtnClass(isActive("/dashboard"))}>
                   Dashboard
@@ -492,6 +517,145 @@ const Header = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Admin + Superadmin categories (CEO order 2026-11-21):
+                  the console gets its own top-level categories,
+                  patterned exactly on Business above — same dropdown
+                  primitives, same trigger treatment. Admin carries
+                  the day-to-day operations surfaces (admin tier);
+                  Superadmin carries governance (super_admin ONLY —
+                  absent, not disabled, for plain admins). Every
+                  route keeps its own gate underneath; these menus
+                  are presentation, decided by the one model in
+                  roleVisibility.ts. */}
+              {showAdminCategory && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className={`${navBtnClass(isGroupActive(["/admin-dashboard", "/admin/users", "/admin/identity", "/admin/p2p", "/admin/transactions", "/admin/merchants", "/admin/refunds", "/admin/bank-payouts", "/admin/paypal", "/aml-screening", "/compliance", "/feedback-dashboard", "/audit-logs"]))} gap-1`}>
+                    Admin <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin-dashboard" className="flex items-center gap-2">
+                      <LayoutDashboard className="h-4 w-4" /> Admin Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/users" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" /> User Directory
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/identity" className="flex items-center gap-2">
+                      <ScanFace className="h-4 w-4" /> Identity Review
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/p2p" className="flex items-center gap-2">
+                      <ArrowLeftRight className="h-4 w-4" /> P2P Console
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/transactions" className="flex items-center gap-2">
+                      <Activity className="h-4 w-4" /> Transactions
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/merchants" className="flex items-center gap-2">
+                      <Store className="h-4 w-4" /> Merchants
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/refunds" className="flex items-center gap-2">
+                      <ReceiptText className="h-4 w-4" /> Refunds
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/bank-payouts" className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" /> Bank Payouts
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/paypal" className="flex items-center gap-2">
+                      <Landmark className="h-4 w-4" /> PayPal
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/aml-screening" className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4" /> AML Screening
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/compliance" className="flex items-center gap-2">
+                      <Shield className="h-4 w-4" /> Compliance
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/feedback-dashboard" className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" /> Feedback
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/audit-logs" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Audit Logs
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              )}
+
+              {showSuperadminCategory && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className={`${navBtnClass(isGroupActive(["/admin/settings", "/admin/treasury", "/admin/forensics", "/admin/role-requests", "/admin/receiving-accounts", "/admin/mastercard-move", "/admin/moonpay", "/backup-export"]))} gap-1`}>
+                    Superadmin <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/settings" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" /> Platform Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/treasury" className="flex items-center gap-2">
+                      <Landmark className="h-4 w-4" /> Treasury &amp; Reports
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/forensics" className="flex items-center gap-2">
+                      <FileSearch className="h-4 w-4" /> Forensic Audit
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/role-requests" className="flex items-center gap-2">
+                      <Inbox className="h-4 w-4" /> Role Requests
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/receiving-accounts" className="flex items-center gap-2">
+                      <Database className="h-4 w-4" /> Receiving Accounts
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/mastercard-move" className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" /> Cross-Border Payouts
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/moonpay" className="flex items-center gap-2">
+                      <CardIcon className="h-4 w-4" /> MoonPay
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/backup-export" className="flex items-center gap-2">
+                      <Package className="h-4 w-4" /> Backup &amp; Export
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              )}
             </nav>
           )}
         </div>
@@ -500,18 +664,22 @@ const Header = () => {
         <div className="hidden xl:flex items-center gap-2 shrink-0">
           {user ? (
             <>
-              {/* Width budget: the 1200px container leaves 1152px of
-                  content width at every desktop size. The whole row —
-                  logo, the six-item nav at its standard paddings, this
-                  cluster — must fit inside it: the nav items and the
-                  logo gap therefore do NOT grow at 2xl, and this pill is
-                  w-28. (Rendered defect, 2026-11-11: the old 2xl growth
-                  pushed the row ~72px past the container, the left block
-                  overflowed underneath this cluster, and the Search pill
-                  painted over the Business menu, making it unclickable.)
-                  The account switcher, language/currency selectors and
-                  role badge live in the avatar menu (below) for the same
-                  reason. */}
+              {/* Width budget: the bar's container is 1440px (1392px
+                  of content) since 2026-11-21 — widened from 1200px
+                  when the Admin + Superadmin categories joined the
+                  nav (a super_admin's eight-item nav measures ~924px
+                  and could not share the old 1152px content width
+                  with the logo and this cluster: the last triggers
+                  painted over the cluster and ate its clicks, the
+                  2026-11-11 defect class). Nav paddings and gaps were
+                  tightened a notch at the same time, and below 2xl
+                  the search icon yields its 36px for admin-tier
+                  viewers (the ⌘K shortcut — this pill's own hint —
+                  still opens search for them; at 2xl the pill shows
+                  for everyone). Page content keeps its own 1200px
+                  column; only the bar breathes wider. The account
+                  switcher, language/currency selectors and role badge
+                  live in the avatar menu (below) for the same reason. */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -522,6 +690,7 @@ const Header = () => {
                 <span className="text-xs">Search...</span>
                 <kbd className="ml-auto text-[10px] bg-white/15 px-1.5 py-0.5 rounded">⌘K</kbd>
               </Button>
+              {!showAdminCategory && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -531,6 +700,7 @@ const Header = () => {
               >
                 <Search className="h-4 w-4" />
               </Button>
+              )}
               <NotificationBell />
 
               <Button
@@ -553,6 +723,18 @@ const Header = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72">
+                  {/* Signed-in identity (CEO order 2026-11-21): whose
+                      account this is, at the top of the account menu —
+                      the saved name when there is one, and always the
+                      account's own email address from the auth record,
+                      so the signed-in account is never a guess. */}
+                  <div className="px-2 pt-2 pb-1">
+                    {displayName && (
+                      <p className="text-sm font-semibold leading-tight truncate">{displayName}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground leading-tight truncate">{user.email}</p>
+                  </div>
+                  <DropdownMenuSeparator />
                   {/* Account hub: switcher, role and display preferences moved
                       here from the header row (see width budget above). */}
                   <div className="px-2 pt-1.5 pb-1">
@@ -597,20 +779,10 @@ const Header = () => {
                       <Users className="h-4 w-4" /> Role Management
                     </Link>
                   </DropdownMenuItem>
-                  {showAdminLinks && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/audit-logs" className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" /> Audit Logs
-                    </Link>
-                  </DropdownMenuItem>
-                  )}
-                  {showBackupExport && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/backup-export" className="flex items-center gap-2">
-                      <Package className="h-4 w-4" /> Backup & Export
-                    </Link>
-                  </DropdownMenuItem>
-                  )}
+                  {/* Audit Logs and Backup & Export used to sit here as
+                      scattered one-off entries; they now live in the
+                      Admin and Superadmin nav categories respectively
+                      (CEO order 2026-11-21), one home per surface. */}
                   {showFraudRules && (
                   <DropdownMenuItem asChild>
                     <Link to="/fraud-rules" className="flex items-center gap-2">
@@ -675,6 +847,16 @@ const Header = () => {
                   <>
                     <div className="px-4 py-3 mb-2">
                       <RoleBadge />
+                      {/* Signed-in identity (CEO order 2026-11-21): the
+                          account's own email, with the saved name when
+                          there is one — same block as the desktop
+                          account menu. */}
+                      <div className="mt-2">
+                        {displayName && (
+                          <p className="text-sm font-semibold leading-tight truncate">{displayName}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground leading-tight truncate">{user.email}</p>
+                      </div>
                     </div>
 
                     <AccountSwitcherList onNavigate={closeMobileMenu} />
@@ -745,7 +927,47 @@ const Header = () => {
                     <MobileNavLink to="/ip-whitelist" icon={ShieldCheck}>IP Whitelist</MobileNavLink>
                     <MobileNavLink to="/checkout-widget" icon={Code2}>Checkout Widget</MobileNavLink>
                     <MobileNavLink to="/developers" icon={Code2}>Developers</MobileNavLink>
-                    
+
+                    {/* Admin + Superadmin drawer sections (CEO order
+                        2026-11-21): the same two categories as the
+                        desktop nav, in the drawer's labelled-section
+                        pattern. Superadmin is super_admin only —
+                        absent for plain admins, like the desktop. */}
+                    {showAdminCategory && (
+                    <>
+                    <Separator className="my-2" />
+                    <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Admin</p>
+                    <MobileNavLink to="/admin-dashboard" icon={LayoutDashboard}>Admin Dashboard</MobileNavLink>
+                    <MobileNavLink to="/admin/users" icon={Users}>User Directory</MobileNavLink>
+                    <MobileNavLink to="/admin/identity" icon={ScanFace}>Identity Review</MobileNavLink>
+                    <MobileNavLink to="/admin/p2p" icon={ArrowLeftRight}>P2P Console</MobileNavLink>
+                    <MobileNavLink to="/admin/transactions" icon={Activity}>Transactions</MobileNavLink>
+                    <MobileNavLink to="/admin/merchants" icon={Store}>Merchants</MobileNavLink>
+                    <MobileNavLink to="/admin/refunds" icon={ReceiptText}>Refunds</MobileNavLink>
+                    <MobileNavLink to="/admin/bank-payouts" icon={Building2}>Bank Payouts</MobileNavLink>
+                    <MobileNavLink to="/admin/paypal" icon={Landmark}>PayPal</MobileNavLink>
+                    <MobileNavLink to="/aml-screening" icon={ShieldCheck}>AML Screening</MobileNavLink>
+                    <MobileNavLink to="/compliance" icon={Shield}>Compliance</MobileNavLink>
+                    <MobileNavLink to="/feedback-dashboard" icon={MessageSquare}>Feedback</MobileNavLink>
+                    <MobileNavLink to="/audit-logs" icon={FileText}>Audit Logs</MobileNavLink>
+                    </>
+                    )}
+
+                    {showSuperadminCategory && (
+                    <>
+                    <Separator className="my-2" />
+                    <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Superadmin</p>
+                    <MobileNavLink to="/admin/settings" icon={Settings}>Platform Settings</MobileNavLink>
+                    <MobileNavLink to="/admin/treasury" icon={Landmark}>Treasury & Reports</MobileNavLink>
+                    <MobileNavLink to="/admin/forensics" icon={FileSearch}>Forensic Audit</MobileNavLink>
+                    <MobileNavLink to="/admin/role-requests" icon={Inbox}>Role Requests</MobileNavLink>
+                    <MobileNavLink to="/admin/receiving-accounts" icon={Database}>Receiving Accounts</MobileNavLink>
+                    <MobileNavLink to="/admin/mastercard-move" icon={Globe}>Cross-Border Payouts</MobileNavLink>
+                    <MobileNavLink to="/admin/moonpay" icon={CardIcon}>MoonPay</MobileNavLink>
+                    <MobileNavLink to="/backup-export" icon={Package}>Backup & Export</MobileNavLink>
+                    </>
+                    )}
+
                     <Separator className="my-2" />
                     <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
                     <MobileNavLink to="/rewards" icon={Star}>Rewards</MobileNavLink>
@@ -753,8 +975,8 @@ const Header = () => {
                     <MobileNavLink to="/role-management" icon={Users}>Role Management</MobileNavLink>
                     <MobileNavLink to="/settings" icon={Settings}>Settings</MobileNavLink>
                     <MobileNavLink to="/security-settings" icon={Shield}>Security</MobileNavLink>
-                    {showAdminLinks && <MobileNavLink to="/audit-logs" icon={FileText}>Audit Logs</MobileNavLink>}
-                    {showBackupExport && <MobileNavLink to="/backup-export" icon={Package}>Backup & Export</MobileNavLink>}
+                    {/* Audit Logs + Backup & Export moved to the Admin /
+                        Superadmin sections above (CEO order 2026-11-21). */}
                     {showFraudRules && <MobileNavLink to="/fraud-rules" icon={Shield}>Fraud Rules</MobileNavLink>}
                     
                     <Separator className="my-2" />

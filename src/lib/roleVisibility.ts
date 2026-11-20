@@ -63,15 +63,34 @@ export const isAdminTier = (roles: readonly string[]): boolean =>
   roles.includes("admin") || roles.includes("super_admin");
 
 /**
- * The Header's role-owned menu entries, as one model. Four entries
- * in the account menus (desktop dropdown + mobile drawer) belong to
- * roles, not to every signed-in user:
+ * The Header's role-owned menu entries, as one model.
  *
- *   - Subscription and Audit Logs are admin-console destinations:
- *     admin tier only.
- *   - Backup & Export is platform governance (data export): since
- *     the 2026-11-19 role split it is super_admin ONLY, matching
- *     its route gate and the data-backup function's gate.
+ * Since the CEO's 2026-11-21 order, the admin console lives in the
+ * main navigation as two categories patterned on the Business menu:
+ *
+ *   - The Admin category (desktop dropdown + mobile drawer section)
+ *     carries the day-to-day operations surfaces — user directory,
+ *     identity review, P2P console, transaction monitoring,
+ *     merchants, refunds, payout queues, AML casework, compliance,
+ *     feedback and Audit Logs. Admin tier only (admin OR
+ *     super_admin): every route it lists admits that audience.
+ *   - The Superadmin category carries the governance surfaces —
+ *     platform settings, treasury, forensics, role requests,
+ *     receiving accounts, cross-border payouts, the MoonPay console
+ *     and Backup & Export. super_admin holders ONLY: for a plain
+ *     admin the category is ABSENT from the navigation entirely
+ *     (not disabled, not greyed), matching the 2026-11-19 role
+ *     split's rule that governance surfaces do not render for
+ *     admins at all. Backup & Export moved here from the account
+ *     menu in this change; its super_admin-only rule is unchanged,
+ *     now carried by this category gate instead of its own flag.
+ *
+ * What stays in the account menus (desktop dropdown + mobile
+ * drawer):
+ *
+ *   - Subscription is an admin-tier account entry (the legacy
+ *     tier-management surface, reviewed-and-left by the role
+ *     split): admin tier only.
  *   - Fraud Rules is a business surface whose route gate ALSO admits
  *     the admin tier (BusinessRouteGuard / /fraud-rules parity), so
  *     it renders for business holders OR the admin tier — a
@@ -79,14 +98,16 @@ export const isAdminTier = (roles: readonly string[]): boolean =>
  *     must still see it.
  *
  * Every other role (plain user, beta_tester, lone p2p_admin) gets
- * none of the four. Kept as a pure function of the held roles so the
+ * none of these. Kept as a pure function of the held roles so the
  * menu model is pinned directly by tests.
  */
 export interface HeaderMenuVisibility {
-  /** Subscription, Audit Logs — admin tier only. */
+  /** Subscription (account menus) — admin tier only. */
   adminLinks: boolean;
-  /** Backup & Export — super_admin holders only (2026-11-19 split). */
-  backupExport: boolean;
+  /** The Admin nav category — admin tier only. */
+  adminCategory: boolean;
+  /** The Superadmin nav category — super_admin holders only. */
+  superadminCategory: boolean;
   /** Fraud Rules — business holders OR the admin tier. */
   fraudRules: boolean;
 }
@@ -97,7 +118,8 @@ export const headerMenuVisibility = (
   const adminTier = isAdminTier(roles);
   return {
     adminLinks: adminTier,
-    backupExport: holdsAnyRole(roles, ["super_admin"]),
+    adminCategory: adminTier,
+    superadminCategory: holdsAnyRole(roles, ["super_admin"]),
     fraudRules: adminTier || holdsAnyRole(roles, ["business"]),
   };
 };

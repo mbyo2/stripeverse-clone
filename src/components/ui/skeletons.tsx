@@ -166,8 +166,8 @@ export const SkeletonHeaderBar = ({
     className="bg-navy border-b border-white/10 [&_.skeleton-shimmer]:bg-white/15"
     aria-hidden="true"
   >
-    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-3">
-      <div className="flex items-center gap-3 xl:gap-6 min-w-0">
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-2">
+      <div className="flex items-center gap-3 xl:gap-4 min-w-0">
         {/* Logo: mark + wordmark, at Logo.tsx's sizes */}
         <div className="flex items-center gap-2.5 shrink-0">
           <Skeleton className="h-8 w-8 rounded-md" />

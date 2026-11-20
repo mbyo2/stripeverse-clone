@@ -30,10 +30,16 @@ const protectedRoute = read("src/components/ProtectedRoute.tsx");
 const animatedRoutes = read("src/components/AnimatedRoutes.tsx");
 
 describe("SkeletonHeaderBar — shell geometry matches the real Header", () => {
-  it("keeps the real bar: 72px height, 1200px container, same fill/border", () => {
+  it("keeps the real bar: 72px height, 1440px container, same fill/border", () => {
+    // PIN MOVED (2026-11-21): the bar's container widened 1200 →
+    // 1440 when the Admin + Superadmin nav categories joined — a
+    // super_admin's eight-item nav (~924px) plus logo and cluster
+    // no longer fit the old 1152px content width. The pin's intent
+    // stands: the twin's geometry must equal the real header's, so
+    // both files carry the same container.
     for (const src of [skeletons, header]) {
       expect(src).toContain("h-[72px]");
-      expect(src).toContain("max-w-[1200px]");
+      expect(src).toContain("max-w-[1440px]");
       // PIN MOVED (CEO classic-PayPal decision, 2026-11-11 17:12):
       // the bar fill is classic navy #003087 now (was bg-background).
       // The pin's intent stands: the twin's fill/border must equal

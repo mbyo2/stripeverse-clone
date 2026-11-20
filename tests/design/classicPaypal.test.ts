@@ -105,10 +105,10 @@ describe("the header is the navy bar", () => {
 
   it("nav links are white; the active item is the lighter-navy pill, never gold", () => {
     expect(header).toContain(
-      '"text-sm font-semibold h-9 px-3 text-white bg-white/15 hover:bg-white/15 hover:text-white"',
+      '"text-sm font-semibold h-9 px-2.5 text-white bg-white/15 hover:bg-white/15 hover:text-white"',
     );
     expect(header).toContain(
-      '"text-sm font-medium h-9 px-3 text-white hover:bg-white/10 hover:text-white"',
+      '"text-sm font-medium h-9 px-2.5 text-white hover:bg-white/10 hover:text-white"',
     );
   });
 
