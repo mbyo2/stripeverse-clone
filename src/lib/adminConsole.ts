@@ -100,6 +100,14 @@ export const sortRolesForDisplay = (roles: string[]): string[] =>
 export const primaryRoleOf = (roles: string[]): string =>
   sortRolesForDisplay(roles)[0] ?? "user";
 
+/** The account badge label: the highest held role's canonical label
+ *  (super_admin → "Super Admin", admin → "Admin", the per-feature
+ *  admin roles → their labels, then the base roles). The header's
+ *  RoleBadge renders exactly this, so the badge can never drift from
+ *  the labels the directory and role-management surfaces use. */
+export const primaryRoleLabel = (roles: string[]): string =>
+  roleLabel(primaryRoleOf(roles));
+
 export const baseRoleOf = (roles: string[]): string =>
   SELECTABLE_BASE_ROLES.find((r) => roles.includes(r)) ?? "user";
 

@@ -1,6 +1,11 @@
 
 import { useRoles, Feature } from "@/contexts/RoleContext";
-import { canViewAdminConsole } from "@/lib/adminConsole";
+import {
+  canViewAdminConsole,
+  isFeatureRole,
+  primaryRoleLabel,
+  primaryRoleOf,
+} from "@/lib/adminConsole";
 import { useFeatureVisibility } from "@/hooks/useFeatureVisibility";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent } from "@/components/ui/card";
@@ -63,11 +68,29 @@ export const FeatureStatus = ({ feature, name, description, link }: FeatureStatu
 
 export const RoleBadge = () => {
   const { roles, subscriptionTier } = useRoles();
-  
+
+  // The badge shows the account's HIGHEST role, resolved through the
+  // shared console model (adminConsole.ts) — the same display order
+  // and labels the user directory and role management use:
+  // super_admin ("Super Admin") above admin, the per-feature admin
+  // roles above the base roles. The badge previously kept a private
+  // copy of that ladder that never checked super_admin, so a
+  // super_admin-only holder was mislabelled "User".
+  const primaryRole = primaryRoleOf(roles);
+
   const getRoleColor = () => {
-    if (roles.includes("admin")) return "bg-[#002991] text-white";
-    if (roles.includes("business")) return "bg-primary text-black";
-    if (roles.includes("beta_tester")) return "bg-amber-500 text-black";
+    // The whole admin family (super_admin, admin and the per-feature
+    // admin roles) wears the admin navy; the base roles keep the
+    // colours they have always had.
+    if (
+      primaryRole === "super_admin" ||
+      primaryRole === "admin" ||
+      isFeatureRole(primaryRole)
+    ) {
+      return "bg-[#002991] text-white";
+    }
+    if (primaryRole === "business") return "bg-primary text-black";
+    if (primaryRole === "beta_tester") return "bg-amber-500 text-black";
     return "bg-gray-600 text-white";
   };
 
@@ -78,13 +101,6 @@ export const RoleBadge = () => {
       case "basic": return "bg-green-500 text-black";
       default: return "bg-gray-600 text-white";
     }
-  };
-
-  const getHighestRole = () => {
-    if (roles.includes("admin")) return "Admin";
-    if (roles.includes("business")) return "Business";
-    if (roles.includes("beta_tester")) return "Beta Tester";
-    return "User";
   };
 
   const getTierName = () => {
@@ -102,7 +118,7 @@ export const RoleBadge = () => {
         <Tooltip>
           <TooltipTrigger asChild>
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor()}`}>
-              {getHighestRole()}
+              {primaryRoleLabel(roles)}
             </span>
           </TooltipTrigger>
           <TooltipContent>
