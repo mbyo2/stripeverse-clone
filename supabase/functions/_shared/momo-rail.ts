@@ -75,7 +75,13 @@ export function operatorLabel(op: MomoOperator): string {
  *  persisted with the ledger row (the gateway's only idempotency
  *  mechanism: a duplicate reference is refused upstream).
  *  Charset is the gateway's: alphanumerics plus - . _ only. */
-export function generateCollectionReference(now = Date.now(), rand = Math.random()): string {
+export function generateCollectionReference(
+  now = Date.now(),
+  // Default randomness is the platform CSPRNG — never Math.random for a
+  // money-path identifier (key-security audit 2026-11-23). The `rand`
+  // parameter stays as an injection seam for tests.
+  rand = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000,
+): string {
   const t = now.toString(36).toUpperCase();
   const r = Math.floor(rand * 0xffffffff).toString(36).toUpperCase().padStart(7, "0");
   return `BMG-${t}-${r}`;

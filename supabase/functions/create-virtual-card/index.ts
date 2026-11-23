@@ -538,7 +538,10 @@ serve(async (req) => {
     // after password re-auth. Without a configured vault key the
     // card falls back to the pre-vault behaviour: reveal once at
     // creation, masked number + expiry only in the row.
-    const cvv = Math.floor(Math.random() * 900 + 100).toString();
+    // CVV from the platform CSPRNG — never Math.random for a credential
+    // value (key-security audit 2026-11-23: weak-randomness class).
+    const cvvWord = crypto.getRandomValues(new Uint32Array(1))[0];
+    const cvv = (100 + (cvvWord % 900)).toString();
     const vaultKey = cardVaultKeyFromEnv();
     const envelope: VaultEnvelope | null = vaultKey
       ? await encryptCardDetails({ pan: cardNumber, cvv }, vaultKey)
