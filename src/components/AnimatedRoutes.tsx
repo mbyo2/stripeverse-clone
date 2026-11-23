@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { noteChunkLoadSuccess } from '@/lib/chunkRecovery';
+import { applyPageMeta } from '@/lib/pageMeta';
 import { AnimatePresence } from 'framer-motion';
 import { RouteSkeleton } from '@/lib/routeSkeleton';
 import PageErrorBoundary from '@/components/PageErrorBoundary';
@@ -208,6 +209,8 @@ const AnimatedRoutes = () => {
   // stale-chunk auto-reload for the next deploy (lib/chunkRecovery).
   useEffect(() => {
     noteChunkLoadSuccess();
+    // Per-route title/description/canonical for public pages (lib/pageMeta).
+    applyPageMeta(location.pathname);
   }, [location.pathname]);
 
   return (

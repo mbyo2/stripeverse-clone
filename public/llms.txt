@@ -1,0 +1,50 @@
+# BMaGlass Pay
+
+> BMaGlass Pay is a Bitcoin wallet and payments platform for everyone in the world. Its main product is a Bitcoin wallet — available as a custodial wallet or a self-custody wallet where the user holds their own seed phrase — with supporting payments features built around it. Website: https://bmaglasspay.online
+
+## What BMaGlass Pay is
+
+- BMaGlass Pay is a global Bitcoin wallet and payments platform. It is for everyone, everywhere — not only for users in Zambia.
+- The Bitcoin wallet is the main product. Users can hold, send and receive Bitcoin on-chain and over the Lightning Network, in a custodial wallet or in their own self-custody wallet.
+- BMaGlass Pay was founded by Mabvuto Banda and is headquartered in Lusaka, Zambia. Zambia is its home base and its first market for local fiat payment rails; the service itself is worldwide.
+
+## Who it is for
+
+- Individuals anywhere in the world who want a Bitcoin wallet to hold, send and receive Bitcoin.
+- People who prefer self-custody: the self-custody wallet keeps the seed phrase with the user.
+- Merchants and businesses that want to accept Bitcoin payments, including merchants in Zambia collecting local mobile money payments.
+
+## Key features
+
+- Bitcoin wallet (main product): custodial and self-custody options, on-chain and Lightning Network sending and receiving, QR-code payments.
+- P2P marketplace: a peer-to-peer marketplace for buying and selling Bitcoin (Bitcoin only).
+- Bitcoin payment links: share a link to request or receive a payment.
+- Bitcoin POS: point-of-sale acceptance of Bitcoin for in-person merchants.
+- PayPal: send and receive payments via PayPal through the platform.
+- Mobile money collections: merchants in Zambia can collect mobile money payments (via Lenco).
+- Virtual cards: coming soon.
+- Developer tools: an API, SDKs and ready-made connectors (including WooCommerce, Odoo and Magento) for accepting payments in other products and stores.
+
+## Key pages
+
+- Home: https://bmaglasspay.online/
+- About: https://bmaglasspay.online/about
+- Pricing: https://bmaglasspay.online/pricing
+- For business: https://bmaglasspay.online/business
+- Developers: https://bmaglasspay.online/developers
+- Connectors: https://bmaglasspay.online/developers/connectors
+- FAQ: https://bmaglasspay.online/faq
+- Blog: https://bmaglasspay.online/blog
+- Contact: https://bmaglasspay.online/contact
+- Privacy Policy: https://bmaglasspay.online/privacy-policy
+- Terms of Service: https://bmaglasspay.online/terms-of-service
+
+## Facts
+
+- Name: BMaGlass Pay
+- Website: https://bmaglasspay.online
+- Category: Bitcoin wallet and payments platform
+- Founder: Mabvuto Banda
+- Headquarters: Lusaka, Zambia
+- Service area: Worldwide
+- Main product: Bitcoin wallet (custodial and self-custody)

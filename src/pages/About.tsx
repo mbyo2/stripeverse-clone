@@ -114,6 +114,19 @@ const About = () => {
           </p>
         </section>
 
+        {/* Key facts — plain, quotable entity statements */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Key Facts About BMaGlass Pay</h2>
+          <ul className="list-disc pl-6 space-y-2 text-muted-foreground leading-relaxed">
+            <li>BMaGlass Pay is a Bitcoin wallet and payments platform for everyone in the world.</li>
+            <li>The Bitcoin wallet is BMaGlass Pay's main product, offered as a custodial wallet and as a self-custody wallet where the user holds their own seed phrase.</li>
+            <li>BMaGlass Pay supports sending and receiving Bitcoin on-chain and over the Lightning Network.</li>
+            <li>Supporting features include a peer-to-peer Bitcoin marketplace, Bitcoin payment links, Bitcoin POS for in-person merchants, PayPal payments, and mobile money collections for merchants in Zambia.</li>
+            <li>BMaGlass Pay was founded by Mabvuto Banda and is headquartered in Lusaka, Zambia; Zambia is its home base and its service area is worldwide.</li>
+            <li>Virtual cards are coming soon.</li>
+          </ul>
+        </section>
+
         {/* Location */}
         <section>
           <Card>

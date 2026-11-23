@@ -7,21 +7,28 @@
     <meta name="description" content="BMaGlass Pay is a Bitcoin wallet and payments platform for everyone, everywhere. Sell, send and receive Bitcoin — in a custodial wallet or your own self-custody wallet — and pay or get paid by payment link, PayPal or Bitcoin." />
     <meta name="author" content="BMaGlass Pay" />
     <meta name="keywords" content="Bitcoin wallet, Bitcoin, Lightning Network, self-custody, seed phrase wallet, payment links, P2P Bitcoin marketplace, Bitcoin payments, PayPal, fintech" />
-    <link rel="canonical" href="https://bmaglasspay.online" />
+    <link rel="canonical" href="https://bmaglasspay.online/" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#003087" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="BMaGlass Pay — Bitcoin Wallet & Payments for Everyone" />
     <meta property="og:description" content="A Bitcoin wallet and payments platform for everyone, everywhere. Sell, send and receive Bitcoin — custodial or self-custody — and pay or get paid by payment link, PayPal or Bitcoin." />
-    <meta property="og:image" content="/og-image.png" />
-    <meta property="og:url" content="https://bmaglasspay.online" />
+    <meta property="og:image" content="https://bmaglasspay.online/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="BMaGlass Pay — Bitcoin Wallet & Payments for Everyone" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://bmaglasspay.online/" />
     <meta property="og:site_name" content="BMaGlass Pay" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="BMaGlass Pay — Bitcoin Wallet & Payments for Everyone" />
     <meta name="twitter:description" content="A Bitcoin wallet and payments platform for everyone, everywhere. Sell, send and receive Bitcoin — custodial or self-custody — and pay or get paid by payment link, PayPal or Bitcoin." />
-    <meta name="twitter:image" content="/og-image.png" />
+    <meta name="twitter:image" content="https://bmaglasspay.online/og-image.png" />
+    <meta name="twitter:image:alt" content="BMaGlass Pay — Bitcoin Wallet & Payments for Everyone" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -41,12 +48,42 @@
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "FinancialService",
-      "name": "BMaGlass Pay",
-      "description": "A Bitcoin wallet and payments platform for everyone, everywhere — sell, send and receive Bitcoin, and pay or get paid by payment link, PayPal or Bitcoin.",
-      "url": "https://bmaglasspay.online",
-      "areaServed": "Worldwide",
-      "serviceType": "Bitcoin Wallet and Payment Platform"
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://bmaglasspay.online/#organization",
+          "name": "BMaGlass Pay",
+          "url": "https://bmaglasspay.online/",
+          "logo": "https://bmaglasspay.online/og-image.png",
+          "description": "BMaGlass Pay is a Bitcoin wallet and payments platform for everyone in the world, headquartered in Lusaka, Zambia.",
+          "founder": { "@type": "Person", "name": "Mabvuto Banda" },
+          "foundingLocation": { "@type": "Place", "name": "Lusaka, Zambia" },
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Lusaka",
+            "addressCountry": "ZM"
+          },
+          "areaServed": "Worldwide"
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://bmaglasspay.online/#website",
+          "name": "BMaGlass Pay",
+          "url": "https://bmaglasspay.online/",
+          "publisher": { "@id": "https://bmaglasspay.online/#organization" }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://bmaglasspay.online/#app",
+          "name": "BMaGlass Pay",
+          "url": "https://bmaglasspay.online/",
+          "applicationCategory": "FinanceApplication",
+          "applicationSubCategory": "Bitcoin Wallet",
+          "operatingSystem": "Web",
+          "description": "A Bitcoin wallet and payments platform for everyone, everywhere. Hold, sell, send and receive Bitcoin — in a custodial wallet or your own self-custody wallet — trade Bitcoin peer-to-peer, and pay or get paid by payment link, Bitcoin POS, PayPal or Bitcoin.",
+          "publisher": { "@id": "https://bmaglasspay.online/#organization" }
+        }
+      ]
     }
     </script>
   </head>
