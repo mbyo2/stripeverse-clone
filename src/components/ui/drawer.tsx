@@ -41,7 +41,11 @@ const DrawerContent = React.forwardRef<
     <DrawerPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
+        // Viewport-capped + internally scrollable (CEO report,
+        // 2026-11-24): a bottom drawer taller than the screen grew
+        // past the top edge with its upper fields unreachable; the
+        // mobile Add Money / Withdraw forms ride on this primitive.
+        "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[96dvh] overflow-y-auto flex-col rounded-t-[10px] border bg-background",
         className
       )}
       {...props}

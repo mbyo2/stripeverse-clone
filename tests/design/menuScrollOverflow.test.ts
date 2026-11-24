@@ -98,3 +98,67 @@ describe("the tall header menus ride the fixed primitive", () => {
     expect(contents.length).toBeGreaterThanOrEqual(4);
   });
 });
+
+// Dialog/drawer pins (CEO report, 2026-11-24): "things that need
+// selection like roles — the list of the drop down is going beyond
+// the screen and there is nothing the user can do."
+//
+// The popper primitives above were already capped, but the centred
+// Dialog / AlertDialog contents and the bottom Drawer content still
+// carried NO max-height and NO scroll: a panel taller than a phone
+// screen rendered past both screen edges (rendered probe at
+// 390x560: a long form dialog measured 1,362px tall, spanning
+// y=-372..990, scrollTop immovable) while the modal locked page
+// scroll — title, fields and buttons unreachable. Every dialog
+// whose caller did not hand-add its own max-h was exposed (34 bare
+// <DialogContent> usages). The cap now lives in the primitives.
+describe("dialogs and drawers: viewport-capped and internally scrollable", () => {
+  it("dialog content caps at the viewport and scrolls in Y", () => {
+    const src = read("src/components/ui/dialog.tsx");
+    expect(src).toContain("max-h-[calc(100dvh-2rem)]");
+    expect(src).toContain("overflow-y-auto");
+  });
+
+  it("alert dialog content carries the same cap", () => {
+    const src = read("src/components/ui/alert-dialog.tsx");
+    expect(src).toContain("max-h-[calc(100dvh-2rem)]");
+    expect(src).toContain("overflow-y-auto");
+  });
+
+  it("drawer content caps at 96dvh and scrolls in Y", () => {
+    const src = read("src/components/ui/drawer.tsx");
+    expect(src).toContain("max-h-[96dvh]");
+    expect(src).toContain("overflow-y-auto");
+  });
+
+  it("command lists never exceed the viewport on short screens", () => {
+    const src = read("src/components/ui/command.tsx");
+    expect(src).toContain("max-h-[min(300px,calc(100dvh-6rem))]");
+    expect(src).not.toContain('"max-h-[300px]');
+  });
+});
+
+describe("popper panels keep a collision margin from the screen edge", () => {
+  // With Radix's default collisionPadding of 0 a capped menu can sit
+  // flush against the viewport edge (under the Android gesture bar /
+  // iOS home indicator). The shared contents default to 8px of
+  // collision padding; callers may still override per use.
+  it("dropdown menu content and subcontent default collisionPadding to 8", () => {
+    const src = read("src/components/ui/dropdown-menu.tsx");
+    const defaults = src.match(/collisionPadding = 8/g) ?? [];
+    expect(defaults.length).toBeGreaterThanOrEqual(2);
+    expect(src).toContain("collisionPadding={collisionPadding}");
+  });
+
+  it("popover, context menu and menubar contents default collisionPadding to 8", () => {
+    for (const rel of [
+      "src/components/ui/popover.tsx",
+      "src/components/ui/context-menu.tsx",
+      "src/components/ui/menubar.tsx",
+    ]) {
+      const src = read(rel);
+      expect(src).toContain("collisionPadding = 8");
+      expect(src).toContain("collisionPadding={collisionPadding}");
+    }
+  });
+});
