@@ -248,7 +248,7 @@ describe("share metadata — the preview leads with Bitcoin (source pins)", () =
   });
 
   it("points shares at the real domain", () => {
-    expect(html).toContain('property="og:url" content="https://bmaglasspay.online"');
+    expect(html).toContain('property="og:url" content="https://bmaglasspay.online/"');
     expect(html).not.toContain("bmaglasspay.com");
   });
 });
