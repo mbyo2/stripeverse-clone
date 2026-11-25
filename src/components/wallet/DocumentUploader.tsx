@@ -14,6 +14,44 @@ interface DocumentUploaderProps {
   existingUrl?: string | null;
 }
 
+const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB
+const PREPARABLE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+/**
+ * Prepare a phone photo for upload: decode it, downscale so the longest
+ * edge is at most 2048px, and re-encode as JPEG (quality 0.85). Returns
+ * the prepared file only when it is smaller than the original. Any
+ * failure (e.g. a format the browser cannot decode, such as HEIC on
+ * some browsers) falls back to the original file untouched.
+ */
+async function prepareImageForUpload(file: File): Promise<File> {
+  if (!PREPARABLE_IMAGE_TYPES.includes(file.type)) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const longestEdge = Math.max(bitmap.width, bitmap.height);
+    const scale = longestEdge > 2048 ? 2048 / longestEdge : 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap.close();
+      return file;
+    }
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.85)
+    );
+    if (!blob) return file;
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'document';
+    const prepared = new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
+    return prepared.size < file.size ? prepared : file;
+  } catch {
+    return file;
+  }
+}
+
 export function DocumentUploader({ userId, documentType, onUploadComplete, existingUrl }: DocumentUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -24,22 +62,24 @@ export function DocumentUploader({ userId, documentType, onUploadComplete, exist
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       
-      // Check file size (max 5MB)
-      if (selectedFile.size > 5 * 1024 * 1024) {
+      // Check file type (only images and PDFs)
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
+      if (!allowedTypes.includes(selectedFile.type)) {
         toast({
-          title: "File too large",
-          description: "Maximum file size is 5MB",
+          title: "Invalid file type",
+          description: "Please upload a JPG, PNG, HEIC or PDF file",
           variant: "destructive"
         });
         return;
       }
       
-      // Check file type (only images and PDFs)
-      const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
-      if (!allowedTypes.includes(selectedFile.type)) {
+      // Check file size (max 10MB). Decodable images are resized before
+      // upload, so their size is checked after preparation in
+      // uploadDocument; everything else is checked as-is here.
+      if (!PREPARABLE_IMAGE_TYPES.includes(selectedFile.type) && selectedFile.size > MAX_UPLOAD_SIZE) {
         toast({
-          title: "Invalid file type",
-          description: "Please upload a JPG, PNG or PDF file",
+          title: "File too large",
+          description: "Maximum file size is 10MB",
           variant: "destructive"
         });
         return;
@@ -67,14 +107,19 @@ export function DocumentUploader({ userId, documentType, onUploadComplete, exist
     try {
       setUploading(true);
       
-      // Create the bucket if it doesn't exist
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const kycBucketExists = buckets?.some(bucket => bucket.name === 'kyc-documents');
+      // Resize phone photos before upload so large camera images fit
+      // comfortably; falls back to the original file when the browser
+      // cannot decode it (e.g. HEIC) or resizing would not help.
+      const fileToUpload = await prepareImageForUpload(file);
       
-      if (!kycBucketExists) {
-        await supabase.storage.createBucket('kyc-documents', {
-          public: false
+      // The 10MB cap applies to the file as prepared.
+      if (fileToUpload.size > MAX_UPLOAD_SIZE) {
+        toast({
+          title: "File too large",
+          description: "Maximum file size is 10MB",
+          variant: "destructive"
         });
+        return;
       }
       
       // Generate a unique file name. The storage policy for the
@@ -83,13 +128,14 @@ export function DocumentUploader({ userId, documentType, onUploadComplete, exist
       // and the parent passes exactly that as `userId` — so the path must
       // start with it. The old `kyc/<id-number>/…` prefix failed the
       // policy on every upload and no document ever landed.
-      const fileExt = file.name.split('.').pop();
+      const fileExt = fileToUpload.name.split('.').pop();
       const filePath = `${userId}/${documentType}_${Date.now()}.${fileExt}`;
       
-      // Upload the file
+      // Upload the file. The kyc-documents bucket is provisioned by
+      // migration; clients upload directly to it.
       const { error: uploadError } = await supabase.storage
         .from('kyc-documents')
-        .upload(filePath, file, {
+        .upload(filePath, fileToUpload, {
           cacheControl: '3600',
           upsert: true
         });
@@ -192,12 +238,12 @@ export function DocumentUploader({ userId, documentType, onUploadComplete, exist
                 type="file"
                 className="sr-only"
                 onChange={handleFileChange}
-                accept="image/jpeg,image/png,application/pdf"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
               />
             </label>
           </Button>
           <p className="mt-2 text-xs text-muted-foreground">
-            JPG, PNG or PDF, max 5MB
+            JPG, PNG, HEIC or PDF, max 10MB · photos are resized automatically
           </p>
         </div>
       )}

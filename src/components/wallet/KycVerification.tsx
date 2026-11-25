@@ -399,21 +399,8 @@ const KycVerification = () => {
       // Upload selfie image if provided
       let selfieUrl = null;
       if (formData.selfieImage) {
-        // Check if the kyc-documents bucket exists, if not create it
-        const { data: buckets } = await supabase.storage.listBuckets();
-        const kycBucketExists = buckets?.some(bucket => bucket.name === 'kyc-documents');
-        
-        if (!kycBucketExists) {
-          const { error: bucketError } = await supabase.storage.createBucket('kyc-documents', {
-            public: false
-          });
-          
-          if (bucketError) {
-            console.error("Error creating KYC documents bucket:", bucketError);
-            throw bucketError;
-          }
-        }
-      
+        // The kyc-documents bucket is provisioned by migration;
+        // clients upload directly to it.
         // The kyc-documents storage policy requires the first path
         // segment to be the owner's auth user id (see DocumentUploader).
         const fileName = `${userData.user.id}/selfie_${Date.now()}.jpg`;
