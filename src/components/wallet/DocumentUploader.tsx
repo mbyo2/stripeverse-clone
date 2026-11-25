@@ -1,6 +1,6 @@
 import { toUserFacingError } from "@/utils/userFacingError";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Upload, X, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,41 @@ interface DocumentUploaderProps {
 
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB
 const PREPARABLE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+// Neutral inline document glyph (no external placeholder asset), used for
+// PDF previews and as the fallback whenever a stored document cannot be
+// rendered as an image.
+const DOCUMENT_GLYPH_PREVIEW = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><path d='M14 2v6h6'/><path d='M9 13h6'/><path d='M9 17h6'/></svg>";
+
+/**
+ * Extract the storage object path from a stored kyc-documents URL (the
+ * portion after `/kyc-documents/`), or null when the URL does not belong
+ * to that bucket.
+ */
+function kycStoragePath(url: string): string | null {
+  const marker = '/kyc-documents/';
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  const raw = url.slice(idx + marker.length).split(/[?#]/)[0];
+  if (!raw) return null;
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * Synchronous first display value for a stored document: non-bucket URLs
+ * are used as-is; bucket documents start from the neutral glyph (PDFs keep
+ * it permanently — an <img> cannot render a PDF) until the effect below
+ * swaps in a signed URL.
+ */
+function initialStoredPreview(url?: string | null): string | null {
+  if (!url) return null;
+  if (kycStoragePath(url) === null) return url;
+  return DOCUMENT_GLYPH_PREVIEW;
+}
 
 /**
  * Prepare a phone photo for upload: decode it, downscale so the longest
@@ -55,9 +90,45 @@ async function prepareImageForUpload(file: File): Promise<File> {
 export function DocumentUploader({ userId, documentType, onUploadComplete, existingUrl }: DocumentUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(existingUrl || null);
+  // Preview of a freshly selected local file (FileReader data URL or the
+  // PDF glyph). Takes precedence over the stored-document preview.
+  const [preview, setPreview] = useState<string | null>(null);
+  // Display URL for the document already on file. The kyc-documents
+  // bucket is PRIVATE, so the stored public-style URL cannot be read back
+  // (it returns HTTP 400 without auth) and rendered as a broken image on
+  // every revisit. Stored bucket documents are therefore displayed via a
+  // short-lived signed URL; the stored value itself is unchanged.
+  const [storedPreview, setStoredPreview] = useState<string | null>(() => initialStoredPreview(existingUrl));
   const { toast } = useToast();
-  
+
+  useEffect(() => {
+    setStoredPreview(initialStoredPreview(existingUrl));
+    if (!existingUrl) return;
+    const path = kycStoragePath(existingUrl);
+    if (path === null) return; // not a bucket document — shown as-is
+    if (path.toLowerCase().endsWith('.pdf')) return; // glyph is the preview
+    let cancelled = false;
+    supabase.storage
+      .from('kyc-documents')
+      .createSignedUrl(path, 3600)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (!error && data?.signedUrl) {
+          setStoredPreview(data.signedUrl);
+        }
+        // On any failure the neutral glyph from initialStoredPreview
+        // stays — the document is on file (green tick), never a broken img.
+      })
+      .catch(() => {
+        // Keep the glyph placeholder; see above.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [existingUrl]);
+
+  const shownPreview = preview ?? storedPreview;
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
@@ -96,7 +167,7 @@ export function DocumentUploader({ userId, documentType, onUploadComplete, exist
         reader.readAsDataURL(selectedFile);
       } else {
         // Neutral inline document glyph for PDFs (no external placeholder asset)
-        setPreview("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><path d='M14 2v6h6'/><path d='M9 13h6'/><path d='M9 17h6'/></svg>");
+        setPreview(DOCUMENT_GLYPH_PREVIEW);
       }
     }
   };
@@ -171,16 +242,18 @@ export function DocumentUploader({ userId, documentType, onUploadComplete, exist
   
   const removeFile = () => {
     setFile(null);
-    setPreview(existingUrl);
+    // Fall back to the stored-document preview (signed URL or glyph),
+    // resolved from existingUrl — never the raw stored URL itself.
+    setPreview(null);
   };
   
   return (
     <div>
-      {preview ? (
+      {shownPreview ? (
         <div className="border rounded-lg p-2 mb-4">
           <div className="relative">
-            <img 
-              src={preview} 
+            <img
+              src={shownPreview}
               alt="Document preview" 
               className="w-full h-40 object-contain rounded"
             />
